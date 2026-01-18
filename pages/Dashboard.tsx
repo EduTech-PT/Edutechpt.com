@@ -196,11 +196,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                     <pre>{`-- Copie e execute este código no Editor SQL do Supabase
 -- para criar as tabelas necessárias e permissões.
 
--- 1. Enumeração de Roles
-create type public.app_role as enum ('admin', 'editor', 'formador', 'aluno');
+-- 1. Setup de Roles e Tabela de Perfis
+do $$ 
+begin 
+  if not exists (select 1 from pg_type where typname = 'app_role') then
+    create type public.app_role as enum ('admin', 'editor', 'formador', 'aluno');
+  end if;
+end $$;
 
--- 2. Tabela de Perfis
-create table public.profiles (
+create table if not exists public.profiles (
   id uuid references auth.users not null primary key,
   email text,
   full_name text,
@@ -209,18 +213,18 @@ create table public.profiles (
   avatar_url text
 );
 
--- 3. Habilitar RLS em Profiles
+-- 2. Setup RLS (Row Level Security) para Profiles
 alter table public.profiles enable row level security;
 
-create policy "Perfis públicos para leitura" on profiles
-  for select using (true);
+-- Permitir leitura pública (necessário para formadores verem alunos ou admin ver todos)
+create policy "Public Profiles Access" on public.profiles for select using (true);
 
-create policy "Utilizadores podem editar próprio perfil" on profiles
-  for update using (auth.uid() = id);
+-- Permitir update apenas do próprio user
+create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
 
--- 4. Tabela de Cursos
-create table public.courses (
-  id uuid default uuid_generate_v4() primary key,
+-- 3. Tabela de Cursos
+create table if not exists public.courses (
+  id uuid default gen_random_uuid() primary key,
   title text not null,
   description text,
   instructor_id uuid references public.profiles(id),
@@ -229,7 +233,39 @@ create table public.courses (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 5. Trigger para criar perfil automaticamente no registo
+alter table public.courses enable row level security;
+
+-- Leitura pública dos cursos
+create policy "Courses are viewable by everyone" on public.courses for select using (true);
+
+-- Staff (Admin, Editor, Formador) pode criar cursos
+create policy "Staff can create courses" on public.courses for insert with check (
+  exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+    and role in ('admin', 'editor', 'formador')
+  )
+);
+
+-- Staff pode editar cursos
+create policy "Staff can update courses" on public.courses for update using (
+  exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+    and role in ('admin', 'editor', 'formador')
+  )
+);
+
+-- Staff pode remover cursos
+create policy "Staff can delete courses" on public.courses for delete using (
+  exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+    and role in ('admin', 'editor', 'formador')
+  )
+);
+
+-- 4. Automação para atribuir Role ADMIN ao email edutechpt@hotmail.com
 create or replace function public.handle_new_user() 
 returns trigger as $$
 begin
@@ -246,6 +282,9 @@ begin
   return new;
 end;
 $$ language plpgsql security definer;
+
+-- Remove trigger se existir para recriar e garantir a lógica atualizada
+drop trigger if exists on_auth_user_created on auth.users;
 
 create trigger on_auth_user_created
   after insert on auth.users

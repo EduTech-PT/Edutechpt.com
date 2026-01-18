@@ -2,73 +2,95 @@
 -- Execute este script no SQL Editor do seu projeto Supabase (https://zeedhuzljsbaoqafpfom.supabase.co)
 
 -- 1. Setup de Roles e Tabela de Perfis
-DO $$ 
-BEGIN 
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role') THEN
-    CREATE TYPE public.app_role AS ENUM ('admin', 'editor', 'formador', 'aluno');
-  END IF;
-END $$;
+do $$ 
+begin 
+  if not exists (select 1 from pg_type where typname = 'app_role') then
+    create type public.app_role as enum ('admin', 'editor', 'formador', 'aluno');
+  end if;
+end $$;
 
-CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID REFERENCES auth.users NOT NULL PRIMARY KEY,
-  email TEXT,
-  full_name TEXT,
-  role public.app_role DEFAULT 'aluno'::public.app_role,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-  avatar_url TEXT
+create table if not exists public.profiles (
+  id uuid references auth.users not null primary key,
+  email text,
+  full_name text,
+  role public.app_role default 'aluno'::public.app_role,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  avatar_url text
 );
 
 -- 2. Setup RLS (Row Level Security) para Profiles
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+alter table public.profiles enable row level security;
 
 -- Permitir leitura pública (necessário para formadores verem alunos ou admin ver todos)
-CREATE POLICY "Public Profiles Access" ON public.profiles FOR SELECT USING (true);
+create policy "Public Profiles Access" on public.profiles for select using (true);
+
 -- Permitir update apenas do próprio user
-CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
 
 -- 3. Tabela de Cursos
-CREATE TABLE IF NOT EXISTS public.courses (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  instructor_id UUID REFERENCES public.profiles(id),
-  level TEXT CHECK (level IN ('iniciante', 'intermedio', 'avancado')),
-  image_url TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+create table if not exists public.courses (
+  id uuid default gen_random_uuid() primary key,
+  title text not null,
+  description text,
+  instructor_id uuid references public.profiles(id),
+  level text check (level in ('iniciante', 'intermedio', 'avancado')),
+  image_url text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
-ALTER TABLE public.courses ENABLE ROW LEVEL SECURITY;
+alter table public.courses enable row level security;
+
 -- Leitura pública dos cursos
-CREATE POLICY "Courses are viewable by everyone" ON public.courses FOR SELECT USING (true);
--- Apenas Admins/Editors/Formadores podem criar/editar (Simplificado para este exemplo: Autenticado pode criar se a UI permitir, mas idealmente restringe-se por role via SQL check)
-CREATE POLICY "Authenticated can create courses" ON public.courses FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+create policy "Courses are viewable by everyone" on public.courses for select using (true);
+
+-- Staff (Admin, Editor, Formador) pode criar cursos
+create policy "Staff can create courses" on public.courses for insert with check (
+  exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+    and role in ('admin', 'editor', 'formador')
+  )
+);
+
+-- Staff pode editar cursos
+create policy "Staff can update courses" on public.courses for update using (
+  exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+    and role in ('admin', 'editor', 'formador')
+  )
+);
+
+-- Staff pode remover cursos
+create policy "Staff can delete courses" on public.courses for delete using (
+  exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+    and role in ('admin', 'editor', 'formador')
+  )
+);
 
 -- 4. Automação para atribuir Role ADMIN ao email edutechpt@hotmail.com
-CREATE OR REPLACE FUNCTION public.handle_new_user() 
-RETURNS trigger AS $$
-BEGIN
-  INSERT INTO public.profiles (id, email, full_name, role)
-  VALUES (
+create or replace function public.handle_new_user() 
+returns trigger as $$
+begin
+  insert into public.profiles (id, email, full_name, role)
+  values (
     new.id, 
     new.email, 
     new.raw_user_meta_data->>'full_name',
-    CASE 
-      WHEN new.email = 'edutechpt@hotmail.com' THEN 'admin'::public.app_role
-      ELSE 'aluno'::public.app_role
-    END
+    case 
+      when new.email = 'edutechpt@hotmail.com' then 'admin'::public.app_role
+      else 'aluno'::public.app_role
+    end
   );
-  RETURN new;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+  return new;
+end;
+$$ language plpgsql security definer;
 
--- Remove trigger se existir para recriar
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+-- Remove trigger se existir para recriar e garantir a lógica atualizada
+drop trigger if exists on_auth_user_created on auth.users;
 
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
-
--- 5. Seed de Dados (Opcional - só executa se não houver cursos)
-INSERT INTO public.courses (title, description, level)
-SELECT 'Introdução à Inteligência Artificial', 'Aprenda os fundamentos da IA e Machine Learning.', 'iniciante'
-WHERE NOT EXISTS (SELECT 1 FROM public.courses LIMIT 1);
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
