@@ -191,9 +191,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       case 'sql_setup':
          return (
             <GlassCard className="col-span-full">
-                <h2 className="text-xl font-bold text-indigo-900 mb-4">Configuração da Base de Dados (SQL) - v1.0.2</h2>
+                <h2 className="text-xl font-bold text-indigo-900 mb-4">Configuração da Base de Dados (SQL) - v1.0.4</h2>
                 <div className="bg-gray-900 text-gray-200 p-4 rounded-lg overflow-x-auto text-xs font-mono">
-                    <pre>{`-- INSTRUÇÕES DE SETUP ATUALIZADAS (v1.0.2)
+                    <pre>{`-- INSTRUÇÕES DE SETUP ATUALIZADAS (v1.0.4)
 -- Execute este script no SQL Editor do seu projeto Supabase
 
 -- 1. Setup de Roles e Tabela de Perfis
@@ -294,6 +294,12 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- 5. (Opcional) Forçar Admin Manualmente
+-- Use isto se o utilizador já existir como 'aluno'
+UPDATE public.profiles 
+SET role = 'admin' 
+WHERE email = 'edutechpt@hotmail.com';
 `}</pre>
                 </div>
             </GlassCard>
