@@ -191,9 +191,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       case 'sql_setup':
          return (
             <GlassCard className="col-span-full">
-                <h2 className="text-xl font-bold text-indigo-900 mb-4">Configuração da Base de Dados (SQL) - v1.0.1</h2>
+                <h2 className="text-xl font-bold text-indigo-900 mb-4">Configuração da Base de Dados (SQL) - v1.0.2</h2>
                 <div className="bg-gray-900 text-gray-200 p-4 rounded-lg overflow-x-auto text-xs font-mono">
-                    <pre>{`-- INSTRUÇÕES DE SETUP ATUALIZADAS (v1.0.1)
+                    <pre>{`-- INSTRUÇÕES DE SETUP ATUALIZADAS (v1.0.2)
 -- Execute este script no SQL Editor do seu projeto Supabase
 
 -- 1. Setup de Roles e Tabela de Perfis
@@ -220,9 +220,9 @@ alter table public.profiles enable row level security;
 drop policy if exists "Public Profiles Access" on public.profiles;
 drop policy if exists "Users can update own profile" on public.profiles;
 
--- Criar políticas com CAST explícito para evitar erro uuid = text
+-- Criar políticas (Comparação robusta convertendo ambos para TEXT)
 create policy "Public Profiles Access" on public.profiles for select using (true);
-create policy "Users can update own profile" on public.profiles for update using (auth.uid()::uuid = id);
+create policy "Users can update own profile" on public.profiles for update using (auth.uid()::text = id::text);
 
 -- 3. Tabela de Cursos
 create table if not exists public.courses (
@@ -246,11 +246,11 @@ drop policy if exists "Staff can delete courses" on public.courses;
 -- Leitura pública dos cursos
 create policy "Courses are viewable by everyone" on public.courses for select using (true);
 
--- Políticas para Staff (com verificação de role e cast explícito de uuid)
+-- Políticas para Staff (Usando id::text = auth.uid()::text para evitar erros de tipo UUID vs TEXT)
 create policy "Staff can create courses" on public.courses for insert with check (
   exists (
     select 1 from public.profiles
-    where id = auth.uid()::uuid
+    where id::text = auth.uid()::text
     and role in ('admin', 'editor', 'formador')
   )
 );
@@ -258,7 +258,7 @@ create policy "Staff can create courses" on public.courses for insert with check
 create policy "Staff can update courses" on public.courses for update using (
   exists (
     select 1 from public.profiles
-    where id = auth.uid()::uuid
+    where id::text = auth.uid()::text
     and role in ('admin', 'editor', 'formador')
   )
 );
@@ -266,7 +266,7 @@ create policy "Staff can update courses" on public.courses for update using (
 create policy "Staff can delete courses" on public.courses for delete using (
   exists (
     select 1 from public.profiles
-    where id = auth.uid()::uuid
+    where id::text = auth.uid()::text
     and role in ('admin', 'editor', 'formador')
   )
 );
