@@ -1,5 +1,5 @@
--- INSTRUÇÕES DE SETUP
--- Execute este script no SQL Editor do seu projeto Supabase (https://zeedhuzljsbaoqafpfom.supabase.co)
+-- INSTRUÇÕES DE SETUP ATUALIZADAS (v1.0.1)
+-- Execute este script no SQL Editor do seu projeto Supabase
 
 -- 1. Setup de Roles e Tabela de Perfis
 do $$ 
@@ -21,11 +21,13 @@ create table if not exists public.profiles (
 -- 2. Setup RLS (Row Level Security) para Profiles
 alter table public.profiles enable row level security;
 
--- Permitir leitura pública (necessário para formadores verem alunos ou admin ver todos)
-create policy "Public Profiles Access" on public.profiles for select using (true);
+-- Remover políticas antigas para evitar erros de duplicidade
+drop policy if exists "Public Profiles Access" on public.profiles;
+drop policy if exists "Users can update own profile" on public.profiles;
 
--- Permitir update apenas do próprio user
-create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
+-- Criar políticas com CAST explícito para evitar erro uuid = text
+create policy "Public Profiles Access" on public.profiles for select using (true);
+create policy "Users can update own profile" on public.profiles for update using (auth.uid()::uuid = id);
 
 -- 3. Tabela de Cursos
 create table if not exists public.courses (
@@ -40,37 +42,41 @@ create table if not exists public.courses (
 
 alter table public.courses enable row level security;
 
+-- Remover políticas antigas de cursos
+drop policy if exists "Courses are viewable by everyone" on public.courses;
+drop policy if exists "Staff can create courses" on public.courses;
+drop policy if exists "Staff can update courses" on public.courses;
+drop policy if exists "Staff can delete courses" on public.courses;
+
 -- Leitura pública dos cursos
 create policy "Courses are viewable by everyone" on public.courses for select using (true);
 
--- Staff (Admin, Editor, Formador) pode criar cursos
+-- Políticas para Staff (com verificação de role e cast explícito de uuid)
 create policy "Staff can create courses" on public.courses for insert with check (
   exists (
     select 1 from public.profiles
-    where id = auth.uid()
+    where id = auth.uid()::uuid
     and role in ('admin', 'editor', 'formador')
   )
 );
 
--- Staff pode editar cursos
 create policy "Staff can update courses" on public.courses for update using (
   exists (
     select 1 from public.profiles
-    where id = auth.uid()
+    where id = auth.uid()::uuid
     and role in ('admin', 'editor', 'formador')
   )
 );
 
--- Staff pode remover cursos
 create policy "Staff can delete courses" on public.courses for delete using (
   exists (
     select 1 from public.profiles
-    where id = auth.uid()
+    where id = auth.uid()::uuid
     and role in ('admin', 'editor', 'formador')
   )
 );
 
--- 4. Automação para atribuir Role ADMIN ao email edutechpt@hotmail.com
+-- 4. Automação para atribuir Role ADMIN
 create or replace function public.handle_new_user() 
 returns trigger as $$
 begin
@@ -88,9 +94,8 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- Remove trigger se existir para recriar e garantir a lógica atualizada
+-- Recriar trigger
 drop trigger if exists on_auth_user_created on auth.users;
-
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
