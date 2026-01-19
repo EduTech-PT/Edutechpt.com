@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Profile, UserRole, Course, RoleDefinition, UserInvite } from '../types';
@@ -279,8 +280,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       }
   };
 
-  const sqlCodeString = `-- ATUALIZAÇÃO v1.0.9 (Permissões de Gestão de Perfis)
--- Execute para permitir que Admins editem e eliminem utilizadores
+  const sqlCodeString = `-- ATUALIZAÇÃO v1.1.0 (Promoção de Admin)
+-- Execute este script para atualizar a versão e garantir acesso Admin
 
 -- 1. Tabela de Configuração
 create table if not exists public.app_config (key text primary key, value text);
@@ -304,7 +305,6 @@ drop policy if exists "Admins can delete any profile" on public.profiles;
 create policy "Public Profiles Access" on public.profiles for select using (true);
 
 -- Edição: Próprio utilizador OU Admin
--- Nota: Usamos cast ::text para evitar erros de tipo UUID
 create policy "Users can update own profile" on public.profiles 
 for update using (
   auth.uid()::text = id::text 
@@ -318,17 +318,34 @@ for delete using (
   exists (select 1 from public.profiles where id::text = auth.uid()::text and role = 'admin')
 );
 
--- 3. Garantir Tabela de Roles e Convites (Backup da v1.0.8)
-create table if not exists public.roles (name text primary key, permissions jsonb default '{}'::jsonb);
-alter table public.roles enable row level security;
-drop policy if exists "Read Roles" on public.roles; 
-create policy "Read Roles" on public.roles for select using (true);
-insert into public.roles (name) values ('admin'), ('editor'), ('formador'), ('aluno') on conflict (name) do nothing;
+-- 3. Trigger para Novos Utilizadores (Automático)
+create or replace function public.handle_new_user() 
+returns trigger as $$
+begin
+  insert into public.profiles (id, email, full_name, role)
+  values (
+    new.id, 
+    new.email, 
+    new.raw_user_meta_data->>'full_name',
+    case 
+      when new.email = 'edutechpt@hotmail.com' then 'admin'
+      else 'aluno'
+    end
+  );
+  return new;
+end;
+$$ language plpgsql security definer;
 
-create table if not exists public.user_invites (email text primary key, role text, created_at timestamptz default now());
-alter table public.user_invites enable row level security;
-drop policy if exists "Admin Manage Invites" on public.user_invites;
-create policy "Admin Manage Invites" on public.user_invites for all using (exists (select 1 from public.profiles where id::text = auth.uid()::text and role = 'admin'));
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+-- 4. Garantir Admin para Utilizador Existente
+-- Se o utilizador já se registou antes, isto força a atualização
+UPDATE public.profiles 
+SET role = 'admin' 
+WHERE email = 'edutechpt@hotmail.com';
 `;
 
   const copyToClipboard = async () => {
