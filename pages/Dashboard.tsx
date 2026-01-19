@@ -282,21 +282,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
-  const sqlCodeString = `-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.11)
--- Copie TODO este código e execute no SQL Editor do Supabase.
--- Este script resolve erros de conversão de tipos (ERROR: 42883) removendo dinamicamente todas as políticas.
+  const sqlCodeString = `-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.12)
+-- ATENÇÃO: Execute este script COMPLETO no Editor SQL do Supabase.
+-- Este script foi desenhado para contornar o erro 'operator does not exist: app_role = text'
+-- removendo agressivamente todas as políticas e dependências antes de alterar a tabela.
 
--- 1. Tabela de Configuração e Versão
+-- 1. Configuração Inicial e Versão
 create table if not exists public.app_config (key text primary key, value text);
 alter table public.app_config enable row level security;
 drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
 
--- Atualiza a versão do SQL
 insert into public.app_config (key, value) values ('sql_version', '${SQL_VERSION}')
 on conflict (key) do update set value = '${SQL_VERSION}';
 
--- 2. Garantir que o ENUM existe
+-- 2. Garantir Criação do ENUM
 do $$ 
 begin 
   if not exists (select 1 from pg_type where typname = 'app_role') then
@@ -304,12 +304,12 @@ begin
   end if;
 end $$;
 
--- 3. Criação de Tabelas (se não existirem)
+-- 3. Criação de Tabelas (Idempotente)
 create table if not exists public.profiles (
   id uuid references auth.users not null primary key,
   email text,
   full_name text,
-  role public.app_role default 'aluno'::public.app_role,
+  role text default 'aluno', -- Criamos temporariamente como text se a tabela não existir
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   avatar_url text
 );
@@ -335,60 +335,59 @@ create table if not exists public.roles (
   description text
 );
 
--- =================================================================================
--- LIMPEZA DINÂMICA DE POLÍTICAS (SOLUÇÃO FINAL PARA RLS ERROR)
--- Varre o sistema e apaga todas as políticas das tabelas listadas para permitir alteração de tipos
--- =================================================================================
+-- 4. DESARMAMENTO NUCLEAR DE POLÍTICAS E TRIGGERS
+-- Removemos tudo que possa bloquear a alteração de tipo.
+
+-- Remover Trigger e Função antigos que podem referenciar tipos errados
+drop trigger if exists on_auth_user_created on auth.users;
+drop function if exists public.handle_new_user();
+
+-- Remover Policies Dinamicamente
 do $$
 declare
-  pol record;
+  r record;
 begin
-  for pol in 
+  -- Loop para apagar todas as políticas das tabelas da aplicação
+  for r in 
     select policyname, tablename 
     from pg_policies 
     where schemaname = 'public' 
-    and tablename in ('profiles', 'courses', 'user_invites', 'roles')
+    and tablename in ('profiles', 'courses', 'user_invites', 'roles', 'app_config')
   loop
-    execute format('drop policy if exists %I on public.%I', pol.policyname, pol.tablename);
+    execute format('drop policy if exists %I on public.%I', r.policyname, r.tablename);
   end loop;
 end $$;
 
--- =================================================================================
--- ALTERAÇÃO DE TIPO SEGURA (SAFE TYPE ALTERATION)
--- =================================================================================
+-- 5. ALTERAÇÃO DE TIPO DE DADOS (CRÍTICO)
+-- Agora que não há políticas, podemos alterar o tipo sem erros de 'operator does not exist'.
 do $$ 
 begin 
-    -- Verifica se a coluna ainda é TEXT antes de tentar converter
+    -- Se a coluna for TEXT, convertemos para ENUM
     if exists (
-        select 1 
-        from information_schema.columns 
-        where table_schema = 'public' 
-        and table_name = 'profiles' 
-        and column_name = 'role' 
-        and data_type = 'text'
+        select 1 from information_schema.columns 
+        where table_schema = 'public' and table_name = 'profiles' 
+        and column_name = 'role' and data_type = 'text'
     ) then
-        -- 1. Remove dependências de Default
+        -- Remove default antigo para evitar conflito
         alter table public.profiles alter column role drop default;
         
-        -- 2. Converte usando cast explícito
-        -- Nota: O cast para ::text primeiro garante compatibilidade se houver lixo, 
-        -- depois para ::public.app_role
+        -- Converte o tipo
+        -- O cast duplo role::text::public.app_role limpa qualquer ambiguidade
         alter table public.profiles 
         alter column role type public.app_role 
         using role::text::public.app_role;
         
-        -- 3. Reaplica o Default correto com o novo tipo
+        -- Define novo default
         alter table public.profiles alter column role set default 'aluno'::public.app_role;
     end if;
 end $$;
 
--- =================================================================================
--- RECRIAÇÃO DAS POLÍTICAS (COM CASTING EXPLÍCITO)
--- Usamos role::text para evitar erros futuros de comparação Enum vs String
--- =================================================================================
+-- 6. RECONSTRUÇÃO DO SISTEMA DE SEGURANÇA (RLS)
 
--- Profiles RLS
+-- Tabela Profiles
 alter table public.profiles enable row level security;
+
+-- Nota: Usamos role::text nas comparações para garantir compatibilidade futura
 create policy "Public Profiles Access" on public.profiles for select using (true);
 
 create policy "Users can update own profile" on public.profiles 
@@ -403,25 +402,22 @@ for delete using (
   exists (select 1 from public.profiles where id::text = auth.uid()::text and role::text = 'admin')
 );
 
--- Roles RLS
+-- Tabela Roles
 alter table public.roles enable row level security;
+insert into public.roles (name) values ('admin'), ('editor'), ('formador'), ('aluno') on conflict do nothing;
+
 create policy "Read Roles" on public.roles for select using (true);
 create policy "Admin Manage Roles" on public.roles for all using (
   exists (select 1 from public.profiles where id::text = auth.uid()::text and role::text = 'admin')
 );
 
--- Popular Roles se vazio
-insert into public.roles (name) values 
-('admin'), ('editor'), ('formador'), ('aluno')
-on conflict do nothing;
-
--- Invites RLS
+-- Tabela User Invites
 alter table public.user_invites enable row level security;
 create policy "Admins manage invites" on public.user_invites for all using (
   exists (select 1 from public.profiles where id::text = auth.uid()::text and role::text = 'admin')
 );
 
--- Courses RLS
+-- Tabela Courses
 alter table public.courses enable row level security;
 create policy "Courses are viewable by everyone" on public.courses for select using (true);
 create policy "Staff can manage courses" on public.courses for all using (
@@ -432,7 +428,7 @@ create policy "Staff can manage courses" on public.courses for all using (
   )
 );
 
--- Triggers
+-- 7. RECRIAÇÃO DO TRIGGER DE NOVO UTILIZADOR
 create or replace function public.handle_new_user() 
 returns trigger as $$
 begin
@@ -450,15 +446,14 @@ begin
 end;
 $$ language plpgsql security definer;
 
-drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- Forçar Admin (Garante consistência de tipo)
-UPDATE public.profiles 
-SET role = 'admin'::public.app_role 
-WHERE email = 'edutechpt@hotmail.com';
+-- 8. GARANTIA DE ADMIN
+update public.profiles 
+set role = 'admin'::public.app_role 
+where email = 'edutechpt@hotmail.com';
 `;
 
   const copyToClipboard = async () => {
