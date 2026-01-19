@@ -282,7 +282,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
-  const sqlCodeString = `-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.7)
+  const sqlCodeString = `-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.8)
 -- Copie TODO este código e execute no SQL Editor do Supabase.
 -- Este script resolve dependências persistentes de RLS (ERROR: 0A000).
 
@@ -341,7 +341,10 @@ create table if not exists public.user_invites (
 drop policy if exists "Courses are viewable by everyone" on public.courses;
 drop policy if exists "Staff can manage courses" on public.courses;
 drop policy if exists "Admins and Trainers can manage courses" on public.courses;
-drop policy if exists "Staff can create courses" on public.courses; -- O culpado do erro anterior
+-- Variantes granulares que causaram erros:
+drop policy if exists "Staff can create courses" on public.courses;
+drop policy if exists "Staff can update courses" on public.courses; -- Culpado atual
+drop policy if exists "Staff can delete courses" on public.courses; -- Provável próximo erro
 drop policy if exists "Enable read access for all users" on public.courses;
 drop policy if exists "Enable insert for staff" on public.courses;
 drop policy if exists "Enable update for staff" on public.courses;

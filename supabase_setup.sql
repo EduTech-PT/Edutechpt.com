@@ -1,5 +1,5 @@
 
--- SCRIPT MESTRE DE SETUP TOTAL (v1.1.7)
+-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.8)
 -- Copie TODO este código e execute no SQL Editor do Supabase.
 -- Este script resolve dependências persistentes de RLS (ERROR: 0A000).
 
@@ -10,8 +10,8 @@ drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
 
 -- Atualiza a versão do SQL
-insert into public.app_config (key, value) values ('sql_version', 'v1.1.7')
-on conflict (key) do update set value = 'v1.1.7';
+insert into public.app_config (key, value) values ('sql_version', 'v1.1.8')
+on conflict (key) do update set value = 'v1.1.8';
 
 -- 2. Garantir que o ENUM existe
 do $$ 
@@ -58,7 +58,10 @@ create table if not exists public.user_invites (
 drop policy if exists "Courses are viewable by everyone" on public.courses;
 drop policy if exists "Staff can manage courses" on public.courses;
 drop policy if exists "Admins and Trainers can manage courses" on public.courses;
-drop policy if exists "Staff can create courses" on public.courses; -- O culpado do erro anterior
+-- Variantes granulares que causaram erros:
+drop policy if exists "Staff can create courses" on public.courses;
+drop policy if exists "Staff can update courses" on public.courses; -- Culpado atual
+drop policy if exists "Staff can delete courses" on public.courses; -- Provável próximo erro
 drop policy if exists "Enable read access for all users" on public.courses;
 drop policy if exists "Enable insert for staff" on public.courses;
 drop policy if exists "Enable update for staff" on public.courses;
