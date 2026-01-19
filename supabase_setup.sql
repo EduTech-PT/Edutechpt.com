@@ -1,7 +1,7 @@
 
--- SCRIPT MESTRE DE SETUP TOTAL (v1.1.4)
+-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.5)
 -- Copie TODO este código e execute no SQL Editor do Supabase.
--- Este script resolve o erro de conversão de tipos (ERROR: 42804).
+-- Este script resolve o erro de dependência de políticas (ERROR: 0A000).
 
 -- 1. Tabela de Configuração e Versão
 create table if not exists public.app_config (key text primary key, value text);
@@ -10,8 +10,8 @@ drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
 
 -- Atualiza a versão do SQL
-insert into public.app_config (key, value) values ('sql_version', 'v1.1.4')
-on conflict (key) do update set value = 'v1.1.4';
+insert into public.app_config (key, value) values ('sql_version', 'v1.1.5')
+on conflict (key) do update set value = 'v1.1.5';
 
 -- 2. Garantir que o ENUM existe
 do $$ 
@@ -31,7 +31,14 @@ create table if not exists public.profiles (
   avatar_url text
 );
 
--- AUTO-CORREÇÃO AVANÇADA: Trata a conversão Text -> Enum removendo o Default primeiro
+-- CRÍTICO: Apagar políticas ANTES de tentar alterar o tipo da coluna
+-- Isto resolve o erro: "cannot alter type of a column used in a policy definition"
+drop policy if exists "Public Profiles Access" on public.profiles;
+drop policy if exists "Users can update own profile" on public.profiles;
+drop policy if exists "Admins can update any profile" on public.profiles;
+drop policy if exists "Admins can delete any profile" on public.profiles;
+
+-- AUTO-CORREÇÃO: Trata a conversão Text -> Enum
 do $$ 
 begin 
     -- Verifica se a coluna ainda é TEXT
@@ -43,10 +50,10 @@ begin
         and column_name = 'role' 
         and data_type = 'text'
     ) then
-        -- 1. Remove o valor padrão antigo (que causa o erro 42804)
+        -- 1. Remove o valor padrão antigo
         alter table public.profiles alter column role drop default;
         
-        -- 2. Converte a coluna para o tipo correto
+        -- 2. Converte a coluna para o tipo correto (agora seguro sem políticas ativas)
         alter table public.profiles 
         alter column role type public.app_role 
         using role::text::public.app_role;
@@ -58,12 +65,7 @@ end $$;
 
 alter table public.profiles enable row level security;
 
--- Políticas de Segurança (RLS)
-drop policy if exists "Public Profiles Access" on public.profiles;
-drop policy if exists "Users can update own profile" on public.profiles;
-drop policy if exists "Admins can update any profile" on public.profiles;
-drop policy if exists "Admins can delete any profile" on public.profiles;
-
+-- Recria as Políticas de Segurança (RLS)
 create policy "Public Profiles Access" on public.profiles for select using (true);
 
 create policy "Users can update own profile" on public.profiles 
