@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { Profile, UserRole, Course } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { GlassCard } from '../components/GlassCard';
+import { SQL_VERSION } from '../constants';
 
 interface DashboardProps {
   session: any;
@@ -20,6 +21,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [newCourseDesc, setNewCourseDesc] = useState('');
   const [newCourseLevel, setNewCourseLevel] = useState('iniciante');
 
+  // SQL Copy State
+  const [copySuccess, setCopySuccess] = useState('');
+  const [showSqlWarning, setShowSqlWarning] = useState(false);
+
   useEffect(() => {
     getProfile();
   }, [session]);
@@ -30,6 +35,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       fetchManageCourses();
     }
   }, [currentView, profile]);
+
+  // Check SQL Version status for Admin
+  useEffect(() => {
+    if (profile?.role === UserRole.ADMIN) {
+        const lastAckVersion = localStorage.getItem('edutech_sql_ack_version');
+        if (lastAckVersion !== SQL_VERSION) {
+            setShowSqlWarning(true);
+        } else {
+            setShowSqlWarning(false);
+        }
+    }
+  }, [profile]);
 
   const getProfile = async () => {
     try {
@@ -43,8 +60,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
         .single();
 
       if (error) {
-        // If no profile found, we might need to wait for trigger or manual intervention in a strict DB-first approach
-        // However, for UX, we handle the error gracefully.
         console.error('Error fetching profile:', error);
       }
 
@@ -83,7 +98,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
         if (error) throw error;
         
-        // Reset and reload
         setNewCourseTitle('');
         setNewCourseDesc('');
         fetchManageCourses();
@@ -93,107 +107,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
     }
   };
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-indigo-600">Carregando perfil...</div>;
-  }
+  const dismissSqlWarning = () => {
+      localStorage.setItem('edutech_sql_ack_version', SQL_VERSION);
+      setShowSqlWarning(false);
+  };
 
-  if (!profile) {
-    return (
-        <div className="min-h-screen flex items-center justify-center p-4">
-            <GlassCard className="max-w-md text-center">
-                <h2 className="text-xl font-bold text-red-600 mb-2">Perfil não encontrado</h2>
-                <p className="mb-4">Se acabou de se registar, por favor aguarde que o administrador aprove a sua conta ou configure o seu perfil na base de dados.</p>
-                <button onClick={onLogout} className="text-indigo-600 underline">Voltar</button>
-            </GlassCard>
-        </div>
-    );
-  }
-
-  // Render Content based on View
-  const renderContent = () => {
-    switch (currentView) {
-      case 'dashboard':
-        return (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <GlassCard className="col-span-full">
-              <h2 className="text-2xl font-bold text-indigo-900 mb-2">Olá, {profile.full_name || profile.email}</h2>
-              <p className="text-indigo-700 opacity-80">Bem-vindo à EduTech PT. O seu nível de acesso é: <span className="font-bold uppercase">{profile.role}</span>.</p>
-            </GlassCard>
-
-            <GlassCard>
-              <h3 className="text-lg font-bold text-indigo-900 mb-2">Notificações</h3>
-              <p className="text-sm text-indigo-600">Não existem novas notificações.</p>
-            </GlassCard>
-
-            <GlassCard>
-              <h3 className="text-lg font-bold text-indigo-900 mb-2">Próximas Aulas</h3>
-              <p className="text-sm text-indigo-600">Calendário vazio.</p>
-            </GlassCard>
-          </div>
-        );
-
-      case 'manage_courses':
-        return (
-            <div className="space-y-6">
-                <GlassCard>
-                    <h2 className="text-xl font-bold text-indigo-900 mb-4">Criar Novo Curso</h2>
-                    <form onSubmit={handleCreateCourse} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-indigo-900 mb-1">Título do Curso</label>
-                            <input 
-                                type="text" 
-                                required
-                                value={newCourseTitle}
-                                onChange={(e) => setNewCourseTitle(e.target.value)}
-                                className="w-full bg-white/40 border border-white/50 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-indigo-900 mb-1">Descrição</label>
-                            <textarea 
-                                required
-                                value={newCourseDesc}
-                                onChange={(e) => setNewCourseDesc(e.target.value)}
-                                rows={3}
-                                className="w-full bg-white/40 border border-white/50 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                            />
-                        </div>
-                        <div>
-                             <label className="block text-sm font-medium text-indigo-900 mb-1">Nível</label>
-                             <select 
-                                value={newCourseLevel}
-                                onChange={(e) => setNewCourseLevel(e.target.value)}
-                                className="w-full bg-white/40 border border-white/50 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                             >
-                                 <option value="iniciante">Iniciante</option>
-                                 <option value="intermedio">Intermédio</option>
-                                 <option value="avancado">Avançado</option>
-                             </select>
-                        </div>
-                        <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-                            Publicar Curso
-                        </button>
-                    </form>
-                </GlassCard>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {manageCourses.map(course => (
-                        <GlassCard key={course.id}>
-                            <h3 className="font-bold text-indigo-900">{course.title}</h3>
-                            <p className="text-xs text-indigo-600 uppercase mb-2">{course.level}</p>
-                            <p className="text-sm text-indigo-800 opacity-80 line-clamp-2">{course.description}</p>
-                        </GlassCard>
-                    ))}
-                </div>
-            </div>
-        );
-
-      case 'sql_setup':
-         return (
-            <GlassCard className="col-span-full">
-                <h2 className="text-xl font-bold text-indigo-900 mb-4">Configuração da Base de Dados (SQL) - v1.0.4</h2>
-                <div className="bg-gray-900 text-gray-200 p-4 rounded-lg overflow-x-auto text-xs font-mono">
-                    <pre>{`-- INSTRUÇÕES DE SETUP ATUALIZADAS (v1.0.4)
+  const sqlCodeString = `-- INSTRUÇÕES DE SETUP ATUALIZADAS (${SQL_VERSION})
 -- Execute este script no SQL Editor do seu projeto Supabase
 
 -- 1. Setup de Roles e Tabela de Perfis
@@ -299,8 +218,161 @@ create trigger on_auth_user_created
 -- Use isto se o utilizador já existir como 'aluno'
 UPDATE public.profiles 
 SET role = 'admin' 
-WHERE email = 'edutechpt@hotmail.com';
-`}</pre>
+WHERE email = 'edutechpt@hotmail.com';`;
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(sqlCodeString);
+      setCopySuccess('Copiado!');
+      setTimeout(() => setCopySuccess(''), 2000);
+    } catch (err) {
+      setCopySuccess('Erro ao copiar');
+    }
+  };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center text-indigo-600">Carregando perfil...</div>;
+  }
+
+  if (!profile) {
+    return (
+        <div className="min-h-screen flex items-center justify-center p-4">
+            <GlassCard className="max-w-md text-center">
+                <h2 className="text-xl font-bold text-red-600 mb-2">Perfil não encontrado</h2>
+                <p className="mb-4">Se acabou de se registar, por favor aguarde que o administrador aprove a sua conta ou configure o seu perfil na base de dados.</p>
+                <button onClick={onLogout} className="text-indigo-600 underline">Voltar</button>
+            </GlassCard>
+        </div>
+    );
+  }
+
+  // Render Content based on View
+  const renderContent = () => {
+    switch (currentView) {
+      case 'dashboard':
+        return (
+          <div className="space-y-6">
+            {showSqlWarning && (
+                <div className="bg-yellow-100/90 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg shadow-md backdrop-blur-sm animate-in fade-in slide-in-from-top-4 flex justify-between items-center">
+                    <div>
+                        <p className="font-bold">Atenção: Atualização de Base de Dados Pendente ({SQL_VERSION})</p>
+                        <p className="text-sm">O código da aplicação foi atualizado. Verifique se executou o script SQL mais recente no Supabase.</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => setCurrentView('sql_setup')}
+                            className="bg-yellow-600 text-white px-3 py-1 rounded text-sm hover:bg-yellow-700 transition-colors"
+                        >
+                            Ver SQL
+                        </button>
+                        <button 
+                            onClick={dismissSqlWarning}
+                            className="bg-transparent border border-yellow-600 text-yellow-800 px-3 py-1 rounded text-sm hover:bg-yellow-200 transition-colors"
+                        >
+                            Já executei
+                        </button>
+                    </div>
+                </div>
+            )}
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <GlassCard className="col-span-full">
+                <h2 className="text-2xl font-bold text-indigo-900 mb-2">Olá, {profile.full_name || profile.email}</h2>
+                <p className="text-indigo-700 opacity-80">Bem-vindo à EduTech PT. O seu nível de acesso é: <span className="font-bold uppercase">{profile.role}</span>.</p>
+                </GlassCard>
+
+                <GlassCard>
+                <h3 className="text-lg font-bold text-indigo-900 mb-2">Notificações</h3>
+                <p className="text-sm text-indigo-600">Não existem novas notificações.</p>
+                </GlassCard>
+
+                <GlassCard>
+                <h3 className="text-lg font-bold text-indigo-900 mb-2">Próximas Aulas</h3>
+                <p className="text-sm text-indigo-600">Calendário vazio.</p>
+                </GlassCard>
+            </div>
+          </div>
+        );
+
+      case 'manage_courses':
+        return (
+            <div className="space-y-6">
+                <GlassCard>
+                    <h2 className="text-xl font-bold text-indigo-900 mb-4">Criar Novo Curso</h2>
+                    <form onSubmit={handleCreateCourse} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-indigo-900 mb-1">Título do Curso</label>
+                            <input 
+                                type="text" 
+                                required
+                                value={newCourseTitle}
+                                onChange={(e) => setNewCourseTitle(e.target.value)}
+                                className="w-full bg-white/40 border border-white/50 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-indigo-900 mb-1">Descrição</label>
+                            <textarea 
+                                required
+                                value={newCourseDesc}
+                                onChange={(e) => setNewCourseDesc(e.target.value)}
+                                rows={3}
+                                className="w-full bg-white/40 border border-white/50 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                            />
+                        </div>
+                        <div>
+                             <label className="block text-sm font-medium text-indigo-900 mb-1">Nível</label>
+                             <select 
+                                value={newCourseLevel}
+                                onChange={(e) => setNewCourseLevel(e.target.value)}
+                                className="w-full bg-white/40 border border-white/50 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                             >
+                                 <option value="iniciante">Iniciante</option>
+                                 <option value="intermedio">Intermédio</option>
+                                 <option value="avancado">Avançado</option>
+                             </select>
+                        </div>
+                        <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                            Publicar Curso
+                        </button>
+                    </form>
+                </GlassCard>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {manageCourses.map(course => (
+                        <GlassCard key={course.id}>
+                            <h3 className="font-bold text-indigo-900">{course.title}</h3>
+                            <p className="text-xs text-indigo-600 uppercase mb-2">{course.level}</p>
+                            <p className="text-sm text-indigo-800 opacity-80 line-clamp-2">{course.description}</p>
+                        </GlassCard>
+                    ))}
+                </div>
+            </div>
+        );
+
+      case 'sql_setup':
+         return (
+            <GlassCard className="col-span-full h-full flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold text-indigo-900">Configuração da Base de Dados (SQL) - {SQL_VERSION}</h2>
+                    <button 
+                        onClick={copyToClipboard}
+                        className={`
+                            px-4 py-2 rounded-lg font-medium text-sm transition-all shadow-md
+                            ${copySuccess 
+                                ? 'bg-green-500 text-white' 
+                                : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:-translate-y-0.5'
+                            }
+                        `}
+                    >
+                        {copySuccess || 'Copiar Código'}
+                    </button>
+                </div>
+                
+                <div className="relative bg-gray-900 rounded-lg shadow-inner overflow-hidden flex-1 min-h-[50vh]">
+                     <div className="absolute inset-0 overflow-auto p-4 custom-scrollbar">
+                        <pre className="text-gray-200 text-xs font-mono whitespace-pre">{sqlCodeString}</pre>
+                     </div>
                 </div>
             </GlassCard>
          );
