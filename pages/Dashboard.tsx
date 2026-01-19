@@ -282,12 +282,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
-  const sqlCodeString = `-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.14)
+  const sqlCodeString = `-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.15)
 -- ATENÇÃO: Execute este script COMPLETO no Editor SQL do Supabase.
--- Este script resolve o erro 42883 (operator does not exist) usando a técnica de "Column Swap".
--- Em vez de alterar a coluna existente, criamos uma nova, migramos os dados e apagamos a antiga.
+-- Este script combina a "Troca de Coluna" (para limpar o tipo de dado)
+-- com "Casting de Texto" nas policies (para evitar erro uuid=text).
 
--- 1. Configuração e Versão (Garante que a versão é atualizada logo no início)
+-- 1. Configuração e Versão
 create table if not exists public.app_config (key text primary key, value text);
 alter table public.app_config enable row level security;
 drop policy if exists "Read Config" on public.app_config;
@@ -305,7 +305,7 @@ begin
 end $$;
 
 -- 3. Limpeza de Segurança (Políticas, Triggers e Funções)
--- Removemos tudo para garantir que não há bloqueios durante a migração de tabelas.
+-- Removemos dependências para evitar erros de bloqueio durante alterações.
 drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists public.handle_new_user();
 
@@ -342,7 +342,7 @@ create table if not exists public.roles (
 );
 
 -- 5. MIGRAÇÃO DE COLUNA NA TABELA PROFILES (Column Swap)
--- Esta é a solução definitiva para o erro 42883.
+-- Garante que a coluna 'role' é do tipo ENUM correto, sem conflitos de conversão.
 do $$ 
 begin 
     -- Verifica se a tabela profiles existe
@@ -351,14 +351,13 @@ begin
         -- Verifica se a coluna 'role' ainda é do tipo 'text'
         if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'profiles' and column_name = 'role' and data_type = 'text') then
             
-            -- Passo A: Renomear a coluna problemática para tirar do caminho
+            -- Passo A: Renomear a coluna antiga
             alter table public.profiles rename column role to role_old_text;
             
-            -- Passo B: Criar a nova coluna limpa com o tipo correto
+            -- Passo B: Criar a nova coluna limpa
             alter table public.profiles add column role public.app_role default 'aluno'::public.app_role;
             
-            -- Passo C: Migrar os dados (Converter texto para enum de forma segura)
-            -- Se o texto antigo não corresponder a um enum válido, define como 'aluno'
+            -- Passo C: Migrar os dados
             update public.profiles 
             set role = case 
                 when role_old_text = 'admin' then 'admin'::public.app_role
@@ -372,7 +371,7 @@ begin
             
         end if;
     else
-        -- Se a tabela não existe, cria-a do zero corretamente
+        -- Se a tabela não existe, cria-a do zero
         create table public.profiles (
           id uuid references auth.users not null primary key,
           email text,
@@ -396,31 +395,51 @@ create table if not exists public.courses (
 );
 
 -- 7. RECONSTRUÇÃO DA SEGURANÇA (RLS)
+-- IMPORTANTE: Usamos ::text em TODAS as comparações para evitar erros 'operator does not exist'
 
 -- Profiles
 alter table public.profiles enable row level security;
 create policy "Public Profiles Access" on public.profiles for select using (true);
+
 create policy "Users can update own profile" on public.profiles 
-for update using (auth.uid() = id OR exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'::public.app_role));
+for update using (
+  auth.uid()::text = id::text 
+  OR 
+  exists (select 1 from public.profiles where id::text = auth.uid()::text and role::text = 'admin')
+);
+
 create policy "Admins can delete any profile" on public.profiles 
-for delete using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'::public.app_role));
+for delete using (
+  exists (select 1 from public.profiles where id::text = auth.uid()::text and role::text = 'admin')
+);
 
 -- Roles
 alter table public.roles enable row level security;
 insert into public.roles (name) values ('admin'), ('editor'), ('formador'), ('aluno') on conflict do nothing;
+
 create policy "Read Roles" on public.roles for select using (true);
-create policy "Admin Manage Roles" on public.roles for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'::public.app_role));
+create policy "Admin Manage Roles" on public.roles for all using (
+  exists (select 1 from public.profiles where id::text = auth.uid()::text and role::text = 'admin')
+);
 
 -- Invites
 alter table public.user_invites enable row level security;
-create policy "Admins manage invites" on public.user_invites for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'::public.app_role));
+create policy "Admins manage invites" on public.user_invites for all using (
+  exists (select 1 from public.profiles where id::text = auth.uid()::text and role::text = 'admin')
+);
 
 -- Courses
 alter table public.courses enable row level security;
 create policy "Courses are viewable by everyone" on public.courses for select using (true);
-create policy "Staff can manage courses" on public.courses for all using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
+create policy "Staff can manage courses" on public.courses for all using (
+  exists (
+    select 1 from public.profiles
+    where id::text = auth.uid()::text
+    and role::text in ('admin', 'editor', 'formador')
+  )
+);
 
--- 8. Trigger Novo Utilizador (Atualizado para usar ENUM diretamente)
+-- 8. Trigger Novo Utilizador
 create or replace function public.handle_new_user() 
 returns trigger as $$
 begin
