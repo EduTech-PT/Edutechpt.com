@@ -6,6 +6,6 @@
 export const SUPABASE_URL = "https://zeedhuzljsbaoqafpfom.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ZOMCawahrL7OImeWeT6Fug_U_WMN0H1";
 
-export const APP_VERSION = "v1.1.15";
-export const SQL_VERSION = "v1.1.13"; // Correção Crítica: Remoção de Constraints e Índices para fix de tipo
+export const APP_VERSION = "v1.1.16";
+export const SQL_VERSION = "v1.1.14"; // Correção Final: Migração por 'Column Swap' para contornar erro 42883
 export const APP_NAME = "EduTech PT";
