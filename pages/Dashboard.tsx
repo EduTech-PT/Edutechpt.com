@@ -52,11 +52,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [myFullName, setMyFullName] = useState('');
   const [myAvatarUrl, setMyAvatarUrl] = useState('');
 
-  // Access Request Form State
-  const [showAccessForm, setShowAccessForm] = useState(false);
-  const [requestReason, setRequestReason] = useState('');
-  const [requestStatus, setRequestStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
-
   useEffect(() => {
     getProfile();
   }, [session]);
@@ -294,32 +289,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       }
   };
 
-  const handleSubmitAccessRequest = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setRequestStatus('sending');
-      try {
-          const { user } = session;
-          if (!user) throw new Error('Utilizador não autenticado.');
-
-          const { error } = await supabase.from('access_requests').insert([{
-              user_id: user.id,
-              email: user.email,
-              full_name: user.user_metadata?.full_name || '',
-              reason: requestReason
-          }]);
-
-          if (error) throw error;
-          setRequestStatus('success');
-          // Reset form in background
-          setTimeout(() => {
-              setShowAccessForm(false);
-              setRequestStatus('idle');
-              setRequestReason('');
-          }, 3000);
-      } catch (err: any) {
-          console.error(err);
-          setRequestStatus('error');
-      }
+  // Helper para gerar o link mailto
+  const getMailtoLink = () => {
+      const subject = "Solicitação de Acesso - EduTech PT";
+      const body = `Olá Administrador,\n\nGostaria de solicitar acesso à plataforma EduTech PT.\n\nEmail de Registo: ${session?.user?.email}\n\nMotivo:\n(Escreva aqui o motivo do seu pedido)\n\nObrigado.`;
+      
+      return `mailto:edutechpt@hotmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
@@ -346,66 +321,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           <GlassCard className="text-center max-w-lg z-10">
               <h2 className="text-2xl font-bold text-red-600 mb-4">Acesso não autorizado para este e-mail</h2>
               <p className="text-indigo-900 mb-6 text-lg leading-relaxed">
-                  Caso necessite de utilizar a plataforma, submeta o seu pedido através do <span onClick={() => setShowAccessForm(true)} className="font-bold text-indigo-700 underline cursor-pointer hover:text-indigo-500 transition-colors">[Formulário de Solicitação de Acesso]</span>.
+                  Caso necessite de utilizar a plataforma, submeta o seu pedido <a href={getMailtoLink()} className="font-bold text-indigo-700 underline cursor-pointer hover:text-indigo-500 transition-colors">AQUI</a>.
               </p>
               <button onClick={onLogout} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-all">
                   Voltar
               </button>
           </GlassCard>
-
-          {/* Modal de Solicitação de Acesso */}
-          {showAccessForm && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/40 backdrop-blur-sm p-4 animate-in fade-in">
-                  <GlassCard className="w-full max-w-md">
-                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="font-bold text-xl text-indigo-900">Solicitar Acesso</h3>
-                        <button onClick={() => setShowAccessForm(false)} className="text-indigo-900 hover:text-red-500 font-bold">✕</button>
-                      </div>
-                      
-                      {requestStatus === 'success' ? (
-                          <div className="text-center py-6">
-                              <div className="text-5xl mb-4">✅</div>
-                              <h4 className="text-lg font-bold text-indigo-900 mb-2">Pedido Enviado!</h4>
-                              <p className="text-indigo-700 text-sm">O administrador irá analisar o seu pedido em breve.</p>
-                          </div>
-                      ) : (
-                          <form onSubmit={handleSubmitAccessRequest} className="space-y-4">
-                              <div className="bg-indigo-50 p-3 rounded text-sm text-indigo-800 mb-4">
-                                  <p className="mb-1"><span className="font-bold">Email:</span> {session.user.email}</p>
-                                  <p className="text-xs opacity-70">Este email será utilizado para contacto.</p>
-                              </div>
-
-                              <div>
-                                  <label className="block text-sm font-medium text-indigo-900 mb-1">Motivo / Justificação</label>
-                                  <textarea 
-                                    required
-                                    rows={4}
-                                    value={requestReason}
-                                    onChange={(e) => setRequestReason(e.target.value)}
-                                    placeholder="Explique brevemente porque necessita de acesso à plataforma..."
-                                    className="w-full bg-white/50 border border-white/60 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
-                                  ></textarea>
-                              </div>
-
-                              {requestStatus === 'error' && (
-                                  <p className="text-sm text-red-600 bg-red-100 p-2 rounded text-center">Erro ao enviar pedido. Tente novamente.</p>
-                              )}
-
-                              <div className="flex justify-end gap-2 pt-2">
-                                  <button type="button" onClick={() => setShowAccessForm(false)} className="px-4 py-2 text-indigo-800">Cancelar</button>
-                                  <button 
-                                    type="submit" 
-                                    disabled={requestStatus === 'sending'}
-                                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow-lg hover:bg-indigo-700 disabled:opacity-50"
-                                  >
-                                      {requestStatus === 'sending' ? 'A Enviar...' : 'Enviar Pedido'}
-                                  </button>
-                              </div>
-                          </form>
-                      )}
-                  </GlassCard>
-              </div>
-          )}
       </div>
   );
 
