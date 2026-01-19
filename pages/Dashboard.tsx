@@ -282,9 +282,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
-  const sqlCodeString = `-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.2)
+  const sqlCodeString = `-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.3)
 -- Copie TODO este código e execute no SQL Editor do Supabase.
--- Este script é idempotente: pode ser corrido várias vezes sem causar erros.
+-- Este script é idempotente e auto-corretivo.
 
 -- 1. Tabela de Configuração e Versão
 create table if not exists public.app_config (key text primary key, value text);
@@ -296,7 +296,7 @@ create policy "Read Config" on public.app_config for select using (true);
 insert into public.app_config (key, value) values ('sql_version', '${SQL_VERSION}')
 on conflict (key) do update set value = '${SQL_VERSION}';
 
--- 2. Garantir que o ENUM existe (Gestão de Cargos)
+-- 2. Garantir que o ENUM existe
 do $$ 
 begin 
   if not exists (select 1 from pg_type where typname = 'app_role') then
@@ -314,9 +314,28 @@ create table if not exists public.profiles (
   avatar_url text
 );
 
+-- AUTO-CORREÇÃO: Se a coluna 'role' existir mas for do tipo 'text', converter para 'app_role'
+do $$ 
+begin 
+    if exists (
+        select 1 
+        from information_schema.columns 
+        where table_schema = 'public' 
+        and table_name = 'profiles' 
+        and column_name = 'role' 
+        and data_type = 'text'
+    ) then
+        -- Converte a coluna para o tipo correto
+        alter table public.profiles 
+        alter column role type public.app_role 
+        using role::text::public.app_role;
+    end if;
+end $$;
+
 alter table public.profiles enable row level security;
 
--- Políticas de Segurança (RLS) para Perfis - Apaga e recria para garantir que estão atualizadas
+-- Políticas de Segurança (RLS)
+-- Nota: Usamos 'role::text' para evitar erros de comparação se o tipo da coluna variar
 drop policy if exists "Public Profiles Access" on public.profiles;
 drop policy if exists "Users can update own profile" on public.profiles;
 drop policy if exists "Admins can update any profile" on public.profiles;
@@ -328,12 +347,12 @@ create policy "Users can update own profile" on public.profiles
 for update using (
   auth.uid()::text = id::text 
   OR 
-  exists (select 1 from public.profiles where id::text = auth.uid()::text and role = 'admin'::public.app_role)
+  exists (select 1 from public.profiles where id::text = auth.uid()::text and role::text = 'admin')
 );
 
 create policy "Admins can delete any profile" on public.profiles 
 for delete using (
-  exists (select 1 from public.profiles where id::text = auth.uid()::text and role = 'admin'::public.app_role)
+  exists (select 1 from public.profiles where id::text = auth.uid()::text and role::text = 'admin')
 );
 
 -- 4. Tabela de Roles Dinâmicos (UI)
@@ -345,7 +364,6 @@ alter table public.roles enable row level security;
 drop policy if exists "Read Roles" on public.roles;
 create policy "Read Roles" on public.roles for select using (true);
 
--- Inserir cargos padrão
 insert into public.roles (name) values 
 ('admin'), ('editor'), ('formador'), ('aluno')
 on conflict do nothing;
@@ -359,10 +377,10 @@ create table if not exists public.user_invites (
 alter table public.user_invites enable row level security;
 drop policy if exists "Admins manage invites" on public.user_invites;
 create policy "Admins manage invites" on public.user_invites for all using (
-  exists (select 1 from public.profiles where id::text = auth.uid()::text and role = 'admin'::public.app_role)
+  exists (select 1 from public.profiles where id::text = auth.uid()::text and role::text = 'admin')
 );
 
--- 6. Trigger para Novos Utilizadores (Preenche profiles automaticamente)
+-- 6. Trigger para Novos Utilizadores
 create or replace function public.handle_new_user() 
 returns trigger as $$
 begin
@@ -380,7 +398,6 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- Remove e recria o trigger para garantir funcionamento
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
@@ -405,11 +422,12 @@ create policy "Staff can manage courses" on public.courses for all using (
   exists (
     select 1 from public.profiles
     where id::text = auth.uid()::text
-    and role in ('admin'::public.app_role, 'editor'::public.app_role, 'formador'::public.app_role)
+    and role::text in ('admin', 'editor', 'formador')
   )
 );
 
 -- 8. FORÇAR ADMIN (Garante que a sua conta tem permissões)
+-- O cast ::public.app_role garante que funciona se a coluna for Enum
 UPDATE public.profiles 
 SET role = 'admin'::public.app_role 
 WHERE email = 'edutechpt@hotmail.com';
