@@ -33,6 +33,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [availableRoles, setAvailableRoles] = useState<RoleDefinition[]>([]);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
+  
+  // Admin Edit User State
+  const [editingUser, setEditingUser] = useState<Profile | null>(null);
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  
+  // Invite/Creation Form State
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('aluno');
   const [bulkEmails, setBulkEmails] = useState('');
@@ -40,9 +47,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   // Role Creation
   const [newRoleName, setNewRoleName] = useState('');
 
+  // My Profile Edit State
+  const [myFullName, setMyFullName] = useState('');
+  const [myAvatarUrl, setMyAvatarUrl] = useState('');
+
   useEffect(() => {
     getProfile();
   }, [session]);
+
+  useEffect(() => {
+    if (profile) {
+        setMyFullName(profile.full_name || '');
+        setMyAvatarUrl(profile.avatar_url || '');
+    }
+  }, [profile]);
 
   useEffect(() => {
     if (profile?.role === UserRole.ADMIN) {
@@ -115,12 +133,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   const fetchRoles = async () => {
-      // Tenta buscar roles da tabela. Se falhar (tabela não existe), usa hardcoded
       const { data, error } = await supabase.from('roles').select('*');
       if (!error && data && data.length > 0) {
           setAvailableRoles(data);
       } else {
-          // Fallback para quando o SQL ainda não correu
           setAvailableRoles([
               { name: 'admin' }, { name: 'editor' }, { name: 'formador' }, { name: 'aluno' }
           ]);
@@ -144,19 +160,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
     } catch (error: any) { alert(error.message); }
   };
 
+  // --- USER MANAGEMENT LOGIC ---
+
   const handleInviteUser = async (email: string, role: string) => {
       try {
-          // Verifica se já é utilizador
           const { data: existing } = await supabase.from('profiles').select('id').eq('email', email).single();
           if (existing) {
               alert(`O email ${email} já está registado como utilizador.`);
               return;
           }
-
           const { error } = await supabase.from('user_invites').upsert([
               { email, role }
           ]);
-
           if (error) throw error;
           return true;
       } catch (err: any) {
@@ -180,7 +195,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const onBulkInvite = async () => {
       const emails = bulkEmails.split('\n').map(e => e.trim()).filter(e => e);
       if (emails.length === 0) return;
-
       let count = 0;
       for (const email of emails) {
           const success = await handleInviteUser(email, inviteRole);
@@ -190,6 +204,65 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       setShowBulkModal(false);
       fetchUsersAndInvites();
       alert(`${count} convites processados.`);
+  };
+
+  // Update own profile
+  const handleUpdateMyProfile = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!profile) return;
+      try {
+          const { error } = await supabase
+              .from('profiles')
+              .update({ full_name: myFullName, avatar_url: myAvatarUrl })
+              .eq('id', profile.id);
+          
+          if (error) throw error;
+          getProfile(); // Refresh context
+          alert('Perfil atualizado com sucesso!');
+      } catch (err: any) {
+          alert('Erro ao atualizar: ' + err.message);
+      }
+  };
+
+  // Admin update other user
+  const handleAdminUpdateUser = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!editingUser) return;
+      try {
+          const { error } = await supabase
+              .from('profiles')
+              .update({ full_name: editingUser.full_name, role: editingUser.role })
+              .eq('id', editingUser.id);
+          
+          if (error) throw error;
+          setShowEditUserModal(false);
+          setEditingUser(null);
+          fetchUsersAndInvites();
+          alert('Utilizador atualizado com sucesso.');
+      } catch (err: any) {
+          alert('Erro ao atualizar: ' + err.message);
+      }
+  };
+
+  const toggleUserSelection = (id: string) => {
+      setSelectedUserIds(prev => 
+        prev.includes(id) ? prev.filter(uid => uid !== id) : [...prev, id]
+      );
+  };
+
+  const handleDeleteUsers = async (ids: string[]) => {
+      if (!window.confirm(`Tem a certeza que deseja eliminar ${ids.length} utilizador(es)? Esta ação é irreversível.`)) return;
+
+      try {
+          const { error } = await supabase.from('profiles').delete().in('id', ids);
+          if (error) throw error;
+          
+          setSelectedUserIds([]);
+          fetchUsersAndInvites();
+          alert('Utilizadores eliminados.');
+      } catch (err: any) {
+          alert('Erro ao eliminar: ' + err.message);
+      }
   };
 
   const handleCreateRole = async () => {
@@ -206,98 +279,56 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       }
   };
 
-  const sqlCodeString = `-- ATUALIZAÇÃO v1.0.8 (Correção de Tipos e Políticas)
--- Execute este script completo para corrigir o erro 'operator does not exist: text = uuid'
+  const sqlCodeString = `-- ATUALIZAÇÃO v1.0.9 (Permissões de Gestão de Perfis)
+-- Execute para permitir que Admins editem e eliminem utilizadores
 
--- 1. Tabela de Configuração e Versão
-create table if not exists public.app_config (
-   key text primary key,
-   value text
-);
+-- 1. Tabela de Configuração
+create table if not exists public.app_config (key text primary key, value text);
 alter table public.app_config enable row level security;
 drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
 
--- Atualizar versão
 insert into public.app_config (key, value) values ('sql_version', '${SQL_VERSION}')
 on conflict (key) do update set value = '${SQL_VERSION}';
 
--- 2. Tabela de Roles (Cargos Dinâmicos)
-create table if not exists public.roles (
-  name text primary key,
-  description text,
-  permissions jsonb default '{}'::jsonb,
-  created_at timestamptz default now()
+-- 2. Atualizar Políticas da Tabela Profiles
+alter table public.profiles enable row level security;
+
+-- Remover políticas antigas
+drop policy if exists "Public Profiles Access" on public.profiles;
+drop policy if exists "Users can update own profile" on public.profiles;
+drop policy if exists "Admins can update any profile" on public.profiles;
+drop policy if exists "Admins can delete any profile" on public.profiles;
+
+-- Leitura Pública
+create policy "Public Profiles Access" on public.profiles for select using (true);
+
+-- Edição: Próprio utilizador OU Admin
+-- Nota: Usamos cast ::text para evitar erros de tipo UUID
+create policy "Users can update own profile" on public.profiles 
+for update using (
+  auth.uid()::text = id::text 
+  OR 
+  exists (select 1 from public.profiles where id::text = auth.uid()::text and role = 'admin')
 );
+
+-- Eliminação: Apenas Admin
+create policy "Admins can delete any profile" on public.profiles 
+for delete using (
+  exists (select 1 from public.profiles where id::text = auth.uid()::text and role = 'admin')
+);
+
+-- 3. Garantir Tabela de Roles e Convites (Backup da v1.0.8)
+create table if not exists public.roles (name text primary key, permissions jsonb default '{}'::jsonb);
 alter table public.roles enable row level security;
-
-drop policy if exists "Read Roles" on public.roles;
-drop policy if exists "Admin Manage Roles" on public.roles;
-
+drop policy if exists "Read Roles" on public.roles; 
 create policy "Read Roles" on public.roles for select using (true);
--- CORREÇÃO AQUI: id::text = auth.uid()::text
-create policy "Admin Manage Roles" on public.roles for all using (
-  exists (select 1 from public.profiles where id::text = auth.uid()::text and role = 'admin')
-);
+insert into public.roles (name) values ('admin'), ('editor'), ('formador'), ('aluno') on conflict (name) do nothing;
 
--- Inserir cargos padrão
-insert into public.roles (name) values 
-('admin'), ('editor'), ('formador'), ('aluno')
-on conflict (name) do nothing;
-
--- 3. Migrar Perfis para usar TEXT em vez de ENUM
-do $$
-begin
-  -- Se a coluna ainda for enum, convertemos para text
-  if exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'role' and data_type = 'USER-DEFINED') then
-     alter table public.profiles alter column role type text using role::text;
-  end if;
-end $$;
-
--- 4. Tabela de Convites (Pré-registo)
-create table if not exists public.user_invites (
-   email text primary key,
-   role text references public.roles(name) default 'aluno',
-   created_at timestamptz default now()
-);
+create table if not exists public.user_invites (email text primary key, role text, created_at timestamptz default now());
 alter table public.user_invites enable row level security;
-
 drop policy if exists "Admin Manage Invites" on public.user_invites;
-
--- CORREÇÃO AQUI: id::text = auth.uid()::text
-create policy "Admin Manage Invites" on public.user_invites for all using (
-  exists (select 1 from public.profiles where id::text = auth.uid()::text and role = 'admin')
-);
-
--- 5. Atualizar Trigger de Novos Utilizadores
-create or replace function public.handle_new_user() 
-returns trigger as $$
-declare
-  invited_role text;
-begin
-  -- Verifica se existe um convite para este email
-  select role into invited_role from public.user_invites where email = new.email;
-
-  insert into public.profiles (id, email, full_name, role)
-  values (
-    new.id, 
-    new.email, 
-    new.raw_user_meta_data->>'full_name',
-    case 
-      when new.email = 'edutechpt@hotmail.com' then 'admin' 
-      when invited_role is not null then invited_role
-      else 'aluno'
-    end
-  );
-
-  -- Se foi usado um convite, apagar
-  if invited_role is not null then
-      delete from public.user_invites where email = new.email;
-  end if;
-
-  return new;
-end;
-$$ language plpgsql security definer;
+create policy "Admin Manage Invites" on public.user_invites for all using (exists (select 1 from public.profiles where id::text = auth.uid()::text and role = 'admin'));
 `;
 
   const copyToClipboard = async () => {
@@ -322,14 +353,8 @@ $$ language plpgsql security definer;
                         <div>
                             <p className="font-bold text-lg">⚠️ AÇÃO CRÍTICA NECESSÁRIA</p>
                             <p>A versão da Base de Dados ({currentDbVersion}) não corresponde à versão do Site ({SQL_VERSION}).</p>
-                            <p className="text-sm mt-1">Funcionalidades como gestão de cargos e utilizadores podem falhar.</p>
                         </div>
-                        <button 
-                            onClick={() => { setCurrentView('settings'); setSettingsTab('sql'); }}
-                            className="bg-red-600 text-white px-4 py-2 rounded font-bold hover:bg-red-700"
-                        >
-                            Atualizar Base de Dados Agora
-                        </button>
+                        <button onClick={() => { setCurrentView('settings'); setSettingsTab('sql'); }} className="bg-red-600 text-white px-4 py-2 rounded font-bold hover:bg-red-700">Atualizar Agora</button>
                     </div>
                 </div>
             )}
@@ -345,31 +370,126 @@ $$ language plpgsql security definer;
           </div>
         );
 
+      case 'my_profile':
+          return (
+              <GlassCard className="max-w-2xl">
+                  <h2 className="text-2xl font-bold text-indigo-900 mb-6">Meu Perfil</h2>
+                  <form onSubmit={handleUpdateMyProfile} className="space-y-6">
+                      <div className="flex items-center gap-6 mb-6">
+                          <div className="w-24 h-24 rounded-full bg-indigo-200 flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
+                              {myAvatarUrl ? (
+                                  <img src={myAvatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                              ) : (
+                                  <span className="text-3xl font-bold text-indigo-700">{profile.full_name?.[0]?.toUpperCase() || 'U'}</span>
+                              )}
+                          </div>
+                          <div>
+                              <p className="text-sm text-indigo-600 font-bold uppercase tracking-wider">{profile.role}</p>
+                              <p className="text-indigo-900 opacity-70">{profile.email}</p>
+                          </div>
+                      </div>
+
+                      <div>
+                          <label className="block text-sm font-medium text-indigo-900 mb-1">Nome Completo</label>
+                          <input 
+                            type="text" 
+                            value={myFullName} 
+                            onChange={(e) => setMyFullName(e.target.value)} 
+                            className="w-full bg-white/40 border border-white/50 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                          />
+                      </div>
+                      
+                      <div>
+                          <label className="block text-sm font-medium text-indigo-900 mb-1">URL da Imagem de Avatar</label>
+                          <input 
+                            type="text" 
+                            value={myAvatarUrl} 
+                            onChange={(e) => setMyAvatarUrl(e.target.value)} 
+                            className="w-full bg-white/40 border border-white/50 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-mono"
+                            placeholder="https://exemplo.com/foto.jpg"
+                          />
+                      </div>
+
+                      <div className="pt-4">
+                          <button type="submit" className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-all">
+                              Guardar Alterações
+                          </button>
+                      </div>
+                  </form>
+              </GlassCard>
+          );
+
       case 'users':
           return (
             <div className="space-y-6">
                  <div className="flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-indigo-900">Gestão de Utilizadores</h2>
                     <div className="flex gap-2">
+                        {selectedUserIds.length > 0 && (
+                            <button 
+                                onClick={() => handleDeleteUsers(selectedUserIds)} 
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold shadow-lg animate-in fade-in"
+                            >
+                                Eliminar ({selectedUserIds.length})
+                            </button>
+                        )}
                         <button onClick={() => setShowBulkModal(true)} className="px-4 py-2 bg-white/50 text-indigo-800 rounded-lg hover:bg-white/70 font-medium">Importar em Massa</button>
                         <button onClick={() => setShowInviteModal(true)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold shadow-lg">Adicionar Utilizador</button>
                     </div>
                  </div>
 
-                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <GlassCard>
+                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <GlassCard className="col-span-2">
                         <h3 className="font-bold text-indigo-900 mb-4 border-b border-indigo-200 pb-2">Utilizadores Ativos ({usersList.length})</h3>
-                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                        <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
                             <table className="w-full text-sm">
-                                <thead className="text-left text-indigo-500">
-                                    <tr><th>Nome</th><th>Email</th><th>Cargo</th></tr>
+                                <thead className="text-left text-indigo-500 sticky top-0 bg-white/80 backdrop-blur-sm z-10">
+                                    <tr>
+                                        <th className="py-2 pl-2 w-10">
+                                            <input 
+                                                type="checkbox" 
+                                                onChange={(e) => {
+                                                    if (e.target.checked) setSelectedUserIds(usersList.map(u => u.id));
+                                                    else setSelectedUserIds([]);
+                                                }}
+                                                checked={selectedUserIds.length === usersList.length && usersList.length > 0}
+                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                        </th>
+                                        <th>Nome</th>
+                                        <th>Email</th>
+                                        <th>Cargo</th>
+                                        <th className="text-right pr-2">Ações</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
                                     {usersList.map(u => (
-                                        <tr key={u.id} className="border-b border-indigo-50 hover:bg-white/30">
-                                            <td className="py-2">{u.full_name || '-'}</td>
-                                            <td className="py-2 opacity-70">{u.email}</td>
-                                            <td className="py-2"><span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded text-xs uppercase font-bold">{u.role}</span></td>
+                                        <tr key={u.id} className={`border-b border-indigo-50 hover:bg-white/30 transition-colors ${selectedUserIds.includes(u.id) ? 'bg-indigo-50/50' : ''}`}>
+                                            <td className="py-3 pl-2">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={selectedUserIds.includes(u.id)}
+                                                    onChange={() => toggleUserSelection(u.id)}
+                                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                            </td>
+                                            <td className="py-3 font-medium text-indigo-900">{u.full_name || '-'}</td>
+                                            <td className="py-3 opacity-70">{u.email}</td>
+                                            <td className="py-3"><span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded text-xs uppercase font-bold">{u.role}</span></td>
+                                            <td className="py-3 text-right pr-2 flex justify-end gap-2">
+                                                <button 
+                                                    onClick={() => { setEditingUser(u); setShowEditUserModal(true); }}
+                                                    className="p-1.5 text-indigo-600 hover:bg-indigo-100 rounded" title="Editar"
+                                                >
+                                                    ✏️
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeleteUsers([u.id])}
+                                                    className="p-1.5 text-red-600 hover:bg-red-100 rounded" title="Eliminar"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -379,13 +499,13 @@ $$ language plpgsql security definer;
 
                     <GlassCard>
                         <h3 className="font-bold text-indigo-900 mb-4 border-b border-indigo-200 pb-2">Convites Pendentes ({invitesList.length})</h3>
-                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                        <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
                              {invitesList.length === 0 ? (
                                  <p className="text-indigo-400 text-center py-4">Sem convites pendentes.</p>
                              ) : (
                                 <table className="w-full text-sm">
                                     <thead className="text-left text-indigo-500">
-                                        <tr><th>Email</th><th>Cargo Atribuído</th></tr>
+                                        <tr><th>Email</th><th>Cargo</th></tr>
                                     </thead>
                                     <tbody>
                                         {invitesList.map(i => (
@@ -398,11 +518,10 @@ $$ language plpgsql security definer;
                                 </table>
                              )}
                         </div>
-                        <p className="text-xs text-indigo-500 mt-2 italic">Estes utilizadores receberão o cargo automaticamente ao fazerem o primeiro login.</p>
                     </GlassCard>
                  </div>
 
-                 {/* Modals */}
+                 {/* Modal Invite */}
                  {showInviteModal && (
                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/40 backdrop-blur-sm p-4">
                          <GlassCard className="w-full max-w-md">
@@ -427,16 +546,17 @@ $$ language plpgsql security definer;
                      </div>
                  )}
 
+                 {/* Modal Bulk Invite */}
                 {showBulkModal && (
                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/40 backdrop-blur-sm p-4">
                          <GlassCard className="w-full max-w-md">
                              <h3 className="font-bold text-xl mb-2 text-indigo-900">Importação em Massa</h3>
-                             <p className="text-sm text-indigo-600 mb-4">Cole os emails abaixo (um por linha). Todos terão o cargo selecionado.</p>
+                             <p className="text-sm text-indigo-600 mb-4">Cole os emails abaixo (um por linha).</p>
                              <div className="space-y-4">
                                  <textarea 
                                     rows={6}
                                     className="w-full p-2 rounded bg-white/50 border border-white/60 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    placeholder="user1@exemplo.com&#10;user2@exemplo.com"
+                                    placeholder="user@exemplo.com"
                                     value={bulkEmails}
                                     onChange={e => setBulkEmails(e.target.value)}
                                  ></textarea>
@@ -451,6 +571,43 @@ $$ language plpgsql security definer;
                                      <button onClick={onBulkInvite} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Processar</button>
                                  </div>
                              </div>
+                         </GlassCard>
+                     </div>
+                 )}
+
+                 {/* Modal Edit User (Admin) */}
+                 {showEditUserModal && editingUser && (
+                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/40 backdrop-blur-sm p-4">
+                         <GlassCard className="w-full max-w-md">
+                             <h3 className="font-bold text-xl mb-4 text-indigo-900">Editar Utilizador</h3>
+                             <form onSubmit={handleAdminUpdateUser} className="space-y-4">
+                                 <div className="p-3 bg-white/40 rounded mb-4 text-sm text-indigo-800">
+                                     Editando: <span className="font-mono font-bold">{editingUser.email}</span>
+                                 </div>
+                                 <div>
+                                     <label className="block text-sm mb-1">Nome Completo</label>
+                                     <input 
+                                        type="text" 
+                                        value={editingUser.full_name || ''} 
+                                        onChange={e => setEditingUser({...editingUser, full_name: e.target.value})} 
+                                        className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                     />
+                                 </div>
+                                 <div>
+                                     <label className="block text-sm mb-1">Cargo</label>
+                                     <select 
+                                        value={editingUser.role as string} 
+                                        onChange={e => setEditingUser({...editingUser, role: e.target.value})} 
+                                        className="w-full p-2 rounded bg-white/50 border border-white/60 outline-none"
+                                     >
+                                         {availableRoles.map(r => <option key={r.name} value={r.name}>{r.name.toUpperCase()}</option>)}
+                                     </select>
+                                 </div>
+                                 <div className="flex justify-end gap-2 mt-6">
+                                     <button type="button" onClick={() => { setShowEditUserModal(false); setEditingUser(null); }} className="px-4 py-2 text-indigo-800">Cancelar</button>
+                                     <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Guardar</button>
+                                 </div>
+                             </form>
                          </GlassCard>
                      </div>
                  )}
@@ -496,9 +653,7 @@ $$ language plpgsql security definer;
                                    />
                                    <button onClick={handleCreateRole} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-bold">Criar</button>
                                </div>
-                               <p className="text-xs text-indigo-500 mt-2">Nota: Novos cargos podem precisar de configuração de permissões adicionais.</p>
                            </GlassCard>
-
                            <GlassCard>
                                <h3 className="font-bold text-indigo-900 mb-2">Cargos Existentes</h3>
                                <div className="flex flex-wrap gap-2">
@@ -516,12 +671,7 @@ $$ language plpgsql security definer;
                       <GlassCard className="flex-1 flex flex-col min-h-[500px]">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-xl font-bold text-indigo-900">Script de Atualização - {SQL_VERSION}</h2>
-                            <button 
-                                onClick={copyToClipboard}
-                                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all shadow-md ${copySuccess ? 'bg-green-500 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:-translate-y-0.5'}`}
-                            >
-                                {copySuccess || 'Copiar Código'}
-                            </button>
+                            <button onClick={copyToClipboard} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all shadow-md ${copySuccess ? 'bg-green-500 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:-translate-y-0.5'}`}>{copySuccess || 'Copiar Código'}</button>
                         </div>
                         <div className="relative bg-gray-900 rounded-lg shadow-inner overflow-hidden flex-1">
                             <div className="absolute inset-0 overflow-auto p-4 custom-scrollbar">
@@ -559,7 +709,13 @@ $$ language plpgsql security definer;
       <main className="flex-1 p-8 overflow-y-auto max-h-screen">
         <header className="mb-8 flex justify-between items-center">
              <h1 className="text-3xl font-bold text-indigo-900/90 capitalize">{currentView.replace('_', ' ')}</h1>
-             <div className="w-10 h-10 rounded-full bg-indigo-200 flex items-center justify-center text-indigo-700 font-bold border-2 border-white/50">{profile.full_name ? profile.full_name[0].toUpperCase() : 'U'}</div>
+             <div className="w-10 h-10 rounded-full bg-indigo-200 flex items-center justify-center text-indigo-700 font-bold border-2 border-white/50 overflow-hidden">
+                {profile.avatar_url ? (
+                    <img src={profile.avatar_url} alt="User" className="w-full h-full object-cover" />
+                ) : (
+                    <span>{profile.full_name ? profile.full_name[0].toUpperCase() : 'U'}</span>
+                )}
+             </div>
         </header>
         {renderContent()}
       </main>
