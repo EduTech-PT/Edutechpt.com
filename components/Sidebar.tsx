@@ -3,7 +3,7 @@ import { UserRole } from '../types';
 import { GlassCard } from './GlassCard';
 
 interface SidebarProps {
-  role: UserRole;
+  role: string;
   currentView: string;
   setView: (view: string) => void;
   onLogout: () => void;
@@ -17,10 +17,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ role, currentView, setView, on
     { id: 'manage_courses', label: 'Gerir Cursos', roles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
     { id: 'users', label: 'Utilizadores', roles: [UserRole.ADMIN] },
     { id: 'settings', label: 'Definições', roles: [UserRole.ADMIN] },
-    { id: 'sql_setup', label: 'Setup SQL', roles: [UserRole.ADMIN] }, // Helper for setup
   ];
 
-  const visibleItems = menuItems.filter(item => item.roles.includes(role));
+  // Helper simples para verificar permissões, já que role agora é string
+  const hasAccess = (allowedRoles: string[]) => {
+    // Se o user for admin, tem acesso a quase tudo (exceto coisas exclusivas de aluno se houver)
+    if (role === UserRole.ADMIN) return true;
+    return allowedRoles.includes(role);
+  }
+
+  const visibleItems = menuItems.filter(item => hasAccess(item.roles));
 
   return (
     <GlassCard className="h-full flex flex-col justify-between w-64 rounded-none rounded-r-2xl border-l-0 min-h-[80vh]">

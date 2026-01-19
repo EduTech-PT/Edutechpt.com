@@ -1,15 +1,18 @@
-export enum UserRole {
-  ADMIN = 'admin',
-  EDITOR = 'editor',
-  TRAINER = 'formador',
-  STUDENT = 'aluno'
-}
+// Alterado de Enum para objeto para suportar strings dinâmicas da DB enquanto mantém compatibilidade de código
+export const UserRole = {
+  ADMIN: 'admin',
+  EDITOR: 'editor',
+  TRAINER: 'formador',
+  STUDENT: 'aluno'
+} as const;
+
+export type UserRoleType = typeof UserRole[keyof typeof UserRole] | string;
 
 export interface Profile {
   id: string;
   email: string;
   full_name: string | null;
-  role: UserRole;
+  role: UserRoleType;
   created_at: string;
   avatar_url?: string;
 }
@@ -36,4 +39,16 @@ export interface SupabaseSession {
     email?: string;
   } | null;
   access_token: string;
+}
+
+export interface RoleDefinition {
+  name: string;
+  description?: string;
+  permissions?: any;
+}
+
+export interface UserInvite {
+  email: string;
+  role: string;
+  created_at: string;
 }
