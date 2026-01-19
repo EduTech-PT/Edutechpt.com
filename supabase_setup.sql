@@ -1,7 +1,7 @@
 
--- SCRIPT MESTRE DE SETUP TOTAL (v1.1.5)
+-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.6)
 -- Copie TODO este código e execute no SQL Editor do Supabase.
--- Este script resolve o erro de dependência de políticas (ERROR: 0A000).
+-- Este script resolve dependências cruzadas de RLS (ERROR: 0A000 em tabelas estrangeiras).
 
 -- 1. Tabela de Configuração e Versão
 create table if not exists public.app_config (key text primary key, value text);
@@ -10,8 +10,8 @@ drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
 
 -- Atualiza a versão do SQL
-insert into public.app_config (key, value) values ('sql_version', 'v1.1.5')
-on conflict (key) do update set value = 'v1.1.5';
+insert into public.app_config (key, value) values ('sql_version', 'v1.1.6')
+on conflict (key) do update set value = 'v1.1.6';
 
 -- 2. Garantir que o ENUM existe
 do $$ 
@@ -21,7 +21,7 @@ begin
   end if;
 end $$;
 
--- 3. Tabela de Perfis (Profiles)
+-- 3. Tabela de Perfis (Profiles) - Criação Básica
 create table if not exists public.profiles (
   id uuid references auth.users not null primary key,
   email text,
@@ -31,14 +31,46 @@ create table if not exists public.profiles (
   avatar_url text
 );
 
--- CRÍTICO: Apagar políticas ANTES de tentar alterar o tipo da coluna
--- Isto resolve o erro: "cannot alter type of a column used in a policy definition"
+-- Tabela de Cursos (Necessária para o drop policy funcionar abaixo caso tabela não exista)
+create table if not exists public.courses (
+  id uuid default gen_random_uuid() primary key,
+  title text not null,
+  description text,
+  instructor_id uuid references public.profiles(id),
+  level text check (level in ('iniciante', 'intermedio', 'avancado')),
+  image_url text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Tabela de Convites
+create table if not exists public.user_invites (
+  email text primary key,
+  role text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- =================================================================================
+-- ZONA DE SEGURANÇA: REMOÇÃO TOTAL DE DEPENDÊNCIAS
+-- Removemos TODAS as políticas que possam ler 'public.profiles.role'
+-- =================================================================================
+
+-- Dependências na tabela COURSES
+drop policy if exists "Courses are viewable by everyone" on public.courses;
+drop policy if exists "Staff can manage courses" on public.courses;
+drop policy if exists "Admins and Trainers can manage courses" on public.courses; -- Nome antigo que causou erro
+
+-- Dependências na tabela USER_INVITES
+drop policy if exists "Admins manage invites" on public.user_invites;
+
+-- Dependências na tabela PROFILES
 drop policy if exists "Public Profiles Access" on public.profiles;
 drop policy if exists "Users can update own profile" on public.profiles;
 drop policy if exists "Admins can update any profile" on public.profiles;
 drop policy if exists "Admins can delete any profile" on public.profiles;
 
--- AUTO-CORREÇÃO: Trata a conversão Text -> Enum
+-- =================================================================================
+-- ALTERAÇÃO DE TIPO (Agora segura)
+-- =================================================================================
 do $$ 
 begin 
     -- Verifica se a coluna ainda é TEXT
@@ -53,7 +85,7 @@ begin
         -- 1. Remove o valor padrão antigo
         alter table public.profiles alter column role drop default;
         
-        -- 2. Converte a coluna para o tipo correto (agora seguro sem políticas ativas)
+        -- 2. Converte a coluna para o tipo correto
         alter table public.profiles 
         alter column role type public.app_role 
         using role::text::public.app_role;
@@ -63,9 +95,12 @@ begin
     end if;
 end $$;
 
-alter table public.profiles enable row level security;
+-- =================================================================================
+-- RECRIAÇÃO DAS POLÍTICAS E ESTRUTURAS
+-- =================================================================================
 
--- Recria as Políticas de Segurança (RLS)
+-- Profiles RLS
+alter table public.profiles enable row level security;
 create policy "Public Profiles Access" on public.profiles for select using (true);
 
 create policy "Users can update own profile" on public.profiles 
@@ -80,7 +115,7 @@ for delete using (
   exists (select 1 from public.profiles where id::text = auth.uid()::text and role::text = 'admin')
 );
 
--- 4. Tabela de Roles Dinâmicos (UI)
+-- Roles UI Table
 create table if not exists public.roles (
   name text primary key,
   description text
@@ -93,19 +128,24 @@ insert into public.roles (name) values
 ('admin'), ('editor'), ('formador'), ('aluno')
 on conflict do nothing;
 
--- 5. Tabela de Convites (Invites)
-create table if not exists public.user_invites (
-  email text primary key,
-  role text not null,
-  created_at timestamp with time zone default timezone('utc'::text, now())
-);
+-- Invites RLS
 alter table public.user_invites enable row level security;
-drop policy if exists "Admins manage invites" on public.user_invites;
 create policy "Admins manage invites" on public.user_invites for all using (
   exists (select 1 from public.profiles where id::text = auth.uid()::text and role::text = 'admin')
 );
 
--- 6. Trigger para Novos Utilizadores
+-- Courses RLS
+alter table public.courses enable row level security;
+create policy "Courses are viewable by everyone" on public.courses for select using (true);
+create policy "Staff can manage courses" on public.courses for all using (
+  exists (
+    select 1 from public.profiles
+    where id::text = auth.uid()::text
+    and role::text in ('admin', 'editor', 'formador')
+  )
+);
+
+-- Triggers
 create or replace function public.handle_new_user() 
 returns trigger as $$
 begin
@@ -128,30 +168,7 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 7. Tabela de Cursos
-create table if not exists public.courses (
-  id uuid default gen_random_uuid() primary key,
-  title text not null,
-  description text,
-  instructor_id uuid references public.profiles(id),
-  level text check (level in ('iniciante', 'intermedio', 'avancado')),
-  image_url text,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-alter table public.courses enable row level security;
-drop policy if exists "Courses are viewable by everyone" on public.courses;
-drop policy if exists "Staff can manage courses" on public.courses;
-
-create policy "Courses are viewable by everyone" on public.courses for select using (true);
-create policy "Staff can manage courses" on public.courses for all using (
-  exists (
-    select 1 from public.profiles
-    where id::text = auth.uid()::text
-    and role::text in ('admin', 'editor', 'formador')
-  )
-);
-
--- 8. FORÇAR ADMIN
+-- Forçar Admin
 UPDATE public.profiles 
 SET role = 'admin'::public.app_role 
 WHERE email = 'edutechpt@hotmail.com';
