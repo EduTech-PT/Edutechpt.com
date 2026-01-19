@@ -1,7 +1,7 @@
 
--- SCRIPT MESTRE DE SETUP TOTAL (v1.1.10)
+-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.11)
 -- Copie TODO este código e execute no SQL Editor do Supabase.
--- Este script resolve dependências persistentes de RLS (ERROR: 0A000).
+-- Este script resolve erros de conversão de tipos (ERROR: 42883) removendo dinamicamente todas as políticas.
 
 -- 1. Tabela de Configuração e Versão
 create table if not exists public.app_config (key text primary key, value text);
@@ -10,8 +10,8 @@ drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
 
 -- Atualiza a versão do SQL
-insert into public.app_config (key, value) values ('sql_version', 'v1.1.10')
-on conflict (key) do update set value = 'v1.1.10';
+insert into public.app_config (key, value) values ('sql_version', 'v1.1.11')
+on conflict (key) do update set value = 'v1.1.11';
 
 -- 2. Garantir que o ENUM existe
 do $$ 
@@ -21,7 +21,7 @@ begin
   end if;
 end $$;
 
--- 3. Tabela de Perfis (Profiles) - Criação Básica
+-- 3. Criação de Tabelas (se não existirem)
 create table if not exists public.profiles (
   id uuid references auth.users not null primary key,
   email text,
@@ -31,7 +31,6 @@ create table if not exists public.profiles (
   avatar_url text
 );
 
--- Tabela de Cursos
 create table if not exists public.courses (
   id uuid default gen_random_uuid() primary key,
   title text not null,
@@ -42,64 +41,41 @@ create table if not exists public.courses (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Tabela de Convites
 create table if not exists public.user_invites (
   email text primary key,
   role text not null,
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- Tabela de Roles (Garante existência para o drop policy abaixo funcionar)
 create table if not exists public.roles (
   name text primary key,
   description text
 );
 
 -- =================================================================================
--- ZONA DE SEGURANÇA: LIMPEZA AGRESSIVA DE DEPENDÊNCIAS
--- Removemos TODAS as políticas conhecidas e possíveis variantes em TODAS as tabelas
+-- LIMPEZA DINÂMICA DE POLÍTICAS (SOLUÇÃO FINAL PARA RLS ERROR)
+-- Varre o sistema e apaga todas as políticas das tabelas listadas para permitir alteração de tipos
 -- =================================================================================
-
--- Dependências na tabela COURSES
-drop policy if exists "Courses are viewable by everyone" on public.courses;
-drop policy if exists "Staff can manage courses" on public.courses;
-drop policy if exists "Admins and Trainers can manage courses" on public.courses;
-drop policy if exists "Staff can create courses" on public.courses;
-drop policy if exists "Staff can update courses" on public.courses;
-drop policy if exists "Staff can delete courses" on public.courses;
-drop policy if exists "Enable read access for all users" on public.courses;
-drop policy if exists "Enable insert for staff" on public.courses;
-drop policy if exists "Enable update for staff" on public.courses;
-drop policy if exists "Enable delete for staff" on public.courses;
-
--- Dependências na tabela USER_INVITES (Culpado do erro 0A000 atual)
-drop policy if exists "Admins manage invites" on public.user_invites;
-drop policy if exists "Admin Manage Invites" on public.user_invites; -- NEW: Matches error
-drop policy if exists "Admins can manage invites" on public.user_invites;
-drop policy if exists "Admins can insert invites" on public.user_invites;
-drop policy if exists "Admins can update invites" on public.user_invites;
-drop policy if exists "Admins can delete invites" on public.user_invites;
-
--- Dependências na tabela ROLES
-drop policy if exists "Read Roles" on public.roles;
-drop policy if exists "Admin Manage Roles" on public.roles;
-drop policy if exists "Admins can manage roles" on public.roles;
-drop policy if exists "Admins can insert roles" on public.roles;
-drop policy if exists "Admins can update roles" on public.roles;
-
--- Dependências na tabela PROFILES
-drop policy if exists "Public Profiles Access" on public.profiles;
-drop policy if exists "Users can update own profile" on public.profiles;
-drop policy if exists "Admins can update any profile" on public.profiles;
-drop policy if exists "Admins can delete any profile" on public.profiles;
-drop policy if exists "Public profiles are viewable by everyone" on public.profiles;
+do $$
+declare
+  pol record;
+begin
+  for pol in 
+    select policyname, tablename 
+    from pg_policies 
+    where schemaname = 'public' 
+    and tablename in ('profiles', 'courses', 'user_invites', 'roles')
+  loop
+    execute format('drop policy if exists %I on public.%I', pol.policyname, pol.tablename);
+  end loop;
+end $$;
 
 -- =================================================================================
--- ALTERAÇÃO DE TIPO (Agora segura)
+-- ALTERAÇÃO DE TIPO SEGURA (SAFE TYPE ALTERATION)
 -- =================================================================================
 do $$ 
 begin 
-    -- Verifica se a coluna ainda é TEXT
+    -- Verifica se a coluna ainda é TEXT antes de tentar converter
     if exists (
         select 1 
         from information_schema.columns 
@@ -108,21 +84,24 @@ begin
         and column_name = 'role' 
         and data_type = 'text'
     ) then
-        -- 1. Remove o valor padrão antigo
+        -- 1. Remove dependências de Default
         alter table public.profiles alter column role drop default;
         
-        -- 2. Converte a coluna para o tipo correto
+        -- 2. Converte usando cast explícito
+        -- Nota: O cast para ::text primeiro garante compatibilidade se houver lixo, 
+        -- depois para ::public.app_role
         alter table public.profiles 
         alter column role type public.app_role 
         using role::text::public.app_role;
         
-        -- 3. Reaplica o valor padrão correto
+        -- 3. Reaplica o Default correto com o novo tipo
         alter table public.profiles alter column role set default 'aluno'::public.app_role;
     end if;
 end $$;
 
 -- =================================================================================
--- RECRIAÇÃO DAS POLÍTICAS E ESTRUTURAS
+-- RECRIAÇÃO DAS POLÍTICAS (COM CASTING EXPLÍCITO)
+-- Usamos role::text para evitar erros futuros de comparação Enum vs String
 -- =================================================================================
 
 -- Profiles RLS
@@ -148,6 +127,7 @@ create policy "Admin Manage Roles" on public.roles for all using (
   exists (select 1 from public.profiles where id::text = auth.uid()::text and role::text = 'admin')
 );
 
+-- Popular Roles se vazio
 insert into public.roles (name) values 
 ('admin'), ('editor'), ('formador'), ('aluno')
 on conflict do nothing;
@@ -192,7 +172,7 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- Forçar Admin
+-- Forçar Admin (Garante consistência de tipo)
 UPDATE public.profiles 
 SET role = 'admin'::public.app_role 
 WHERE email = 'edutechpt@hotmail.com';
