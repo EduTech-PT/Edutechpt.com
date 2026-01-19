@@ -445,11 +445,14 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
   
   if (!profile) return (
       <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-indigo-50">
-          <GlassCard className="text-center max-w-md">
-              <h2 className="text-xl font-bold text-red-600 mb-2">Perfil não encontrado</h2>
-              <p className="text-indigo-800 mb-4">A sua conta de utilizador foi criada, mas o perfil na base de dados falhou.</p>
-              <p className="text-sm opacity-70 mb-4">Isto acontece geralmente quando o Trigger SQL não existe ou tem erros.</p>
-              <button onClick={onLogout} className="px-4 py-2 bg-indigo-600 text-white rounded-lg">Terminar Sessão</button>
+          <GlassCard className="text-center max-w-lg">
+              <h2 className="text-2xl font-bold text-red-600 mb-4">Acesso não autorizado para este e-mail</h2>
+              <p className="text-indigo-900 mb-6 text-lg leading-relaxed">
+                  Caso necessite de utilizar a plataforma, submeta o seu pedido através do <span className="font-bold text-indigo-700 underline cursor-pointer">[Formulário de Solicitação de Acesso]</span>.
+              </p>
+              <button onClick={onLogout} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-all">
+                  Voltar
+              </button>
           </GlassCard>
       </div>
   );
