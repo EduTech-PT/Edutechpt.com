@@ -67,9 +67,10 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel }) => {
 
       if (provider === 'azure') {
         // 'common' endpoint requer scopes específicos para funcionar bem com contas pessoais e profissionais misturadas
+        // prompt='select_account' obriga a Microsoft a mostrar o ecrã de escolha de utilizador
         options.scopes = 'openid profile email offline_access'; 
         options.queryParams = {
-          prompt: 'select_account', // Garante que o utilizador pode escolher entre conta Pessoal ou de Trabalho
+          prompt: 'select_account', 
         };
       }
 

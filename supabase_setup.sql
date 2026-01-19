@@ -1,17 +1,19 @@
 
--- SCRIPT DE RECUPERAÇÃO E SETUP TOTAL (v1.1.1)
--- Copie e execute este script no SQL Editor do Supabase para corrigir todos os problemas de base de dados.
+-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.2)
+-- Copie TODO este código e execute no SQL Editor do Supabase.
+-- Este script é idempotente: pode ser corrido várias vezes sem causar erros.
 
--- 1. Tabela de Configuração (Para o site saber a versão da DB)
+-- 1. Tabela de Configuração e Versão
 create table if not exists public.app_config (key text primary key, value text);
 alter table public.app_config enable row level security;
 drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
 
-insert into public.app_config (key, value) values ('sql_version', 'v1.1.1')
-on conflict (key) do update set value = 'v1.1.1';
+-- Atualiza a versão do SQL
+insert into public.app_config (key, value) values ('sql_version', 'v1.1.2')
+on conflict (key) do update set value = 'v1.1.2';
 
--- 2. Garantir que o ENUM existe
+-- 2. Garantir que o ENUM existe (Gestão de Cargos)
 do $$ 
 begin 
   if not exists (select 1 from pg_type where typname = 'app_role') then
@@ -31,7 +33,7 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
--- Políticas de Segurança (RLS) para Perfis
+-- Políticas de Segurança (RLS) para Perfis - Apaga e recria para garantir que estão atualizadas
 drop policy if exists "Public Profiles Access" on public.profiles;
 drop policy if exists "Users can update own profile" on public.profiles;
 drop policy if exists "Admins can update any profile" on public.profiles;
@@ -51,7 +53,7 @@ for delete using (
   exists (select 1 from public.profiles where id::text = auth.uid()::text and role = 'admin'::public.app_role)
 );
 
--- 4. Tabela de Roles (Cargos) - Necessária para o formulário de convites
+-- 4. Tabela de Roles Dinâmicos (UI)
 create table if not exists public.roles (
   name text primary key,
   description text
@@ -60,12 +62,12 @@ alter table public.roles enable row level security;
 drop policy if exists "Read Roles" on public.roles;
 create policy "Read Roles" on public.roles for select using (true);
 
--- Inserir cargos padrão se não existirem
+-- Inserir cargos padrão
 insert into public.roles (name) values 
 ('admin'), ('editor'), ('formador'), ('aluno')
 on conflict do nothing;
 
--- 5. Tabela de Convites
+-- 5. Tabela de Convites (Invites)
 create table if not exists public.user_invites (
   email text primary key,
   role text not null,
@@ -77,7 +79,7 @@ create policy "Admins manage invites" on public.user_invites for all using (
   exists (select 1 from public.profiles where id::text = auth.uid()::text and role = 'admin'::public.app_role)
 );
 
--- 6. Trigger Automático para Novos Utilizadores
+-- 6. Trigger para Novos Utilizadores (Preenche profiles automaticamente)
 create or replace function public.handle_new_user() 
 returns trigger as $$
 begin
@@ -95,12 +97,13 @@ begin
 end;
 $$ language plpgsql security definer;
 
+-- Remove e recria o trigger para garantir funcionamento
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 7. Tabela de Cursos (Garantir existência)
+-- 7. Tabela de Cursos
 create table if not exists public.courses (
   id uuid default gen_random_uuid() primary key,
   title text not null,
@@ -112,7 +115,7 @@ create table if not exists public.courses (
 );
 alter table public.courses enable row level security;
 drop policy if exists "Courses are viewable by everyone" on public.courses;
-drop policy if exists "Staff can create courses" on public.courses;
+drop policy if exists "Staff can manage courses" on public.courses;
 
 create policy "Courses are viewable by everyone" on public.courses for select using (true);
 create policy "Staff can manage courses" on public.courses for all using (
@@ -123,8 +126,7 @@ create policy "Staff can manage courses" on public.courses for all using (
   )
 );
 
--- 8. FORÇAR ADMIN AGORA (Correção de Emergência)
--- Isto garante que o seu email fica como admin imediatamente, mesmo que já esteja registado
+-- 8. FORÇAR ADMIN (Garante que a sua conta tem permissões)
 UPDATE public.profiles 
 SET role = 'admin'::public.app_role 
 WHERE email = 'edutechpt@hotmail.com';
