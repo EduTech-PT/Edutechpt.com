@@ -206,8 +206,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       }
   };
 
-  const sqlCodeString = `-- ATUALIZAÇÃO v1.0.7 (Executar Obrigatoriamente)
--- Este script migra o sistema para suportar versionamento e cargos dinâmicos
+  const sqlCodeString = `-- ATUALIZAÇÃO v1.0.8 (Correção de Tipos e Políticas)
+-- Execute este script completo para corrigir o erro 'operator does not exist: text = uuid'
 
 -- 1. Tabela de Configuração e Versão
 create table if not exists public.app_config (
@@ -215,7 +215,9 @@ create table if not exists public.app_config (
    value text
 );
 alter table public.app_config enable row level security;
+drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
+
 -- Atualizar versão
 insert into public.app_config (key, value) values ('sql_version', '${SQL_VERSION}')
 on conflict (key) do update set value = '${SQL_VERSION}';
@@ -228,9 +230,14 @@ create table if not exists public.roles (
   created_at timestamptz default now()
 );
 alter table public.roles enable row level security;
+
+drop policy if exists "Read Roles" on public.roles;
+drop policy if exists "Admin Manage Roles" on public.roles;
+
 create policy "Read Roles" on public.roles for select using (true);
+-- CORREÇÃO AQUI: id::text = auth.uid()::text
 create policy "Admin Manage Roles" on public.roles for all using (
-  exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  exists (select 1 from public.profiles where id::text = auth.uid()::text and role = 'admin')
 );
 
 -- Inserir cargos padrão
@@ -239,7 +246,6 @@ insert into public.roles (name) values
 on conflict (name) do nothing;
 
 -- 3. Migrar Perfis para usar TEXT em vez de ENUM
--- Isto permite adicionar novos cargos sem alterar a estrutura da DB profundamente
 do $$
 begin
   -- Se a coluna ainda for enum, convertemos para text
@@ -248,9 +254,6 @@ begin
   end if;
 end $$;
 
--- Garantir integridade referencial (Opcional, mas recomendado se a tabela roles já estiver populada)
--- alter table public.profiles add constraint fk_role foreign key (role) references public.roles(name);
-
 -- 4. Tabela de Convites (Pré-registo)
 create table if not exists public.user_invites (
    email text primary key,
@@ -258,8 +261,12 @@ create table if not exists public.user_invites (
    created_at timestamptz default now()
 );
 alter table public.user_invites enable row level security;
+
+drop policy if exists "Admin Manage Invites" on public.user_invites;
+
+-- CORREÇÃO AQUI: id::text = auth.uid()::text
 create policy "Admin Manage Invites" on public.user_invites for all using (
-  exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  exists (select 1 from public.profiles where id::text = auth.uid()::text and role = 'admin')
 );
 
 -- 5. Atualizar Trigger de Novos Utilizadores
@@ -283,7 +290,7 @@ begin
     end
   );
 
-  -- Se foi usado um convite, pode-se apagar ou marcar como usado. Aqui apagamos.
+  -- Se foi usado um convite, apagar
   if invited_role is not null then
       delete from public.user_invites where email = new.email;
   end if;
