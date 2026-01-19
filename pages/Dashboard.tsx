@@ -282,7 +282,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
-  const sqlCodeString = `-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.9)
+  const sqlCodeString = `-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.10)
 -- Copie TODO este código e execute no SQL Editor do Supabase.
 -- Este script resolve dependências persistentes de RLS (ERROR: 0A000).
 
@@ -355,11 +355,15 @@ drop policy if exists "Enable insert for staff" on public.courses;
 drop policy if exists "Enable update for staff" on public.courses;
 drop policy if exists "Enable delete for staff" on public.courses;
 
--- Dependências na tabela USER_INVITES
+-- Dependências na tabela USER_INVITES (Culpado do erro 0A000 atual)
 drop policy if exists "Admins manage invites" on public.user_invites;
+drop policy if exists "Admin Manage Invites" on public.user_invites; -- NEW: Matches error
 drop policy if exists "Admins can manage invites" on public.user_invites;
+drop policy if exists "Admins can insert invites" on public.user_invites;
+drop policy if exists "Admins can update invites" on public.user_invites;
+drop policy if exists "Admins can delete invites" on public.user_invites;
 
--- Dependências na tabela ROLES (Culpado do erro 0A000 atual)
+-- Dependências na tabela ROLES
 drop policy if exists "Read Roles" on public.roles;
 drop policy if exists "Admin Manage Roles" on public.roles;
 drop policy if exists "Admins can manage roles" on public.roles;
