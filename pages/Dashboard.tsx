@@ -294,26 +294,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
-  const sqlCodeString = `-- SCRIPT MESTRE DE CORREÇÃO E SETUP (v1.1.18)
+  const sqlCodeString = `-- SCRIPT MESTRE "BULDOGUE" (v1.1.19)
 -- Execute este script COMPLETO.
--- Estratégia: Remover obstáculos (FKs) -> Corrigir Tipos -> Atualizar Versão no final.
+-- Estratégia: Limpar dados inválidos -> Converter Tipos -> Garantir Sucesso.
 
--- 1. LIMPEZA DA CONFIGURAÇÃO (Garante que a versão antiga não persiste)
+-- 1. PREPARAR CONFIGURAÇÃO (Com estado inicial)
 drop table if exists public.app_config;
 create table public.app_config (key text primary key, value text);
 alter table public.app_config enable row level security;
 create policy "Read Config" on public.app_config for select using (true);
--- Nota: Inserimos a versão SÓ NO FINAL deste script para confirmar sucesso.
 
--- 2. GARANTIR ENUM
-do $$ 
-begin 
-  if not exists (select 1 from pg_type where typname = 'app_role') then
-    create type public.app_role as enum ('admin', 'editor', 'formador', 'aluno');
-  end if;
-end $$;
+-- Define estado temporário para sabermos se falhou a meio
+insert into public.app_config (key, value) values ('sql_version', 'v1.1.19-installing');
 
--- 3. REMOVER OBSTÁCULOS (Policies e Triggers)
+-- 2. LIMPEZA DE OBSTÁCULOS (Policies, Triggers, Functions)
 drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists public.handle_new_user();
 
@@ -326,37 +320,56 @@ begin
   end loop;
 end $$;
 
--- 4. CORREÇÃO CRÍTICA DE TIPOS (Drop FK -> Fix -> Restore FK)
+-- 3. SANITIZAÇÃO E CORREÇÃO DE TIPOS
 do $$
 begin
-  -- A. Remover a Foreign Key que bloqueia (courses -> profiles)
+  -- A. Remover a Foreign Key problemática
   if exists (select 1 from information_schema.table_constraints where constraint_name = 'courses_instructor_id_fkey') then
     alter table public.courses drop constraint courses_instructor_id_fkey;
   end if;
 
-  -- B. Corrigir PROFILES (Text -> UUID / Text -> ENUM)
+  -- B. LIMPEZA DE DADOS INVÁLIDOS (CRÍTICO!)
+  -- Se vamos converter para UUID, temos de apagar o que não é UUID.
+  if exists (select 1 from information_schema.columns where table_name='profiles' and column_name='id' and data_type='text') then
+     -- Regex simples para UUID. Apaga perfis com IDs 'teste', '123', etc.
+     delete from public.profiles where id !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  end if;
+
+  if exists (select 1 from information_schema.columns where table_name='courses' and column_name='instructor_id' and data_type='text') then
+     -- Remove cursos órfãos ou com instrutores inválidos antes de converter
+     delete from public.courses where instructor_id is not null and instructor_id !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  end if;
+
+  -- C. Corrigir PROFILES (Text -> UUID / Text -> ENUM)
   if exists (select 1 from information_schema.columns where table_name='profiles' and column_name='id' and data_type='text') then
      alter table public.profiles alter column id type uuid using id::uuid;
   end if;
   
   if exists (select 1 from information_schema.columns where table_name='profiles' and column_name='role' and data_type='text') then
+     -- Garantir ENUM
+     if not exists (select 1 from pg_type where typname = 'app_role') then
+        create type public.app_role as enum ('admin', 'editor', 'formador', 'aluno');
+     end if;
+     
      alter table public.profiles alter column role drop default;
+     -- Se houver roles inválidos, converter para 'aluno'
+     update public.profiles set role = 'aluno' where role not in ('admin', 'editor', 'formador', 'aluno');
      alter table public.profiles alter column role type public.app_role using role::text::public.app_role;
      alter table public.profiles alter column role set default 'aluno'::public.app_role;
   end if;
 
-  -- C. Corrigir COURSES (Text -> UUID)
+  -- D. Corrigir COURSES (Text -> UUID)
   if exists (select 1 from information_schema.columns where table_name='courses' and column_name='instructor_id' and data_type='text') then
      alter table public.courses alter column instructor_id type uuid using instructor_id::uuid;
   end if;
 
-  -- D. Restaurar a Foreign Key
+  -- E. Restaurar a Foreign Key
   if not exists (select 1 from information_schema.table_constraints where constraint_name = 'courses_instructor_id_fkey') then
       alter table public.courses add constraint courses_instructor_id_fkey foreign key (instructor_id) references public.profiles(id);
   end if;
 end $$;
 
--- 5. CRIAÇÃO DE TABELAS (Caso não existam)
+-- 4. CRIAÇÃO DE TABELAS (Caso não existam)
 create table if not exists public.profiles (
   id uuid references auth.users not null primary key,
   email text,
@@ -387,7 +400,7 @@ create table if not exists public.roles (
   description text
 );
 
--- 6. RECONSTRUÇÃO DA SEGURANÇA (RLS - Strict UUID Checks)
+-- 5. RECONSTRUÇÃO DA SEGURANÇA (RLS)
 alter table public.profiles enable row level security;
 create policy "Public Profiles Access" on public.profiles for select using (true);
 create policy "Users can update own profile" on public.profiles 
@@ -407,7 +420,7 @@ alter table public.courses enable row level security;
 create policy "Courses are viewable by everyone" on public.courses for select using (true);
 create policy "Staff can manage courses" on public.courses for all using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin'::public.app_role, 'editor'::public.app_role, 'formador'::public.app_role)));
 
--- 7. TRIGGER DE UTILIZADORES
+-- 6. TRIGGER DE UTILIZADORES
 create or replace function public.handle_new_user() 
 returns trigger as $$
 begin
@@ -429,12 +442,11 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 8. RESTAURAR ADMIN & VALIDAR VERSÃO
--- Se o script chegou aqui, não houve erros de tipo. Atualizamos a versão.
+-- 7. RESTAURAR ADMIN & VALIDAR VERSÃO
+-- Se chegou aqui, tudo correu bem.
 update public.profiles set role = 'admin'::public.app_role where email = 'edutechpt@hotmail.com';
 
-insert into public.app_config (key, value) values ('sql_version', '${SQL_VERSION}')
-on conflict (key) do update set value = '${SQL_VERSION}';
+update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
 `;
 
   const copyToClipboard = async () => {
