@@ -282,9 +282,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
-  const sqlCodeString = `-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.6)
+  const sqlCodeString = `-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.7)
 -- Copie TODO este código e execute no SQL Editor do Supabase.
--- Este script resolve dependências cruzadas de RLS (ERROR: 0A000 em tabelas estrangeiras).
+-- Este script resolve dependências persistentes de RLS (ERROR: 0A000).
 
 -- 1. Tabela de Configuração e Versão
 create table if not exists public.app_config (key text primary key, value text);
@@ -314,7 +314,7 @@ create table if not exists public.profiles (
   avatar_url text
 );
 
--- Tabela de Cursos (Necessária para o drop policy funcionar abaixo caso tabela não exista)
+-- Tabela de Cursos
 create table if not exists public.courses (
   id uuid default gen_random_uuid() primary key,
   title text not null,
@@ -333,23 +333,30 @@ create table if not exists public.user_invites (
 );
 
 -- =================================================================================
--- ZONA DE SEGURANÇA: REMOÇÃO TOTAL DE DEPENDÊNCIAS
--- Removemos TODAS as políticas que possam ler 'public.profiles.role'
+-- ZONA DE SEGURANÇA: LIMPEZA AGRESSIVA DE DEPENDÊNCIAS
+-- Removemos TODAS as políticas conhecidas e possíveis variantes
 -- =================================================================================
 
--- Dependências na tabela COURSES
+-- Dependências na tabela COURSES (Lista expandida de nomes possíveis)
 drop policy if exists "Courses are viewable by everyone" on public.courses;
 drop policy if exists "Staff can manage courses" on public.courses;
-drop policy if exists "Admins and Trainers can manage courses" on public.courses; -- Nome antigo que causou erro
+drop policy if exists "Admins and Trainers can manage courses" on public.courses;
+drop policy if exists "Staff can create courses" on public.courses; -- O culpado do erro anterior
+drop policy if exists "Enable read access for all users" on public.courses;
+drop policy if exists "Enable insert for staff" on public.courses;
+drop policy if exists "Enable update for staff" on public.courses;
+drop policy if exists "Enable delete for staff" on public.courses;
 
 -- Dependências na tabela USER_INVITES
 drop policy if exists "Admins manage invites" on public.user_invites;
+drop policy if exists "Admins can manage invites" on public.user_invites;
 
 -- Dependências na tabela PROFILES
 drop policy if exists "Public Profiles Access" on public.profiles;
 drop policy if exists "Users can update own profile" on public.profiles;
 drop policy if exists "Admins can update any profile" on public.profiles;
 drop policy if exists "Admins can delete any profile" on public.profiles;
+drop policy if exists "Public profiles are viewable by everyone" on public.profiles;
 
 -- =================================================================================
 -- ALTERAÇÃO DE TIPO (Agora segura)
