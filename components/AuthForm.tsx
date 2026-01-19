@@ -68,6 +68,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel }) => {
       if (provider === 'azure') {
         // 'common' endpoint requer scopes específicos para funcionar bem com contas pessoais e profissionais misturadas
         options.scopes = 'openid profile email offline_access'; 
+        options.queryParams = {
+          prompt: 'select_account', // Garante que o utilizador pode escolher entre conta Pessoal ou de Trabalho
+        };
       }
 
       const { error } = await supabase.auth.signInWithOAuth({
