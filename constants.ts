@@ -6,6 +6,6 @@
 export const SUPABASE_URL = "https://zeedhuzljsbaoqafpfom.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ZOMCawahrL7OImeWeT6Fug_U_WMN0H1";
 
-export const APP_VERSION = "v1.1.5";
-export const SQL_VERSION = "v1.1.3"; // Correção de tipos Text vs Enum
+export const APP_VERSION = "v1.1.6";
+export const SQL_VERSION = "v1.1.4"; // Correção Crítica: Default Drop antes de Type Cast
 export const APP_NAME = "EduTech PT";

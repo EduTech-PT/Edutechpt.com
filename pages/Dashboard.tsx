@@ -282,9 +282,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
-  const sqlCodeString = `-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.3)
+  const sqlCodeString = `-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.4)
 -- Copie TODO este código e execute no SQL Editor do Supabase.
--- Este script é idempotente e auto-corretivo.
+-- Este script resolve o erro de conversão de tipos (ERROR: 42804).
 
 -- 1. Tabela de Configuração e Versão
 create table if not exists public.app_config (key text primary key, value text);
@@ -314,9 +314,10 @@ create table if not exists public.profiles (
   avatar_url text
 );
 
--- AUTO-CORREÇÃO: Se a coluna 'role' existir mas for do tipo 'text', converter para 'app_role'
+-- AUTO-CORREÇÃO AVANÇADA: Trata a conversão Text -> Enum removendo o Default primeiro
 do $$ 
 begin 
+    -- Verifica se a coluna ainda é TEXT
     if exists (
         select 1 
         from information_schema.columns 
@@ -325,17 +326,22 @@ begin
         and column_name = 'role' 
         and data_type = 'text'
     ) then
-        -- Converte a coluna para o tipo correto
+        -- 1. Remove o valor padrão antigo (que causa o erro 42804)
+        alter table public.profiles alter column role drop default;
+        
+        -- 2. Converte a coluna para o tipo correto
         alter table public.profiles 
         alter column role type public.app_role 
         using role::text::public.app_role;
+        
+        -- 3. Reaplica o valor padrão correto
+        alter table public.profiles alter column role set default 'aluno'::public.app_role;
     end if;
 end $$;
 
 alter table public.profiles enable row level security;
 
 -- Políticas de Segurança (RLS)
--- Nota: Usamos 'role::text' para evitar erros de comparação se o tipo da coluna variar
 drop policy if exists "Public Profiles Access" on public.profiles;
 drop policy if exists "Users can update own profile" on public.profiles;
 drop policy if exists "Admins can update any profile" on public.profiles;
@@ -426,8 +432,7 @@ create policy "Staff can manage courses" on public.courses for all using (
   )
 );
 
--- 8. FORÇAR ADMIN (Garante que a sua conta tem permissões)
--- O cast ::public.app_role garante que funciona se a coluna for Enum
+-- 8. FORÇAR ADMIN
 UPDATE public.profiles 
 SET role = 'admin'::public.app_role 
 WHERE email = 'edutechpt@hotmail.com';
