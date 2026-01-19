@@ -282,7 +282,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
-  const sqlCodeString = `-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.8)
+  const sqlCodeString = `-- SCRIPT MESTRE DE SETUP TOTAL (v1.1.9)
 -- Copie TODO este código e execute no SQL Editor do Supabase.
 -- Este script resolve dependências persistentes de RLS (ERROR: 0A000).
 
@@ -332,19 +332,24 @@ create table if not exists public.user_invites (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
+-- Tabela de Roles (Garante existência para o drop policy abaixo funcionar)
+create table if not exists public.roles (
+  name text primary key,
+  description text
+);
+
 -- =================================================================================
 -- ZONA DE SEGURANÇA: LIMPEZA AGRESSIVA DE DEPENDÊNCIAS
--- Removemos TODAS as políticas conhecidas e possíveis variantes
+-- Removemos TODAS as políticas conhecidas e possíveis variantes em TODAS as tabelas
 -- =================================================================================
 
--- Dependências na tabela COURSES (Lista expandida de nomes possíveis)
+-- Dependências na tabela COURSES
 drop policy if exists "Courses are viewable by everyone" on public.courses;
 drop policy if exists "Staff can manage courses" on public.courses;
 drop policy if exists "Admins and Trainers can manage courses" on public.courses;
--- Variantes granulares que causaram erros:
 drop policy if exists "Staff can create courses" on public.courses;
-drop policy if exists "Staff can update courses" on public.courses; -- Culpado atual
-drop policy if exists "Staff can delete courses" on public.courses; -- Provável próximo erro
+drop policy if exists "Staff can update courses" on public.courses;
+drop policy if exists "Staff can delete courses" on public.courses;
 drop policy if exists "Enable read access for all users" on public.courses;
 drop policy if exists "Enable insert for staff" on public.courses;
 drop policy if exists "Enable update for staff" on public.courses;
@@ -353,6 +358,13 @@ drop policy if exists "Enable delete for staff" on public.courses;
 -- Dependências na tabela USER_INVITES
 drop policy if exists "Admins manage invites" on public.user_invites;
 drop policy if exists "Admins can manage invites" on public.user_invites;
+
+-- Dependências na tabela ROLES (Culpado do erro 0A000 atual)
+drop policy if exists "Read Roles" on public.roles;
+drop policy if exists "Admin Manage Roles" on public.roles;
+drop policy if exists "Admins can manage roles" on public.roles;
+drop policy if exists "Admins can insert roles" on public.roles;
+drop policy if exists "Admins can update roles" on public.roles;
 
 -- Dependências na tabela PROFILES
 drop policy if exists "Public Profiles Access" on public.profiles;
@@ -408,14 +420,12 @@ for delete using (
   exists (select 1 from public.profiles where id::text = auth.uid()::text and role::text = 'admin')
 );
 
--- Roles UI Table
-create table if not exists public.roles (
-  name text primary key,
-  description text
-);
+-- Roles RLS
 alter table public.roles enable row level security;
-drop policy if exists "Read Roles" on public.roles;
 create policy "Read Roles" on public.roles for select using (true);
+create policy "Admin Manage Roles" on public.roles for all using (
+  exists (select 1 from public.profiles where id::text = auth.uid()::text and role::text = 'admin')
+);
 
 insert into public.roles (name) values 
 ('admin'), ('editor'), ('formador'), ('aluno')
