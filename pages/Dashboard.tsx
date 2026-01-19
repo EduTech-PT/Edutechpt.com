@@ -134,6 +134,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   const fetchRoles = async () => {
+      // Tenta buscar da tabela roles. Se falhar, usa hardcoded.
       const { data, error } = await supabase.from('roles').select('*');
       if (!error && data && data.length > 0) {
           setAvailableRoles(data);
@@ -280,45 +281,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       }
   };
 
-  const sqlCodeString = `-- ATUALIZAÇÃO v1.1.0 (Promoção de Admin)
--- Execute este script para atualizar a versão e garantir acesso Admin
+  // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
+  const sqlCodeString = `-- ATUALIZAÇÃO v1.1.1 (Setup Completo)
+-- Copie e execute no Supabase SQL Editor
 
--- 1. Tabela de Configuração
+-- 1. Versão e Enum
 create table if not exists public.app_config (key text primary key, value text);
-alter table public.app_config enable row level security;
-drop policy if exists "Read Config" on public.app_config;
-create policy "Read Config" on public.app_config for select using (true);
-
 insert into public.app_config (key, value) values ('sql_version', '${SQL_VERSION}')
 on conflict (key) do update set value = '${SQL_VERSION}';
 
--- 2. Atualizar Políticas da Tabela Profiles
+do $$ begin 
+  if not exists (select 1 from pg_type where typname = 'app_role') then
+    create type public.app_role as enum ('admin', 'editor', 'formador', 'aluno');
+  end if;
+end $$;
+
+-- 2. Tabela de Roles (Necessária para a UI)
+create table if not exists public.roles (name text primary key);
+alter table public.roles enable row level security;
+create policy "Read Roles" on public.roles for select using (true);
+insert into public.roles (name) values ('admin'), ('editor'), ('formador'), ('aluno') on conflict do nothing;
+
+-- 3. Perfis e Políticas (Com cast seguro)
 alter table public.profiles enable row level security;
+create policy "Public Access" on public.profiles for select using (true);
 
--- Remover políticas antigas
-drop policy if exists "Public Profiles Access" on public.profiles;
-drop policy if exists "Users can update own profile" on public.profiles;
-drop policy if exists "Admins can update any profile" on public.profiles;
-drop policy if exists "Admins can delete any profile" on public.profiles;
-
--- Leitura Pública
-create policy "Public Profiles Access" on public.profiles for select using (true);
-
--- Edição: Próprio utilizador OU Admin
-create policy "Users can update own profile" on public.profiles 
-for update using (
-  auth.uid()::text = id::text 
-  OR 
-  exists (select 1 from public.profiles where id::text = auth.uid()::text and role = 'admin')
-);
-
--- Eliminação: Apenas Admin
-create policy "Admins can delete any profile" on public.profiles 
-for delete using (
-  exists (select 1 from public.profiles where id::text = auth.uid()::text and role = 'admin')
-);
-
--- 3. Trigger para Novos Utilizadores (Automático)
+-- 4. Trigger Atualizado (Fix Admin)
 create or replace function public.handle_new_user() 
 returns trigger as $$
 begin
@@ -328,23 +316,17 @@ begin
     new.email, 
     new.raw_user_meta_data->>'full_name',
     case 
-      when new.email = 'edutechpt@hotmail.com' then 'admin'
-      else 'aluno'
+      when new.email = 'edutechpt@hotmail.com' then 'admin'::public.app_role
+      else 'aluno'::public.app_role
     end
   );
   return new;
 end;
 $$ language plpgsql security definer;
 
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
-
--- 4. Garantir Admin para Utilizador Existente
--- Se o utilizador já se registou antes, isto força a atualização
+-- 5. CORREÇÃO DE EMERGÊNCIA (Força Admin)
 UPDATE public.profiles 
-SET role = 'admin' 
+SET role = 'admin'::public.app_role 
 WHERE email = 'edutechpt@hotmail.com';
 `;
 
@@ -357,7 +339,17 @@ WHERE email = 'edutechpt@hotmail.com';
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-indigo-600">Carregando...</div>;
-  if (!profile) return <div className="p-10 text-center">Perfil não encontrado.</div>;
+  
+  if (!profile) return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-indigo-50">
+          <GlassCard className="text-center max-w-md">
+              <h2 className="text-xl font-bold text-red-600 mb-2">Perfil não encontrado</h2>
+              <p className="text-indigo-800 mb-4">A sua conta de utilizador foi criada, mas o perfil na base de dados falhou.</p>
+              <p className="text-sm opacity-70 mb-4">Isto acontece geralmente quando o Trigger SQL não existe ou tem erros.</p>
+              <button onClick={onLogout} className="px-4 py-2 bg-indigo-600 text-white rounded-lg">Terminar Sessão</button>
+          </GlassCard>
+      </div>
+  );
 
   const renderContent = () => {
     switch (currentView) {
@@ -369,9 +361,9 @@ WHERE email = 'edutechpt@hotmail.com';
                     <div className="flex justify-between items-center">
                         <div>
                             <p className="font-bold text-lg">⚠️ AÇÃO CRÍTICA NECESSÁRIA</p>
-                            <p>A versão da Base de Dados ({currentDbVersion}) não corresponde à versão do Site ({SQL_VERSION}).</p>
+                            <p>A Base de Dados precisa de ser atualizada para a versão {SQL_VERSION}.</p>
                         </div>
-                        <button onClick={() => { setCurrentView('settings'); setSettingsTab('sql'); }} className="bg-red-600 text-white px-4 py-2 rounded font-bold hover:bg-red-700">Atualizar Agora</button>
+                        <button onClick={() => { setCurrentView('settings'); setSettingsTab('sql'); }} className="bg-red-600 text-white px-4 py-2 rounded font-bold hover:bg-red-700">Ver Script</button>
                     </div>
                 </div>
             )}
@@ -642,100 +634,146 @@ WHERE email = 'edutechpt@hotmail.com';
 
                   {settingsTab === 'geral' && (
                       <GlassCard>
-                          <h3 className="text-xl font-bold text-indigo-900 mb-4">Informações do Sistema</h3>
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div className="p-3 bg-white/40 rounded">
-                                  <span className="block text-indigo-500 text-xs uppercase">Versão da Aplicação</span>
-                                  <span className="font-mono font-bold text-indigo-900">{APP_VERSION}</span>
+                          <h3 className="font-bold text-xl text-indigo-900 mb-4">Informações do Sistema</h3>
+                          <div className="space-y-4">
+                              <div className="flex justify-between border-b border-indigo-100 pb-2">
+                                  <span className="text-indigo-800">Versão da Aplicação</span>
+                                  <span className="font-mono font-bold text-indigo-600">{APP_VERSION}</span>
                               </div>
-                              <div className={`p-3 rounded ${dbVersionMismatch ? 'bg-red-100 text-red-800' : 'bg-green-100/50 text-indigo-900'}`}>
-                                  <span className="block text-xs uppercase opacity-70">Versão da Base de Dados</span>
-                                  <span className="font-mono font-bold">{currentDbVersion}</span>
+                              <div className="flex justify-between border-b border-indigo-100 pb-2">
+                                  <span className="text-indigo-800">Versão SQL Esperada</span>
+                                  <span className="font-mono font-bold text-indigo-600">{SQL_VERSION}</span>
+                              </div>
+                              <div className="flex justify-between border-b border-indigo-100 pb-2">
+                                  <span className="text-indigo-800">Versão SQL Detetada</span>
+                                  <span className={`font-mono font-bold ${dbVersionMismatch ? 'text-red-600' : 'text-green-600'}`}>{currentDbVersion}</span>
                               </div>
                           </div>
                       </GlassCard>
                   )}
 
                   {settingsTab === 'cargos' && (
-                      <div className="space-y-6">
-                           <GlassCard>
-                               <h3 className="font-bold text-indigo-900 mb-4">Criar Novo Cargo</h3>
-                               <div className="flex gap-2">
-                                   <input 
-                                    type="text" 
-                                    placeholder="Ex: Coordenador" 
-                                    value={newRoleName}
-                                    onChange={e => setNewRoleName(e.target.value)}
-                                    className="flex-1 p-2 rounded bg-white/50 border border-white/60 outline-none focus:ring-2 focus:ring-indigo-500"
-                                   />
-                                   <button onClick={handleCreateRole} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-bold">Criar</button>
-                               </div>
-                           </GlassCard>
-                           <GlassCard>
-                               <h3 className="font-bold text-indigo-900 mb-2">Cargos Existentes</h3>
-                               <div className="flex flex-wrap gap-2">
-                                   {availableRoles.map(r => (
-                                       <span key={r.name} className="px-3 py-1 bg-white border border-indigo-100 rounded-full text-indigo-700 shadow-sm capitalize">
-                                           {r.name.replace('_', ' ')}
-                                       </span>
-                                   ))}
-                               </div>
-                           </GlassCard>
-                      </div>
+                      <GlassCard>
+                          <h3 className="font-bold text-xl text-indigo-900 mb-4">Gestão de Cargos</h3>
+                          <div className="flex gap-4 mb-6">
+                              <input 
+                                type="text" 
+                                value={newRoleName}
+                                onChange={(e) => setNewRoleName(e.target.value)}
+                                placeholder="Nome do novo cargo"
+                                className="flex-1 p-2 rounded bg-white/50 border border-white/60 outline-none"
+                              />
+                              <button onClick={handleCreateRole} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Criar Cargo</button>
+                          </div>
+                          
+                          <h4 className="font-bold text-indigo-800 mb-2">Cargos Existentes</h4>
+                          <div className="flex flex-wrap gap-2">
+                              {availableRoles.map(r => (
+                                  <span key={r.name} className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full font-medium uppercase text-sm border border-indigo-200">
+                                      {r.name}
+                                  </span>
+                              ))}
+                          </div>
+                      </GlassCard>
                   )}
 
                   {settingsTab === 'sql' && (
-                      <GlassCard className="flex-1 flex flex-col min-h-[500px]">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-bold text-indigo-900">Script de Atualização - {SQL_VERSION}</h2>
-                            <button onClick={copyToClipboard} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all shadow-md ${copySuccess ? 'bg-green-500 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:-translate-y-0.5'}`}>{copySuccess || 'Copiar Código'}</button>
-                        </div>
-                        <div className="relative bg-gray-900 rounded-lg shadow-inner overflow-hidden flex-1">
-                            <div className="absolute inset-0 overflow-auto p-4 custom-scrollbar">
-                                <pre className="text-gray-200 text-xs font-mono whitespace-pre">{sqlCodeString}</pre>
-                            </div>
-                        </div>
-                    </GlassCard>
+                      <GlassCard className="flex-1 flex flex-col min-h-0">
+                          <div className="flex justify-between items-center mb-4">
+                              <h3 className="font-bold text-xl text-indigo-900">Script de Configuração SQL</h3>
+                              <button onClick={copyToClipboard} className="px-4 py-2 bg-indigo-100 text-indigo-800 rounded hover:bg-indigo-200 font-medium transition-colors">
+                                  {copySuccess || 'Copiar Script'}
+                              </button>
+                          </div>
+                          <p className="text-sm text-indigo-700 mb-4">
+                              Execute este script no Editor SQL do Supabase para corrigir tabelas, tipos e permissões.
+                          </p>
+                          <textarea 
+                              readOnly 
+                              value={sqlCodeString} 
+                              className="w-full flex-1 p-4 rounded-xl bg-slate-900 text-slate-200 font-mono text-xs overflow-auto outline-none resize-none border border-slate-700 shadow-inner"
+                          />
+                      </GlassCard>
                   )}
               </div>
           );
-
       case 'manage_courses':
         return (
             <div className="space-y-6">
-                <GlassCard>
-                    <h2 className="text-xl font-bold text-indigo-900 mb-4">Criar Novo Curso</h2>
-                    <form onSubmit={handleCreateCourse} className="space-y-4">
-                        <div><label className="block text-sm font-medium text-indigo-900 mb-1">Título</label><input type="text" required value={newCourseTitle} onChange={(e) => setNewCourseTitle(e.target.value)} className="w-full bg-white/40 border border-white/50 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none" /></div>
-                        <div><label className="block text-sm font-medium text-indigo-900 mb-1">Descrição</label><textarea required value={newCourseDesc} onChange={(e) => setNewCourseDesc(e.target.value)} rows={3} className="w-full bg-white/40 border border-white/50 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none" /></div>
-                        <div><label className="block text-sm font-medium text-indigo-900 mb-1">Nível</label><select value={newCourseLevel} onChange={(e) => setNewCourseLevel(e.target.value)} className="w-full bg-white/40 border border-white/50 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none"><option value="iniciante">Iniciante</option><option value="intermedio">Intermédio</option><option value="avancado">Avançado</option></select></div>
-                        <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Publicar</button>
-                    </form>
-                </GlassCard>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{manageCourses.map(c => <GlassCard key={c.id}><h3 className="font-bold text-indigo-900">{c.title}</h3><p className="text-xs uppercase mb-2">{c.level}</p><p className="text-sm opacity-80 line-clamp-2">{c.description}</p></GlassCard>)}</div>
+                 <h2 className="text-2xl font-bold text-indigo-900">Gerir Cursos</h2>
+                 
+                 <GlassCard>
+                     <h3 className="font-bold text-lg text-indigo-900 mb-4">Criar Novo Curso</h3>
+                     <form onSubmit={handleCreateCourse} className="space-y-4">
+                         <div>
+                             <label className="block text-sm mb-1">Título</label>
+                             <input type="text" required value={newCourseTitle} onChange={e => setNewCourseTitle(e.target.value)} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"/>
+                         </div>
+                         <div>
+                             <label className="block text-sm mb-1">Descrição</label>
+                             <textarea required value={newCourseDesc} onChange={e => setNewCourseDesc(e.target.value)} rows={3} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"/>
+                         </div>
+                         <div>
+                             <label className="block text-sm mb-1">Nível</label>
+                             <select value={newCourseLevel} onChange={e => setNewCourseLevel(e.target.value)} className="w-full p-2 rounded bg-white/50 border border-white/60 outline-none">
+                                 <option value="iniciante">Iniciante</option>
+                                 <option value="intermedio">Intermédio</option>
+                                 <option value="avancado">Avançado</option>
+                             </select>
+                         </div>
+                         <div className="flex justify-end">
+                             <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-bold shadow-md">Criar Curso</button>
+                         </div>
+                     </form>
+                 </GlassCard>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                     {manageCourses.map(course => (
+                         <GlassCard key={course.id} className="flex flex-col">
+                             <h4 className="font-bold text-indigo-900 text-lg mb-2">{course.title}</h4>
+                             <p className="text-sm text-indigo-700 mb-4 flex-grow line-clamp-3">{course.description}</p>
+                             <div className="flex justify-between items-center text-xs opacity-70">
+                                 <span className="uppercase font-bold">{course.level}</span>
+                                 <span>{new Date(course.created_at).toLocaleDateString()}</span>
+                             </div>
+                         </GlassCard>
+                     ))}
+                 </div>
             </div>
         );
       
-      default: return <GlassCard><h2 className="text-xl">Vista: {currentView}</h2></GlassCard>;
+      // Fallback for 'courses' (student view) or others not fully implemented
+      default:
+        return (
+            <GlassCard>
+                <h2 className="text-2xl font-bold text-indigo-900 mb-4">Em Construção</h2>
+                <p className="text-indigo-800">Esta funcionalidade ({currentView}) estará disponível brevemente.</p>
+            </GlassCard>
+        );
     }
   };
 
   return (
-    <div className="flex min-h-screen bg-transparent">
-      <Sidebar role={profile.role as string} currentView={currentView} setView={setCurrentView} onLogout={onLogout} />
-      <main className="flex-1 p-8 overflow-y-auto max-h-screen">
-        <header className="mb-8 flex justify-between items-center">
-             <h1 className="text-3xl font-bold text-indigo-900/90 capitalize">{currentView.replace('_', ' ')}</h1>
-             <div className="w-10 h-10 rounded-full bg-indigo-200 flex items-center justify-center text-indigo-700 font-bold border-2 border-white/50 overflow-hidden">
-                {profile.avatar_url ? (
-                    <img src={profile.avatar_url} alt="User" className="w-full h-full object-cover" />
-                ) : (
-                    <span>{profile.full_name ? profile.full_name[0].toUpperCase() : 'U'}</span>
-                )}
-             </div>
-        </header>
-        {renderContent()}
-      </main>
+    <div className="flex min-h-screen bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 relative overflow-hidden font-sans">
+      {/* Background blobs */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
+          <div className="absolute top-[20%] right-[-10%] w-96 h-96 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
+          <div className="absolute bottom-[-10%] left-[20%] w-96 h-96 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
+      </div>
+
+      <div className="relative z-10 flex w-full max-w-[1600px] mx-auto p-4 md:p-6 gap-6 h-screen">
+        <Sidebar 
+            role={profile.role} 
+            currentView={currentView} 
+            setView={setCurrentView} 
+            onLogout={onLogout} 
+        />
+        
+        <main className="flex-1 min-w-0 h-full overflow-y-auto custom-scrollbar pb-10">
+            {renderContent()}
+        </main>
+      </div>
     </div>
   );
 };

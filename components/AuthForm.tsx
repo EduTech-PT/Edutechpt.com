@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { GlassCard } from './GlassCard';
@@ -50,15 +51,34 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel }) => {
   const handleOAuthLogin = async (provider: Provider) => {
     try {
       setLoading(true);
+      setMessage(`A iniciar sessão com ${provider}...`);
+      
+      let options: any = {
+        redirectTo: window.location.origin,
+      };
+
+      // Configurações específicas para evitar erros comuns
+      if (provider === 'google') {
+        options.queryParams = {
+          access_type: 'offline',
+          prompt: 'consent', // Força o ecrã de seleção de conta para evitar loops de erro
+        };
+      }
+
+      if (provider === 'azure') {
+        // 'common' endpoint requer scopes específicos para funcionar bem com contas pessoais e profissionais misturadas
+        options.scopes = 'openid profile email offline_access'; 
+      }
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: provider,
-        options: {
-          redirectTo: window.location.origin,
-        },
+        options: options,
       });
+      
       if (error) throw error;
     } catch (error: any) {
-      setMessage('Erro no login social: ' + error.message);
+      console.error("Erro OAuth:", error);
+      setMessage('Erro no login social: ' + (error.message || JSON.stringify(error)));
       setLoading(false);
     }
   };
@@ -114,7 +134,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel }) => {
           </div>
 
           {message && (
-            <div className={`p-3 rounded-lg text-sm text-center ${message.includes('erro') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+            <div className={`p-3 rounded-lg text-sm text-center font-medium ${message.includes('Erro') ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-indigo-100 text-indigo-700 border border-indigo-200'}`}>
               {message}
             </div>
           )}
@@ -138,7 +158,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel }) => {
             <button
                 type="button"
                 onClick={() => handleOAuthLogin('google')}
-                className="flex items-center justify-center gap-2 bg-white/60 hover:bg-white/80 border border-white text-indigo-900 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md text-sm font-medium"
+                disabled={loading}
+                className="flex items-center justify-center gap-2 bg-white/60 hover:bg-white/80 border border-white text-indigo-900 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md text-sm font-medium disabled:opacity-50"
             >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -151,7 +172,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel }) => {
             <button
                 type="button"
                 onClick={() => handleOAuthLogin('azure')}
-                className="flex items-center justify-center gap-2 bg-white/60 hover:bg-white/80 border border-white text-indigo-900 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md text-sm font-medium"
+                disabled={loading}
+                className="flex items-center justify-center gap-2 bg-white/60 hover:bg-white/80 border border-white text-indigo-900 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md text-sm font-medium disabled:opacity-50"
             >
                  <svg className="w-5 h-5" viewBox="0 0 23 23">
                     <path fill="#f35325" d="M1 1h10v10H1z"/>
