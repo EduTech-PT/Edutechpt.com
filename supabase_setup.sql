@@ -142,4 +142,4 @@ create trigger on_auth_user_created
 
 -- 6. FINALIZAÇÃO
 update public.profiles set role = 'admin'::public.app_role where email = 'edutechpt@hotmail.com';
-update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
+update public.app_config set value = 'v1.1.22' where key = 'sql_version';

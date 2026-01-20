@@ -298,7 +298,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
-  const sqlCodeString = `-- SCRIPT v1.1.22 - Tabela de Solicitação de Acesso
+  // Usa template literals para inserir a versão correta do ficheiro constants.ts
+  const sqlCodeString = `-- SCRIPT ${SQL_VERSION} - Tabela de Solicitação de Acesso
 -- Execute este script COMPLETO.
 
 -- 1. BASE DE CONFIGURAÇÃO
@@ -307,8 +308,8 @@ alter table public.app_config enable row level security;
 drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
 
-insert into public.app_config (key, value) values ('sql_version', 'v1.1.22-installing')
-on conflict (key) do update set value = 'v1.1.22-installing';
+insert into public.app_config (key, value) values ('sql_version', '${SQL_VERSION}-installing')
+on conflict (key) do update set value = '${SQL_VERSION}-installing';
 
 -- 2. LIMPEZA ESTRUTURAL
 drop trigger if exists on_auth_user_created on auth.users;
@@ -441,7 +442,7 @@ create trigger on_auth_user_created
 
 -- 6. FINALIZAÇÃO
 update public.profiles set role = 'admin'::public.app_role where email = 'edutechpt@hotmail.com';
-update public.app_config set value = 'v1.1.22' where key = 'sql_version';`;
+update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';`;
 
   const copyToClipboard = async () => {
     try {
