@@ -60,13 +60,28 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel }) => {
           ✕
         </button>
         
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-indigo-900 mb-2">
             Bem-vindo
           </h2>
-          <p className="text-indigo-700 text-sm opacity-80">
+          <p className="text-indigo-700 text-sm opacity-80 mb-4">
             Entre na EduTech PT com a sua conta institucional ou pessoal.
           </p>
+
+          {/* Aviso Informativo sobre URL Técnico */}
+          <div className="bg-indigo-50/60 border border-indigo-100 rounded-lg p-3 text-xs text-indigo-800 text-left shadow-inner">
+             <div className="flex items-center gap-1.5 font-bold mb-1 text-indigo-900">
+                <span>ℹ️</span>
+                <span>Nota de Segurança</span>
+             </div>
+             <p className="opacity-90 leading-relaxed">
+                Na janela de autenticação, o fornecedor de serviços será identificado como:
+                <br/>
+                <span className="font-mono font-bold bg-white/60 px-1 rounded text-[10px] break-all select-all">zeedhuzljsbaoqafpfom.supabase.co</span>
+                <br/>
+                Isto corresponde ao nosso servidor seguro de base de dados.
+             </p>
+          </div>
         </div>
 
         {message && (
