@@ -1,15 +1,22 @@
 
--- SCRIPT v1.1.22 - Tabela de Solicitação de Acesso
+-- SCRIPT v1.1.23 - Configuração de Storage e Avatares
 -- Execute este script COMPLETO.
 
--- 1. BASE DE CONFIGURAÇÃO
+-- 1. BASE DE CONFIGURAÇÃO E NOVAS CHAVES DE AVATAR
 create table if not exists public.app_config (key text primary key, value text);
 alter table public.app_config enable row level security;
 drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
 
-insert into public.app_config (key, value) values ('sql_version', 'v1.1.22-installing')
-on conflict (key) do update set value = 'v1.1.22-installing';
+-- Atualizar versão do SQL e inserir configurações padrão de avatar
+insert into public.app_config (key, value) values 
+('sql_version', 'v1.1.23-installing'),
+('avatar_resizer_link', 'https://www.iloveimg.com/resize-image'),
+('avatar_help_text', E'1. Aceda ao link de redimensionamento.\n2. Carregue a sua foto.\n3. Defina a largura para 500px.\n4. Descarregue a imagem otimizada.\n5. Carregue o ficheiro aqui.'),
+('avatar_max_size_mb', '2'),
+('avatar_allowed_formats', 'image/jpeg,image/png,image/webp')
+on conflict (key) do update set value = excluded.value 
+where key = 'sql_version'; -- Apenas força update da versão, mantém configs de utilizador se já existirem
 
 -- 2. LIMPEZA ESTRUTURAL
 drop trigger if exists on_auth_user_created on auth.users;
@@ -66,14 +73,13 @@ create table if not exists public.roles (
   description text
 );
 
--- NOVA TABELA: Pedidos de Acesso
 create table if not exists public.access_requests (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users,
   email text not null,
   full_name text,
   reason text,
-  status text default 'pending', -- pending, approved, rejected
+  status text default 'pending',
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
@@ -104,25 +110,41 @@ create policy "Courses are viewable by everyone" on public.courses for select us
 create policy "Staff can manage courses" on public.courses for all using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin'::public.app_role, 'editor'::public.app_role, 'formador'::public.app_role)));
 
 alter table public.access_requests enable row level security;
--- Permite que qualquer user autenticado (mesmo sem perfil) possa inserir um pedido
 create policy "Users can insert requests" on public.access_requests for insert with check (auth.uid() = user_id);
--- Apenas admins podem ver os pedidos
 create policy "Admins view all requests" on public.access_requests for select using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'::public.app_role));
 
--- 5. TRIGGER COM LOGICA DE CONVITE OBRIGATORIO
+-- 5. STORAGE BUCKET E POLÍTICAS (NOVO)
+-- Tenta criar o bucket se a extensão storage estiver ativa (standard no Supabase)
+insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
+
+-- Remover políticas antigas de storage para evitar duplicação/erro
+drop policy if exists "Avatar Images are Public" on storage.objects;
+drop policy if exists "Users can upload own avatar" on storage.objects;
+drop policy if exists "Users can update own avatar" on storage.objects;
+
+-- Criar políticas de storage
+create policy "Avatar Images are Public" on storage.objects for select using ( bucket_id = 'avatars' );
+
+create policy "Users can upload own avatar" on storage.objects for insert with check (
+  bucket_id = 'avatars' and auth.uid() = owner
+);
+
+create policy "Users can update own avatar" on storage.objects for update using (
+  bucket_id = 'avatars' and auth.uid() = owner
+);
+
+-- 6. TRIGGER COM LOGICA DE CONVITE OBRIGATORIO
 create or replace function public.handle_new_user() 
 returns trigger as $$
 declare
   invite_role text;
 begin
-  -- A. Super Admin (Backdoor)
   if new.email = 'edutechpt@hotmail.com' then
       insert into public.profiles (id, email, full_name, role)
       values (new.id, new.email, new.raw_user_meta_data->>'full_name', 'admin'::public.app_role);
       return new;
   end if;
 
-  -- B. Verificar Convite
   select role into invite_role from public.user_invites where lower(email) = lower(new.email);
 
   if invite_role is not null then
@@ -130,7 +152,6 @@ begin
       values (new.id, new.email, new.raw_user_meta_data->>'full_name', invite_role::public.app_role);
       return new;
   else
-      -- C. Bloqueio
       raise exception 'ACESSO NEGADO: O email % não possui um convite válido.', new.email;
   end if;
 end;
@@ -140,6 +161,6 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 6. FINALIZAÇÃO
+-- 7. FINALIZAÇÃO
 update public.profiles set role = 'admin'::public.app_role where email = 'edutechpt@hotmail.com';
-update public.app_config set value = 'v1.1.22' where key = 'sql_version';
+update public.app_config set value = 'v1.1.23' where key = 'sql_version';

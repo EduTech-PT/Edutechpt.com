@@ -29,7 +29,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [copySuccess, setCopySuccess] = useState('');
   const [dbVersionMismatch, setDbVersionMismatch] = useState(false);
   const [currentDbVersion, setCurrentDbVersion] = useState<string>('A verificar...');
-  const [settingsTab, setSettingsTab] = useState<'geral' | 'sql' | 'cargos'>('geral');
+  const [settingsTab, setSettingsTab] = useState<'geral' | 'sql' | 'cargos' | 'avatars'>('geral');
+
+  // Avatar Config State (Admin) & Use (Profile)
+  const [avatarConfig, setAvatarConfig] = useState({
+      resizerLink: '',
+      helpText: '',
+      maxSizeMb: '2',
+      allowedFormats: 'image/jpeg,image/png'
+  });
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Users Management State
   const [usersList, setUsersList] = useState<Profile[]>([]);
@@ -65,6 +74,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   useEffect(() => {
     getProfile();
+    fetchAvatarConfig();
   }, [session]);
 
   useEffect(() => {
@@ -89,6 +99,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       fetchUsersAndInvites();
     }
   }, [currentView, profile]);
+
+  const fetchAvatarConfig = async () => {
+      const { data, error } = await supabase.from('app_config').select('*').in('key', ['avatar_resizer_link', 'avatar_help_text', 'avatar_max_size_mb', 'avatar_allowed_formats']);
+      
+      if (data) {
+          const config: any = {};
+          data.forEach(item => {
+              if (item.key === 'avatar_resizer_link') config.resizerLink = item.value;
+              if (item.key === 'avatar_help_text') config.helpText = item.value;
+              if (item.key === 'avatar_max_size_mb') config.maxSizeMb = item.value;
+              if (item.key === 'avatar_allowed_formats') config.allowedFormats = item.value;
+          });
+          setAvatarConfig(prev => ({ ...prev, ...config }));
+      }
+  };
 
   const checkDbVersion = async () => {
       await new Promise(r => setTimeout(r, 500));
@@ -181,6 +206,76 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
         fetchManageCourses();
         alert('Curso criado!');
     } catch (error: any) { alert(error.message); }
+  };
+
+  // --- AVATAR UPLOAD LOGIC ---
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+      try {
+          if (!event.target.files || event.target.files.length === 0 || !profile) {
+              return;
+          }
+          const file = event.target.files[0];
+          
+          // Validation
+          const maxSize = parseFloat(avatarConfig.maxSizeMb) * 1024 * 1024;
+          if (file.size > maxSize) {
+              alert(`O ficheiro é demasiado grande. Máximo permitido: ${avatarConfig.maxSizeMb}MB`);
+              return;
+          }
+
+          const allowedTypes = avatarConfig.allowedFormats.split(',').map(t => t.trim());
+          if (!allowedTypes.includes(file.type)) {
+              alert(`Formato inválido. Permitidos: ${avatarConfig.allowedFormats}`);
+              return;
+          }
+
+          setUploadingAvatar(true);
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${profile.id}-${Math.random()}.${fileExt}`;
+          const filePath = `${profile.id}/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+              .from('avatars')
+              .upload(filePath, file);
+
+          if (uploadError) throw uploadError;
+
+          const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+
+          setMyAvatarUrl(publicUrl);
+          // Auto update profile immediately
+          const { error: updateError } = await supabase
+              .from('profiles')
+              .update({ avatar_url: publicUrl })
+              .eq('id', profile.id);
+
+          if (updateError) throw updateError;
+          
+          setProfile(prev => prev ? ({ ...prev, avatar_url: publicUrl }) : null);
+          alert('Foto de perfil atualizada!');
+
+      } catch (error: any) {
+          alert('Erro no upload: ' + error.message);
+      } finally {
+          setUploadingAvatar(false);
+      }
+  };
+
+  const handleSaveAvatarConfig = async () => {
+      try {
+          const updates = [
+              { key: 'avatar_resizer_link', value: avatarConfig.resizerLink },
+              { key: 'avatar_help_text', value: avatarConfig.helpText },
+              { key: 'avatar_max_size_mb', value: avatarConfig.maxSizeMb },
+              { key: 'avatar_allowed_formats', value: avatarConfig.allowedFormats },
+          ];
+
+          const { error } = await supabase.from('app_config').upsert(updates);
+          if (error) throw error;
+          alert('Configurações de avatar guardadas!');
+      } catch (error: any) {
+          alert('Erro ao guardar configurações: ' + error.message);
+      }
   };
 
   // --- USER MANAGEMENT LOGIC ---
@@ -324,17 +419,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
   // Usa template literals para inserir a versão correta do ficheiro constants.ts
-  const sqlCodeString = `-- SCRIPT ${SQL_VERSION} - Tabela de Solicitação de Acesso
+  const sqlCodeString = `-- SCRIPT ${SQL_VERSION} - Configuração de Storage e Avatares
 -- Execute este script COMPLETO.
 
--- 1. BASE DE CONFIGURAÇÃO
+-- 1. BASE DE CONFIGURAÇÃO E NOVAS CHAVES DE AVATAR
 create table if not exists public.app_config (key text primary key, value text);
 alter table public.app_config enable row level security;
 drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
 
-insert into public.app_config (key, value) values ('sql_version', '${SQL_VERSION}-installing')
-on conflict (key) do update set value = '${SQL_VERSION}-installing';
+-- Atualizar versão do SQL e inserir configurações padrão de avatar
+insert into public.app_config (key, value) values 
+('sql_version', '${SQL_VERSION}-installing'),
+('avatar_resizer_link', 'https://www.iloveimg.com/resize-image'),
+('avatar_help_text', E'1. Aceda ao link de redimensionamento.\\n2. Carregue a sua foto.\\n3. Defina a largura para 500px.\\n4. Descarregue a imagem otimizada.\\n5. Carregue o ficheiro aqui.'),
+('avatar_max_size_mb', '2'),
+('avatar_allowed_formats', 'image/jpeg,image/png,image/webp')
+on conflict (key) do update set value = excluded.value 
+where key = 'sql_version'; -- Apenas força update da versão, mantém configs de utilizador se já existirem
 
 -- 2. LIMPEZA ESTRUTURAL
 drop trigger if exists on_auth_user_created on auth.users;
@@ -391,14 +493,13 @@ create table if not exists public.roles (
   description text
 );
 
--- NOVA TABELA: Pedidos de Acesso
 create table if not exists public.access_requests (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users,
   email text not null,
   full_name text,
   reason text,
-  status text default 'pending', -- pending, approved, rejected
+  status text default 'pending',
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
@@ -429,25 +530,41 @@ create policy "Courses are viewable by everyone" on public.courses for select us
 create policy "Staff can manage courses" on public.courses for all using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin'::public.app_role, 'editor'::public.app_role, 'formador'::public.app_role)));
 
 alter table public.access_requests enable row level security;
--- Permite que qualquer user autenticado (mesmo sem perfil) possa inserir um pedido
 create policy "Users can insert requests" on public.access_requests for insert with check (auth.uid() = user_id);
--- Apenas admins podem ver os pedidos
 create policy "Admins view all requests" on public.access_requests for select using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'::public.app_role));
 
--- 5. TRIGGER COM LOGICA DE CONVITE OBRIGATORIO
+-- 5. STORAGE BUCKET E POLÍTICAS (NOVO)
+-- Tenta criar o bucket se a extensão storage estiver ativa (standard no Supabase)
+insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
+
+-- Remover políticas antigas de storage para evitar duplicação/erro
+drop policy if exists "Avatar Images are Public" on storage.objects;
+drop policy if exists "Users can upload own avatar" on storage.objects;
+drop policy if exists "Users can update own avatar" on storage.objects;
+
+-- Criar políticas de storage
+create policy "Avatar Images are Public" on storage.objects for select using ( bucket_id = 'avatars' );
+
+create policy "Users can upload own avatar" on storage.objects for insert with check (
+  bucket_id = 'avatars' and auth.uid() = owner
+);
+
+create policy "Users can update own avatar" on storage.objects for update using (
+  bucket_id = 'avatars' and auth.uid() = owner
+);
+
+-- 6. TRIGGER COM LOGICA DE CONVITE OBRIGATORIO
 create or replace function public.handle_new_user() 
 returns trigger as $$
 declare
   invite_role text;
 begin
-  -- A. Super Admin (Backdoor)
   if new.email = 'edutechpt@hotmail.com' then
       insert into public.profiles (id, email, full_name, role)
       values (new.id, new.email, new.raw_user_meta_data->>'full_name', 'admin'::public.app_role);
       return new;
   end if;
 
-  -- B. Verificar Convite
   select role into invite_role from public.user_invites where lower(email) = lower(new.email);
 
   if invite_role is not null then
@@ -455,7 +572,6 @@ begin
       values (new.id, new.email, new.raw_user_meta_data->>'full_name', invite_role::public.app_role);
       return new;
   else
-      -- C. Bloqueio
       raise exception 'ACESSO NEGADO: O email % não possui um convite válido.', new.email;
   end if;
 end;
@@ -465,7 +581,7 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 6. FINALIZAÇÃO
+-- 7. FINALIZAÇÃO
 update public.profiles set role = 'admin'::public.app_role where email = 'edutechpt@hotmail.com';
 update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';`;
 
@@ -533,38 +649,73 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
               <GlassCard className="max-w-2xl">
                   <h2 className="text-2xl font-bold text-indigo-900 mb-6">Meu Perfil</h2>
                   <form onSubmit={handleUpdateMyProfile} className="space-y-6">
-                      <div className="flex items-center gap-6 mb-6">
-                          <div className="w-24 h-24 rounded-full bg-indigo-200 flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
-                              {myAvatarUrl ? (
-                                  <img src={myAvatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                              ) : (
-                                  <span className="text-3xl font-bold text-indigo-700">{profile.full_name?.[0]?.toUpperCase() || 'U'}</span>
-                              )}
+                      <div className="flex flex-col md:flex-row items-center gap-8 mb-6">
+                          <div className="relative group">
+                            <div className="w-32 h-32 rounded-full bg-indigo-200 flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
+                                {myAvatarUrl ? (
+                                    <img src={myAvatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                                ) : (
+                                    <span className="text-4xl font-bold text-indigo-700">{profile.full_name?.[0]?.toUpperCase() || 'U'}</span>
+                                )}
+                            </div>
+                            <label className="absolute bottom-0 right-0 bg-indigo-600 text-white p-2 rounded-full cursor-pointer hover:bg-indigo-700 shadow-md transition-all">
+                                <span className="sr-only">Carregar Foto</span>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                <input 
+                                    type="file" 
+                                    className="hidden" 
+                                    accept={avatarConfig.allowedFormats}
+                                    onChange={handleAvatarUpload}
+                                    disabled={uploadingAvatar}
+                                />
+                            </label>
                           </div>
-                          <div>
-                              <p className="text-sm text-indigo-600 font-bold uppercase tracking-wider">{profile.role}</p>
-                              <p className="text-indigo-900 opacity-70">{profile.email}</p>
+                          
+                          <div className="flex-1 space-y-3">
+                              <div>
+                                  <p className="text-sm text-indigo-600 font-bold uppercase tracking-wider mb-1">{profile.role}</p>
+                                  <p className="text-indigo-900 opacity-70 break-all">{profile.email}</p>
+                              </div>
+                              <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 text-sm">
+                                  <h4 className="font-bold text-indigo-800 mb-2">Instruções para Foto:</h4>
+                                  <p className="whitespace-pre-line text-indigo-900/80 mb-3 text-xs leading-relaxed">
+                                      {avatarConfig.helpText || "Carregue a sua imagem."}
+                                  </p>
+                                  <div className="flex flex-wrap gap-2">
+                                      <a 
+                                        href={avatarConfig.resizerLink} 
+                                        target="_blank" 
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors"
+                                      >
+                                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                          Redimensionar Imagem
+                                      </a>
+                                      {uploadingAvatar && <span className="text-xs text-indigo-600 animate-pulse">A carregar...</span>}
+                                  </div>
+                              </div>
                           </div>
                       </div>
 
-                      <div>
-                          <label className="block text-sm font-medium text-indigo-900 mb-1">Nome Completo</label>
-                          <input 
+                      <div className="border-t border-indigo-100 pt-6">
+                        <label className="block text-sm font-medium text-indigo-900 mb-1">Nome Completo</label>
+                        <input 
                             type="text" 
                             value={myFullName} 
                             onChange={(e) => setMyFullName(e.target.value)} 
                             className="w-full bg-white/40 border border-white/50 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
-                          />
+                        />
                       </div>
                       
-                      <div>
-                          <label className="block text-sm font-medium text-indigo-900 mb-1">URL da Imagem de Avatar</label>
+                      {/* Fallback URL Input (Optional, kept for legacy compatibility) */}
+                      <div className="mt-4">
+                          <label className="block text-sm font-medium text-indigo-900 mb-1">URL da Imagem (Opcional)</label>
                           <input 
                             type="text" 
                             value={myAvatarUrl} 
                             onChange={(e) => setMyAvatarUrl(e.target.value)} 
-                            className="w-full bg-white/40 border border-white/50 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-mono"
-                            placeholder="https://exemplo.com/foto.jpg"
+                            className="w-full bg-white/40 border border-white/50 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-mono text-gray-500"
+                            placeholder="https://..."
                           />
                       </div>
 
@@ -775,10 +926,11 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
       case 'settings':
           return (
               <div className="h-full flex flex-col">
-                  <div className="flex space-x-2 mb-6 border-b border-indigo-200 pb-2">
-                      <button onClick={() => setSettingsTab('geral')} className={`px-4 py-2 rounded-lg font-medium transition-all ${settingsTab === 'geral' ? 'bg-indigo-600 text-white' : 'text-indigo-800 hover:bg-white/40'}`}>Geral</button>
-                      <button onClick={() => setSettingsTab('cargos')} className={`px-4 py-2 rounded-lg font-medium transition-all ${settingsTab === 'cargos' ? 'bg-indigo-600 text-white' : 'text-indigo-800 hover:bg-white/40'}`}>Cargos e Permissões</button>
-                      <button onClick={() => setSettingsTab('sql')} className={`px-4 py-2 rounded-lg font-medium transition-all ${settingsTab === 'sql' ? 'bg-indigo-600 text-white' : 'text-indigo-800 hover:bg-white/40'}`}>Base de Dados (SQL)</button>
+                  <div className="flex space-x-2 mb-6 border-b border-indigo-200 pb-2 overflow-x-auto">
+                      <button onClick={() => setSettingsTab('geral')} className={`px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${settingsTab === 'geral' ? 'bg-indigo-600 text-white' : 'text-indigo-800 hover:bg-white/40'}`}>Geral</button>
+                      <button onClick={() => setSettingsTab('cargos')} className={`px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${settingsTab === 'cargos' ? 'bg-indigo-600 text-white' : 'text-indigo-800 hover:bg-white/40'}`}>Cargos e Permissões</button>
+                      <button onClick={() => setSettingsTab('avatars')} className={`px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${settingsTab === 'avatars' ? 'bg-indigo-600 text-white' : 'text-indigo-800 hover:bg-white/40'}`}>Configuração de Avatar</button>
+                      <button onClick={() => setSettingsTab('sql')} className={`px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${settingsTab === 'sql' ? 'bg-indigo-600 text-white' : 'text-indigo-800 hover:bg-white/40'}`}>Base de Dados (SQL)</button>
                   </div>
 
                   {settingsTab === 'geral' && (
@@ -822,6 +974,59 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
                                       {r.name}
                                   </span>
                               ))}
+                          </div>
+                      </GlassCard>
+                  )}
+                  
+                  {settingsTab === 'avatars' && (
+                      <GlassCard>
+                          <h3 className="font-bold text-xl text-indigo-900 mb-4">Configuração de Imagem de Perfil</h3>
+                          <div className="space-y-6">
+                              <div>
+                                  <label className="block text-sm font-medium text-indigo-900 mb-1">Link do Redimensionador (Externo)</label>
+                                  <input 
+                                    type="text" 
+                                    value={avatarConfig.resizerLink}
+                                    onChange={(e) => setAvatarConfig({...avatarConfig, resizerLink: e.target.value})}
+                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                  />
+                              </div>
+                              <div>
+                                  <label className="block text-sm font-medium text-indigo-900 mb-1">Texto de Ajuda (Passo a Passo)</label>
+                                  <textarea 
+                                    rows={4}
+                                    value={avatarConfig.helpText}
+                                    onChange={(e) => setAvatarConfig({...avatarConfig, helpText: e.target.value})}
+                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                  />
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                      <label className="block text-sm font-medium text-indigo-900 mb-1">Tamanho Máx (MB)</label>
+                                      <input 
+                                        type="number" 
+                                        step="0.1"
+                                        value={avatarConfig.maxSizeMb}
+                                        onChange={(e) => setAvatarConfig({...avatarConfig, maxSizeMb: e.target.value})}
+                                        className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                      />
+                                  </div>
+                                  <div>
+                                      <label className="block text-sm font-medium text-indigo-900 mb-1">Formatos Permitidos</label>
+                                      <input 
+                                        type="text" 
+                                        value={avatarConfig.allowedFormats}
+                                        onChange={(e) => setAvatarConfig({...avatarConfig, allowedFormats: e.target.value})}
+                                        className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        placeholder="image/jpeg, image/png"
+                                      />
+                                  </div>
+                              </div>
+                              <div className="flex justify-end">
+                                  <button onClick={handleSaveAvatarConfig} className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-bold shadow-md">
+                                      Guardar Definições
+                                  </button>
+                              </div>
                           </div>
                       </GlassCard>
                   )}
