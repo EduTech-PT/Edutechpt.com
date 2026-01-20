@@ -50,6 +50,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           const userProfile = await userService.getProfile(session.user.id);
           setProfile(userProfile);
           
+          // AUTO-CREATE DRIVE FOLDER FOR TRAINERS
+          // Garante que Formadores têm pasta criada assim que entram no Dashboard
+          if (userProfile?.role === UserRole.TRAINER && !userProfile.personal_folder_id) {
+              driveService.getPersonalFolder(userProfile).then((id) => {
+                  console.log("Pasta pessoal verificada/criada:", id);
+                  setProfile(prev => prev ? {...prev, personal_folder_id: id} : null);
+              }).catch(err => {
+                  console.warn("Aviso: Não foi possível criar pasta Drive automática.", err);
+              });
+          }
+
           if (userProfile?.role === UserRole.ADMIN) {
               // 1. Check SQL Version
               const config = await adminService.getAppConfig();
