@@ -16,6 +16,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [currentView, setCurrentView] = useState('dashboard');
   const [loading, setLoading] = useState(true);
 
+  // Clock State
+  const [currentTime, setCurrentTime] = useState(new Date());
+
   // States for Manage Courses
   const [manageCourses, setManageCourses] = useState<Course[]>([]);
   const [newCourseTitle, setNewCourseTitle] = useState('');
@@ -51,6 +54,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   // My Profile Edit State
   const [myFullName, setMyFullName] = useState('');
   const [myAvatarUrl, setMyAvatarUrl] = useState('');
+
+  // Clock Timer
+  useEffect(() => {
+    const timer = setInterval(() => {
+        setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     getProfile();
@@ -296,6 +307,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       
       return `mailto:edutechpt@hotmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
+
+  // Formatar data e hora
+  const formattedDate = new Intl.DateTimeFormat('pt-PT', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+  }).format(currentTime);
+
+  const formattedTime = currentTime.toLocaleTimeString('pt-PT', { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit' 
+  });
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
   // Usa template literals para inserir a versão correta do ficheiro constants.ts
@@ -888,14 +913,35 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
 
       <div className="relative z-10 flex w-full max-w-[1600px] mx-auto p-4 md:p-6 gap-6 h-screen">
         <Sidebar 
-            role={profile.role} 
+            profile={profile}
+            appVersion={APP_VERSION}
             currentView={currentView} 
             setView={setCurrentView} 
             onLogout={onLogout} 
         />
         
-        <main className="flex-1 min-w-0 h-full overflow-y-auto custom-scrollbar pb-10">
-            {renderContent()}
+        <main className="flex-1 min-w-0 h-full flex flex-col">
+            {/* Header com Relógio */}
+            <header className="flex justify-between items-center mb-6 p-4 bg-white/30 backdrop-blur-md rounded-2xl shadow-sm border border-white/40">
+                <div className="text-indigo-900 font-medium">
+                   {/* Breadcrumb simples ou Título da Página */}
+                   <span className="opacity-70">EduTech PT / </span> 
+                   <span className="font-bold capitalize">{currentView.replace('_', ' ')}</span>
+                </div>
+                <div className="text-right">
+                    <div className="text-xl font-bold text-indigo-900 tabular-nums leading-none">
+                        {formattedTime}
+                    </div>
+                    <div className="text-xs text-indigo-700 font-medium uppercase tracking-wide opacity-80 mt-1">
+                        {formattedDate}
+                    </div>
+                </div>
+            </header>
+
+            {/* Conteúdo com Scroll */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar pb-10">
+                {renderContent()}
+            </div>
         </main>
       </div>
     </div>
