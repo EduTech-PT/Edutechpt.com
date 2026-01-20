@@ -34,6 +34,8 @@ export interface Profile {
   linkedin_url?: string;
   bio?: string;
   visibility_settings?: ProfileVisibility;
+  // Drive Integration
+  personal_folder_id?: string;
 }
 
 export interface UserPermissions {

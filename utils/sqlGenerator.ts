@@ -2,8 +2,8 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    return `-- SCRIPT ${currentVersion} - Storage & Permissions
--- Gerado automaticamente pelo Sistema EduTech PT v2.2.0
+    return `-- SCRIPT ${currentVersion} - Personal Folders
+-- Gerado automaticamente pelo Sistema EduTech PT
 
 -- 0. REMOÇÃO PREVENTIVA DE POLÍTICAS
 do $$
@@ -40,6 +40,11 @@ begin
     end if;
     if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'image_url') then
         alter table public.courses add column image_url text;
+    end if;
+    
+    -- 1.3 Personal Folder ID (Profiles)
+    if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'personal_folder_id') then
+        alter table public.profiles add column personal_folder_id text;
     end if;
 end $$;
 
@@ -80,7 +85,8 @@ create table if not exists public.profiles (
   phone text,
   linkedin_url text,
   bio text,
-  visibility_settings jsonb default '{}'::jsonb
+  visibility_settings jsonb default '{}'::jsonb,
+  personal_folder_id text
 );
 
 create table if not exists public.roles (

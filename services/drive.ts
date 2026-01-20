@@ -1,9 +1,11 @@
 
 import { adminService } from './admin';
+import { supabase } from '../lib/supabaseClient';
+import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.1.0";
+export const GAS_VERSION = "v1.2.0";
 
 export interface DriveFile {
   id: string;
@@ -21,7 +23,6 @@ export const driveService = {
       throw new Error('URL do Script não definido. Vá a Definições > Integração Drive e cole o URL do Web App.');
     }
     
-    // Check explícito para valor vazio ou undefined
     if (!config.driveFolderId || config.driveFolderId.trim() === '') {
       throw new Error('ID da Pasta Raiz não configurado. Vá a Definições > Integração Drive e cole o ID ou Link da pasta.');
     }
@@ -29,11 +30,48 @@ export const driveService = {
     return config;
   },
 
-  // Agora aceita um folderId opcional para navegação
+  /**
+   * Obtém a pasta pessoal do utilizador.
+   * Se já existir na DB, retorna.
+   * Se não, pede ao GAS para criar/procurar e guarda na DB.
+   */
+  async getPersonalFolder(profile: Profile): Promise<string> {
+      // 1. Se já tem pasta definida na DB, usa essa
+      if (profile.personal_folder_id) {
+          return profile.personal_folder_id;
+      }
+
+      // 2. Se não tem, precisamos de criar ou encontrar
+      const config = await this.getConfig();
+      const folderName = `[Formador] ${profile.full_name || profile.email}`;
+
+      const response = await fetch(config.googleScriptUrl, {
+          method: 'POST',
+          body: JSON.stringify({
+              action: 'ensureFolder',
+              rootId: config.driveFolderId,
+              name: folderName
+          })
+      });
+
+      const result = await response.json();
+      if (result.status !== 'success') {
+          throw new Error("Falha ao criar pasta pessoal: " + result.message);
+      }
+
+      const newFolderId = result.id;
+
+      // 3. Guardar na DB para o futuro
+      await supabase
+          .from('profiles')
+          .update({ personal_folder_id: newFolderId })
+          .eq('id', profile.id);
+
+      return newFolderId;
+  },
+
   async listFiles(currentFolderId?: string | null): Promise<{ files: DriveFile[], rootId: string }> {
     const config = await this.getConfig();
-    
-    // Se não for passado ID, usa o da config (Raiz)
     const targetId = currentFolderId || config.driveFolderId;
 
     try {
@@ -55,7 +93,7 @@ export const driveService = {
         
         return { 
             files: result.files, 
-            rootId: config.driveFolderId // Retorna sempre o root para sabermos onde é o "Início"
+            rootId: config.driveFolderId 
         };
     } catch (e: any) {
         if (e.message === 'Failed to fetch') {
@@ -150,20 +188,18 @@ function doPost(e) {
       const folder = DriveApp.getFolderById(data.folderId);
       const list = [];
       
-      // 1. Get Subfolders
       const subfolders = folder.getFolders();
       while (subfolders.hasNext()) {
         const sub = subfolders.next();
         list.push({
           id: sub.getId(),
           name: sub.getName(),
-          mimeType: 'application/vnd.google-apps.folder', // Marcador especial
+          mimeType: 'application/vnd.google-apps.folder',
           url: sub.getUrl(),
           size: 0
         });
       }
 
-      // 2. Get Files
       const files = folder.getFiles();
       while (files.hasNext()) {
         const file = files.next();
@@ -175,7 +211,6 @@ function doPost(e) {
           size: file.getSize()
         });
       }
-      
       result = { status: 'success', files: list };
     }
 
@@ -184,6 +219,21 @@ function doPost(e) {
       const newFolder = parent.createFolder(data.name);
       newFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       result = { status: 'success', id: newFolder.getId(), url: newFolder.getUrl() };
+    }
+
+    else if (action === 'ensureFolder') {
+      // Procura pasta pelo nome dentro da raiz. Se não existir, cria.
+      const root = DriveApp.getFolderById(data.rootId);
+      const folders = root.getFoldersByName(data.name);
+      let targetFolder;
+      
+      if (folders.hasNext()) {
+        targetFolder = folders.next();
+      } else {
+        targetFolder = root.createFolder(data.name);
+        targetFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      }
+      result = { status: 'success', id: targetFolder.getId(), url: targetFolder.getUrl() };
     }
 
     else if (action === 'upload') {
@@ -195,12 +245,10 @@ function doPost(e) {
     }
 
     else if (action === 'delete') {
-      // Tenta remover como ficheiro primeiro
       try {
         const file = DriveApp.getFileById(data.id);
         file.setTrashed(true);
       } catch (e) {
-        // Se falhar, tenta como pasta
         const folder = DriveApp.getFolderById(data.id);
         folder.setTrashed(true);
       }

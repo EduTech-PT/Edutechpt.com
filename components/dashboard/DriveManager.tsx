@@ -2,8 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { driveService, DriveFile } from '../../services/drive';
+import { Profile, UserRole } from '../../types';
 
-export const DriveManager: React.FC = () => {
+interface DriveManagerProps {
+    profile?: Profile; // Agora opcional, mas idealmente passado pelo Dashboard
+}
+
+export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
     const [files, setFiles] = useState<DriveFile[]>([]);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -12,34 +17,68 @@ export const DriveManager: React.FC = () => {
     // Navigation State
     const [rootId, setRootId] = useState<string | null>(null);
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-    const [folderStack, setFolderStack] = useState<{id: string, name: string}[]>([]); // Para breadcrumbs simples
+    const [folderStack, setFolderStack] = useState<{id: string, name: string}[]>([]); 
 
     useEffect(() => {
-        loadFiles();
-    }, []);
+        if (profile) {
+            initializeDrive();
+        }
+    }, [profile]);
+
+    const initializeDrive = async () => {
+        if (!profile) return;
+        setLoading(true);
+        setError(null);
+
+        try {
+            // 1. Determinar pasta inicial baseada no Role
+            let startFolderId: string | null = null;
+            let startRootId: string | null = null;
+
+            if (profile.role === UserRole.ADMIN) {
+                // Admin vê a raiz configurada
+                const config = await driveService.getConfig();
+                startFolderId = config.driveFolderId;
+                startRootId = config.driveFolderId;
+            } else {
+                // Formadores/Outros veem a sua pasta pessoal
+                // Se não existir, é criada automaticamente agora
+                startFolderId = await driveService.getPersonalFolder(profile);
+                startRootId = startFolderId; // Para eles, a raiz é a sua pasta
+            }
+            
+            // 2. Definir estado inicial
+            setRootId(startRootId);
+            setCurrentFolderId(startFolderId);
+            
+            // 3. Carregar ficheiros
+            const data = await driveService.listFiles(startFolderId);
+            setFiles(data.files);
+
+        } catch (err: any) {
+            console.error("Init Drive Error:", err);
+            setError(err.message || "Erro ao inicializar Drive.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const loadFiles = async (folderId?: string) => {
         try {
             setLoading(true);
             setError(null);
             
-            // Usa o ID passado ou o atual do estado, se nenhum, o serviço usa o root da config
             const targetId = folderId || currentFolderId;
-            
+            if (!targetId) return; // Safety check
+
             const data = await driveService.listFiles(targetId);
             setFiles(data.files);
             
-            // Na primeira carga, define o root
-            if (!rootId) {
-                setRootId(data.rootId);
-                setCurrentFolderId(data.rootId);
-            } else if (folderId) {
-                setCurrentFolderId(folderId);
-            }
+            if (folderId) setCurrentFolderId(folderId);
 
         } catch (err: any) {
             console.error(err);
-            setError(err.message || "Erro ao carregar ficheiros. Verifique as configurações do Drive.");
+            setError(err.message);
         } finally {
             setLoading(false);
         }
@@ -94,7 +133,7 @@ export const DriveManager: React.FC = () => {
             loadFiles(currentFolderId || undefined);
         } catch (err: any) {
             alert("Erro ao eliminar: " + err.message);
-            setLoading(false); // Só desativa loading aqui se houver erro, caso contrário o loadFiles trata disso
+            setLoading(false); 
         }
     };
 
@@ -107,7 +146,7 @@ export const DriveManager: React.FC = () => {
     const navigateUp = () => {
         if (folderStack.length === 0) return;
         const newStack = [...folderStack];
-        newStack.pop(); // Remove atual
+        newStack.pop(); 
         setFolderStack(newStack);
         
         const parentId = newStack.length > 0 ? newStack[newStack.length - 1].id : rootId;
@@ -116,7 +155,6 @@ export const DriveManager: React.FC = () => {
 
     const navigateToBreadcrumb = (index: number) => {
         if (index === -1) {
-            // Home
             setFolderStack([]);
             loadFiles(rootId!);
         } else {
@@ -140,7 +178,12 @@ export const DriveManager: React.FC = () => {
         <div className="space-y-6 animate-in slide-in-from-right duration-300">
              {/* Header & Actions */}
              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <h2 className="text-2xl font-bold text-indigo-900">Materiais (Google Drive)</h2>
+                <div className="flex flex-col">
+                    <h2 className="text-2xl font-bold text-indigo-900">Materiais (Google Drive)</h2>
+                    {profile?.role !== UserRole.ADMIN && <span className="text-xs text-indigo-600 font-bold uppercase">Pasta Pessoal</span>}
+                    {profile?.role === UserRole.ADMIN && <span className="text-xs text-indigo-600 font-bold uppercase">Acesso Global (Admin)</span>}
+                </div>
+                
                 <div className="flex gap-2">
                     <button onClick={() => loadFiles(currentFolderId || undefined)} className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg">
                         🔄
@@ -186,7 +229,7 @@ export const DriveManager: React.FC = () => {
                 {loading && !uploading ? (
                     <div className="text-center p-10 text-indigo-500">
                         <div className="animate-spin h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-2"></div>
-                        A comunicar com Google Drive...
+                        A sincronizar pastas...
                     </div>
                 ) : files.length === 0 ? (
                     <p className="text-center p-8 text-indigo-500">Esta pasta está vazia.</p>
