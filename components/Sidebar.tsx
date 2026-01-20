@@ -48,15 +48,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
   const visibleItems = menuItems.filter(item => hasAccess(item));
 
   return (
-    <GlassCard className="h-full flex flex-col justify-between w-64 rounded-none rounded-r-2xl border-l-0 min-h-[80vh] p-0 overflow-hidden relative">
+    <GlassCard className="h-full flex flex-col w-64 rounded-none rounded-r-2xl border-l-0 min-h-[80vh] p-0 overflow-hidden relative">
       
-      {/* Top Section: Logo & Nav */}
-      <div className="p-6">
-        <div className="mb-8">
+      {/* Top Section: Logo - Fixed */}
+      <div className="p-6 pb-2 flex-shrink-0">
+        <div className="">
           <h2 className="text-2xl font-bold text-indigo-900 tracking-tight">EduTech PT</h2>
         </div>
-        
-        <nav className="space-y-2">
+      </div>
+      
+      {/* Middle Section: Nav - Scrollable */}
+      <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar">
+        <nav className="space-y-2 pb-4">
           {visibleItems.map(item => (
             <button
               key={item.id}
@@ -73,8 +76,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
         </nav>
       </div>
 
-      {/* Bottom Section: User Info & Version & Logout */}
-      <div className="bg-white/20 backdrop-blur-md p-6 border-t border-white/40 flex flex-col gap-6">
+      {/* Bottom Section: User Info & Version & Logout - Fixed */}
+      <div className="flex-shrink-0 bg-white/20 backdrop-blur-md p-6 border-t border-white/40 flex flex-col gap-6">
         
         {/* User Profile & Version */}
         {profile && (
