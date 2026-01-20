@@ -5,7 +5,7 @@ import { APP_VERSION, SQL_VERSION } from '../../constants';
 import { generateSetupScript } from '../../utils/sqlGenerator';
 import { adminService } from '../../services/admin';
 import { RichTextEditor } from '../RichTextEditor';
-import { GAS_TEMPLATE_CODE, driveService } from '../../services/drive';
+import { GAS_TEMPLATE_CODE } from '../../services/drive';
 
 interface Props {
   dbVersion: string;
@@ -18,6 +18,7 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
     const [copyFeedback, setCopyFeedback] = useState('');
     const [testStatus, setTestStatus] = useState<{success: boolean, msg: string} | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [savedId, setSavedId] = useState<string | null>(null);
     
     useEffect(() => {
         setSqlScript(generateSetupScript(SQL_VERSION));
@@ -28,21 +29,31 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
         try {
             const cfg = await adminService.getAppConfig();
             setConfig(cfg);
+            setSavedId(cfg.driveFolderId); // Guarda o estado real da DB
         } catch (e) { console.error(e); }
     };
 
-    // Helper para limpar e extrair ID do Drive
+    // Helper robusto para extrair ID do Drive
     const cleanDriveId = (input: string) => {
         if (!input) return '';
         const text = input.trim();
-        // Se for um URL completo, tenta extrair o ID após '/folders/'
+        
+        // Padrão 1: URL completo (/folders/)
         if (text.includes('/folders/')) {
             const parts = text.split('/folders/');
             if (parts[1]) {
-                // Remove parâmetros extra (?usp=sharing, etc)
-                return parts[1].split('?')[0].split('/')[0];
+                // Remove query params (?usp=sharing) e barras extra
+                return parts[1].split(/[/?]/)[0];
             }
         }
+        
+        // Padrão 2: URL mobile ou id direto (apenas alfanumérico e hífens)
+        // IDs do Google Drive têm tipicamente ~33 caracteres ou mais
+        if (text.length > 20 && !text.includes('http')) {
+            return text;
+        }
+
+        // Fallback: retorna o texto limpo se não detetar URL
         return text;
     };
 
@@ -55,28 +66,32 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
                 await adminService.updateAppConfig('avatar_help_text', config.helpText);
             }
             if (tab === 'drive') {
-                const cleanId = cleanDriveId(config.driveFolderId);
+                const rawId = config.driveFolderId || '';
+                const cleanId = cleanDriveId(rawId);
                 const cleanUrl = config.googleScriptUrl?.trim();
 
-                // Validation
                 if (!cleanUrl?.startsWith('https://script.google.com')) {
                     throw new Error("O URL do Script parece inválido. Deve começar por 'https://script.google.com'.");
                 }
-                if (!cleanId || cleanId.length < 10) {
-                     throw new Error("O ID da Pasta parece inválido. Verifique se copiou corretamente.");
+                
+                // Validação relaxada: se tiver algo, tenta guardar
+                if (!cleanId) {
+                     throw new Error("O campo ID da Pasta está vazio.");
                 }
 
                 // Atualiza o estado local para refletir a limpeza visualmente
                 setConfig(prev => ({...prev, driveFolderId: cleanId, googleScriptUrl: cleanUrl}));
 
-                // Força a atualização individual para garantir que nada é perdido
+                // Guarda na DB
                 await adminService.updateAppConfig('google_script_url', cleanUrl);
                 await adminService.updateAppConfig('google_drive_folder_id', cleanId);
                 
-                // Recarrega do servidor para confirmar persistência
+                // Recarrega para confirmar
                 await loadConfig();
+                alert('Configuração guardada com sucesso!');
+            } else {
+                alert('Guardado!');
             }
-            alert('Configuração guardada na Base de Dados com sucesso!');
         } catch (e: any) { 
             alert('Erro ao guardar: ' + e.message); 
         } finally {
@@ -86,26 +101,36 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
 
     const handleTestConnection = async () => {
         setTestStatus({ success: false, msg: 'A testar conexão...' });
+        
+        // Verifica se há alterações não guardadas
+        if (config.driveFolderId !== savedId) {
+            if(!window.confirm("Alterou o ID mas ainda não guardou. Deseja guardar e testar?")) return;
+            await handleSaveConfig();
+        }
+
         try {
-            // Usa as configs locais caso o utilizador ainda não tenha guardado, ou recarrega para ter a certeza
-            const tempConfig = { 
-                googleScriptUrl: config.googleScriptUrl, 
-                driveFolderId: cleanDriveId(config.driveFolderId) 
-            };
+            // Recarrega a config fresca da DB para garantir que testamos o que está gravado
+            const currentConfig = await adminService.getAppConfig();
             
-            if (!tempConfig.googleScriptUrl || !tempConfig.driveFolderId) {
-                throw new Error("Preencha e guarde os campos primeiro.");
+            if (!currentConfig.googleScriptUrl || !currentConfig.driveFolderId) {
+                throw new Error("Configuração incompleta na Base de Dados.");
             }
 
-            // Tenta listar ficheiros (limitado a 1 pelo backend ou apenas verifica resposta)
-            const response = await fetch(tempConfig.googleScriptUrl, {
+            const response = await fetch(currentConfig.googleScriptUrl, {
                 method: 'POST', 
-                body: JSON.stringify({ action: 'list', folderId: tempConfig.driveFolderId })
+                body: JSON.stringify({ action: 'list', folderId: currentConfig.driveFolderId })
             });
+            
+            // Verifica se devolveu HTML (erro comum de permissões)
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("text/html")) {
+                 throw new Error("O Script não está acessível (retornou HTML). Verifique se publicou como 'Qualquer pessoa'.");
+            }
+
             const result = await response.json();
             
             if (result.status === 'success') {
-                setTestStatus({ success: true, msg: `Sucesso! Conectado a "${result.files.length >= 0 ? 'Pasta Drive Válida' : '?'}"` });
+                setTestStatus({ success: true, msg: `Conectado! ${result.files.length} ficheiros encontrados.` });
             } else {
                 throw new Error(result.message || "Erro desconhecido do Script");
             }
@@ -177,13 +202,15 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
                                         placeholder="Ex: 1A2b3C... ou Link da pasta" 
                                         className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm pr-20"
                                     />
-                                    {config.driveFolderId && config.driveFolderId.includes('http') && (
-                                        <span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded">URL Detetado</span>
+                                    {config.driveFolderId && config.driveFolderId.includes('/folders/') && (
+                                        <span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded font-bold animate-pulse">Link Detetado (Guardar p/ limpar)</span>
                                     )}
                                 </div>
-                                <p className="text-xs text-indigo-600 mt-1 opacity-80">
-                                    O ID é o código alfanumérico no final do link da pasta (após '/folders/').
-                                </p>
+                                <div className="mt-1 flex justify-between items-center text-xs">
+                                     <p className="text-indigo-600 opacity-80">
+                                        ID atual na DB: {savedId ? <span className="font-mono bg-indigo-100 px-1 rounded text-indigo-800">{savedId.substring(0,10)}...</span> : <span className="text-red-500 font-bold">Não Configurado</span>}
+                                     </p>
+                                </div>
                             </div>
                             
                             <div className="flex gap-2 pt-2">

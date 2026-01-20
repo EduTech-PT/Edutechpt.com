@@ -13,12 +13,13 @@ export const driveService = {
   async getConfig() {
     const config = await adminService.getAppConfig();
     
-    // Verificações robustas para evitar erros genéricos
     if (!config.googleScriptUrl) {
-      throw new Error('CONFIGURAÇÃO EM FALTA: O URL do Google Script não está definido. Vá a Definições > Integração Drive.');
+      throw new Error('URL do Script não definido. Vá a Definições > Integração Drive e cole o URL do Web App.');
     }
-    if (!config.driveFolderId) {
-      throw new Error('CONFIGURAÇÃO EM FALTA: O ID da Pasta Google Drive não está definido. Vá a Definições > Integração Drive.');
+    
+    // Check explícito para valor vazio ou undefined
+    if (!config.driveFolderId || config.driveFolderId.trim() === '') {
+      throw new Error('ID da Pasta Raiz não configurado. Vá a Definições > Integração Drive e cole o ID ou Link da pasta.');
     }
     
     return config;
@@ -33,23 +34,22 @@ export const driveService = {
           body: JSON.stringify({ action: 'list', folderId: config.driveFolderId })
         });
 
-        // Verifica se a resposta é HTML (erro comum do Google quando não está publicado corretamente)
+        // Verifica erro de HTML (Script não publicado corretamente)
         const contentType = response.headers.get("content-type");
         if (contentType && contentType.includes("text/html")) {
-            throw new Error("O Script retornou HTML em vez de JSON. Verifique se a implementação está definida como 'Qualquer pessoa'.");
+            throw new Error("Erro de permissão no Script (HTML retornado). Verifique se a implementação é 'Qualquer pessoa'.");
         }
 
         const result = await response.json();
         
         if (result.status === 'error') {
-             throw new Error('Google Script Erro: ' + result.message);
+             throw new Error('Google Script: ' + result.message);
         }
         
         return result.files;
     } catch (e: any) {
-        // Se falhar o fetch (ex: CORS ou rede)
         if (e.message === 'Failed to fetch') {
-            throw new Error('Falha na conexão. Verifique se o URL do Script está correto e a implementação permite "Qualquer pessoa".');
+            throw new Error('Falha de Rede. Verifique o URL do Script nas Definições.');
         }
         throw e;
     }
