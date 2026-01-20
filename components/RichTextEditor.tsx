@@ -7,6 +7,7 @@ interface RichTextEditorProps {
   onChange: (value: string) => void;
   className?: string;
   placeholder?: string;
+  allowHtmlView?: boolean;
 }
 
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({ 
@@ -14,7 +15,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   value, 
   onChange, 
   className = '',
-  placeholder
+  placeholder,
+  allowHtmlView = true
 }) => {
   const [isSourceView, setIsSourceView] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -262,19 +264,21 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
            <div className="flex-grow"></div>
            
-           <button
-             type="button"
-             onClick={() => setIsSourceView(!isSourceView)}
-             className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded border transition-colors ml-2 ${
-               isSourceView 
-                 ? 'bg-indigo-600 text-white border-indigo-600 shadow-inner' 
-                 : 'bg-white/50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
-             }`}
-             title="Alternar Editor HTML"
-           >
-             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
-             {isSourceView ? 'Visual' : 'HTML'}
-           </button>
+           {allowHtmlView && (
+             <button
+               type="button"
+               onClick={() => setIsSourceView(!isSourceView)}
+               className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded border transition-colors ml-2 ${
+                 isSourceView 
+                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-inner' 
+                   : 'bg-white/50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+               }`}
+               title="Alternar Editor HTML"
+             >
+               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+               {isSourceView ? 'Visual' : 'HTML'}
+             </button>
+           )}
         </div>
 
         {/* Editor Content */}

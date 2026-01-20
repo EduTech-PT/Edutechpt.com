@@ -1411,6 +1411,7 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
                                     label="Texto de Ajuda (Passo a Passo)"
                                     value={avatarConfig.helpText}
                                     onChange={(val) => setAvatarConfig({...avatarConfig, helpText: val})}
+                                    allowHtmlView={false}
                                   />
                               </div>
                               <div className="grid grid-cols-2 gap-4">
