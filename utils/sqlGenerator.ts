@@ -3,7 +3,7 @@ import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- SCRIPT ${currentVersion} - Storage & Permissions
--- Gerado automaticamente pelo Sistema EduTech PT v2.1.0
+-- Gerado automaticamente pelo Sistema EduTech PT v2.2.0
 
 -- 0. REMOÇÃO PREVENTIVA DE POLÍTICAS
 do $$
@@ -53,12 +53,15 @@ create policy "Admins can update config" on public.app_config for all using (
     exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
 );
 
+-- Inserção de configurações do Google Drive
 insert into public.app_config (key, value) values 
 ('sql_version', '${currentVersion}-installing'),
 ('avatar_resizer_link', 'https://www.iloveimg.com/resize-image'),
 ('avatar_help_text', E'1. Aceda ao link de redimensionamento.\\n2. Carregue a sua foto.\\n3. Defina a largura para 500px.\\n4. Descarregue a imagem otimizada.\\n5. Carregue o ficheiro aqui.'),
 ('avatar_max_size_kb', '2048'),
-('avatar_allowed_formats', 'image/jpeg,image/png,image/webp')
+('avatar_allowed_formats', 'image/jpeg,image/png,image/webp'),
+('google_script_url', ''),
+('google_drive_folder_id', '')
 on conflict (key) do update set value = excluded.value 
 where app_config.key = 'sql_version';
 

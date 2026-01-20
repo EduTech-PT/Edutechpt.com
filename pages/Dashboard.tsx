@@ -14,6 +14,7 @@ import { CourseManager } from '../components/dashboard/CourseManager';
 import { UserAdmin } from '../components/dashboard/UserAdmin';
 import { Settings } from '../components/dashboard/Settings';
 import { MediaManager } from '../components/dashboard/MediaManager';
+import { DriveManager } from '../components/dashboard/DriveManager';
 
 interface DashboardProps {
   session: any;
@@ -65,6 +66,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           case 'dashboard': return <Overview profile={profile} dbStatus={{mismatch: dbVersion !== SQL_VERSION, current: dbVersion, expected: SQL_VERSION}} onFixDb={() => setCurrentView('settings')} isAdmin={profile.role === UserRole.ADMIN} />;
           case 'manage_courses': return <CourseManager profile={profile} />;
           case 'media': return <MediaManager />;
+          case 'drive': return <DriveManager />;
           case 'users': return <UserAdmin />;
           case 'settings': return <Settings dbVersion={dbVersion} />;
           default: return <GlassCard><h2>Em Construção: {currentView}</h2></GlassCard>;

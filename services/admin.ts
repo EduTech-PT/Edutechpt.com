@@ -45,6 +45,8 @@ export const adminService = {
                 if (item.key === 'avatar_max_size_kb') config.maxSizeKb = item.value;
                 if (item.key === 'avatar_allowed_formats') config.allowedFormats = item.value;
                 if (item.key === 'sql_version') config.sqlVersion = item.value;
+                if (item.key === 'google_script_url') config.googleScriptUrl = item.value;
+                if (item.key === 'google_drive_folder_id') config.driveFolderId = item.value;
             });
         }
         return config;
