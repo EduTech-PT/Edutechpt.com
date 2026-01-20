@@ -58,17 +58,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, appVersion, currentVi
         </nav>
       </div>
 
-      {/* Bottom Section: User Info & Version */}
-      <div className="bg-white/20 backdrop-blur-md p-6 border-t border-white/40">
+      {/* Bottom Section: User Info & Version & Logout */}
+      <div className="bg-white/20 backdrop-blur-md p-6 border-t border-white/40 flex flex-col gap-6">
         
-        {/* Logout Button */}
-        <button
-          onClick={onLogout}
-          className="w-full text-left flex items-center gap-2 text-red-700 hover:text-red-800 font-medium transition-colors mb-6"
-        >
-          <span className="text-lg">🚪</span> Terminar Sessão
-        </button>
-
         {/* User Profile & Version - 16px Request */}
         {profile && (
             <div className="flex flex-col gap-3">
@@ -91,6 +83,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, appVersion, currentVi
                 </div>
             </div>
         )}
+
+        {/* Logout Button - Moved to bottom, smaller, single line */}
+        <button
+          onClick={onLogout}
+          className="w-full text-left flex items-center gap-2 text-red-700 hover:text-red-800 font-medium transition-colors text-sm whitespace-nowrap pt-2 border-t border-indigo-900/10"
+        >
+          <span className="text-base">🚪</span> Terminar Sessão
+        </button>
+
       </div>
     </GlassCard>
   );
