@@ -5,7 +5,11 @@ import { GlassCard } from '../GlassCard';
 import { adminService } from '../../services/admin';
 import { userService } from '../../services/users';
 
-export const UserAdmin: React.FC = () => {
+interface UserAdminProps {
+    onEditUser?: (user: Profile) => void;
+}
+
+export const UserAdmin: React.FC<UserAdminProps> = ({ onEditUser }) => {
     const [users, setUsers] = useState<Profile[]>([]);
     const [invites, setInvites] = useState<UserInvite[]>([]);
     const [roles, setRoles] = useState<RoleDefinition[]>([]);
@@ -94,17 +98,29 @@ export const UserAdmin: React.FC = () => {
                                     <th>Nome</th>
                                     <th>Email</th>
                                     <th>Cargo</th>
+                                    <th className="w-10"></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {users.map(u => (
-                                    <tr key={u.id} className="border-b border-indigo-50 hover:bg-white/30">
+                                    <tr key={u.id} className="border-b border-indigo-50 hover:bg-white/30 group">
                                         <td className="py-3 pl-2">
                                             <input type="checkbox" checked={selectedIds.includes(u.id)} onChange={() => setSelectedIds(prev => prev.includes(u.id) ? prev.filter(id => id !== u.id) : [...prev, u.id])} />
                                         </td>
                                         <td className="py-3 font-medium text-indigo-900">{u.full_name || '-'}</td>
                                         <td className="py-3 opacity-70">{u.email}</td>
                                         <td className="py-3"><span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded text-xs uppercase font-bold">{u.role}</span></td>
+                                        <td className="py-3 text-right">
+                                            {onEditUser && (
+                                                <button 
+                                                    onClick={() => onEditUser(u)}
+                                                    className="p-1.5 bg-indigo-50 text-indigo-600 rounded-md hover:bg-indigo-200 transition-colors opacity-0 group-hover:opacity-100"
+                                                    title="Editar Perfil"
+                                                >
+                                                    ✏️
+                                                </button>
+                                            )}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

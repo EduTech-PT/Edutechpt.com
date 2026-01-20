@@ -29,6 +29,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [currentView, setCurrentView] = useState('dashboard');
   const [currentTime, setCurrentTime] = useState(new Date());
   
+  // Admin Edit User State
+  const [selectedUserToEdit, setSelectedUserToEdit] = useState<Profile | null>(null);
+
   // Responsive State
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
@@ -87,8 +90,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       setCurrentView('settings_drive');
   };
 
-  const handleRefreshProfile = () => {
-      init(); 
+  const handleRefreshProfile = async () => {
+      // Se estamos a editar outro utilizador, recarregamos esse utilizador específico
+      if (selectedUserToEdit) {
+          try {
+            const updated = await userService.getProfile(selectedUserToEdit.id);
+            setSelectedUserToEdit(updated);
+          } catch (e) { console.error(e); }
+      } else {
+          // Senão, recarregamos o utilizador logado
+          init(); 
+      }
+  };
+
+  // Callback para quando o Admin clica em editar na lista de users
+  const handleAdminEditUser = (userToEdit: Profile) => {
+      setSelectedUserToEdit(userToEdit);
+      setCurrentView('admin_edit_profile');
+  };
+
+  // Callback para voltar à lista
+  const handleBackToUserList = () => {
+      setSelectedUserToEdit(null);
+      setCurrentView('users');
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-indigo-600">A carregar EduTech PT...</div>;
@@ -114,12 +138,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 isAdmin={profile.role === UserRole.ADMIN} 
             />
           );
+          
+          // Perfil do Próprio
           case 'my_profile': return <MyProfile user={profile} refreshProfile={handleRefreshProfile} />;
+          
+          // Admin a Editar Outro Perfil
+          case 'admin_edit_profile': 
+            return selectedUserToEdit ? (
+                <MyProfile 
+                    user={selectedUserToEdit} 
+                    refreshProfile={handleRefreshProfile} 
+                    onBack={handleBackToUserList}
+                    isAdminMode={true}
+                />
+            ) : <UserAdmin onEditUser={handleAdminEditUser} />;
+
           case 'community': return <Community />;
           case 'manage_courses': return <CourseManager profile={profile} />;
           case 'media': return <MediaManager />;
           case 'drive': return <DriveManager profile={profile} />;
-          case 'users': return <UserAdmin />;
+          case 'users': return <UserAdmin onEditUser={handleAdminEditUser} />;
           
           // Mapeamento das Sub-paginas de definições
           case 'settings_geral': return <Settings dbVersion={dbVersion} initialTab="geral" />;
@@ -137,6 +175,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const getPageTitle = (view: string) => {
       if (view.startsWith('settings_')) return 'Definições / ' + view.replace('settings_', '').toUpperCase();
       if (view === 'my_profile') return 'Meu Perfil';
+      if (view === 'admin_edit_profile') return 'Gestão / Editar Perfil';
       if (view === 'manage_courses') return 'Gestão de Cursos';
       return view.replace('_', ' ');
   };
@@ -169,8 +208,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
             <Sidebar 
                 profile={profile} 
                 appVersion={APP_VERSION} 
-                currentView={currentView} 
-                setView={setCurrentView} 
+                currentView={currentView === 'admin_edit_profile' ? 'users' : currentView} // Mantém 'users' ativo na sidebar se estiver a editar
+                setView={(view) => {
+                    setCurrentView(view);
+                    setSelectedUserToEdit(null); // Limpa seleção ao mudar de menu
+                }} 
                 onLogout={onLogout}
                 onMobileClose={() => setMobileMenuOpen(false)}
             />

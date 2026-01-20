@@ -10,9 +10,11 @@ import { formatDate } from '../../utils/formatters';
 interface Props {
   user: Profile;
   refreshProfile: () => void;
+  onBack?: () => void; // Para navegar de volta se for Admin
+  isAdminMode?: boolean; // Flag para indicar que é um admin a ver
 }
 
-export const MyProfile: React.FC<Props> = ({ user, refreshProfile }) => {
+export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdminMode = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [avatarConfig, setAvatarConfig] = useState<any>(null);
@@ -24,6 +26,8 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile }) => {
   useEffect(() => {
     resetForm();
     loadAvatarConfig();
+    // Se for Admin Mode, começamos já em modo de edição por conveniência? 
+    // Não, deixamos à escolha, mas garantimos que o form está sincronizado.
   }, [user]);
 
   const loadAvatarConfig = async () => {
@@ -76,7 +80,6 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile }) => {
         URL.revokeObjectURL(objectUrl); // Limpeza de memória
 
         // Verificar Dimensões Exatas (ou máximas, dependendo da interpretação, mas o prompt pediu limites definidos "100x100")
-        // Como o prompt disse "Carregar fotos dentro dos limites", assumo que >100 é proibido.
         if (width > maxWidth || height > maxHeight) {
             alert(`Dimensões inválidas.\nMáximo permitido: ${maxWidth}x${maxHeight}px.\nSua imagem: ${width}x${height}px.`);
             e.target.value = '';
@@ -149,6 +152,22 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile }) => {
       
       {/* Header Section */}
       <GlassCard className="relative overflow-hidden">
+        
+        {/* Back Button for Admin Mode */}
+        {onBack && (
+            <button 
+                onClick={onBack}
+                className="absolute top-4 right-4 z-20 px-3 py-1.5 bg-white/80 text-indigo-700 rounded-lg shadow-sm hover:bg-white text-xs font-bold flex items-center gap-1"
+            >
+                ⬅️ Voltar à Lista
+            </button>
+        )}
+
+        {/* Admin Banner */}
+        {isAdminMode && (
+            <div className="absolute top-0 left-0 w-full h-1 bg-red-500 z-30"></div>
+        )}
+
         <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-20"></div>
         <div className="relative pt-12 px-4 flex flex-col md:flex-row items-start md:items-end gap-6">
           
@@ -180,8 +199,9 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile }) => {
 
           {/* User Info Header */}
           <div className="flex-1 mb-2">
-            <h1 className="text-3xl font-bold text-indigo-900 leading-tight">
+            <h1 className="text-3xl font-bold text-indigo-900 leading-tight flex items-center gap-2">
               {user.full_name || 'Utilizador Sem Nome'}
+              {isAdminMode && <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded border border-red-200 uppercase font-bold tracking-wide">Modo Admin</span>}
             </h1>
             <div className="flex flex-wrap gap-2 mt-2">
               <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-bold uppercase tracking-wide">
