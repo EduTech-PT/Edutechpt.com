@@ -1,5 +1,5 @@
 
--- SCRIPT v1.1.24 - Configuração de Storage e Avatares (FIX)
+-- SCRIPT v1.1.25 - Configuração de Avatares em KB
 -- Execute este script COMPLETO.
 
 -- 1. BASE DE CONFIGURAÇÃO E NOVAS CHAVES DE AVATAR
@@ -8,16 +8,16 @@ alter table public.app_config enable row level security;
 drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
 
--- Atualizar versão do SQL e inserir configurações padrão de avatar
+-- Atualizar versão do SQL e inserir configurações padrão de avatar (Agora em KB)
 -- FIX: app_config.key para resolver ambiguidade
 insert into public.app_config (key, value) values 
-('sql_version', 'v1.1.24-installing'),
+('sql_version', 'v1.1.25-installing'),
 ('avatar_resizer_link', 'https://www.iloveimg.com/resize-image'),
 ('avatar_help_text', E'1. Aceda ao link de redimensionamento.\n2. Carregue a sua foto.\n3. Defina a largura para 500px.\n4. Descarregue a imagem otimizada.\n5. Carregue o ficheiro aqui.'),
-('avatar_max_size_mb', '2'),
+('avatar_max_size_kb', '2048'), -- Alterado para KB (2MB = 2048KB)
 ('avatar_allowed_formats', 'image/jpeg,image/png,image/webp')
 on conflict (key) do update set value = excluded.value 
-where app_config.key = 'sql_version'; -- Apenas força update da versão, mantém configs de utilizador se já existirem
+where app_config.key = 'sql_version'; -- Apenas força update da versão
 
 -- 2. LIMPEZA ESTRUTURAL
 drop trigger if exists on_auth_user_created on auth.users;
@@ -164,4 +164,4 @@ create trigger on_auth_user_created
 
 -- 7. FINALIZAÇÃO
 update public.profiles set role = 'admin'::public.app_role where email = 'edutechpt@hotmail.com';
-update public.app_config set value = 'v1.1.24' where key = 'sql_version';
+update public.app_config set value = 'v1.1.25' where key = 'sql_version';

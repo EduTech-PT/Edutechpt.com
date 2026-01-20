@@ -61,7 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, appVersion, currentVi
       {/* Bottom Section: User Info & Version & Logout */}
       <div className="bg-white/20 backdrop-blur-md p-6 border-t border-white/40 flex flex-col gap-6">
         
-        {/* User Profile & Version - 16px Request */}
+        {/* User Profile & Version - Updated layout per request */}
         {profile && (
             <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-3">
@@ -72,13 +72,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, appVersion, currentVi
                             <span className="text-indigo-700 font-bold text-sm">{profile.full_name?.[0]?.toUpperCase() || 'U'}</span>
                         )}
                     </div>
-                    <div className="flex flex-col overflow-hidden">
-                         <span className="font-bold text-indigo-900 truncate text-[16px]">
-                            {profile.role.toUpperCase()}
+                    <div className="flex flex-col overflow-hidden justify-center">
+                         {/* Name */}
+                         <span className="font-bold text-indigo-900 truncate text-sm leading-tight">
+                            {profile.full_name || 'Utilizador'}
                          </span>
-                         <span className="text-indigo-700 opacity-60 text-[16px] leading-tight">
-                            {appVersion}
-                         </span>
+                         {/* Role & Version Small */}
+                         <div className="flex gap-2 items-center text-xs text-indigo-700 opacity-70 mt-0.5">
+                             <span className="uppercase font-bold">{profile.role}</span>
+                             <span>•</span>
+                             <span>{appVersion}</span>
+                         </div>
                     </div>
                 </div>
             </div>

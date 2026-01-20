@@ -35,7 +35,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [avatarConfig, setAvatarConfig] = useState({
       resizerLink: '',
       helpText: '',
-      maxSizeMb: '2',
+      maxSizeKb: '2048', // Default to 2048KB (2MB)
       allowedFormats: 'image/jpeg,image/png'
   });
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -101,14 +101,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   }, [currentView, profile]);
 
   const fetchAvatarConfig = async () => {
-      const { data, error } = await supabase.from('app_config').select('*').in('key', ['avatar_resizer_link', 'avatar_help_text', 'avatar_max_size_mb', 'avatar_allowed_formats']);
+      const { data, error } = await supabase.from('app_config').select('*').in('key', ['avatar_resizer_link', 'avatar_help_text', 'avatar_max_size_kb', 'avatar_allowed_formats']);
       
       if (data) {
           const config: any = {};
           data.forEach(item => {
               if (item.key === 'avatar_resizer_link') config.resizerLink = item.value;
               if (item.key === 'avatar_help_text') config.helpText = item.value;
-              if (item.key === 'avatar_max_size_mb') config.maxSizeMb = item.value;
+              if (item.key === 'avatar_max_size_kb') config.maxSizeKb = item.value;
               if (item.key === 'avatar_allowed_formats') config.allowedFormats = item.value;
           });
           setAvatarConfig(prev => ({ ...prev, ...config }));
@@ -216,10 +216,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           }
           const file = event.target.files[0];
           
-          // Validation
-          const maxSize = parseFloat(avatarConfig.maxSizeMb) * 1024 * 1024;
+          // Validation (KB now)
+          const maxSize = parseFloat(avatarConfig.maxSizeKb) * 1024;
           if (file.size > maxSize) {
-              alert(`O ficheiro é demasiado grande. Máximo permitido: ${avatarConfig.maxSizeMb}MB`);
+              alert(`O ficheiro é demasiado grande. Máximo permitido: ${avatarConfig.maxSizeKb}KB`);
               return;
           }
 
@@ -266,7 +266,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           const updates = [
               { key: 'avatar_resizer_link', value: avatarConfig.resizerLink },
               { key: 'avatar_help_text', value: avatarConfig.helpText },
-              { key: 'avatar_max_size_mb', value: avatarConfig.maxSizeMb },
+              { key: 'avatar_max_size_kb', value: avatarConfig.maxSizeKb },
               { key: 'avatar_allowed_formats', value: avatarConfig.allowedFormats },
           ];
 
@@ -419,7 +419,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
   // Usa template literals para inserir a versão correta do ficheiro constants.ts
-  const sqlCodeString = `-- SCRIPT ${SQL_VERSION} - Configuração de Storage e Avatares (FIX)
+  const sqlCodeString = `-- SCRIPT ${SQL_VERSION} - Configuração de Avatares em KB
 -- Execute este script COMPLETO.
 
 -- 1. BASE DE CONFIGURAÇÃO E NOVAS CHAVES DE AVATAR
@@ -428,16 +428,16 @@ alter table public.app_config enable row level security;
 drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
 
--- Atualizar versão do SQL e inserir configurações padrão de avatar
+-- Atualizar versão do SQL e inserir configurações padrão de avatar (Agora em KB)
 -- FIX: app_config.key para resolver ambiguidade
 insert into public.app_config (key, value) values 
 ('sql_version', '${SQL_VERSION}-installing'),
 ('avatar_resizer_link', 'https://www.iloveimg.com/resize-image'),
 ('avatar_help_text', E'1. Aceda ao link de redimensionamento.\\n2. Carregue a sua foto.\\n3. Defina a largura para 500px.\\n4. Descarregue a imagem otimizada.\\n5. Carregue o ficheiro aqui.'),
-('avatar_max_size_mb', '2'),
+('avatar_max_size_kb', '2048'), -- Alterado para KB (2MB = 2048KB)
 ('avatar_allowed_formats', 'image/jpeg,image/png,image/webp')
 on conflict (key) do update set value = excluded.value 
-where app_config.key = 'sql_version'; -- Apenas força update da versão, mantém configs de utilizador se já existirem
+where app_config.key = 'sql_version'; -- Apenas força update da versão
 
 -- 2. LIMPEZA ESTRUTURAL
 drop trigger if exists on_auth_user_created on auth.users;
@@ -1003,12 +1003,11 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
                               </div>
                               <div className="grid grid-cols-2 gap-4">
                                   <div>
-                                      <label className="block text-sm font-medium text-indigo-900 mb-1">Tamanho Máx (MB)</label>
+                                      <label className="block text-sm font-medium text-indigo-900 mb-1">Tamanho Máx (KB)</label>
                                       <input 
                                         type="number" 
-                                        step="0.1"
-                                        value={avatarConfig.maxSizeMb}
-                                        onChange={(e) => setAvatarConfig({...avatarConfig, maxSizeMb: e.target.value})}
+                                        value={avatarConfig.maxSizeKb}
+                                        onChange={(e) => setAvatarConfig({...avatarConfig, maxSizeKb: e.target.value})}
                                         className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"
                                       />
                                   </div>
