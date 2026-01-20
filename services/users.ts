@@ -37,6 +37,18 @@ export const userService = {
         return data as Profile[];
     },
 
+    // Nova função que chama o RPC seguro da BD
+    async getCommunityMembers() {
+        const { data, error } = await supabase.rpc('get_community_members');
+        
+        if (error) {
+            // Fallback gracioso se a função ainda não existir (SQL antigo)
+            console.warn("RPC get_community_members falhou (possivelmente SQL antigo). Usando fallback local.");
+            return []; 
+        }
+        return data as Profile[];
+    },
+
     async deleteUsers(ids: string[]) {
         const { error } = await supabase.from('profiles').delete().in('id', ids);
         if (error) throw error;

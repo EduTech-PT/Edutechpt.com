@@ -17,6 +17,7 @@ import { Settings } from '../components/dashboard/Settings';
 import { MediaManager } from '../components/dashboard/MediaManager';
 import { DriveManager } from '../components/dashboard/DriveManager';
 import { MyProfile } from '../components/dashboard/MyProfile';
+import { Community } from '../components/dashboard/Community';
 
 interface DashboardProps {
   session: any;
@@ -116,6 +117,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
             />
           );
           case 'my_profile': return <MyProfile user={profile} refreshProfile={handleRefreshProfile} />;
+          case 'community': return <Community />;
           case 'manage_courses': return <CourseManager profile={profile} />;
           case 'media': return <MediaManager />;
           case 'drive': return <DriveManager profile={profile} />;

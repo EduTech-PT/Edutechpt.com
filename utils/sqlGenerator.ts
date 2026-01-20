@@ -2,7 +2,7 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    return `-- SCRIPT ${currentVersion} - Unique Names & Personal Folders
+    return `-- SCRIPT ${currentVersion} - Community & Enrollments
 -- Gerado automaticamente pelo Sistema EduTech PT
 
 -- 0. REMOÇÃO PREVENTIVA DE POLÍTICAS
@@ -21,6 +21,10 @@ begin
   drop policy if exists "Staff can upload course images" on storage.objects;
   drop policy if exists "Staff can update course images" on storage.objects;
   drop policy if exists "Staff can delete course images" on storage.objects;
+
+  -- Enrollments Cleanup
+  drop policy if exists "Admins manage enrollments" on public.enrollments;
+  drop policy if exists "Users view own enrollments" on public.enrollments;
 end $$;
 
 -- 1. MIGRAÇÃO ESTRUTURAL
@@ -99,7 +103,7 @@ where app_config.key = 'sql_version';
 create table if not exists public.profiles (
   id uuid references auth.users not null primary key,
   email text,
-  full_name text, -- Agora com Unique Constraint
+  full_name text,
   role text default 'aluno',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   avatar_url text,
@@ -128,6 +132,14 @@ create table if not exists public.courses (
   image_url text,
   is_public boolean default false,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Nova Tabela: Inscrições
+create table if not exists public.enrollments (
+  user_id uuid references public.profiles(id) on delete cascade,
+  course_id uuid references public.courses(id) on delete cascade,
+  enrolled_at timestamp with time zone default timezone('utc'::text, now()),
+  primary key (user_id, course_id)
 );
 
 create table if not exists public.user_invites (
@@ -182,6 +194,10 @@ drop policy if exists "Courses are viewable by everyone" on public.courses;
 create policy "Courses are viewable by everyone" on public.courses for select using (true);
 create policy "Staff can manage courses" on public.courses for all using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
 
+alter table public.enrollments enable row level security;
+create policy "Admins manage enrollments" on public.enrollments for all using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'formador')));
+create policy "Users view own enrollments" on public.enrollments for select using (user_id = auth.uid());
+
 alter table public.access_requests enable row level security;
 drop policy if exists "Users can insert requests" on public.access_requests;
 create policy "Users can insert requests" on public.access_requests for insert with check (auth.uid() = user_id);
@@ -204,28 +220,25 @@ create policy "Staff can upload course images" on storage.objects for insert wit
 create policy "Staff can update course images" on storage.objects for update using ( bucket_id = 'course-images' and exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
 create policy "Staff can delete course images" on storage.objects for delete using ( bucket_id = 'course-images' and exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
 
--- 8. TRIGGER AVANÇADO (Handle Duplicates on Signup)
+-- 8. FUNÇÕES & TRIGGERS (Lógica de Negócio Server-Side)
+
+-- 8.1 Handle New User
 create or replace function public.handle_new_user() returns trigger as $$
 declare
   invite_role text;
   final_name text;
 begin
-  -- 1. Definir Nome (com sufixo se existir duplicado)
   final_name := new.raw_user_meta_data->>'full_name';
-  
   if exists (select 1 from public.profiles where lower(full_name) = lower(final_name)) then
-      -- Se existe, adiciona os 4 primeiros chars do ID como sufixo para garantir unicidade
       final_name := final_name || ' (' || substring(new.id::text, 1, 4) || ')';
   end if;
 
-  -- 2. Lógica Admin Hardcoded
   if new.email = 'edutechpt@hotmail.com' then
       insert into public.profiles (id, email, full_name, role)
       values (new.id, new.email, final_name, 'admin');
       return new;
   end if;
 
-  -- 3. Lógica de Convites
   select role into invite_role from public.user_invites where lower(email) = lower(new.email);
   if invite_role is not null then
       insert into public.profiles (id, email, full_name, role)
@@ -239,6 +252,31 @@ $$ language plpgsql security definer;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
+
+-- 8.2 Get Community Members (CRÍTICO para a funcionalidade pedida)
+-- Retorna todos os utilizadores para Admins
+-- Retorna apenas colegas de curso para Alunos
+create or replace function public.get_community_members()
+returns setof public.profiles as $$
+begin
+  if exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+      -- Admin vê tudo
+      return query select * from public.profiles order by full_name;
+  else
+      -- Aluno vê colegas (quem tem pelo menos um course_id em comum)
+      return query 
+      select distinct p.*
+      from public.profiles p
+      join public.enrollments e_others on p.id = e_others.user_id
+      where e_others.course_id in (
+          select my_e.course_id from public.enrollments my_e where my_e.user_id = auth.uid()
+      )
+      -- Opcional: Descomentar para remover o próprio user da lista
+      -- and p.id != auth.uid()
+      order by p.full_name;
+  end if;
+end;
+$$ language plpgsql security definer;
 
 -- 9. FINALIZAÇÃO
 update public.profiles set role = 'admin' where email = 'edutechpt@hotmail.com';
