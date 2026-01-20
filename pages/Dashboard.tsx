@@ -7,6 +7,7 @@ import { userService } from '../services/users';
 import { adminService } from '../services/admin';
 import { SQL_VERSION } from '../constants';
 import { formatTime, formatDate } from '../utils/formatters';
+import { driveService, GAS_VERSION } from '../services/drive';
 
 // Views
 import { Overview } from '../components/dashboard/Overview';
@@ -25,8 +26,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [currentView, setCurrentView] = useState('dashboard');
   const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // System Status State
   const [dbVersion, setDbVersion] = useState('Checking...');
+  const [gasStatus, setGasStatus] = useState<{ match: boolean; remote: string; local: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Settings Navigation Control
+  const [initialSettingsTab, setInitialSettingsTab] = useState<'geral' | 'sql' | 'drive' | 'avatars'>('geral');
 
   // Load Initial Data
   useEffect(() => {
@@ -34,9 +41,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
         try {
             const userProfile = await userService.getProfile(session.user.id);
             setProfile(userProfile);
+            
             if (userProfile?.role === UserRole.ADMIN) {
+                // 1. Check SQL Version
                 const config = await adminService.getAppConfig();
                 setDbVersion(config.sqlVersion || 'Unknown');
+                
+                // 2. Check GAS Version (Async, non-blocking)
+                if (config.googleScriptUrl) {
+                    driveService.checkScriptVersion(config.googleScriptUrl).then(remoteVer => {
+                        setGasStatus({
+                            match: remoteVer === GAS_VERSION,
+                            remote: remoteVer,
+                            local: GAS_VERSION
+                        });
+                    });
+                } else {
+                     setGasStatus({
+                        match: false,
+                        remote: 'not_configured',
+                        local: GAS_VERSION
+                    });
+                }
             }
         } catch (e) { console.error("Init Error", e); } 
         finally { setLoading(false); }
@@ -49,6 +75,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const handleFixDb = () => {
+      setInitialSettingsTab('sql');
+      setCurrentView('settings');
+  };
+
+  const handleFixGas = () => {
+      setInitialSettingsTab('drive');
+      setCurrentView('settings');
+  };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-indigo-600">A carregar EduTech PT...</div>;
 
@@ -63,12 +99,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   const renderView = () => {
       switch(currentView) {
-          case 'dashboard': return <Overview profile={profile} dbStatus={{mismatch: dbVersion !== SQL_VERSION, current: dbVersion, expected: SQL_VERSION}} onFixDb={() => setCurrentView('settings')} isAdmin={profile.role === UserRole.ADMIN} />;
+          case 'dashboard': return (
+            <Overview 
+                profile={profile} 
+                dbStatus={{mismatch: dbVersion !== SQL_VERSION, current: dbVersion, expected: SQL_VERSION}} 
+                gasStatus={gasStatus}
+                onFixDb={handleFixDb} 
+                onFixGas={handleFixGas}
+                isAdmin={profile.role === UserRole.ADMIN} 
+            />
+          );
           case 'manage_courses': return <CourseManager profile={profile} />;
           case 'media': return <MediaManager />;
-          case 'drive': return <DriveManager profile={profile} />; // Pass profile here
+          case 'drive': return <DriveManager profile={profile} />;
           case 'users': return <UserAdmin />;
-          case 'settings': return <Settings dbVersion={dbVersion} />;
+          case 'settings': return <Settings dbVersion={dbVersion} initialTab={initialSettingsTab} />;
           default: return <GlassCard><h2>Em Construção: {currentView}</h2></GlassCard>;
       }
   };

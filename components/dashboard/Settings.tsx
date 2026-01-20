@@ -9,10 +9,11 @@ import { GAS_TEMPLATE_CODE, GAS_VERSION, driveService } from '../../services/dri
 
 interface Props {
   dbVersion: string;
+  initialTab?: 'geral' | 'sql' | 'drive' | 'avatars';
 }
 
-export const Settings: React.FC<Props> = ({ dbVersion }) => {
-    const [tab, setTab] = useState<'geral' | 'sql' | 'drive' | 'avatars'>('geral');
+export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) => {
+    const [tab, setTab] = useState<'geral' | 'sql' | 'drive' | 'avatars'>(initialTab);
     const [sqlScript, setSqlScript] = useState('');
     const [config, setConfig] = useState<any>({});
     const [copyFeedback, setCopyFeedback] = useState('');
@@ -27,6 +28,11 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
         setSqlScript(generateSetupScript(SQL_VERSION));
         loadConfig();
     }, []);
+
+    // Update tab if initialTab prop changes
+    useEffect(() => {
+        setTab(initialTab);
+    }, [initialTab]);
 
     // Verifica a versão sempre que a tab muda para drive ou config é carregada
     useEffect(() => {
