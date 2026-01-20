@@ -18,6 +18,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, appVersion, currentVi
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', roles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
     { id: 'my_profile', label: 'Meu Perfil', roles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
+    { id: 'community', label: 'Comunidade', roles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
     { id: 'courses', label: 'Meus Cursos', roles: [UserRole.STUDENT] },
     { id: 'manage_courses', label: 'Gerir Cursos', roles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
     { id: 'users', label: 'Utilizadores', roles: [UserRole.ADMIN] },

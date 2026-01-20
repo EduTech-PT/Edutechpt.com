@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Profile, UserRole, Course, RoleDefinition, UserInvite } from '../types';
+import { Profile, UserRole, Course, RoleDefinition, UserInvite, ProfileVisibility } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { GlassCard } from '../components/GlassCard';
 import { SQL_VERSION, APP_VERSION } from '../constants';
@@ -10,6 +10,12 @@ interface DashboardProps {
   session: any;
   onLogout: () => void;
 }
+
+const PORTUGUESE_CITIES = [
+  "Lisboa", "Porto", "Coimbra", "Braga", "Aveiro", "Faro", "Leiria", "Setúbal", 
+  "Viseu", "Viana do Castelo", "Vila Real", "Guarda", "Castelo Branco", "Portalegre", 
+  "Évora", "Beja", "Bragança", "Santarém", "Funchal", "Ponta Delgada"
+];
 
 export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -35,7 +41,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [avatarConfig, setAvatarConfig] = useState({
       resizerLink: '',
       helpText: '',
-      maxSizeKb: '2048', // Default to 2048KB (2MB)
+      maxSizeKb: '2048', 
       allowedFormats: 'image/jpeg,image/png'
   });
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -62,7 +68,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   // My Profile Edit State
   const [myFullName, setMyFullName] = useState('');
-  const [myAvatarUrl, setMyAvatarUrl] = useState('');
+  const [myAvatarUrl, setMyAvatarUrl] = useState(''); // Keep for state logic but remove input
+  const [myBio, setMyBio] = useState('');
+  const [myBirthDate, setMyBirthDate] = useState('');
+  const [myCity, setMyCity] = useState('');
+  const [myPersonalEmail, setMyPersonalEmail] = useState('');
+  const [myPhone, setMyPhone] = useState('');
+  const [myLinkedin, setMyLinkedin] = useState('');
+  const [myVisibility, setMyVisibility] = useState<ProfileVisibility>({});
+
+  // Public Profile View State
+  const [viewedProfile, setViewedProfile] = useState<Profile | null>(null);
 
   // Clock Timer
   useEffect(() => {
@@ -81,6 +97,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
     if (profile) {
         setMyFullName(profile.full_name || '');
         setMyAvatarUrl(profile.avatar_url || '');
+        setMyBio(profile.bio || '');
+        setMyBirthDate(profile.birth_date || '');
+        setMyCity(profile.city || '');
+        setMyPersonalEmail(profile.personal_email || '');
+        setMyPhone(profile.phone || '');
+        setMyLinkedin(profile.linkedin_url || '');
+        setMyVisibility(profile.visibility_settings || {});
     }
   }, [profile]);
 
@@ -97,6 +120,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
     }
     if (currentView === 'users' && profile?.role === UserRole.ADMIN) {
       fetchUsersAndInvites();
+    }
+    if (currentView === 'community') {
+        fetchCommunityUsers();
     }
   }, [currentView, profile]);
 
@@ -180,6 +206,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       if (invites) setInvitesList(invites);
   };
 
+  const fetchCommunityUsers = async () => {
+      // Reusing logic but maybe restrict fields in select later if needed for perf
+      const { data: profiles } = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
+      if (profiles) setUsersList(profiles as Profile[]);
+  };
+
   const fetchRoles = async () => {
       const { data, error } = await supabase.from('roles').select('*');
       if (!error && data && data.length > 0) {
@@ -216,7 +248,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           }
           const file = event.target.files[0];
           
-          // Validation (KB now)
           const maxSize = parseFloat(avatarConfig.maxSizeKb) * 1024;
           if (file.size > maxSize) {
               alert(`O ficheiro é demasiado grande. Máximo permitido: ${avatarConfig.maxSizeKb}KB`);
@@ -243,7 +274,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
 
           setMyAvatarUrl(publicUrl);
-          // Auto update profile immediately
           const { error: updateError } = await supabase
               .from('profiles')
               .update({ avatar_url: publicUrl })
@@ -328,9 +358,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       e.preventDefault();
       if (!profile) return;
       try {
+          const updates = {
+              full_name: myFullName,
+              avatar_url: myAvatarUrl,
+              bio: myBio,
+              birth_date: myBirthDate || null,
+              city: myCity,
+              personal_email: myPersonalEmail,
+              phone: myPhone,
+              linkedin_url: myLinkedin,
+              visibility_settings: myVisibility
+          };
+
           const { error } = await supabase
               .from('profiles')
-              .update({ full_name: myFullName, avatar_url: myAvatarUrl })
+              .update(updates)
               .eq('id', profile.id);
           
           if (error) throw error;
@@ -339,6 +381,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       } catch (err: any) {
           alert('Erro ao atualizar: ' + err.message);
       }
+  };
+
+  const toggleVisibility = (field: string) => {
+      setMyVisibility(prev => ({
+          ...prev,
+          [field]: !prev[field]
+      }));
   };
 
   const handleAdminUpdateUser = async (e: React.FormEvent) => {
@@ -395,6 +444,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       }
   };
 
+  const openPublicProfile = (user: Profile) => {
+      setViewedProfile(user);
+      setCurrentView('public_profile');
+  };
+
   // Helper para gerar o link mailto
   const getMailtoLink = () => {
       const subject = "Solicitação de Acesso - EduTech PT";
@@ -403,7 +457,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       return `mailto:edutechpt@hotmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
-  // Formatar data e hora
   const formattedDate = new Intl.DateTimeFormat('pt-PT', { 
       weekday: 'long', 
       year: 'numeric', 
@@ -419,7 +472,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
   // Usa template literals para inserir a versão correta do ficheiro constants.ts
-  const sqlCodeString = `-- SCRIPT ${SQL_VERSION} - Configuração de Avatares (FIX RLS)
+  const sqlCodeString = `-- SCRIPT ${SQL_VERSION} - Extensão de Perfil e Privacidade
 -- Execute este script COMPLETO.
 
 -- 1. BASE DE CONFIGURAÇÃO E NOVAS CHAVES DE AVATAR
@@ -458,7 +511,7 @@ begin
   end loop;
 end $$;
 
--- 3. TABELAS (Estrutura Básica)
+-- 3. TABELAS (Estrutura Básica e Novos Campos)
 do $$
 begin
   if not exists (select 1 from pg_type where typname = 'app_role') then
@@ -478,6 +531,15 @@ create table if not exists public.profiles (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   avatar_url text
 );
+
+-- Adicionar novas colunas se não existirem
+alter table public.profiles add column if not exists birth_date date;
+alter table public.profiles add column if not exists city text;
+alter table public.profiles add column if not exists personal_email text;
+alter table public.profiles add column if not exists phone text;
+alter table public.profiles add column if not exists linkedin_url text;
+alter table public.profiles add column if not exists bio text;
+alter table public.profiles add column if not exists visibility_settings jsonb default '{}'::jsonb;
 
 create table if not exists public.courses (
   id uuid default gen_random_uuid() primary key,
@@ -602,7 +664,6 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-indigo-600">Carregando...</div>;
   
-  // ECRÃ DE PERFIL NÃO ENCONTRADO (ACESSO NÃO AUTORIZADO)
   if (!profile) return (
       <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-indigo-50 relative">
           <GlassCard className="text-center max-w-lg z-10">
@@ -653,10 +714,11 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
 
       case 'my_profile':
           return (
-              <GlassCard className="max-w-2xl">
+              <GlassCard className="max-w-4xl">
                   <h2 className="text-2xl font-bold text-indigo-900 mb-6">Meu Perfil</h2>
-                  <form onSubmit={handleUpdateMyProfile} className="space-y-6">
-                      <div className="flex flex-col md:flex-row items-center gap-8 mb-6">
+                  <form onSubmit={handleUpdateMyProfile} className="space-y-8">
+                      {/* Avatar Section */}
+                      <div className="flex flex-col md:flex-row items-center gap-8 mb-6 pb-6 border-b border-indigo-100">
                           <div className="relative group">
                             <div className="w-32 h-32 rounded-full bg-indigo-200 flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
                                 {myAvatarUrl ? (
@@ -677,12 +739,7 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
                                 />
                             </label>
                           </div>
-                          
                           <div className="flex-1 space-y-3">
-                              <div>
-                                  <p className="text-sm text-indigo-600 font-bold uppercase tracking-wider mb-1">{profile.role}</p>
-                                  <p className="text-indigo-900 opacity-70 break-all">{profile.email}</p>
-                              </div>
                               <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 text-sm">
                                   <h4 className="font-bold text-indigo-800 mb-2">Instruções para Foto:</h4>
                                   <p className="whitespace-pre-line text-indigo-900/80 mb-3 text-xs leading-relaxed">
@@ -704,35 +761,258 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
                           </div>
                       </div>
 
-                      <div className="border-t border-indigo-100 pt-6">
-                        <label className="block text-sm font-medium text-indigo-900 mb-1">Nome Completo</label>
-                        <input 
-                            type="text" 
-                            value={myFullName} 
-                            onChange={(e) => setMyFullName(e.target.value)} 
-                            className="w-full bg-white/40 border border-white/50 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
-                        />
-                      </div>
-                      
-                      {/* Fallback URL Input (Optional, kept for legacy compatibility) */}
-                      <div className="mt-4">
-                          <label className="block text-sm font-medium text-indigo-900 mb-1">URL da Imagem (Opcional)</label>
-                          <input 
-                            type="text" 
-                            value={myAvatarUrl} 
-                            onChange={(e) => setMyAvatarUrl(e.target.value)} 
-                            className="w-full bg-white/40 border border-white/50 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-mono text-gray-500"
-                            placeholder="https://..."
-                          />
+                      {/* Dados Principais */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="col-span-2">
+                             <label className="block text-sm font-bold text-indigo-900 mb-1">Nome Completo</label>
+                             <input 
+                                 type="text" 
+                                 value={myFullName} 
+                                 onChange={(e) => setMyFullName(e.target.value)} 
+                                 className="w-full bg-white/40 border border-white/50 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                             />
+                        </div>
+
+                        {/* Campos Novos com Privacidade */}
+                        {/* Data de Nascimento */}
+                        <div className="relative">
+                             <div className="flex justify-between mb-1">
+                                <label className="block text-sm font-medium text-indigo-900">Data de Nascimento</label>
+                                <button type="button" onClick={() => toggleVisibility('birth_date')} className="text-xs flex items-center gap-1 focus:outline-none">
+                                    {myVisibility.birth_date ? <span className="text-green-600 font-bold">👁️ Público</span> : <span className="text-red-500 font-bold">🔒 Privado</span>}
+                                </button>
+                             </div>
+                             <input 
+                                 type="date" 
+                                 value={myBirthDate} 
+                                 onChange={(e) => setMyBirthDate(e.target.value)} 
+                                 className="w-full bg-white/40 border border-white/50 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                             />
+                        </div>
+
+                        {/* Localização */}
+                        <div className="relative">
+                             <div className="flex justify-between mb-1">
+                                <label className="block text-sm font-medium text-indigo-900">Localização (Cidade)</label>
+                                <button type="button" onClick={() => toggleVisibility('city')} className="text-xs flex items-center gap-1 focus:outline-none">
+                                    {myVisibility.city ? <span className="text-green-600 font-bold">👁️ Público</span> : <span className="text-red-500 font-bold">🔒 Privado</span>}
+                                </button>
+                             </div>
+                             <select 
+                                 value={myCity} 
+                                 onChange={(e) => setMyCity(e.target.value)} 
+                                 className="w-full bg-white/40 border border-white/50 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                             >
+                                 <option value="">Selecione uma cidade</option>
+                                 {PORTUGUESE_CITIES.map(city => (
+                                     <option key={city} value={city}>{city}</option>
+                                 ))}
+                             </select>
+                        </div>
+
+                         {/* Email Pessoal */}
+                         <div className="relative">
+                             <div className="flex justify-between mb-1">
+                                <label className="block text-sm font-medium text-indigo-900">E-mail Pessoal</label>
+                                <button type="button" onClick={() => toggleVisibility('personal_email')} className="text-xs flex items-center gap-1 focus:outline-none">
+                                    {myVisibility.personal_email ? <span className="text-green-600 font-bold">👁️ Público</span> : <span className="text-red-500 font-bold">🔒 Privado</span>}
+                                </button>
+                             </div>
+                             <input 
+                                 type="email" 
+                                 value={myPersonalEmail} 
+                                 onChange={(e) => setMyPersonalEmail(e.target.value)} 
+                                 className="w-full bg-white/40 border border-white/50 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                             />
+                        </div>
+
+                         {/* Telemóvel */}
+                         <div className="relative">
+                             <div className="flex justify-between mb-1">
+                                <label className="block text-sm font-medium text-indigo-900">Telemóvel</label>
+                                <button type="button" onClick={() => toggleVisibility('phone')} className="text-xs flex items-center gap-1 focus:outline-none">
+                                    {myVisibility.phone ? <span className="text-green-600 font-bold">👁️ Público</span> : <span className="text-red-500 font-bold">🔒 Privado</span>}
+                                </button>
+                             </div>
+                             <input 
+                                 type="tel" 
+                                 value={myPhone} 
+                                 onChange={(e) => setMyPhone(e.target.value)} 
+                                 className="w-full bg-white/40 border border-white/50 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                             />
+                        </div>
+
+                         {/* LinkedIn */}
+                         <div className="relative col-span-1 md:col-span-2">
+                             <div className="flex justify-between mb-1">
+                                <label className="block text-sm font-medium text-indigo-900">Perfil do LinkedIn (URL)</label>
+                                <button type="button" onClick={() => toggleVisibility('linkedin_url')} className="text-xs flex items-center gap-1 focus:outline-none">
+                                    {myVisibility.linkedin_url ? <span className="text-green-600 font-bold">👁️ Público</span> : <span className="text-red-500 font-bold">🔒 Privado</span>}
+                                </button>
+                             </div>
+                             <input 
+                                 type="url" 
+                                 value={myLinkedin} 
+                                 onChange={(e) => setMyLinkedin(e.target.value)} 
+                                 placeholder="https://linkedin.com/in/..."
+                                 className="w-full bg-white/40 border border-white/50 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                             />
+                        </div>
+
+                        {/* Bio */}
+                        <div className="relative col-span-1 md:col-span-2">
+                             <div className="flex justify-between mb-1">
+                                <label className="block text-sm font-medium text-indigo-900">Sobre (Biografia e Experiências)</label>
+                                <button type="button" onClick={() => toggleVisibility('bio')} className="text-xs flex items-center gap-1 focus:outline-none">
+                                    {myVisibility.bio ? <span className="text-green-600 font-bold">👁️ Público</span> : <span className="text-red-500 font-bold">🔒 Privado</span>}
+                                </button>
+                             </div>
+                             <textarea 
+                                 rows={4}
+                                 value={myBio} 
+                                 onChange={(e) => setMyBio(e.target.value)} 
+                                 className="w-full bg-white/40 border border-white/50 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                             />
+                        </div>
                       </div>
 
-                      <div className="pt-4">
+                      <div className="pt-4 flex justify-end">
                           <button type="submit" className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-all">
                               Guardar Alterações
                           </button>
                       </div>
                   </form>
               </GlassCard>
+          );
+
+      case 'community':
+          return (
+              <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-indigo-900">Comunidade EduTech PT</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {usersList.map(u => (
+                          <GlassCard key={u.id} hoverEffect className="flex flex-col items-center text-center">
+                              <div className="w-24 h-24 rounded-full bg-indigo-200 border-4 border-white shadow-md flex items-center justify-center overflow-hidden mb-4">
+                                  {u.avatar_url ? (
+                                      <img src={u.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                                  ) : (
+                                      <span className="text-2xl font-bold text-indigo-700">{u.full_name?.[0]?.toUpperCase() || 'U'}</span>
+                                  )}
+                              </div>
+                              <h3 className="text-lg font-bold text-indigo-900 mb-1">{u.full_name || 'Utilizador'}</h3>
+                              <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-bold uppercase mb-4">{u.role}</span>
+                              <div className="mt-auto w-full">
+                                  <button 
+                                      onClick={() => openPublicProfile(u)}
+                                      className="w-full py-2 bg-white/50 text-indigo-800 rounded-lg font-bold hover:bg-indigo-600 hover:text-white transition-all"
+                                  >
+                                      Ver Perfil
+                                  </button>
+                              </div>
+                          </GlassCard>
+                      ))}
+                  </div>
+              </div>
+          );
+
+      case 'public_profile':
+          // Fix: Ensure renderContent returns ReactNode (null) instead of void
+          if (!viewedProfile) {
+              setCurrentView('community');
+              return null;
+          }
+          const isMe = viewedProfile.id === profile.id;
+          const isAdmin = profile.role === UserRole.ADMIN;
+          const visibility = viewedProfile.visibility_settings || {};
+
+          // Helper to check visibility
+          const showField = (field: string) => isMe || isAdmin || visibility[field];
+
+          return (
+              <div className="space-y-6">
+                  <button onClick={() => setCurrentView('community')} className="flex items-center text-indigo-700 font-bold mb-4 hover:underline">
+                      ← Voltar à Comunidade
+                  </button>
+                  
+                  <GlassCard className="max-w-4xl relative overflow-hidden">
+                      {isAdmin && !isMe && (
+                          <div className="absolute top-0 right-0 bg-red-500 text-white text-xs px-3 py-1 font-bold rounded-bl-xl shadow-md z-10">
+                              Modo Admin: Vê tudo
+                          </div>
+                      )}
+                      
+                      <div className="flex flex-col md:flex-row gap-8">
+                          {/* Left Column: Avatar & Basic Info */}
+                          <div className="flex flex-col items-center md:w-1/3 border-b md:border-b-0 md:border-r border-indigo-100 pb-6 md:pb-0 md:pr-6">
+                              <div className="w-40 h-40 rounded-full bg-indigo-200 border-8 border-white shadow-xl flex items-center justify-center overflow-hidden mb-6">
+                                    {viewedProfile.avatar_url ? (
+                                        <img src={viewedProfile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <span className="text-5xl font-bold text-indigo-700">{viewedProfile.full_name?.[0]?.toUpperCase() || 'U'}</span>
+                                    )}
+                              </div>
+                              <h2 className="text-2xl font-bold text-indigo-900 text-center mb-2">{viewedProfile.full_name}</h2>
+                              <span className="px-4 py-1.5 bg-indigo-600 text-white rounded-full text-sm font-bold uppercase shadow-sm mb-6">
+                                  {viewedProfile.role}
+                              </span>
+                              
+                              <div className="w-full space-y-3">
+                                  {showField('city') && viewedProfile.city && (
+                                      <div className="flex items-center gap-2 text-indigo-800 justify-center">
+                                          <span>📍</span> {viewedProfile.city}
+                                      </div>
+                                  )}
+                                  {showField('linkedin_url') && viewedProfile.linkedin_url && (
+                                      <a href={viewedProfile.linkedin_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-blue-700 font-bold justify-center hover:underline">
+                                          <span>🔗</span> LinkedIn
+                                      </a>
+                                  )}
+                              </div>
+                          </div>
+
+                          {/* Right Column: Details */}
+                          <div className="md:w-2/3 space-y-6">
+                                {showField('bio') && viewedProfile.bio && (
+                                    <div className="bg-white/30 p-6 rounded-xl border border-white/50">
+                                        <h3 className="font-bold text-indigo-900 mb-2 border-b border-indigo-200 pb-2">Sobre</h3>
+                                        <p className="text-indigo-900/80 whitespace-pre-wrap leading-relaxed">{viewedProfile.bio}</p>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {showField('personal_email') && viewedProfile.personal_email && (
+                                        <div className="bg-white/30 p-4 rounded-xl border border-white/50">
+                                            <span className="block text-xs font-bold text-indigo-500 uppercase mb-1">Email Pessoal</span>
+                                            <span className="text-indigo-900">{viewedProfile.personal_email}</span>
+                                        </div>
+                                    )}
+                                    {showField('phone') && viewedProfile.phone && (
+                                        <div className="bg-white/30 p-4 rounded-xl border border-white/50">
+                                            <span className="block text-xs font-bold text-indigo-500 uppercase mb-1">Telemóvel</span>
+                                            <span className="text-indigo-900">{viewedProfile.phone}</span>
+                                        </div>
+                                    )}
+                                    {showField('birth_date') && viewedProfile.birth_date && (
+                                        <div className="bg-white/30 p-4 rounded-xl border border-white/50">
+                                            <span className="block text-xs font-bold text-indigo-500 uppercase mb-1">Data de Nascimento</span>
+                                            <span className="text-indigo-900">{new Date(viewedProfile.birth_date).toLocaleDateString('pt-PT')}</span>
+                                        </div>
+                                    )}
+                                     <div className="bg-white/30 p-4 rounded-xl border border-white/50 opacity-70">
+                                        <span className="block text-xs font-bold text-indigo-500 uppercase mb-1">Membro Desde</span>
+                                        <span className="text-indigo-900">{new Date(viewedProfile.created_at).toLocaleDateString('pt-PT')}</span>
+                                    </div>
+                                </div>
+
+                                {!isAdmin && !isMe && Object.values(visibility).every(v => !v) && (
+                                    <div className="text-center p-6 text-indigo-400 italic">
+                                        Este utilizador mantém o perfil privado.
+                                    </div>
+                                )}
+                          </div>
+                      </div>
+                  </GlassCard>
+              </div>
           );
 
       case 'users':

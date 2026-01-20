@@ -1,3 +1,4 @@
+
 // Alterado de Enum para objeto para suportar strings dinâmicas da DB enquanto mantém compatibilidade de código
 export const UserRole = {
   ADMIN: 'admin',
@@ -8,6 +9,16 @@ export const UserRole = {
 
 export type UserRoleType = typeof UserRole[keyof typeof UserRole] | string;
 
+export interface ProfileVisibility {
+  birth_date?: boolean;
+  city?: boolean;
+  personal_email?: boolean;
+  phone?: boolean;
+  linkedin_url?: boolean;
+  bio?: boolean;
+  [key: string]: boolean | undefined;
+}
+
 export interface Profile {
   id: string;
   email: string;
@@ -15,6 +26,14 @@ export interface Profile {
   role: UserRoleType;
   created_at: string;
   avatar_url?: string;
+  // Novos campos
+  birth_date?: string;
+  city?: string;
+  personal_email?: string;
+  phone?: string;
+  linkedin_url?: string;
+  bio?: string;
+  visibility_settings?: ProfileVisibility;
 }
 
 export interface Course {

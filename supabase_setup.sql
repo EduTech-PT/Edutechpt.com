@@ -1,5 +1,5 @@
 
--- SCRIPT v1.1.26 - Configuração de Avatares (FIX RLS)
+-- SCRIPT v1.1.27 - Extensão de Perfil e Privacidade
 -- Execute este script COMPLETO.
 
 -- 1. BASE DE CONFIGURAÇÃO E NOVAS CHAVES DE AVATAR
@@ -17,7 +17,7 @@ create policy "Admins can update config" on public.app_config for all using (
 
 -- Atualizar versão do SQL e inserir configurações padrão de avatar
 insert into public.app_config (key, value) values 
-('sql_version', 'v1.1.26-installing'),
+('sql_version', 'v1.1.27-installing'),
 ('avatar_resizer_link', 'https://www.iloveimg.com/resize-image'),
 ('avatar_help_text', E'1. Aceda ao link de redimensionamento.\n2. Carregue a sua foto.\n3. Defina a largura para 500px.\n4. Descarregue a imagem otimizada.\n5. Carregue o ficheiro aqui.'),
 ('avatar_max_size_kb', '2048'),
@@ -38,7 +38,7 @@ begin
   end loop;
 end $$;
 
--- 3. TABELAS (Estrutura Básica)
+-- 3. TABELAS (Estrutura Básica e Novos Campos)
 do $$
 begin
   if not exists (select 1 from pg_type where typname = 'app_role') then
@@ -58,6 +58,15 @@ create table if not exists public.profiles (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   avatar_url text
 );
+
+-- Adicionar novas colunas se não existirem
+alter table public.profiles add column if not exists birth_date date;
+alter table public.profiles add column if not exists city text;
+alter table public.profiles add column if not exists personal_email text;
+alter table public.profiles add column if not exists phone text;
+alter table public.profiles add column if not exists linkedin_url text;
+alter table public.profiles add column if not exists bio text;
+alter table public.profiles add column if not exists visibility_settings jsonb default '{}'::jsonb;
 
 create table if not exists public.courses (
   id uuid default gen_random_uuid() primary key,
@@ -170,4 +179,4 @@ create trigger on_auth_user_created
 
 -- 7. FINALIZAÇÃO
 update public.profiles set role = 'admin'::public.app_role where email = 'edutechpt@hotmail.com';
-update public.app_config set value = 'v1.1.26' where key = 'sql_version';
+update public.app_config set value = 'v1.1.27' where key = 'sql_version';
