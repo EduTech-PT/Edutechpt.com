@@ -48,15 +48,21 @@ export const adminService = {
         const config: any = {};
         if (data) {
             data.forEach(item => {
+                // Avatar Settings
                 if (item.key === 'avatar_resizer_link') config.resizerLink = item.value;
                 if (item.key === 'avatar_help_text') config.helpText = item.value;
-                if (item.key === 'avatar_max_size_kb') config.maxSizeKb = item.value;
+                if (item.key === 'avatar_max_size_kb') config.maxSizeKb = parseInt(item.value) || 100;
+                if (item.key === 'avatar_max_width') config.maxWidth = parseInt(item.value) || 100;
+                if (item.key === 'avatar_max_height') config.maxHeight = parseInt(item.value) || 100;
                 if (item.key === 'avatar_allowed_formats') config.allowedFormats = item.value;
+                
+                // System Settings
                 if (item.key === 'sql_version') config.sqlVersion = item.value;
                 if (item.key === 'google_script_url') config.googleScriptUrl = item.value;
                 if (item.key === 'google_drive_folder_id') config.driveFolderId = item.value;
                 if (item.key === 'gas_version') config.gasVersion = item.value;
-                // Access Denied Configs
+                
+                // Access Settings
                 if (item.key === 'access_denied_email') config.accessDeniedEmail = item.value;
                 if (item.key === 'access_denied_subject') config.accessDeniedSubject = item.value;
                 if (item.key === 'access_denied_body') config.accessDeniedBody = item.value;

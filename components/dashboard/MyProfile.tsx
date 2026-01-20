@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Profile, ProfileVisibility } from '../../types';
 import { GlassCard } from '../GlassCard';
 import { userService } from '../../services/users';
+import { adminService } from '../../services/admin';
 import { RichTextEditor } from '../RichTextEditor';
 import { formatDate } from '../../utils/formatters';
 
@@ -14,6 +15,7 @@ interface Props {
 export const MyProfile: React.FC<Props> = ({ user, refreshProfile }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [avatarConfig, setAvatarConfig] = useState<any>(null);
   
   // Form State
   const [formData, setFormData] = useState<Partial<Profile>>({});
@@ -21,7 +23,17 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile }) => {
 
   useEffect(() => {
     resetForm();
+    loadAvatarConfig();
   }, [user]);
+
+  const loadAvatarConfig = async () => {
+    try {
+        const config = await adminService.getAppConfig();
+        setAvatarConfig(config);
+    } catch (e) {
+        console.error("Erro ao carregar config avatar", e);
+    }
+  };
 
   const resetForm = () => {
     setFormData({
@@ -40,23 +52,66 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile }) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
 
-    // Validação de Tamanho (2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      alert("A imagem é muito grande. O limite é 2MB.");
+    // 1. Obter limites da configuração (com fallbacks seguros)
+    const maxKb = avatarConfig?.maxSizeKb || 100;
+    const maxWidth = avatarConfig?.maxWidth || 100;
+    const maxHeight = avatarConfig?.maxHeight || 100;
+
+    // 2. Validação de Tamanho (KB)
+    if (file.size > maxKb * 1024) {
+      alert(`O ficheiro é demasiado grande.\nLimite: ${maxKb}KB\nSeu ficheiro: ${(file.size / 1024).toFixed(0)}KB`);
+      e.target.value = ''; // Reset input
       return;
     }
 
-    try {
-      setUploading(true);
-      const publicUrl = await userService.uploadAvatar(user.id, file);
-      await userService.updateProfile(user.id, { avatar_url: publicUrl });
-      refreshProfile(); // Atualiza o sidebar e header
-      alert("Foto de perfil atualizada!");
-    } catch (error: any) {
-      alert("Erro ao carregar imagem: " + error.message);
-    } finally {
-      setUploading(false);
-    }
+    // 3. Validação de Dimensões e Rácio (Px)
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    
+    img.onload = async () => {
+        // Validação Rígida
+        const width = img.width;
+        const height = img.height;
+        
+        URL.revokeObjectURL(objectUrl); // Limpeza de memória
+
+        // Verificar Dimensões Exatas (ou máximas, dependendo da interpretação, mas o prompt pediu limites definidos "100x100")
+        // Como o prompt disse "Carregar fotos dentro dos limites", assumo que >100 é proibido.
+        if (width > maxWidth || height > maxHeight) {
+            alert(`Dimensões inválidas.\nMáximo permitido: ${maxWidth}x${maxHeight}px.\nSua imagem: ${width}x${height}px.`);
+            e.target.value = '';
+            return;
+        }
+
+        // Verificar Rácio 1x1 (Quadrado)
+        if (width !== height) {
+            alert(`A imagem deve ser quadrada (1x1).\nSua imagem: ${width}x${height}px.`);
+            e.target.value = '';
+            return;
+        }
+
+        // Se passou todas as validações, prossegue com upload
+        try {
+            setUploading(true);
+            const publicUrl = await userService.uploadAvatar(user.id, file);
+            await userService.updateProfile(user.id, { avatar_url: publicUrl });
+            refreshProfile(); 
+            alert("Foto de perfil atualizada!");
+        } catch (error: any) {
+            alert("Erro ao carregar imagem: " + error.message);
+        } finally {
+            setUploading(false);
+            e.target.value = '';
+        }
+    };
+
+    img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        alert("Ficheiro de imagem inválido.");
+        e.target.value = '';
+    };
+
+    img.src = objectUrl;
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -326,6 +381,19 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile }) => {
                 </div>
               )}
             </div>
+
+            {/* Aviso de Ajuda Avatares */}
+            {avatarConfig && avatarConfig.helpText && isEditing && (
+                <div className="mt-4 p-3 bg-indigo-50 border border-indigo-100 rounded text-xs text-indigo-800">
+                    <strong>ℹ️ Nota sobre a Foto:</strong>
+                    <div className="whitespace-pre-wrap mt-1 opacity-90">{avatarConfig.helpText}</div>
+                    {avatarConfig.resizerLink && (
+                        <a href={avatarConfig.resizerLink} target="_blank" rel="noopener noreferrer" className="block mt-2 font-bold text-indigo-600 underline">
+                            Ferramenta de Redimensionamento ↗
+                        </a>
+                    )}
+                </div>
+            )}
           </GlassCard>
         </div>
 

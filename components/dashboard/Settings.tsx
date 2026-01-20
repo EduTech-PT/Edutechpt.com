@@ -75,6 +75,9 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
             if (tab === 'avatars') {
                 await adminService.updateAppConfig('avatar_resizer_link', config.resizerLink?.trim());
                 await adminService.updateAppConfig('avatar_help_text', config.helpText);
+                await adminService.updateAppConfig('avatar_max_size_kb', config.maxSizeKb?.toString());
+                await adminService.updateAppConfig('avatar_max_width', config.maxWidth?.toString());
+                await adminService.updateAppConfig('avatar_max_height', config.maxHeight?.toString());
             }
             if (tab === 'access') {
                 await adminService.updateAppConfig('access_denied_email', config.accessDeniedEmail?.trim());
@@ -361,9 +364,55 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                 <GlassCard>
                     <h3 className="font-bold text-xl text-indigo-900 mb-4">Configuração Avatars</h3>
                     <div className="space-y-4">
-                        <input type="text" value={config.resizerLink || ''} onChange={e => setConfig({...config, resizerLink: e.target.value})} placeholder="Link Redimensionador" className="w-full p-2 rounded bg-white/50 border border-white/60"/>
-                        <RichTextEditor value={config.helpText || ''} onChange={val => setConfig({...config, helpText: val})} label="Ajuda"/>
-                        <button onClick={handleSaveConfig} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold">Guardar</button>
+                        <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 mb-4">
+                            <h4 className="font-bold text-indigo-900 mb-2">Limites de Upload</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-indigo-800 uppercase mb-1">Max Tamanho (KB)</label>
+                                    <input 
+                                        type="number" 
+                                        value={config.maxSizeKb || ''} 
+                                        onChange={e => setConfig({...config, maxSizeKb: parseInt(e.target.value)})} 
+                                        className="w-full p-2 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                        placeholder="ex: 100"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-indigo-800 uppercase mb-1">Largura Max (px)</label>
+                                    <input 
+                                        type="number" 
+                                        value={config.maxWidth || ''} 
+                                        onChange={e => setConfig({...config, maxWidth: parseInt(e.target.value)})} 
+                                        className="w-full p-2 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                        placeholder="ex: 100"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-indigo-800 uppercase mb-1">Altura Max (px)</label>
+                                    <input 
+                                        type="number" 
+                                        value={config.maxHeight || ''} 
+                                        onChange={e => setConfig({...config, maxHeight: parseInt(e.target.value)})} 
+                                        className="w-full p-2 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                        placeholder="ex: 100"
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-[10px] text-indigo-600 mt-2">
+                                ℹ️ A plataforma irá validar rigorosamente estas dimensões antes de aceitar o ficheiro.
+                            </p>
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-medium text-indigo-900 mb-1">Link Redimensionador (Ferramenta Sugerida)</label>
+                            <input type="text" value={config.resizerLink || ''} onChange={e => setConfig({...config, resizerLink: e.target.value})} placeholder="Link Redimensionador" className="w-full p-2 rounded bg-white/50 border border-white/60"/>
+                        </div>
+                        
+                        <RichTextEditor value={config.helpText || ''} onChange={val => setConfig({...config, helpText: val})} label="Texto de Ajuda (Instruções)"/>
+                        
+                        <button onClick={handleSaveConfig} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700 shadow-md">
+                            Guardar Configuração
+                        </button>
                     </div>
                 </GlassCard>
             )}
