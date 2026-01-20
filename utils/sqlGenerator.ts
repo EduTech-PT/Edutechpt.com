@@ -61,7 +61,8 @@ insert into public.app_config (key, value) values
 ('avatar_max_size_kb', '2048'),
 ('avatar_allowed_formats', 'image/jpeg,image/png,image/webp'),
 ('google_script_url', ''),
-('google_drive_folder_id', '')
+('google_drive_folder_id', ''),
+('gas_version', 'v0.0.0')
 on conflict (key) do update set value = excluded.value 
 where app_config.key = 'sql_version';
 

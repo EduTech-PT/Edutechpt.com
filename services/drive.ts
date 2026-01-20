@@ -1,6 +1,10 @@
 
 import { adminService } from './admin';
 
+// CONSTANTE DE VERSÃO DO SCRIPT
+// Sempre que alterar o template abaixo, incremente esta versão.
+export const GAS_VERSION = "v1.0.1";
+
 export interface DriveFile {
   id: string;
   name: string;
@@ -103,6 +107,7 @@ export const driveService = {
 export const GAS_TEMPLATE_CODE = `
 // ==========================================
 // EDUTECH PT - GOOGLE DRIVE API GATEWAY
+// VERSION: ${GAS_VERSION}
 // ==========================================
 
 function doPost(e) {

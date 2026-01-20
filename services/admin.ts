@@ -47,6 +47,7 @@ export const adminService = {
                 if (item.key === 'sql_version') config.sqlVersion = item.value;
                 if (item.key === 'google_script_url') config.googleScriptUrl = item.value;
                 if (item.key === 'google_drive_folder_id') config.driveFolderId = item.value;
+                if (item.key === 'gas_version') config.gasVersion = item.value;
             });
         }
         return config;

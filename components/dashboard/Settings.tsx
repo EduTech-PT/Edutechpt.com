@@ -5,7 +5,7 @@ import { APP_VERSION, SQL_VERSION } from '../../constants';
 import { generateSetupScript } from '../../utils/sqlGenerator';
 import { adminService } from '../../services/admin';
 import { RichTextEditor } from '../RichTextEditor';
-import { GAS_TEMPLATE_CODE } from '../../services/drive';
+import { GAS_TEMPLATE_CODE, GAS_VERSION } from '../../services/drive';
 
 interface Props {
   dbVersion: string;
@@ -80,15 +80,16 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
                 }
 
                 // Atualiza o estado local para refletir a limpeza visualmente
-                setConfig(prev => ({...prev, driveFolderId: cleanId, googleScriptUrl: cleanUrl}));
+                setConfig(prev => ({...prev, driveFolderId: cleanId, googleScriptUrl: cleanUrl, gasVersion: GAS_VERSION}));
 
-                // Guarda na DB
+                // Guarda na DB e atualiza a versão do script para a atual
                 await adminService.updateAppConfig('google_script_url', cleanUrl);
                 await adminService.updateAppConfig('google_drive_folder_id', cleanId);
+                await adminService.updateAppConfig('gas_version', GAS_VERSION);
                 
                 // Recarrega para confirmar
                 await loadConfig();
-                alert('Configuração guardada com sucesso!');
+                alert('Configuração guardada e versão do Script sincronizada!');
             } else {
                 alert('Guardado!');
             }
@@ -181,6 +182,16 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-0">
                      <GlassCard>
                         <h3 className="font-bold text-xl text-indigo-900 mb-4">Configuração Conexão</h3>
+                        
+                        {/* Alerta de Versão GAS */}
+                        {config.gasVersion && config.gasVersion !== GAS_VERSION && (
+                            <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg text-yellow-800 text-sm animate-pulse shadow-sm">
+                                <p className="font-bold mb-1">⚠️ Código Script Desatualizado</p>
+                                <p>A versão guardada na DB ({config.gasVersion}) é diferente da versão atual do código ({GAS_VERSION}).</p>
+                                <p className="mt-1">Copie o novo código à direita, atualize a implementação no Google, e clique em "Guardar Configuração" para limpar este aviso.</p>
+                            </div>
+                        )}
+
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Google Script Web App URL</label>
@@ -209,6 +220,9 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
                                 <div className="mt-1 flex justify-between items-center text-xs">
                                      <p className="text-indigo-600 opacity-80">
                                         ID atual na DB: {savedId ? <span className="font-mono bg-indigo-100 px-1 rounded text-indigo-800">{savedId.substring(0,10)}...</span> : <span className="text-red-500 font-bold">Não Configurado</span>}
+                                     </p>
+                                     <p className="text-indigo-600 opacity-80">
+                                        Versão Script DB: {config.gasVersion || 'v0.0.0'}
                                      </p>
                                 </div>
                             </div>
