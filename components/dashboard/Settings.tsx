@@ -6,14 +6,15 @@ import { generateSetupScript } from '../../utils/sqlGenerator';
 import { adminService } from '../../services/admin';
 import { RichTextEditor } from '../RichTextEditor';
 import { GAS_TEMPLATE_CODE, GAS_VERSION, driveService } from '../../services/drive';
+import { RoleManager } from './RoleManager';
 
 interface Props {
   dbVersion: string;
-  initialTab?: 'geral' | 'sql' | 'drive' | 'avatars' | 'access';
+  initialTab?: 'geral' | 'sql' | 'drive' | 'avatars' | 'access' | 'roles';
 }
 
 export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) => {
-    const [tab, setTab] = useState<'geral' | 'sql' | 'drive' | 'avatars' | 'access'>(initialTab);
+    const [tab, setTab] = useState<'geral' | 'sql' | 'drive' | 'avatars' | 'access' | 'roles'>(initialTab);
     const [sqlScript, setSqlScript] = useState('');
     const [config, setConfig] = useState<any>({});
     const [copyFeedback, setCopyFeedback] = useState('');
@@ -195,9 +196,9 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
     return (
         <div className="h-full flex flex-col animate-in fade-in duration-300">
             <div className="flex space-x-2 mb-6 border-b border-indigo-200 pb-2 overflow-x-auto">
-                {['geral', 'drive', 'avatars', 'access', 'sql'].map(t => (
+                {['geral', 'roles', 'drive', 'avatars', 'access', 'sql'].map(t => (
                     <button key={t} onClick={() => setTab(t as any)} className={`px-4 py-2 rounded-lg font-medium capitalize whitespace-nowrap ${tab === t ? 'bg-indigo-600 text-white' : 'text-indigo-800'}`}>
-                        {t === 'drive' ? 'Integração Drive' : t === 'access' ? 'Acesso & Alertas' : t}
+                        {t === 'roles' ? 'Cargos' : t === 'drive' ? 'Integração Drive' : t === 'access' ? 'Acesso & Alertas' : t}
                     </button>
                 ))}
             </div>
@@ -218,6 +219,10 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                         </div>
                     </div>
                 </GlassCard>
+            )}
+
+            {tab === 'roles' && (
+                <RoleManager />
             )}
 
             {tab === 'access' && (

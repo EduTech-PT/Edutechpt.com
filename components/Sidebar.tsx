@@ -94,6 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       icon: '⚙️',
       items: [
         { id: 'users', label: 'Utilizadores', permissionKey: 'view_users', fallbackRoles: [UserRole.ADMIN] },
+        { id: 'settings_roles', label: 'Cargos e Permissões', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
         { id: 'settings_geral', label: 'Sistema', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
         { id: 'settings_sql', label: 'Base de Dados', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
         { id: 'settings_drive', label: 'Integração Drive', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },

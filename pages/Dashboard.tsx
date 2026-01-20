@@ -120,6 +120,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           
           // Mapeamento das Sub-paginas de definições
           case 'settings_geral': return <Settings dbVersion={dbVersion} initialTab="geral" />;
+          case 'settings_roles': return <Settings dbVersion={dbVersion} initialTab="roles" />;
           case 'settings_sql': return <Settings dbVersion={dbVersion} initialTab="sql" />;
           case 'settings_drive': return <Settings dbVersion={dbVersion} initialTab="drive" />;
           case 'settings_avatars': return <Settings dbVersion={dbVersion} initialTab="avatars" />;
