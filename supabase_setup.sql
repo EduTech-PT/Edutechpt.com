@@ -1,21 +1,52 @@
 
--- SCRIPT v1.1.28 - Sistema de Permissões Dinâmicas
+-- SCRIPT v1.1.29 - Correção de Migração de Tipos
 -- Execute este script COMPLETO.
 
--- 1. BASE DE CONFIGURAÇÃO
+-- 0. REMOÇÃO PREVENTIVA DE POLÍTICAS (Para permitir alteração de tipos)
+do $$
+begin
+  -- App Config
+  drop policy if exists "Admins can update config" on public.app_config;
+  
+  -- Profiles
+  drop policy if exists "Users can update own profile" on public.profiles;
+  drop policy if exists "Admins can delete any profile" on public.profiles;
+  
+  -- Roles
+  drop policy if exists "Admin Manage Roles" on public.roles;
+  
+  -- Invites
+  drop policy if exists "Admins manage invites" on public.user_invites;
+  
+  -- Courses
+  drop policy if exists "Staff can manage courses" on public.courses;
+  
+  -- Requests
+  drop policy if exists "Admins view all requests" on public.access_requests;
+end $$;
+
+-- 1. MIGRAÇÃO DE ENUM PARA TEXTO (CRÍTICO)
+do $$
+begin
+    -- Se a coluna role for USER-DEFINED (Enum), converte para text
+    if exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'role' and data_type = 'USER-DEFINED') then
+        alter table public.profiles alter column role type text using role::text;
+    end if;
+end $$;
+
+-- 2. CONFIGURAÇÃO BASE
 create table if not exists public.app_config (key text primary key, value text);
 alter table public.app_config enable row level security;
 
 drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
 
-drop policy if exists "Admins can update config" on public.app_config;
 create policy "Admins can update config" on public.app_config for all using (
     exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
 );
 
 insert into public.app_config (key, value) values 
-('sql_version', 'v1.1.28-installing'),
+('sql_version', 'v1.1.29-installing'),
 ('avatar_resizer_link', 'https://www.iloveimg.com/resize-image'),
 ('avatar_help_text', E'1. Aceda ao link de redimensionamento.\n2. Carregue a sua foto.\n3. Defina a largura para 500px.\n4. Descarregue a imagem otimizada.\n5. Carregue o ficheiro aqui.'),
 ('avatar_max_size_kb', '2048'),
@@ -23,35 +54,16 @@ insert into public.app_config (key, value) values
 on conflict (key) do update set value = excluded.value 
 where app_config.key = 'sql_version';
 
--- 2. LIMPEZA ESTRUTURAL
+-- 3. LIMPEZA ESTRUTURAL
 drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists public.handle_new_user();
 
-do $$
-declare r record;
-begin
-  for r in select policyname, tablename from pg_policies where schemaname = 'public' 
-  and tablename in ('profiles', 'courses', 'user_invites', 'roles', 'access_requests') loop
-    execute format('drop policy if exists %I on public.%I', r.policyname, r.tablename);
-  end loop;
-end $$;
-
--- 3. MIGRAÇÃO DE ENUM PARA TEXTO (CRÍTICO PARA EDITAR CARGOS)
--- Isto permite que 'role' seja qualquer string, não apenas as 4 fixas
-do $$
-begin
-    -- Tenta converter a coluna se ela depender do tipo app_role
-    if exists (select 1 from information_schema.columns where table_name = 'profiles' and data_type = 'USER-DEFINED') then
-        alter table public.profiles alter column role type text using role::text;
-    end if;
-end $$;
-
--- 4. TABELAS
+-- 4. TABELAS (Garante estrutura)
 create table if not exists public.profiles (
   id uuid references auth.users not null primary key,
   email text,
   full_name text,
-  role text default 'aluno', -- Agora é text
+  role text default 'aluno',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   avatar_url text,
   birth_date date,
@@ -66,7 +78,7 @@ create table if not exists public.profiles (
 create table if not exists public.roles (
   name text primary key,
   description text,
-  permissions jsonb default '{}'::jsonb -- Nova coluna de permissões
+  permissions jsonb default '{}'::jsonb
 );
 
 create table if not exists public.courses (
@@ -109,17 +121,17 @@ insert into public.roles (name, description, permissions) values
 ('editor', 'Gestão de conteúdos e cursos', '{"view_dashboard": true, "view_my_profile": true, "view_community": true, "manage_courses": true, "view_courses": true}'),
 ('formador', 'Criar e gerir as suas turmas', '{"view_dashboard": true, "view_my_profile": true, "view_community": true, "manage_courses": true, "view_courses": true}'),
 ('aluno', 'Acesso aos cursos inscritos', '{"view_dashboard": true, "view_my_profile": true, "view_community": true, "view_courses": true}')
-on conflict (name) do update set permissions = excluded.permissions; -- Atualiza permissões se já existir
+on conflict (name) do update set permissions = excluded.permissions;
 
--- 6. SEGURANÇA (RLS)
--- Nota: Usamos cast explícito para texto ou removemos o cast se já for texto. Como agora é text, removemos ::public.app_role
-
+-- 6. SEGURANÇA (RLS) - RECRIAÇÃO
 alter table public.profiles enable row level security;
+drop policy if exists "Public Profiles Access" on public.profiles;
 create policy "Public Profiles Access" on public.profiles for select using (true);
 create policy "Users can update own profile" on public.profiles for update using (id = auth.uid() OR exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 create policy "Admins can delete any profile" on public.profiles for delete using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
 alter table public.roles enable row level security;
+drop policy if exists "Read Roles" on public.roles;
 create policy "Read Roles" on public.roles for select using (true);
 create policy "Admin Manage Roles" on public.roles for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
@@ -127,10 +139,12 @@ alter table public.user_invites enable row level security;
 create policy "Admins manage invites" on public.user_invites for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
 alter table public.courses enable row level security;
+drop policy if exists "Courses are viewable by everyone" on public.courses;
 create policy "Courses are viewable by everyone" on public.courses for select using (true);
 create policy "Staff can manage courses" on public.courses for all using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
 
 alter table public.access_requests enable row level security;
+drop policy if exists "Users can insert requests" on public.access_requests;
 create policy "Users can insert requests" on public.access_requests for insert with check (auth.uid() = user_id);
 create policy "Admins view all requests" on public.access_requests for select using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
@@ -174,4 +188,4 @@ create trigger on_auth_user_created
 
 -- 9. FINALIZAÇÃO
 update public.profiles set role = 'admin' where email = 'edutechpt@hotmail.com';
-update public.app_config set value = 'v1.1.28' where key = 'sql_version';
+update public.app_config set value = 'v1.1.29' where key = 'sql_version';
