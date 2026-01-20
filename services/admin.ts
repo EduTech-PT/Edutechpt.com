@@ -17,6 +17,14 @@ export const adminService = {
         if (error) throw error;
     },
 
+    async deleteInvite(email: string) {
+        const { error } = await supabase
+            .from('user_invites')
+            .delete()
+            .eq('email', email);
+        if (error) throw error;
+    },
+
     async getRoles() {
         const { data, error } = await supabase.from('roles').select('*').order('name');
         if (error) throw error;

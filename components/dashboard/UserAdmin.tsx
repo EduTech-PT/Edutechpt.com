@@ -44,6 +44,16 @@ export const UserAdmin: React.FC = () => {
         }
     };
 
+    const handleDeleteInvite = async (email: string) => {
+        if (!window.confirm(`Tem a certeza que deseja eliminar o convite para ${email}?`)) return;
+        try {
+            await adminService.deleteInvite(email);
+            fetchData();
+        } catch (err: any) {
+            alert("Erro ao eliminar convite: " + err.message);
+        }
+    };
+
     const handleDelete = async () => {
         if (!window.confirm(`Eliminar ${selectedIds.length} utilizadores?`)) return;
         try {
@@ -106,12 +116,27 @@ export const UserAdmin: React.FC = () => {
                     <h3 className="font-bold text-indigo-900 mb-4 border-b border-indigo-200 pb-2">Convites ({invites.length})</h3>
                     <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
                         <table className="w-full text-sm">
-                            <thead className="text-left text-indigo-500"><tr><th>Email</th><th>Cargo</th></tr></thead>
+                            <thead className="text-left text-indigo-500">
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Cargo</th>
+                                    <th className="w-10"></th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 {invites.map(i => (
-                                    <tr key={i.email} className="border-b border-indigo-50 hover:bg-white/30">
+                                    <tr key={i.email} className="border-b border-indigo-50 hover:bg-white/30 group">
                                         <td className="py-2 font-mono text-xs">{i.email}</td>
                                         <td className="py-2"><span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs uppercase font-bold">{i.role}</span></td>
+                                        <td className="py-2 text-right">
+                                            <button 
+                                                onClick={() => handleDeleteInvite(i.email)}
+                                                className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded"
+                                                title="Eliminar Convite"
+                                            >
+                                                🗑️
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
