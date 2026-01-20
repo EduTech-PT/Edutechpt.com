@@ -86,16 +86,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
                             <span className="text-indigo-700 font-bold text-sm">{profile.full_name?.[0]?.toUpperCase() || 'U'}</span>
                         )}
                     </div>
-                    <div className="flex flex-col overflow-hidden justify-center">
+                    <div className="flex flex-col overflow-hidden justify-center min-w-0">
                          {/* Name */}
                          <span className="font-bold text-indigo-900 truncate text-sm leading-tight">
                             {profile.full_name || 'Utilizador'}
                          </span>
-                         {/* Role & Version Small */}
-                         <div className="flex gap-2 items-center text-xs text-indigo-700 opacity-70 mt-0.5">
-                             <span className="uppercase font-bold">{profile.role}</span>
-                             <span>•</span>
-                             <span>{appVersion}</span>
+                         {/* Role & Version Stacked */}
+                         <div className="flex flex-col items-start mt-0.5">
+                             <span className="text-[10px] uppercase font-bold text-indigo-700 tracking-wider">{profile.role}</span>
+                             <span className="text-[9px] text-indigo-900/40 font-mono">{appVersion}</span>
                          </div>
                     </div>
                 </div>
