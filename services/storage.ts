@@ -34,14 +34,22 @@ export const storageService = {
     },
 
     async listFiles(bucket: string = 'course-images') {
-        const { data, error } = await supabase.storage.from(bucket).list();
+        // Explicitly list from root with sort options
+        const { data, error } = await supabase.storage.from(bucket).list('', {
+            limit: 100,
+            offset: 0,
+            sortBy: { column: 'created_at', order: 'desc' },
+        });
+        
         if (error) throw error;
         
-        // Add public URL to each file
-        return data.map(file => {
-            const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(file.name);
-            return { ...file, url: publicUrl };
-        }) as StorageFile[];
+        // Filter out folders (objects without ID or metadata in some contexts) and map URLs
+        return (data || [])
+            .filter(item => item.id !== null) // Filtra pastas que o Supabase retorna como null ID
+            .map(file => {
+                const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(file.name);
+                return { ...file, url: publicUrl };
+            }) as StorageFile[];
     },
 
     async deleteFiles(fileNames: string[], bucket: string = 'course-images') {
