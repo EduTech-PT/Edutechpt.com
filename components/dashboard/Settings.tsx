@@ -29,17 +29,38 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
         } catch (e) { console.error(e); }
     };
 
+    // Helper para limpar e extrair ID do Drive
+    const cleanDriveId = (input: string) => {
+        if (!input) return '';
+        const text = input.trim();
+        // Se for um URL completo, tenta extrair o ID após '/folders/'
+        if (text.includes('drive.google.com') && text.includes('/folders/')) {
+            const parts = text.split('/folders/');
+            if (parts[1]) {
+                // Remove parâmetros extra (?usp=sharing, etc)
+                return parts[1].split('?')[0].split('/')[0];
+            }
+        }
+        return text;
+    };
+
     const handleSaveConfig = async () => {
         try {
             if (tab === 'avatars') {
-                await adminService.updateAppConfig('avatar_resizer_link', config.resizerLink);
+                await adminService.updateAppConfig('avatar_resizer_link', config.resizerLink?.trim());
                 await adminService.updateAppConfig('avatar_help_text', config.helpText);
             }
             if (tab === 'drive') {
-                await adminService.updateAppConfig('google_script_url', config.googleScriptUrl);
-                await adminService.updateAppConfig('google_drive_folder_id', config.driveFolderId);
+                const cleanId = cleanDriveId(config.driveFolderId);
+                const cleanUrl = config.googleScriptUrl?.trim();
+
+                // Atualiza o estado local para refletir a limpeza visualmente
+                setConfig(prev => ({...prev, driveFolderId: cleanId, googleScriptUrl: cleanUrl}));
+
+                await adminService.updateAppConfig('google_script_url', cleanUrl);
+                await adminService.updateAppConfig('google_drive_folder_id', cleanId);
             }
-            alert('Guardado!');
+            alert('Guardado com sucesso!');
         } catch (e: any) { alert(e.message); }
     };
 
@@ -92,8 +113,16 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
                             </div>
                             <div>
                                 <label className="block text-sm text-indigo-800 font-bold mb-1">ID da Pasta Google Drive</label>
-                                <input type="text" value={config.driveFolderId || ''} onChange={e => setConfig({...config, driveFolderId: e.target.value})} placeholder="Ex: 1A2b3C..." className="w-full p-2 rounded bg-white/50 border border-white/60"/>
-                                <p className="text-xs text-indigo-600 mt-1">O ID é a parte final do URL da pasta no Drive.</p>
+                                <input 
+                                    type="text" 
+                                    value={config.driveFolderId || ''} 
+                                    onChange={e => setConfig({...config, driveFolderId: e.target.value})} 
+                                    placeholder="Ex: 1A2b3C... ou Link completo" 
+                                    className="w-full p-2 rounded bg-white/50 border border-white/60"
+                                />
+                                <p className="text-xs text-indigo-600 mt-1">
+                                    Pode colar o link completo da pasta, o sistema extrai o ID automaticamente ao guardar.
+                                </p>
                             </div>
                             <button onClick={handleSaveConfig} className="w-full bg-indigo-600 text-white px-4 py-2 rounded font-bold mt-4 hover:bg-indigo-700">Guardar Conexão</button>
                         </div>

@@ -12,9 +12,15 @@ export interface DriveFile {
 export const driveService = {
   async getConfig() {
     const config = await adminService.getAppConfig();
-    if (!config.googleScriptUrl || !config.driveFolderId) {
-      throw new Error('Configuração do Google Drive em falta. Contacte o administrador.');
+    
+    // Validação explícita para mensagens de erro mais claras
+    if (!config.googleScriptUrl) {
+      throw new Error('URL do Script não configurado nas Definições.');
     }
+    if (!config.driveFolderId) {
+      throw new Error('ID da Pasta Raiz não configurado nas Definições.');
+    }
+    
     return config;
   },
 
@@ -29,7 +35,7 @@ export const driveService = {
     });
 
     const result = await response.json();
-    if (result.status === 'error') throw new Error(result.message);
+    if (result.status === 'error') throw new Error('Google Drive Erro: ' + result.message);
     return result.files;
   },
 
