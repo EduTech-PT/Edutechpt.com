@@ -24,6 +24,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
     { id: 'community', label: 'Comunidade', permissionKey: 'view_community', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
     { id: 'courses', label: 'Meus Cursos', permissionKey: 'view_courses', fallbackRoles: [UserRole.STUDENT] },
     { id: 'manage_courses', label: 'Gerir Cursos', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
+    { id: 'media', label: 'Galeria', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] }, // Permission shared with manage_courses
     { id: 'users', label: 'Utilizadores', permissionKey: 'view_users', fallbackRoles: [UserRole.ADMIN] },
     { id: 'settings', label: 'Definições', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
   ];

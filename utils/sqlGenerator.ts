@@ -2,8 +2,8 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    return `-- SCRIPT ${currentVersion} - Correção de Tabelas e Segurança
--- Gerado automaticamente pelo Sistema EduTech PT v2.0.0
+    return `-- SCRIPT ${currentVersion} - Storage & Permissions
+-- Gerado automaticamente pelo Sistema EduTech PT v2.1.0
 
 -- 0. REMOÇÃO PREVENTIVA DE POLÍTICAS
 do $$
@@ -15,6 +15,12 @@ begin
   drop policy if exists "Admins manage invites" on public.user_invites;
   drop policy if exists "Staff can manage courses" on public.courses;
   drop policy if exists "Admins view all requests" on public.access_requests;
+  
+  -- Storage Policies Cleanup
+  drop policy if exists "Course Images are Public" on storage.objects;
+  drop policy if exists "Staff can upload course images" on storage.objects;
+  drop policy if exists "Staff can update course images" on storage.objects;
+  drop policy if exists "Staff can delete course images" on storage.objects;
 end $$;
 
 -- 1. MIGRAÇÃO ESTRUTURAL
@@ -147,14 +153,35 @@ drop policy if exists "Users can insert requests" on public.access_requests;
 create policy "Users can insert requests" on public.access_requests for insert with check (auth.uid() = user_id);
 create policy "Admins view all requests" on public.access_requests for select using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
--- 7. STORAGE
+-- 7. STORAGE (Avatars & Course Images)
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
+insert into storage.buckets (id, name, public) values ('course-images', 'course-images', true) on conflict (id) do nothing;
+
 drop policy if exists "Avatar Images are Public" on storage.objects;
 drop policy if exists "Users can upload own avatar" on storage.objects;
 drop policy if exists "Users can update own avatar" on storage.objects;
+
 create policy "Avatar Images are Public" on storage.objects for select using ( bucket_id = 'avatars' );
 create policy "Users can upload own avatar" on storage.objects for insert with check ( bucket_id = 'avatars' and auth.uid() = owner );
 create policy "Users can update own avatar" on storage.objects for update using ( bucket_id = 'avatars' and auth.uid() = owner );
+
+-- Course Images Policies
+create policy "Course Images are Public" on storage.objects for select using ( bucket_id = 'course-images' );
+
+create policy "Staff can upload course images" on storage.objects for insert with check (
+  bucket_id = 'course-images' and 
+  exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador'))
+);
+
+create policy "Staff can update course images" on storage.objects for update using (
+  bucket_id = 'course-images' and 
+  exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador'))
+);
+
+create policy "Staff can delete course images" on storage.objects for delete using (
+  bucket_id = 'course-images' and 
+  exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador'))
+);
 
 -- 8. TRIGGER DE NOVO UTILIZADOR
 create or replace function public.handle_new_user() returns trigger as $$

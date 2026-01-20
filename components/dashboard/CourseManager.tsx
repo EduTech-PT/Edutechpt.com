@@ -4,6 +4,7 @@ import { Course, Profile } from '../../types';
 import { GlassCard } from '../GlassCard';
 import { RichTextEditor } from '../RichTextEditor';
 import { courseService } from '../../services/courses';
+import { storageService } from '../../services/storage';
 import { sanitizeHTML } from '../../utils/security';
 import { formatShortDate } from '../../utils/formatters';
 
@@ -14,6 +15,7 @@ interface Props {
 export const CourseManager: React.FC<Props> = ({ profile }) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   
   // Form States
   const [isEditing, setIsEditing] = useState<string | null>(null);
@@ -31,6 +33,26 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
           setCourses(data);
       } catch (err) { console.error(err); } 
       finally { setLoading(false); }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files || e.target.files.length === 0) return;
+      
+      const file = e.target.files[0];
+      if (file.size > 2 * 1024 * 1024) {
+          alert("Imagem muito grande. Máximo 2MB.");
+          return;
+      }
+
+      try {
+          setUploading(true);
+          const url = await storageService.uploadCourseImage(file);
+          setFormData(prev => ({ ...prev, image_url: url }));
+      } catch (err: any) {
+          alert("Erro no upload: " + err.message);
+      } finally {
+          setUploading(false);
+      }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,11 +104,34 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
                          <label className="block text-sm mb-1 text-indigo-900">Título</label>
                          <input type="text" required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"/>
                      </div>
+                     
+                     {/* Image Upload Field */}
                      <div>
-                         <label className="block text-sm mb-1 text-indigo-900">Imagem de Capa (URL)</label>
-                         <input type="url" placeholder="https://..." value={formData.image_url} onChange={e => setFormData({...formData, image_url: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"/>
+                         <label className="block text-sm mb-1 text-indigo-900">Imagem de Capa</label>
+                         <div className="flex gap-2 items-center">
+                             <div className="flex-1 relative">
+                                <input 
+                                    type="text" 
+                                    placeholder="https://... ou carregue ->" 
+                                    value={formData.image_url} 
+                                    onChange={e => setFormData({...formData, image_url: e.target.value})} 
+                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none pr-10"
+                                />
+                                {formData.image_url && (
+                                    <div className="absolute right-2 top-2 w-6 h-6 rounded bg-indigo-100 overflow-hidden border border-indigo-200">
+                                        <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover" />
+                                    </div>
+                                )}
+                             </div>
+                             <label className={`px-3 py-2 bg-indigo-600 text-white rounded cursor-pointer hover:bg-indigo-700 transition-all ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                                 {uploading ? '...' : '📁'}
+                                 <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                             </label>
+                         </div>
+                         <p className="text-[10px] text-indigo-900/60 mt-1 text-right">Max 2MB. (JPG/PNG)</p>
                      </div>
                  </div>
+                 
                  <div>
                      <RichTextEditor 
                         label="Descrição"
