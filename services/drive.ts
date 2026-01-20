@@ -13,12 +13,12 @@ export const driveService = {
   async getConfig() {
     const config = await adminService.getAppConfig();
     
-    // Validação explícita para mensagens de erro mais claras
+    // Verificações robustas para evitar erros genéricos
     if (!config.googleScriptUrl) {
-      throw new Error('URL do Script não configurado nas Definições.');
+      throw new Error('CONFIGURAÇÃO EM FALTA: O URL do Google Script não está definido. Vá a Definições > Integração Drive.');
     }
     if (!config.driveFolderId) {
-      throw new Error('ID da Pasta Raiz não configurado nas Definições.');
+      throw new Error('CONFIGURAÇÃO EM FALTA: O ID da Pasta Google Drive não está definido. Vá a Definições > Integração Drive.');
     }
     
     return config;
@@ -26,17 +26,33 @@ export const driveService = {
 
   async listFiles(): Promise<DriveFile[]> {
     const config = await this.getConfig();
-    // Utiliza 'no-cors' se o script não estiver a enviar os headers CORS corretamente, 
-    // mas o ideal é que o script GAS envie os headers Access-Control-Allow-Origin.
-    // Usamos POST para garantir que passamos os parametros no body.
-    const response = await fetch(config.googleScriptUrl, {
-      method: 'POST', 
-      body: JSON.stringify({ action: 'list', folderId: config.driveFolderId })
-    });
+    
+    try {
+        const response = await fetch(config.googleScriptUrl, {
+          method: 'POST', 
+          body: JSON.stringify({ action: 'list', folderId: config.driveFolderId })
+        });
 
-    const result = await response.json();
-    if (result.status === 'error') throw new Error('Google Drive Erro: ' + result.message);
-    return result.files;
+        // Verifica se a resposta é HTML (erro comum do Google quando não está publicado corretamente)
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("text/html")) {
+            throw new Error("O Script retornou HTML em vez de JSON. Verifique se a implementação está definida como 'Qualquer pessoa'.");
+        }
+
+        const result = await response.json();
+        
+        if (result.status === 'error') {
+             throw new Error('Google Script Erro: ' + result.message);
+        }
+        
+        return result.files;
+    } catch (e: any) {
+        // Se falhar o fetch (ex: CORS ou rede)
+        if (e.message === 'Failed to fetch') {
+            throw new Error('Falha na conexão. Verifique se o URL do Script está correto e a implementação permite "Qualquer pessoa".');
+        }
+        throw e;
+    }
   },
 
   async uploadFile(file: File): Promise<void> {

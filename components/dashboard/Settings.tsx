@@ -5,7 +5,7 @@ import { APP_VERSION, SQL_VERSION } from '../../constants';
 import { generateSetupScript } from '../../utils/sqlGenerator';
 import { adminService } from '../../services/admin';
 import { RichTextEditor } from '../RichTextEditor';
-import { GAS_TEMPLATE_CODE } from '../../services/drive';
+import { GAS_TEMPLATE_CODE, driveService } from '../../services/drive';
 
 interface Props {
   dbVersion: string;
@@ -16,6 +16,8 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
     const [sqlScript, setSqlScript] = useState('');
     const [config, setConfig] = useState<any>({});
     const [copyFeedback, setCopyFeedback] = useState('');
+    const [testStatus, setTestStatus] = useState<{success: boolean, msg: string} | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
     
     useEffect(() => {
         setSqlScript(generateSetupScript(SQL_VERSION));
@@ -34,7 +36,7 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
         if (!input) return '';
         const text = input.trim();
         // Se for um URL completo, tenta extrair o ID após '/folders/'
-        if (text.includes('drive.google.com') && text.includes('/folders/')) {
+        if (text.includes('/folders/')) {
             const parts = text.split('/folders/');
             if (parts[1]) {
                 // Remove parâmetros extra (?usp=sharing, etc)
@@ -45,6 +47,8 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
     };
 
     const handleSaveConfig = async () => {
+        setIsSaving(true);
+        setTestStatus(null);
         try {
             if (tab === 'avatars') {
                 await adminService.updateAppConfig('avatar_resizer_link', config.resizerLink?.trim());
@@ -54,14 +58,60 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
                 const cleanId = cleanDriveId(config.driveFolderId);
                 const cleanUrl = config.googleScriptUrl?.trim();
 
+                // Validation
+                if (!cleanUrl?.startsWith('https://script.google.com')) {
+                    throw new Error("O URL do Script parece inválido. Deve começar por 'https://script.google.com'.");
+                }
+                if (!cleanId || cleanId.length < 10) {
+                     throw new Error("O ID da Pasta parece inválido. Verifique se copiou corretamente.");
+                }
+
                 // Atualiza o estado local para refletir a limpeza visualmente
                 setConfig(prev => ({...prev, driveFolderId: cleanId, googleScriptUrl: cleanUrl}));
 
+                // Força a atualização individual para garantir que nada é perdido
                 await adminService.updateAppConfig('google_script_url', cleanUrl);
                 await adminService.updateAppConfig('google_drive_folder_id', cleanId);
+                
+                // Recarrega do servidor para confirmar persistência
+                await loadConfig();
             }
-            alert('Guardado com sucesso!');
-        } catch (e: any) { alert(e.message); }
+            alert('Configuração guardada na Base de Dados com sucesso!');
+        } catch (e: any) { 
+            alert('Erro ao guardar: ' + e.message); 
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleTestConnection = async () => {
+        setTestStatus({ success: false, msg: 'A testar conexão...' });
+        try {
+            // Usa as configs locais caso o utilizador ainda não tenha guardado, ou recarrega para ter a certeza
+            const tempConfig = { 
+                googleScriptUrl: config.googleScriptUrl, 
+                driveFolderId: cleanDriveId(config.driveFolderId) 
+            };
+            
+            if (!tempConfig.googleScriptUrl || !tempConfig.driveFolderId) {
+                throw new Error("Preencha e guarde os campos primeiro.");
+            }
+
+            // Tenta listar ficheiros (limitado a 1 pelo backend ou apenas verifica resposta)
+            const response = await fetch(tempConfig.googleScriptUrl, {
+                method: 'POST', 
+                body: JSON.stringify({ action: 'list', folderId: tempConfig.driveFolderId })
+            });
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                setTestStatus({ success: true, msg: `Sucesso! Conectado a "${result.files.length >= 0 ? 'Pasta Drive Válida' : '?'}"` });
+            } else {
+                throw new Error(result.message || "Erro desconhecido do Script");
+            }
+        } catch (e: any) {
+            setTestStatus({ success: false, msg: 'Falha: ' + e.message });
+        }
     };
 
     const handleCopyText = async (text: string) => {
@@ -109,22 +159,54 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Google Script Web App URL</label>
-                                <input type="text" value={config.googleScriptUrl || ''} onChange={e => setConfig({...config, googleScriptUrl: e.target.value})} placeholder="https://script.google.com/macros/s/..." className="w-full p-2 rounded bg-white/50 border border-white/60"/>
+                                <input 
+                                    type="text" 
+                                    value={config.googleScriptUrl || ''} 
+                                    onChange={e => setConfig({...config, googleScriptUrl: e.target.value})} 
+                                    placeholder="https://script.google.com/macros/s/..." 
+                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm"
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm text-indigo-800 font-bold mb-1">ID da Pasta Google Drive</label>
-                                <input 
-                                    type="text" 
-                                    value={config.driveFolderId || ''} 
-                                    onChange={e => setConfig({...config, driveFolderId: e.target.value})} 
-                                    placeholder="Ex: 1A2b3C... ou Link completo" 
-                                    className="w-full p-2 rounded bg-white/50 border border-white/60"
-                                />
-                                <p className="text-xs text-indigo-600 mt-1">
-                                    Pode colar o link completo da pasta, o sistema extrai o ID automaticamente ao guardar.
+                                <div className="relative">
+                                    <input 
+                                        type="text" 
+                                        value={config.driveFolderId || ''} 
+                                        onChange={e => setConfig({...config, driveFolderId: e.target.value})} 
+                                        placeholder="Ex: 1A2b3C... ou Link da pasta" 
+                                        className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm pr-20"
+                                    />
+                                    {config.driveFolderId && config.driveFolderId.includes('http') && (
+                                        <span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded">URL Detetado</span>
+                                    )}
+                                </div>
+                                <p className="text-xs text-indigo-600 mt-1 opacity-80">
+                                    O ID é o código alfanumérico no final do link da pasta (após '/folders/').
                                 </p>
                             </div>
-                            <button onClick={handleSaveConfig} className="w-full bg-indigo-600 text-white px-4 py-2 rounded font-bold mt-4 hover:bg-indigo-700">Guardar Conexão</button>
+                            
+                            <div className="flex gap-2 pt-2">
+                                <button 
+                                    onClick={handleSaveConfig} 
+                                    disabled={isSaving}
+                                    className="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md active:transform active:scale-95"
+                                >
+                                    {isSaving ? 'A Guardar...' : 'Guardar Configuração'}
+                                </button>
+                                <button 
+                                    onClick={handleTestConnection} 
+                                    className="px-4 py-3 bg-white text-indigo-600 border border-indigo-200 rounded-lg font-bold hover:bg-indigo-50 shadow-sm transition-all"
+                                >
+                                    Testar ⚡
+                                </button>
+                            </div>
+
+                            {testStatus && (
+                                <div className={`p-3 rounded-lg text-sm font-medium border ${testStatus.success ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'} animate-in fade-in slide-in-from-top-2`}>
+                                    {testStatus.msg}
+                                </div>
+                            )}
                         </div>
                      </GlassCard>
 
@@ -139,15 +221,13 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
                             <pre className="text-slate-300 font-mono text-xs whitespace-pre-wrap">{GAS_TEMPLATE_CODE}</pre>
                          </div>
                          <div className="mt-4 text-xs text-indigo-800 bg-indigo-50 p-3 rounded border border-indigo-200">
-                             <b>Instruções:</b>
+                             <b>Passos Rápidos:</b>
                              <ol className="list-decimal ml-4 mt-1 space-y-1">
-                                 <li>Vá a <a href="https://script.google.com" target="_blank" className="underline">script.google.com</a> e crie um novo projeto.</li>
-                                 <li>Cole o código acima.</li>
-                                 <li>Clique em <b>Implementar</b> {'>'} <b>Nova implementação</b>.</li>
-                                 <li>Selecione tipo <b>Aplicação Web</b>.</li>
-                                 <li>Executar como: <b>Eu</b>.</li>
-                                 <li>Quem tem acesso: <b>Qualquer pessoa</b>.</li>
-                                 <li>Copie o URL gerado e cole no campo à esquerda.</li>
+                                 <li>Copie o código e cole no <a href="https://script.google.com" target="_blank" className="underline font-bold">Google Apps Script</a>.</li>
+                                 <li><b>Implementar</b> {'>'} <b>Nova implementação</b>.</li>
+                                 <li>Tipo: <b>Aplicação Web</b>.</li>
+                                 <li>Acesso: <b>Qualquer pessoa</b> (Importante!).</li>
+                                 <li>Cole o URL gerado no campo à esquerda.</li>
                              </ol>
                          </div>
                      </GlassCard>
