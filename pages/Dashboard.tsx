@@ -419,25 +419,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
   // Usa template literals para inserir a versão correta do ficheiro constants.ts
-  const sqlCodeString = `-- SCRIPT ${SQL_VERSION} - Configuração de Avatares em KB
+  const sqlCodeString = `-- SCRIPT ${SQL_VERSION} - Configuração de Avatares (FIX RLS)
 -- Execute este script COMPLETO.
 
 -- 1. BASE DE CONFIGURAÇÃO E NOVAS CHAVES DE AVATAR
 create table if not exists public.app_config (key text primary key, value text);
 alter table public.app_config enable row level security;
+
+-- Políticas de app_config
 drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
 
--- Atualizar versão do SQL e inserir configurações padrão de avatar (Agora em KB)
--- FIX: app_config.key para resolver ambiguidade
+drop policy if exists "Admins can update config" on public.app_config;
+create policy "Admins can update config" on public.app_config for all using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'::public.app_role)
+);
+
+-- Atualizar versão do SQL e inserir configurações padrão de avatar
 insert into public.app_config (key, value) values 
 ('sql_version', '${SQL_VERSION}-installing'),
 ('avatar_resizer_link', 'https://www.iloveimg.com/resize-image'),
 ('avatar_help_text', E'1. Aceda ao link de redimensionamento.\\n2. Carregue a sua foto.\\n3. Defina a largura para 500px.\\n4. Descarregue a imagem otimizada.\\n5. Carregue o ficheiro aqui.'),
-('avatar_max_size_kb', '2048'), -- Alterado para KB (2MB = 2048KB)
+('avatar_max_size_kb', '2048'),
 ('avatar_allowed_formats', 'image/jpeg,image/png,image/webp')
 on conflict (key) do update set value = excluded.value 
-where app_config.key = 'sql_version'; -- Apenas força update da versão
+where app_config.key = 'sql_version';
 
 -- 2. LIMPEZA ESTRUTURAL
 drop trigger if exists on_auth_user_created on auth.users;
