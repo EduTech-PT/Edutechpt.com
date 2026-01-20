@@ -6,6 +6,6 @@
 export const SUPABASE_URL = "https://zeedhuzljsbaoqafpfom.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ZOMCawahrL7OImeWeT6Fug_U_WMN0H1";
 
-export const APP_VERSION = "v2.2.3"; // Fix: GAS Version Control System
+export const APP_VERSION = "v2.3.0"; // Feature: Drive Folder Navigation
 export const SQL_VERSION = "v1.2.0"; // Add course-images bucket
 export const APP_NAME = "EduTech PT";

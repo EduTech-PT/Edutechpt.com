@@ -3,7 +3,7 @@ import { adminService } from './admin';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.0.1";
+export const GAS_VERSION = "v1.1.0";
 
 export interface DriveFile {
   id: string;
@@ -29,16 +29,19 @@ export const driveService = {
     return config;
   },
 
-  async listFiles(): Promise<DriveFile[]> {
+  // Agora aceita um folderId opcional para navegação
+  async listFiles(currentFolderId?: string | null): Promise<{ files: DriveFile[], rootId: string }> {
     const config = await this.getConfig();
     
+    // Se não for passado ID, usa o da config (Raiz)
+    const targetId = currentFolderId || config.driveFolderId;
+
     try {
         const response = await fetch(config.googleScriptUrl, {
           method: 'POST', 
-          body: JSON.stringify({ action: 'list', folderId: config.driveFolderId })
+          body: JSON.stringify({ action: 'list', folderId: targetId })
         });
 
-        // Verifica erro de HTML (Script não publicado corretamente)
         const contentType = response.headers.get("content-type");
         if (contentType && contentType.includes("text/html")) {
             throw new Error("Erro de permissão no Script (HTML retornado). Verifique se a implementação é 'Qualquer pessoa'.");
@@ -50,7 +53,10 @@ export const driveService = {
              throw new Error('Google Script: ' + result.message);
         }
         
-        return result.files;
+        return { 
+            files: result.files, 
+            rootId: config.driveFolderId // Retorna sempre o root para sabermos onde é o "Início"
+        };
     } catch (e: any) {
         if (e.message === 'Failed to fetch') {
             throw new Error('Falha de Rede. Verifique o URL do Script nas Definições.');
@@ -59,9 +65,10 @@ export const driveService = {
     }
   },
 
-  async uploadFile(file: File): Promise<void> {
+  async uploadFile(file: File, parentFolderId?: string | null): Promise<void> {
     const config = await this.getConfig();
-    
+    const targetId = parentFolderId || config.driveFolderId;
+
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = async () => {
@@ -72,7 +79,7 @@ export const driveService = {
             method: 'POST',
             body: JSON.stringify({
               action: 'upload',
-              folderId: config.driveFolderId,
+              folderId: targetId,
               filename: file.name,
               mimeType: file.type,
               file: base64Data
@@ -88,6 +95,23 @@ export const driveService = {
       };
       reader.readAsDataURL(file);
     });
+  },
+
+  async createFolder(name: string, parentFolderId?: string | null): Promise<void> {
+    const config = await this.getConfig();
+    const targetId = parentFolderId || config.driveFolderId;
+
+    const response = await fetch(config.googleScriptUrl, {
+        method: 'POST',
+        body: JSON.stringify({
+            action: 'createFolder',
+            folderId: targetId,
+            name: name
+        })
+    });
+    
+    const result = await response.json();
+    if (result.status !== 'success') throw new Error(result.message);
   },
 
   async deleteFile(fileId: string): Promise<void> {
@@ -111,7 +135,6 @@ export const GAS_TEMPLATE_CODE = `
 // ==========================================
 
 function doPost(e) {
-  // Configuração CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST',
@@ -125,8 +148,23 @@ function doPost(e) {
 
     if (action === 'list') {
       const folder = DriveApp.getFolderById(data.folderId);
-      const files = folder.getFiles();
       const list = [];
+      
+      // 1. Get Subfolders
+      const subfolders = folder.getFolders();
+      while (subfolders.hasNext()) {
+        const sub = subfolders.next();
+        list.push({
+          id: sub.getId(),
+          name: sub.getName(),
+          mimeType: 'application/vnd.google-apps.folder', // Marcador especial
+          url: sub.getUrl(),
+          size: 0
+        });
+      }
+
+      // 2. Get Files
+      const files = folder.getFiles();
       while (files.hasNext()) {
         const file = files.next();
         list.push({
@@ -137,7 +175,15 @@ function doPost(e) {
           size: file.getSize()
         });
       }
+      
       result = { status: 'success', files: list };
+    }
+
+    else if (action === 'createFolder') {
+      const parent = DriveApp.getFolderById(data.folderId);
+      const newFolder = parent.createFolder(data.name);
+      newFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      result = { status: 'success', id: newFolder.getId(), url: newFolder.getUrl() };
     }
 
     else if (action === 'upload') {
@@ -149,15 +195,21 @@ function doPost(e) {
     }
 
     else if (action === 'delete') {
-      const file = DriveApp.getFileById(data.id);
-      file.setTrashed(true);
+      // Tenta remover como ficheiro primeiro
+      try {
+        const file = DriveApp.getFileById(data.id);
+        file.setTrashed(true);
+      } catch (e) {
+        // Se falhar, tenta como pasta
+        const folder = DriveApp.getFolderById(data.id);
+        folder.setTrashed(true);
+      }
       result = { status: 'success' };
     }
 
     return ContentService.createTextOutput(JSON.stringify(result))
-      .setMimeType(ContentService.MimeType.JSON)
-      // Nota: GAS não suporta custom headers em respostas normais de WebApp facilmente,
-      // O cliente deve estar preparado para seguir o redirect 302 que o Google faz.
+      .setMimeType(ContentService.MimeType.JSON);
+
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.toString() }))
       .setMimeType(ContentService.MimeType.JSON);

@@ -9,16 +9,34 @@ export const DriveManager: React.FC = () => {
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Navigation State
+    const [rootId, setRootId] = useState<string | null>(null);
+    const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+    const [folderStack, setFolderStack] = useState<{id: string, name: string}[]>([]); // Para breadcrumbs simples
+
     useEffect(() => {
         loadFiles();
     }, []);
 
-    const loadFiles = async () => {
+    const loadFiles = async (folderId?: string) => {
         try {
             setLoading(true);
             setError(null);
-            const data = await driveService.listFiles();
-            setFiles(data);
+            
+            // Usa o ID passado ou o atual do estado, se nenhum, o serviço usa o root da config
+            const targetId = folderId || currentFolderId;
+            
+            const data = await driveService.listFiles(targetId);
+            setFiles(data.files);
+            
+            // Na primeira carga, define o root
+            if (!rootId) {
+                setRootId(data.rootId);
+                setCurrentFolderId(data.rootId);
+            } else if (folderId) {
+                setCurrentFolderId(folderId);
+            }
+
         } catch (err: any) {
             console.error(err);
             setError(err.message || "Erro ao carregar ficheiros. Verifique as configurações do Drive.");
@@ -31,7 +49,6 @@ export const DriveManager: React.FC = () => {
         if (!e.target.files || e.target.files.length === 0) return;
         const file = e.target.files[0];
         
-        // Google Apps Script Blob Limits (safe margin 25MB)
         if (file.size > 25 * 1024 * 1024) {
             alert("Limite de 25MB excedido.");
             return;
@@ -39,9 +56,9 @@ export const DriveManager: React.FC = () => {
 
         try {
             setUploading(true);
-            await driveService.uploadFile(file);
+            await driveService.uploadFile(file, currentFolderId);
             alert("Upload concluído com sucesso!");
-            loadFiles();
+            loadFiles(currentFolderId || undefined);
         } catch (err: any) {
             alert("Erro upload: " + err.message);
         } finally {
@@ -49,20 +66,68 @@ export const DriveManager: React.FC = () => {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!window.confirm("Eliminar ficheiro do Drive?")) return;
+    const handleCreateFolder = async () => {
+        const name = prompt("Nome da nova pasta:");
+        if (!name) return;
+
+        try {
+            setUploading(true);
+            await driveService.createFolder(name, currentFolderId);
+            loadFiles(currentFolderId || undefined);
+        } catch (err: any) {
+            alert("Erro ao criar pasta: " + err.message);
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleDelete = async (id: string, isFolder: boolean) => {
+        const msg = isFolder 
+            ? "Tem a certeza que deseja eliminar esta pasta e todo o seu conteúdo?" 
+            : "Eliminar ficheiro do Drive?";
+            
+        if (!window.confirm(msg)) return;
+        
         try {
             setLoading(true);
             await driveService.deleteFile(id);
-            loadFiles();
+            loadFiles(currentFolderId || undefined);
         } catch (err: any) {
             alert("Erro ao eliminar: " + err.message);
-        } finally {
-            setLoading(false);
+            setLoading(false); // Só desativa loading aqui se houver erro, caso contrário o loadFiles trata disso
+        }
+    };
+
+    // Navegação
+    const navigateToFolder = (folder: DriveFile) => {
+        setFolderStack([...folderStack, { id: folder.id, name: folder.name }]);
+        loadFiles(folder.id);
+    };
+
+    const navigateUp = () => {
+        if (folderStack.length === 0) return;
+        const newStack = [...folderStack];
+        newStack.pop(); // Remove atual
+        setFolderStack(newStack);
+        
+        const parentId = newStack.length > 0 ? newStack[newStack.length - 1].id : rootId;
+        loadFiles(parentId!);
+    };
+
+    const navigateToBreadcrumb = (index: number) => {
+        if (index === -1) {
+            // Home
+            setFolderStack([]);
+            loadFiles(rootId!);
+        } else {
+            const newStack = folderStack.slice(0, index + 1);
+            setFolderStack(newStack);
+            loadFiles(newStack[newStack.length - 1].id);
         }
     };
 
     const getIcon = (mime: string) => {
+        if (mime === 'application/vnd.google-apps.folder') return '📁';
         if (mime.includes('pdf')) return '📕';
         if (mime.includes('word') || mime.includes('document')) return '📘';
         if (mime.includes('sheet') || mime.includes('excel')) return '📗';
@@ -73,17 +138,42 @@ export const DriveManager: React.FC = () => {
 
     return (
         <div className="space-y-6 animate-in slide-in-from-right duration-300">
-             <div className="flex justify-between items-center">
+             {/* Header & Actions */}
+             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <h2 className="text-2xl font-bold text-indigo-900">Materiais (Google Drive)</h2>
                 <div className="flex gap-2">
-                    <button onClick={loadFiles} className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg">
-                        Atualizar
+                    <button onClick={() => loadFiles(currentFolderId || undefined)} className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg">
+                        🔄
+                    </button>
+                    <button onClick={handleCreateFolder} className="px-4 py-2 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-lg font-bold shadow-sm">
+                        + Nova Pasta
                     </button>
                     <label className={`px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold shadow-lg cursor-pointer flex items-center gap-2 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
                         {uploading ? 'A enviar...' : 'Novo Ficheiro'}
                         <input type="file" className="hidden" onChange={handleUpload} />
                     </label>
                 </div>
+             </div>
+
+             {/* Breadcrumbs */}
+             <div className="flex items-center gap-2 text-sm text-indigo-900 bg-white/40 p-3 rounded-lg border border-white/50 overflow-x-auto">
+                 <button 
+                    onClick={() => navigateToBreadcrumb(-1)} 
+                    className={`font-bold hover:text-indigo-600 ${folderStack.length === 0 ? 'text-indigo-600' : ''}`}
+                 >
+                    🏠 Início
+                 </button>
+                 {folderStack.map((folder, index) => (
+                     <React.Fragment key={folder.id}>
+                         <span className="opacity-50">/</span>
+                         <button 
+                            onClick={() => navigateToBreadcrumb(index)}
+                            className={`hover:text-indigo-600 whitespace-nowrap ${index === folderStack.length - 1 ? 'font-bold text-indigo-600' : ''}`}
+                         >
+                             {folder.name}
+                         </button>
+                     </React.Fragment>
+                 ))}
              </div>
 
              {error && (
@@ -99,28 +189,58 @@ export const DriveManager: React.FC = () => {
                         A comunicar com Google Drive...
                     </div>
                 ) : files.length === 0 ? (
-                    <p className="text-center p-8 text-indigo-500">Nenhum ficheiro na pasta configurada.</p>
+                    <p className="text-center p-8 text-indigo-500">Esta pasta está vazia.</p>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {files.map(file => (
-                            <div key={file.id} className="bg-white/50 border border-white/60 p-4 rounded-xl flex items-start gap-3 hover:shadow-md transition-shadow group relative">
-                                <div className="text-3xl">{getIcon(file.mimeType)}</div>
-                                <div className="min-w-0 flex-1">
-                                    <h4 className="font-bold text-indigo-900 text-sm truncate" title={file.name}>{file.name}</h4>
-                                    <p className="text-xs text-indigo-700 opacity-70">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                                    <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-600 font-bold hover:underline mt-1 inline-block">
-                                        Abrir
-                                    </a>
-                                </div>
-                                <button 
-                                    onClick={() => handleDelete(file.id)}
-                                    className="absolute top-2 right-2 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded"
-                                    title="Eliminar"
-                                >
-                                    ✕
-                                </button>
+                        {/* Botão de Voltar se não estiver na raiz */}
+                        {folderStack.length > 0 && (
+                            <div 
+                                onClick={navigateUp}
+                                className="bg-indigo-50/50 border border-indigo-100 p-4 rounded-xl flex items-center justify-center gap-3 hover:bg-indigo-100 cursor-pointer text-indigo-800 font-bold transition-colors"
+                            >
+                                ⬅️ Voltar
                             </div>
-                        ))}
+                        )}
+
+                        {files.map(file => {
+                            const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
+                            return (
+                                <div 
+                                    key={file.id} 
+                                    className={`
+                                        bg-white/50 border border-white/60 p-4 rounded-xl flex items-start gap-3 hover:shadow-md transition-all group relative select-none
+                                        ${isFolder ? 'cursor-pointer hover:bg-indigo-50' : ''}
+                                    `}
+                                    onClick={() => isFolder && navigateToFolder(file)}
+                                >
+                                    <div className="text-3xl filter drop-shadow-sm">{getIcon(file.mimeType)}</div>
+                                    <div className="min-w-0 flex-1">
+                                        <h4 className="font-bold text-indigo-900 text-sm truncate" title={file.name}>{file.name}</h4>
+                                        <p className="text-xs text-indigo-700 opacity-70">
+                                            {isFolder ? 'Pasta' : `${(file.size / 1024 / 1024).toFixed(2)} MB`}
+                                        </p>
+                                        {!isFolder && (
+                                            <a 
+                                                href={file.url} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer" 
+                                                className="text-xs text-indigo-600 font-bold hover:underline mt-1 inline-block"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                Abrir
+                                            </a>
+                                        )}
+                                    </div>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); handleDelete(file.id, isFolder); }}
+                                        className="absolute top-2 right-2 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded z-10"
+                                        title="Eliminar"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
              </GlassCard>
