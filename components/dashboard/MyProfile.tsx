@@ -162,18 +162,20 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile }) => {
               )}
             </div>
             
-            {/* Upload Overlay */}
-            <label className={`absolute inset-0 rounded-full bg-black/50 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ${uploading ? 'opacity-100' : ''}`}>
-              {uploading ? (
-                <div className="animate-spin h-6 w-6 border-2 border-white border-t-transparent rounded-full mb-1"></div>
-              ) : (
-                <>
-                  <span className="text-2xl">📷</span>
-                  <span className="text-xs font-bold mt-1">Alterar</span>
-                </>
-              )}
-              <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={uploading} />
-            </label>
+            {/* Upload Overlay - Only visible when editing */}
+            {isEditing && (
+                <label className={`absolute inset-0 rounded-full bg-black/50 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ${uploading ? 'opacity-100' : ''}`}>
+                {uploading ? (
+                    <div className="animate-spin h-6 w-6 border-2 border-white border-t-transparent rounded-full mb-1"></div>
+                ) : (
+                    <>
+                    <span className="text-2xl">📷</span>
+                    <span className="text-xs font-bold mt-1">Alterar</span>
+                    </>
+                )}
+                <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={uploading} />
+                </label>
+            )}
           </div>
 
           {/* User Info Header */}
