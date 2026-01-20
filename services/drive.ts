@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.2.0";
+export const GAS_VERSION = "v1.3.0";
 
 export interface DriveFile {
   id: string;
@@ -31,17 +31,47 @@ export const driveService = {
   },
 
   /**
+   * Verifica a versão real instalada no Google Apps Script
+   */
+  async checkScriptVersion(urlOverride?: string): Promise<string> {
+      try {
+          const config = await adminService.getAppConfig();
+          const url = urlOverride || config.googleScriptUrl;
+
+          if (!url) return 'not_configured';
+
+          const response = await fetch(url, {
+              method: 'POST',
+              body: JSON.stringify({ action: 'check_health' })
+          });
+
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("text/html")) {
+              return 'error_html'; // Script não publicado como "Qualquer pessoa" ou erro do Google
+          }
+
+          const result = await response.json();
+          
+          // Se o script for antigo, ele devolve {} (sem version) ou erro
+          if (result.status === 'success' && result.version) {
+              return result.version;
+          }
+          
+          return 'outdated_unknown';
+      } catch (e) {
+          console.error("Health Check Failed:", e);
+          return 'connection_error';
+      }
+  },
+
+  /**
    * Obtém a pasta pessoal do utilizador.
-   * Se já existir na DB, retorna.
-   * Se não, pede ao GAS para criar/procurar e guarda na DB.
    */
   async getPersonalFolder(profile: Profile): Promise<string> {
-      // 1. Se já tem pasta definida na DB, usa essa
       if (profile.personal_folder_id) {
           return profile.personal_folder_id;
       }
 
-      // 2. Se não tem, precisamos de criar ou encontrar
       const config = await this.getConfig();
       const folderName = `[Formador] ${profile.full_name || profile.email}`;
 
@@ -61,7 +91,6 @@ export const driveService = {
 
       const newFolderId = result.id;
 
-      // 3. Guardar na DB para o futuro
       await supabase
           .from('profiles')
           .update({ personal_folder_id: newFolderId })
@@ -173,6 +202,7 @@ export const GAS_TEMPLATE_CODE = `
 // ==========================================
 
 function doPost(e) {
+  // Configuração CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST',
@@ -184,7 +214,17 @@ function doPost(e) {
     const action = data.action;
     let result = {};
 
-    if (action === 'list') {
+    // --- HEALTH CHECK ---
+    if (action === 'check_health') {
+        result = { 
+            status: 'success', 
+            version: '${GAS_VERSION}',
+            timestamp: new Date().toISOString()
+        };
+    }
+
+    // --- LIST FILES ---
+    else if (action === 'list') {
       const folder = DriveApp.getFolderById(data.folderId);
       const list = [];
       
@@ -214,6 +254,7 @@ function doPost(e) {
       result = { status: 'success', files: list };
     }
 
+    // --- FOLDER OPERATIONS ---
     else if (action === 'createFolder') {
       const parent = DriveApp.getFolderById(data.folderId);
       const newFolder = parent.createFolder(data.name);
@@ -222,7 +263,6 @@ function doPost(e) {
     }
 
     else if (action === 'ensureFolder') {
-      // Procura pasta pelo nome dentro da raiz. Se não existir, cria.
       const root = DriveApp.getFolderById(data.rootId);
       const folders = root.getFoldersByName(data.name);
       let targetFolder;
@@ -236,6 +276,7 @@ function doPost(e) {
       result = { status: 'success', id: targetFolder.getId(), url: targetFolder.getUrl() };
     }
 
+    // --- UPLOAD & DELETE ---
     else if (action === 'upload') {
       const folder = DriveApp.getFolderById(data.folderId);
       const blob = Utilities.newBlob(Utilities.base64Decode(data.file), data.mimeType, data.filename);

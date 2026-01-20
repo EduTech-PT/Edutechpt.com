@@ -5,7 +5,7 @@ import { APP_VERSION, SQL_VERSION } from '../../constants';
 import { generateSetupScript } from '../../utils/sqlGenerator';
 import { adminService } from '../../services/admin';
 import { RichTextEditor } from '../RichTextEditor';
-import { GAS_TEMPLATE_CODE, GAS_VERSION } from '../../services/drive';
+import { GAS_TEMPLATE_CODE, GAS_VERSION, driveService } from '../../services/drive';
 
 interface Props {
   dbVersion: string;
@@ -20,40 +20,44 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [savedId, setSavedId] = useState<string | null>(null);
     
+    // Novo Estado para versão remota real
+    const [remoteGasVersion, setRemoteGasVersion] = useState<string>('checking');
+    
     useEffect(() => {
         setSqlScript(generateSetupScript(SQL_VERSION));
         loadConfig();
     }, []);
 
+    // Verifica a versão sempre que a tab muda para drive ou config é carregada
+    useEffect(() => {
+        if (tab === 'drive' && config.googleScriptUrl) {
+            checkRealVersion(config.googleScriptUrl);
+        }
+    }, [tab, config.googleScriptUrl]);
+
     const loadConfig = async () => {
         try {
             const cfg = await adminService.getAppConfig();
             setConfig(cfg);
-            setSavedId(cfg.driveFolderId); // Guarda o estado real da DB
+            setSavedId(cfg.driveFolderId);
         } catch (e) { console.error(e); }
+    };
+
+    const checkRealVersion = async (url: string) => {
+        setRemoteGasVersion('checking');
+        const version = await driveService.checkScriptVersion(url);
+        setRemoteGasVersion(version);
     };
 
     // Helper robusto para extrair ID do Drive
     const cleanDriveId = (input: string) => {
         if (!input) return '';
         const text = input.trim();
-        
-        // Padrão 1: URL completo (/folders/)
         if (text.includes('/folders/')) {
             const parts = text.split('/folders/');
-            if (parts[1]) {
-                // Remove query params (?usp=sharing) e barras extra
-                return parts[1].split(/[/?]/)[0];
-            }
+            if (parts[1]) return parts[1].split(/[/?]/)[0];
         }
-        
-        // Padrão 2: URL mobile ou id direto (apenas alfanumérico e hífens)
-        // IDs do Google Drive têm tipicamente ~33 caracteres ou mais
-        if (text.length > 20 && !text.includes('http')) {
-            return text;
-        }
-
-        // Fallback: retorna o texto limpo se não detetar URL
+        if (text.length > 20 && !text.includes('http')) return text;
         return text;
     };
 
@@ -74,22 +78,20 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
                     throw new Error("O URL do Script parece inválido. Deve começar por 'https://script.google.com'.");
                 }
                 
-                // Validação relaxada: se tiver algo, tenta guardar
                 if (!cleanId) {
                      throw new Error("O campo ID da Pasta está vazio.");
                 }
 
-                // Atualiza o estado local para refletir a limpeza visualmente
-                setConfig(prev => ({...prev, driveFolderId: cleanId, googleScriptUrl: cleanUrl, gasVersion: GAS_VERSION}));
+                setConfig(prev => ({...prev, driveFolderId: cleanId, googleScriptUrl: cleanUrl}));
 
-                // Guarda na DB e atualiza a versão do script para a atual
                 await adminService.updateAppConfig('google_script_url', cleanUrl);
                 await adminService.updateAppConfig('google_drive_folder_id', cleanId);
-                await adminService.updateAppConfig('gas_version', GAS_VERSION);
                 
-                // Recarrega para confirmar
+                // Força um check imediato após guardar
+                await checkRealVersion(cleanUrl);
+                
                 await loadConfig();
-                alert('Configuração guardada e versão do Script sincronizada!');
+                alert('Configuração guardada!');
             } else {
                 alert('Guardado!');
             }
@@ -103,26 +105,24 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
     const handleTestConnection = async () => {
         setTestStatus({ success: false, msg: 'A testar conexão...' });
         
-        // Verifica se há alterações não guardadas
         if (config.driveFolderId !== savedId) {
             if(!window.confirm("Alterou o ID mas ainda não guardou. Deseja guardar e testar?")) return;
             await handleSaveConfig();
         }
 
         try {
-            // Recarrega a config fresca da DB para garantir que testamos o que está gravado
             const currentConfig = await adminService.getAppConfig();
             
             if (!currentConfig.googleScriptUrl || !currentConfig.driveFolderId) {
                 throw new Error("Configuração incompleta na Base de Dados.");
             }
 
+            // Teste de Listagem (funcionalidade básica)
             const response = await fetch(currentConfig.googleScriptUrl, {
                 method: 'POST', 
                 body: JSON.stringify({ action: 'list', folderId: currentConfig.driveFolderId })
             });
             
-            // Verifica se devolveu HTML (erro comum de permissões)
             const contentType = response.headers.get("content-type");
             if (contentType && contentType.includes("text/html")) {
                  throw new Error("O Script não está acessível (retornou HTML). Verifique se publicou como 'Qualquer pessoa'.");
@@ -130,6 +130,9 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
 
             const result = await response.json();
             
+            // Check Version update during test
+            await checkRealVersion(currentConfig.googleScriptUrl);
+
             if (result.status === 'success') {
                 setTestStatus({ success: true, msg: `Conectado! ${result.files.length} ficheiros encontrados.` });
             } else {
@@ -148,6 +151,34 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
         } catch (err) {
             setCopyFeedback('Erro');
         }
+    };
+
+    const renderGasAlert = () => {
+        if (remoteGasVersion === 'checking' || !config.googleScriptUrl) return null;
+
+        if (remoteGasVersion === GAS_VERSION) {
+             return (
+                 <div className="mb-4 p-3 bg-green-100 border border-green-300 rounded-lg text-green-800 text-sm flex items-center gap-2">
+                     <span>✅</span> 
+                     <span className="font-bold">Script Atualizado ({remoteGasVersion})</span>
+                 </div>
+             );
+        }
+
+        let message = '';
+        if (remoteGasVersion === 'not_configured') return null; // Não mostra nada se não houver URL
+        if (remoteGasVersion === 'connection_error') message = 'Não foi possível verificar a versão (Erro de Conexão). Teste a conexão.';
+        else if (remoteGasVersion === 'error_html') message = 'Erro Crítico: Script devolveu HTML. Verifique permissões "Qualquer pessoa".';
+        else if (remoteGasVersion === 'outdated_unknown') message = `Versão Desconhecida ou Antiga instalada. Requer atualização para ${GAS_VERSION}.`;
+        else message = `Versão Instalada (${remoteGasVersion}) diferente da Atual (${GAS_VERSION}).`;
+
+        return (
+            <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg text-red-800 text-sm animate-pulse shadow-sm">
+                <p className="font-bold mb-1">⚠️ Ação Necessária no Google Script</p>
+                <p>{message}</p>
+                <p className="mt-1 text-xs">Copie o código ao lado, publique uma <b>Nova Implementação</b> no Google, e cole o novo URL abaixo.</p>
+            </div>
+        );
     };
 
     return (
@@ -183,14 +214,7 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
                      <GlassCard>
                         <h3 className="font-bold text-xl text-indigo-900 mb-4">Configuração Conexão</h3>
                         
-                        {/* Alerta de Versão GAS */}
-                        {config.gasVersion && config.gasVersion !== GAS_VERSION && (
-                            <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg text-yellow-800 text-sm animate-pulse shadow-sm">
-                                <p className="font-bold mb-1">⚠️ Código Script Desatualizado</p>
-                                <p>A versão guardada na DB ({config.gasVersion}) é diferente da versão atual do código ({GAS_VERSION}).</p>
-                                <p className="mt-1">Copie o novo código à direita, atualize a implementação no Google, e clique em "Guardar Configuração" para limpar este aviso.</p>
-                            </div>
-                        )}
+                        {renderGasAlert()}
 
                         <div className="space-y-4">
                             <div>
@@ -220,9 +244,6 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
                                 <div className="mt-1 flex justify-between items-center text-xs">
                                      <p className="text-indigo-600 opacity-80">
                                         ID atual na DB: {savedId ? <span className="font-mono bg-indigo-100 px-1 rounded text-indigo-800">{savedId.substring(0,10)}...</span> : <span className="text-red-500 font-bold">Não Configurado</span>}
-                                     </p>
-                                     <p className="text-indigo-600 opacity-80">
-                                        Versão Script DB: {config.gasVersion || 'v0.0.0'}
                                      </p>
                                 </div>
                             </div>
