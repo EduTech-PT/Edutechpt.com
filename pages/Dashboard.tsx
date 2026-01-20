@@ -5,7 +5,7 @@ import { Sidebar } from '../components/Sidebar';
 import { GlassCard } from '../components/GlassCard';
 import { userService } from '../services/users';
 import { adminService } from '../services/admin';
-import { SQL_VERSION } from '../constants';
+import { SQL_VERSION, APP_VERSION } from '../constants';
 import { formatTime, formatDate } from '../utils/formatters';
 import { driveService, GAS_VERSION } from '../services/drive';
 
@@ -33,9 +33,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [dbVersion, setDbVersion] = useState('Checking...');
   const [gasStatus, setGasStatus] = useState<{ match: boolean; remote: string; local: string } | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // Settings Navigation Control
-  const [initialSettingsTab, setInitialSettingsTab] = useState<'geral' | 'sql' | 'drive' | 'avatars'>('geral');
 
   // Load Initial Data
   useEffect(() => {
@@ -52,7 +49,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
               const config = await adminService.getAppConfig();
               setDbVersion(config.sqlVersion || 'Unknown');
               
-              // 2. Check GAS Version (Async, non-blocking)
+              // 2. Check GAS Version (Async)
               if (config.googleScriptUrl) {
                   driveService.checkScriptVersion(config.googleScriptUrl).then(remoteVer => {
                       setGasStatus({
@@ -80,17 +77,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   }, []);
 
   const handleFixDb = () => {
-      setInitialSettingsTab('sql');
-      setCurrentView('settings');
+      setCurrentView('settings_sql');
   };
 
   const handleFixGas = () => {
-      setInitialSettingsTab('drive');
-      setCurrentView('settings');
+      setCurrentView('settings_drive');
   };
 
   const handleRefreshProfile = () => {
-      init(); // Re-fetch profile data
+      init(); 
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-indigo-600">A carregar EduTech PT...</div>;
@@ -122,9 +117,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           case 'media': return <MediaManager />;
           case 'drive': return <DriveManager profile={profile} />;
           case 'users': return <UserAdmin />;
-          case 'settings': return <Settings dbVersion={dbVersion} initialTab={initialSettingsTab} />;
+          
+          // Mapeamento das Sub-paginas de definições
+          case 'settings_geral': return <Settings dbVersion={dbVersion} initialTab="geral" />;
+          case 'settings_sql': return <Settings dbVersion={dbVersion} initialTab="sql" />;
+          case 'settings_drive': return <Settings dbVersion={dbVersion} initialTab="drive" />;
+          case 'settings_avatars': return <Settings dbVersion={dbVersion} initialTab="avatars" />;
+          case 'settings': return <Settings dbVersion={dbVersion} initialTab="geral" />; // Fallback
+
           default: return <GlassCard><h2>Em Construção: {currentView}</h2></GlassCard>;
       }
+  };
+
+  // Humanize title
+  const getPageTitle = (view: string) => {
+      if (view.startsWith('settings_')) return 'Definições / ' + view.replace('settings_', '').toUpperCase();
+      if (view === 'my_profile') return 'Meu Perfil';
+      if (view === 'manage_courses') return 'Gestão de Cursos';
+      return view.replace('_', ' ');
   };
 
   return (
@@ -137,13 +147,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       </div>
 
       <div className="relative z-10 flex w-full max-w-[1600px] mx-auto p-4 md:p-6 gap-6 h-screen">
-        <Sidebar profile={profile} appVersion="v2.0.0" currentView={currentView} setView={setCurrentView} onLogout={onLogout} />
+        <Sidebar profile={profile} appVersion={APP_VERSION} currentView={currentView} setView={setCurrentView} onLogout={onLogout} />
         
         <main className="flex-1 min-w-0 h-full flex flex-col">
             <header className="flex justify-between items-center mb-6 p-4 bg-white/30 backdrop-blur-md rounded-2xl shadow-sm border border-white/40">
                 <div className="text-indigo-900 font-medium">
                    <span className="opacity-70">EduTech PT / </span> 
-                   <span className="font-bold capitalize">{currentView.replace('_', ' ')}</span>
+                   <span className="font-bold capitalize">{getPageTitle(currentView)}</span>
                 </div>
                 <div className="text-right">
                     <div className="text-xl font-bold text-indigo-900 tabular-nums leading-none">{formatTime(currentTime)}</div>
