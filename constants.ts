@@ -6,6 +6,6 @@
 export const SUPABASE_URL = "https://zeedhuzljsbaoqafpfom.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ZOMCawahrL7OImeWeT6Fug_U_WMN0H1";
 
-export const APP_VERSION = "v2.6.1"; // Feature: Access Denied Feedback
-export const SQL_VERSION = "v1.5.4"; // Config updates
+export const APP_VERSION = "v2.6.2"; // Fix: Access Denied generic error handling
+export const SQL_VERSION = "v1.5.4"; // Sync version
 export const APP_NAME = "EduTech PT";
