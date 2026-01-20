@@ -801,9 +801,10 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
                           <div className="flex-1 space-y-3">
                               <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 text-sm">
                                   <h4 className="font-bold text-indigo-800 mb-2">Instruções para Foto:</h4>
-                                  <p className="whitespace-pre-line text-indigo-900/80 mb-3 text-xs leading-relaxed">
-                                      {avatarConfig.helpText || "Carregue a sua imagem."}
-                                  </p>
+                                  <div 
+                                     className="text-indigo-900/80 mb-3 text-xs leading-relaxed prose prose-sm prose-indigo max-w-none [&>p]:mb-1 [&>ul]:list-disc [&>ul]:pl-4"
+                                     dangerouslySetInnerHTML={{ __html: avatarConfig.helpText || "Carregue a sua imagem." }}
+                                  />
                                   <div className="flex flex-wrap gap-2">
                                       <a 
                                         href={avatarConfig.resizerLink} 
@@ -1411,6 +1412,7 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
                                     label="Texto de Ajuda (Passo a Passo)"
                                     value={avatarConfig.helpText}
                                     onChange={(val) => setAvatarConfig({...avatarConfig, helpText: val})}
+                                    allowHtmlView={false}
                                   />
                               </div>
                               <div className="grid grid-cols-2 gap-4">

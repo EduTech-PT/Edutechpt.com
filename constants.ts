@@ -6,6 +6,6 @@
 export const SUPABASE_URL = "https://zeedhuzljsbaoqafpfom.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ZOMCawahrL7OImeWeT6Fug_U_WMN0H1";
 
-export const APP_VERSION = "v1.2.2";
+export const APP_VERSION = "v1.2.3";
 export const SQL_VERSION = "v1.1.29"; // Fix: Ordem de migração de tipos
 export const APP_NAME = "EduTech PT";
