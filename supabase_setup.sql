@@ -1,5 +1,5 @@
 
--- SCRIPT v1.1.29 - Correção de Migração de Tipos
+-- SCRIPT v1.1.31 - Correção de Tabelas (Colunas em falta)
 -- Execute este script COMPLETO.
 
 -- 0. REMOÇÃO PREVENTIVA DE POLÍTICAS (Para permitir alteração de tipos)
@@ -25,13 +25,27 @@ begin
   drop policy if exists "Admins view all requests" on public.access_requests;
 end $$;
 
--- 1. MIGRAÇÃO DE ENUM PARA TEXTO (CRÍTICO)
+-- 1. MIGRAÇÃO ESTRUTURAL (CRÍTICO)
 do $$
 begin
-    -- Se a coluna role for USER-DEFINED (Enum), converte para text
+    -- 1.1 Correção de Tipos (Enum -> Text)
     if exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'role' and data_type = 'USER-DEFINED') then
         alter table public.profiles alter column role type text using role::text;
     end if;
+
+    -- 1.2 Adição de colunas em falta na tabela courses
+    if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'is_public') then
+        alter table public.courses add column is_public boolean default false;
+    end if;
+
+    if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'level') then
+        alter table public.courses add column level text check (level in ('iniciante', 'intermedio', 'avancado')) default 'iniciante';
+    end if;
+
+    if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'image_url') then
+        alter table public.courses add column image_url text;
+    end if;
+
 end $$;
 
 -- 2. CONFIGURAÇÃO BASE
@@ -46,7 +60,7 @@ create policy "Admins can update config" on public.app_config for all using (
 );
 
 insert into public.app_config (key, value) values 
-('sql_version', 'v1.1.29-installing'),
+('sql_version', 'v1.1.31-installing'),
 ('avatar_resizer_link', 'https://www.iloveimg.com/resize-image'),
 ('avatar_help_text', E'1. Aceda ao link de redimensionamento.\n2. Carregue a sua foto.\n3. Defina a largura para 500px.\n4. Descarregue a imagem otimizada.\n5. Carregue o ficheiro aqui.'),
 ('avatar_max_size_kb', '2048'),
@@ -88,6 +102,7 @@ create table if not exists public.courses (
   instructor_id uuid references public.profiles(id),
   level text check (level in ('iniciante', 'intermedio', 'avancado')),
   image_url text,
+  is_public boolean default false,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -188,4 +203,4 @@ create trigger on_auth_user_created
 
 -- 9. FINALIZAÇÃO
 update public.profiles set role = 'admin' where email = 'edutechpt@hotmail.com';
-update public.app_config set value = 'v1.1.29' where key = 'sql_version';
+update public.app_config set value = 'v1.1.31' where key = 'sql_version';

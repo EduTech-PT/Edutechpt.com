@@ -585,7 +585,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
   // Usa template literals para inserir a versão correta do ficheiro constants.ts
-  const sqlCodeString = `-- SCRIPT ${SQL_VERSION} - Correção de Migração de Tipos
+  const sqlCodeString = `-- SCRIPT ${SQL_VERSION} - Correção de Tabelas (Colunas em falta)
 -- Execute este script COMPLETO.
 
 -- 0. REMOÇÃO PREVENTIVA DE POLÍTICAS (Para permitir alteração de tipos)
@@ -611,18 +611,27 @@ begin
   drop policy if exists "Admins view all requests" on public.access_requests;
 end $$;
 
--- 1. MIGRAÇÃO DE ENUM PARA TEXTO E ADIÇÃO DE COLUNAS
+-- 1. MIGRAÇÃO ESTRUTURAL (CRÍTICO)
 do $$
 begin
-    -- Se a coluna role for USER-DEFINED (Enum), converte para text
+    -- 1.1 Correção de Tipos (Enum -> Text)
     if exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'role' and data_type = 'USER-DEFINED') then
         alter table public.profiles alter column role type text using role::text;
     end if;
 
-    -- Adiciona is_public em courses se não existir
+    -- 1.2 Adição de colunas em falta na tabela courses
     if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'is_public') then
         alter table public.courses add column is_public boolean default false;
     end if;
+
+    if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'level') then
+        alter table public.courses add column level text check (level in ('iniciante', 'intermedio', 'avancado')) default 'iniciante';
+    end if;
+
+    if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'image_url') then
+        alter table public.courses add column image_url text;
+    end if;
+
 end $$;
 
 -- 2. CONFIGURAÇÃO BASE
