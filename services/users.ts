@@ -18,7 +18,14 @@ export const userService = {
             .from('profiles')
             .update(updates)
             .eq('id', userId);
-        if (error) throw error;
+            
+        if (error) {
+            // Código PostgreSQL para Unique Violation
+            if (error.code === '23505') {
+                throw new Error('Este nome de utilizador já está em uso. Por favor, escolha um nome diferente.');
+            }
+            throw error;
+        }
     },
 
     async getAllProfiles() {

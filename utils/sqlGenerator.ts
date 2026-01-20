@@ -2,7 +2,7 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    return `-- SCRIPT ${currentVersion} - Personal Folders
+    return `-- SCRIPT ${currentVersion} - Unique Names & Personal Folders
 -- Gerado automaticamente pelo Sistema EduTech PT
 
 -- 0. REMOÇÃO PREVENTIVA DE POLÍTICAS
@@ -25,6 +25,8 @@ end $$;
 
 -- 1. MIGRAÇÃO ESTRUTURAL
 do $$
+declare
+  r record;
 begin
     -- 1.1 Correção de Tipos
     if exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'role' and data_type = 'USER-DEFINED') then
@@ -46,6 +48,28 @@ begin
     if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'personal_folder_id') then
         alter table public.profiles add column personal_folder_id text;
     end if;
+
+    -- 1.4 RESTRIÇÃO DE NOME ÚNICO (DEDUPLICAÇÃO PRÉVIA)
+    -- Antes de aplicar UNIQUE, corrigimos duplicados existentes adicionando os 4 primeiros caracteres do ID
+    for r in (
+      select full_name, count(*)
+      from public.profiles
+      where full_name is not null
+      group by full_name
+      having count(*) > 1
+    ) loop
+      update public.profiles p
+      set full_name = p.full_name || ' (' || substring(p.id::text, 1, 4) || ')'
+      where p.full_name = r.full_name
+      and p.id not in (
+        select id from public.profiles where full_name = r.full_name limit 1
+      );
+    end loop;
+
+    -- Aplicar constraint se não existir
+    if not exists (select 1 from information_schema.table_constraints where constraint_name = 'profiles_full_name_key') then
+        alter table public.profiles add constraint profiles_full_name_key unique (full_name);
+    end if;
 end $$;
 
 -- 2. CONFIGURAÇÃO BASE
@@ -58,7 +82,7 @@ create policy "Admins can update config" on public.app_config for all using (
     exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
 );
 
--- Inserção de configurações do Google Drive
+-- Inserção de configurações
 insert into public.app_config (key, value) values 
 ('sql_version', '${currentVersion}-installing'),
 ('avatar_resizer_link', 'https://www.iloveimg.com/resize-image'),
@@ -75,7 +99,7 @@ where app_config.key = 'sql_version';
 create table if not exists public.profiles (
   id uuid references auth.users not null primary key,
   email text,
-  full_name text,
+  full_name text, -- Agora com Unique Constraint
   role text default 'aluno',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   avatar_url text,
@@ -163,7 +187,7 @@ drop policy if exists "Users can insert requests" on public.access_requests;
 create policy "Users can insert requests" on public.access_requests for insert with check (auth.uid() = user_id);
 create policy "Admins view all requests" on public.access_requests for select using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
--- 7. STORAGE (Avatars & Course Images)
+-- 7. STORAGE
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('course-images', 'course-images', true) on conflict (id) do nothing;
 
@@ -175,38 +199,37 @@ create policy "Avatar Images are Public" on storage.objects for select using ( b
 create policy "Users can upload own avatar" on storage.objects for insert with check ( bucket_id = 'avatars' and auth.uid() = owner );
 create policy "Users can update own avatar" on storage.objects for update using ( bucket_id = 'avatars' and auth.uid() = owner );
 
--- Course Images Policies
 create policy "Course Images are Public" on storage.objects for select using ( bucket_id = 'course-images' );
+create policy "Staff can upload course images" on storage.objects for insert with check ( bucket_id = 'course-images' and exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
+create policy "Staff can update course images" on storage.objects for update using ( bucket_id = 'course-images' and exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
+create policy "Staff can delete course images" on storage.objects for delete using ( bucket_id = 'course-images' and exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
 
-create policy "Staff can upload course images" on storage.objects for insert with check (
-  bucket_id = 'course-images' and 
-  exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador'))
-);
-
-create policy "Staff can update course images" on storage.objects for update using (
-  bucket_id = 'course-images' and 
-  exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador'))
-);
-
-create policy "Staff can delete course images" on storage.objects for delete using (
-  bucket_id = 'course-images' and 
-  exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador'))
-);
-
--- 8. TRIGGER DE NOVO UTILIZADOR
+-- 8. TRIGGER AVANÇADO (Handle Duplicates on Signup)
 create or replace function public.handle_new_user() returns trigger as $$
 declare
   invite_role text;
+  final_name text;
 begin
+  -- 1. Definir Nome (com sufixo se existir duplicado)
+  final_name := new.raw_user_meta_data->>'full_name';
+  
+  if exists (select 1 from public.profiles where lower(full_name) = lower(final_name)) then
+      -- Se existe, adiciona os 4 primeiros chars do ID como sufixo para garantir unicidade
+      final_name := final_name || ' (' || substring(new.id::text, 1, 4) || ')';
+  end if;
+
+  -- 2. Lógica Admin Hardcoded
   if new.email = 'edutechpt@hotmail.com' then
       insert into public.profiles (id, email, full_name, role)
-      values (new.id, new.email, new.raw_user_meta_data->>'full_name', 'admin');
+      values (new.id, new.email, final_name, 'admin');
       return new;
   end if;
+
+  -- 3. Lógica de Convites
   select role into invite_role from public.user_invites where lower(email) = lower(new.email);
   if invite_role is not null then
       insert into public.profiles (id, email, full_name, role)
-      values (new.id, new.email, new.raw_user_meta_data->>'full_name', invite_role);
+      values (new.id, new.email, final_name, invite_role);
       return new;
   else
       raise exception 'ACESSO NEGADO: Email não convidado.';
