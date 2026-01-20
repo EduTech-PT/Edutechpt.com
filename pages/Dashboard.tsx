@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { Profile, UserRole, Course, RoleDefinition, UserInvite, ProfileVisibility, UserPermissions } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { GlassCard } from '../components/GlassCard';
+import { RichTextEditor } from '../components/RichTextEditor';
 import { SQL_VERSION, APP_VERSION } from '../constants';
 
 interface DashboardProps {
@@ -925,11 +926,9 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
                                     {myVisibility.bio ? <span className="text-green-600 font-bold">👁️ Público</span> : <span className="text-red-500 font-bold">🔒 Privado</span>}
                                 </button>
                              </div>
-                             <textarea 
-                                 rows={4}
+                             <RichTextEditor 
                                  value={myBio} 
-                                 onChange={(e) => setMyBio(e.target.value)} 
-                                 className="w-full bg-white/40 border border-white/50 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                 onChange={(val) => setMyBio(val)}
                              />
                         </div>
                       </div>
@@ -1032,7 +1031,10 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
                                 {showField('bio') && viewedProfile.bio && (
                                     <div className="bg-white/30 p-6 rounded-xl border border-white/50">
                                         <h3 className="font-bold text-indigo-900 mb-2 border-b border-indigo-200 pb-2">Sobre</h3>
-                                        <p className="text-indigo-900/80 whitespace-pre-wrap leading-relaxed">{viewedProfile.bio}</p>
+                                        <div 
+                                            className="text-indigo-900/80 whitespace-pre-wrap leading-relaxed prose prose-indigo prose-sm max-w-none"
+                                            dangerouslySetInnerHTML={{ __html: viewedProfile.bio }}
+                                        />
                                     </div>
                                 )}
 
@@ -1405,12 +1407,10 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
                                   />
                               </div>
                               <div>
-                                  <label className="block text-sm font-medium text-indigo-900 mb-1">Texto de Ajuda (Passo a Passo)</label>
-                                  <textarea 
-                                    rows={4}
+                                  <RichTextEditor 
+                                    label="Texto de Ajuda (Passo a Passo)"
                                     value={avatarConfig.helpText}
-                                    onChange={(e) => setAvatarConfig({...avatarConfig, helpText: e.target.value})}
-                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    onChange={(val) => setAvatarConfig({...avatarConfig, helpText: val})}
                                   />
                               </div>
                               <div className="grid grid-cols-2 gap-4">
@@ -1476,8 +1476,11 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
                              <input type="text" required value={newCourseTitle} onChange={e => setNewCourseTitle(e.target.value)} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"/>
                          </div>
                          <div>
-                             <label className="block text-sm mb-1">Descrição</label>
-                             <textarea required value={newCourseDesc} onChange={e => setNewCourseDesc(e.target.value)} rows={3} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"/>
+                             <RichTextEditor 
+                                label="Descrição"
+                                value={newCourseDesc}
+                                onChange={(val) => setNewCourseDesc(val)}
+                             />
                          </div>
                          <div>
                              <label className="block text-sm mb-1">Nível</label>
@@ -1497,7 +1500,10 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
                      {manageCourses.map(course => (
                          <GlassCard key={course.id} className="flex flex-col">
                              <h4 className="font-bold text-indigo-900 text-lg mb-2">{course.title}</h4>
-                             <p className="text-sm text-indigo-700 mb-4 flex-grow line-clamp-3">{course.description}</p>
+                             <div 
+                                className="text-sm text-indigo-700 mb-4 flex-grow line-clamp-3 prose prose-sm prose-indigo"
+                                dangerouslySetInnerHTML={{ __html: course.description }}
+                             />
                              <div className="flex justify-between items-center text-xs opacity-70">
                                  <span className="uppercase font-bold">{course.level}</span>
                                  <span>{new Date(course.created_at).toLocaleDateString()}</span>
