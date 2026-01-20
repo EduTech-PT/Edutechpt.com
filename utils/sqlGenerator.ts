@@ -2,7 +2,7 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    return `-- SCRIPT ${currentVersion} - Community & Enrollments
+    return `-- SCRIPT ${currentVersion} - Admin Avatar Management
 -- Gerado automaticamente pelo Sistema EduTech PT
 
 -- 0. REMOÇÃO PREVENTIVA DE POLÍTICAS
@@ -10,13 +10,22 @@ do $$
 begin
   drop policy if exists "Admins can update config" on public.app_config;
   drop policy if exists "Users can update own profile" on public.profiles;
+  drop policy if exists "Users and Admins can update profile" on public.profiles;
   drop policy if exists "Admins can delete any profile" on public.profiles;
   drop policy if exists "Admin Manage Roles" on public.roles;
   drop policy if exists "Admins manage invites" on public.user_invites;
   drop policy if exists "Staff can manage courses" on public.courses;
   drop policy if exists "Admins view all requests" on public.access_requests;
   
-  -- Storage Policies Cleanup
+  -- Storage Policies Cleanup (Avatars)
+  drop policy if exists "Users can upload own avatar" on storage.objects;
+  drop policy if exists "Users can update own avatar" on storage.objects;
+  drop policy if exists "Users can delete own avatar" on storage.objects;
+  drop policy if exists "Users and Admins can upload avatar" on storage.objects;
+  drop policy if exists "Users and Admins can update avatar" on storage.objects;
+  drop policy if exists "Users and Admins can delete avatar" on storage.objects;
+
+  -- Storage Policies Cleanup (Courses)
   drop policy if exists "Course Images are Public" on storage.objects;
   drop policy if exists "Staff can upload course images" on storage.objects;
   drop policy if exists "Staff can update course images" on storage.objects;
@@ -183,7 +192,13 @@ on conflict (name) do update set permissions = excluded.permissions;
 alter table public.profiles enable row level security;
 drop policy if exists "Public Profiles Access" on public.profiles;
 create policy "Public Profiles Access" on public.profiles for select using (true);
-create policy "Users can update own profile" on public.profiles for update using (id = auth.uid() OR exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
+
+-- Permissão de Edição de Perfil: Próprio utilizador OU Admin
+create policy "Users and Admins can update profile" on public.profiles for update using (
+    id = auth.uid() 
+    OR exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+);
+
 create policy "Admins can delete any profile" on public.profiles for delete using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
 alter table public.roles enable row level security;
@@ -213,12 +228,33 @@ insert into storage.buckets (id, name, public) values ('avatars', 'avatars', tru
 insert into storage.buckets (id, name, public) values ('course-images', 'course-images', true) on conflict (id) do nothing;
 
 drop policy if exists "Avatar Images are Public" on storage.objects;
-drop policy if exists "Users can upload own avatar" on storage.objects;
-drop policy if exists "Users can update own avatar" on storage.objects;
-
 create policy "Avatar Images are Public" on storage.objects for select using ( bucket_id = 'avatars' );
-create policy "Users can upload own avatar" on storage.objects for insert with check ( bucket_id = 'avatars' and auth.uid() = owner );
-create policy "Users can update own avatar" on storage.objects for update using ( bucket_id = 'avatars' and auth.uid() = owner );
+
+-- STORAGE POLICIES: ADMIN + USER
+-- Permitir que Admins editem imagens de qualquer utilizador
+create policy "Users and Admins can upload avatar" on storage.objects for insert with check (
+    bucket_id = 'avatars' 
+    and (
+        auth.uid() = owner 
+        or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    )
+);
+
+create policy "Users and Admins can update avatar" on storage.objects for update using (
+    bucket_id = 'avatars' 
+    and (
+        auth.uid() = owner 
+        or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    )
+);
+
+create policy "Users and Admins can delete avatar" on storage.objects for delete using (
+    bucket_id = 'avatars' 
+    and (
+        auth.uid() = owner 
+        or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    )
+);
 
 create policy "Course Images are Public" on storage.objects for select using ( bucket_id = 'course-images' );
 create policy "Staff can upload course images" on storage.objects for insert with check ( bucket_id = 'course-images' and exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
