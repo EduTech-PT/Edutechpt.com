@@ -19,6 +19,9 @@ export const UserAdmin: React.FC<UserAdminProps> = ({ onEditUser }) => {
     const [showInvite, setShowInvite] = useState(false);
     const [email, setEmail] = useState('');
     const [role, setRole] = useState('aluno');
+    
+    // Loading State for Role Update
+    const [updatingRoleFor, setUpdatingRoleFor] = useState<string | null>(null);
 
     useEffect(() => {
         fetchData();
@@ -68,6 +71,23 @@ export const UserAdmin: React.FC<UserAdminProps> = ({ onEditUser }) => {
         } catch (err: any) { alert(err.message); }
     };
 
+    const handleRoleChange = async (userId: string, newRole: string) => {
+        // Optimistic UI Update (para feedback rápido) ou Loading State
+        setUpdatingRoleFor(userId);
+        try {
+            await userService.updateProfile(userId, { role: newRole });
+            
+            // Atualiza estado local para refletir a mudança sem refetch total
+            setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+        } catch (err: any) {
+            alert("Erro ao atualizar cargo: " + err.message);
+            // Em caso de erro, recarregar dados originais
+            fetchData();
+        } finally {
+            setUpdatingRoleFor(null);
+        }
+    };
+
     return (
         <div className="space-y-6 animate-in slide-in-from-right duration-300">
              <div className="flex justify-between items-center">
@@ -109,7 +129,30 @@ export const UserAdmin: React.FC<UserAdminProps> = ({ onEditUser }) => {
                                         </td>
                                         <td className="py-3 font-medium text-indigo-900">{u.full_name || '-'}</td>
                                         <td className="py-3 opacity-70">{u.email}</td>
-                                        <td className="py-3"><span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded text-xs uppercase font-bold">{u.role}</span></td>
+                                        <td className="py-3">
+                                            <div className="relative">
+                                                {updatingRoleFor === u.id && (
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
+                                                        <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                                                    </div>
+                                                )}
+                                                <select 
+                                                    value={u.role} 
+                                                    onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                                                    disabled={updatingRoleFor === u.id}
+                                                    className={`
+                                                        px-2 py-1 rounded text-xs uppercase font-bold border outline-none cursor-pointer transition-colors
+                                                        ${u.role === 'admin' ? 'bg-indigo-100 text-indigo-800 border-indigo-200' : 
+                                                          u.role === 'formador' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                                                          'bg-white text-gray-700 border-gray-200 hover:border-indigo-300'}
+                                                    `}
+                                                >
+                                                    {roles.map(r => (
+                                                        <option key={r.name} value={r.name}>{r.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </td>
                                         <td className="py-3 text-right">
                                             {onEditUser && (
                                                 <button 
