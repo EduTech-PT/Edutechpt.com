@@ -6,6 +6,6 @@
 export const SUPABASE_URL = "https://zeedhuzljsbaoqafpfom.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ZOMCawahrL7OImeWeT6Fug_U_WMN0H1";
 
-export const APP_VERSION = "v2.5.1"; // Feature: Auto-delete accepted invites
-export const SQL_VERSION = "v1.5.1"; // Updated Trigger Logic
+export const APP_VERSION = "v2.5.2"; // Fix: SQL Script safety check
+export const SQL_VERSION = "v1.5.2"; // Fix: Relation "enrollments" missing error
 export const APP_NAME = "EduTech PT";

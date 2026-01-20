@@ -22,9 +22,11 @@ begin
   drop policy if exists "Staff can update course images" on storage.objects;
   drop policy if exists "Staff can delete course images" on storage.objects;
 
-  -- Enrollments Cleanup
-  drop policy if exists "Admins manage enrollments" on public.enrollments;
-  drop policy if exists "Users view own enrollments" on public.enrollments;
+  -- Enrollments Cleanup (Safe Drop)
+  if exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'enrollments') then
+      drop policy if exists "Admins manage enrollments" on public.enrollments;
+      drop policy if exists "Users view own enrollments" on public.enrollments;
+  end if;
 end $$;
 
 -- 1. MIGRAÇÃO ESTRUTURAL
