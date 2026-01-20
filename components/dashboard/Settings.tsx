@@ -9,11 +9,11 @@ import { GAS_TEMPLATE_CODE, GAS_VERSION, driveService } from '../../services/dri
 
 interface Props {
   dbVersion: string;
-  initialTab?: 'geral' | 'sql' | 'drive' | 'avatars';
+  initialTab?: 'geral' | 'sql' | 'drive' | 'avatars' | 'access';
 }
 
 export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) => {
-    const [tab, setTab] = useState<'geral' | 'sql' | 'drive' | 'avatars'>(initialTab);
+    const [tab, setTab] = useState<'geral' | 'sql' | 'drive' | 'avatars' | 'access'>(initialTab);
     const [sqlScript, setSqlScript] = useState('');
     const [config, setConfig] = useState<any>({});
     const [copyFeedback, setCopyFeedback] = useState('');
@@ -74,6 +74,11 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
             if (tab === 'avatars') {
                 await adminService.updateAppConfig('avatar_resizer_link', config.resizerLink?.trim());
                 await adminService.updateAppConfig('avatar_help_text', config.helpText);
+            }
+            if (tab === 'access') {
+                await adminService.updateAppConfig('access_denied_email', config.accessDeniedEmail?.trim());
+                await adminService.updateAppConfig('access_denied_subject', config.accessDeniedSubject);
+                await adminService.updateAppConfig('access_denied_body', config.accessDeniedBody);
             }
             if (tab === 'drive') {
                 const rawId = config.driveFolderId || '';
@@ -190,9 +195,9 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
     return (
         <div className="h-full flex flex-col animate-in fade-in duration-300">
             <div className="flex space-x-2 mb-6 border-b border-indigo-200 pb-2 overflow-x-auto">
-                {['geral', 'drive', 'avatars', 'sql'].map(t => (
+                {['geral', 'drive', 'avatars', 'access', 'sql'].map(t => (
                     <button key={t} onClick={() => setTab(t as any)} className={`px-4 py-2 rounded-lg font-medium capitalize whitespace-nowrap ${tab === t ? 'bg-indigo-600 text-white' : 'text-indigo-800'}`}>
-                        {t === 'drive' ? 'Integração Drive' : t}
+                        {t === 'drive' ? 'Integração Drive' : t === 'access' ? 'Acesso & Alertas' : t}
                     </button>
                 ))}
             </div>
@@ -213,6 +218,36 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                         </div>
                     </div>
                 </GlassCard>
+            )}
+
+            {tab === 'access' && (
+                 <GlassCard>
+                     <h3 className="font-bold text-xl text-indigo-900 mb-4">Configuração de Acesso Negado</h3>
+                     <p className="text-sm text-indigo-700 mb-4">
+                        Defina a mensagem de email que será pré-preenchida quando um utilizador não autorizado tentar entrar e solicitar contacto.
+                     </p>
+                     <div className="space-y-4">
+                         <div>
+                             <label className="block text-sm text-indigo-800 font-bold mb-1">Email de Destino (Admin)</label>
+                             <input type="email" value={config.accessDeniedEmail || ''} onChange={e => setConfig({...config, accessDeniedEmail: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60"/>
+                         </div>
+                         <div>
+                             <label className="block text-sm text-indigo-800 font-bold mb-1">Assunto do Email</label>
+                             <input type="text" value={config.accessDeniedSubject || ''} onChange={e => setConfig({...config, accessDeniedSubject: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60"/>
+                         </div>
+                         <div>
+                             <label className="block text-sm text-indigo-800 font-bold mb-1">Corpo da Mensagem</label>
+                             <textarea 
+                                value={config.accessDeniedBody || ''} 
+                                onChange={e => setConfig({...config, accessDeniedBody: e.target.value})} 
+                                className="w-full h-32 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans"
+                             />
+                         </div>
+                         <button onClick={handleSaveConfig} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700 shadow-md">
+                            Guardar Definições
+                         </button>
+                     </div>
+                 </GlassCard>
             )}
 
             {tab === 'drive' && (

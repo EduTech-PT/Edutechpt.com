@@ -56,6 +56,10 @@ export const adminService = {
                 if (item.key === 'google_script_url') config.googleScriptUrl = item.value;
                 if (item.key === 'google_drive_folder_id') config.driveFolderId = item.value;
                 if (item.key === 'gas_version') config.gasVersion = item.value;
+                // Access Denied Configs
+                if (item.key === 'access_denied_email') config.accessDeniedEmail = item.value;
+                if (item.key === 'access_denied_subject') config.accessDeniedSubject = item.value;
+                if (item.key === 'access_denied_body') config.accessDeniedBody = item.value;
             });
         }
         return config;

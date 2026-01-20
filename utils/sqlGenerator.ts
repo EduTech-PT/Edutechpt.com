@@ -97,7 +97,10 @@ insert into public.app_config (key, value) values
 ('avatar_allowed_formats', 'image/jpeg,image/png,image/webp'),
 ('google_script_url', ''),
 ('google_drive_folder_id', ''),
-('gas_version', 'v0.0.0')
+('gas_version', 'v0.0.0'),
+('access_denied_email', 'edutechpt@hotmail.com'),
+('access_denied_subject', 'Pedido de Acesso - EduTech PT'),
+('access_denied_body', E'Olá Administrador,\n\nTentei aceder à plataforma mas o meu acesso foi negado.\nGostaria de solicitar a inscrição.\n\nObrigado.')
 on conflict (key) do update set value = excluded.value 
 where app_config.key = 'sql_version';
 
