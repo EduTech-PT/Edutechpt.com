@@ -1,37 +1,49 @@
 
 import React from 'react';
-import { UserRole, Profile } from '../types';
+import { UserRole, Profile, UserPermissions } from '../types';
 import { GlassCard } from './GlassCard';
 
 interface SidebarProps {
   profile: Profile | null;
+  userPermissions?: UserPermissions;
   appVersion: string;
   currentView: string;
   setView: (view: string) => void;
   onLogout: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ profile, appVersion, currentView, setView, onLogout }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appVersion, currentView, setView, onLogout }) => {
   
-  const role = profile?.role || UserRole.STUDENT; // Fallback seguro
+  // Fallback para roles hardcoded caso as permissões não tenham carregado (para compatibilidade)
+  const role = profile?.role || UserRole.STUDENT;
 
+  // Definição dos items e a chave de permissão correspondente
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', roles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
-    { id: 'my_profile', label: 'Meu Perfil', roles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
-    { id: 'community', label: 'Comunidade', roles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
-    { id: 'courses', label: 'Meus Cursos', roles: [UserRole.STUDENT] },
-    { id: 'manage_courses', label: 'Gerir Cursos', roles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
-    { id: 'users', label: 'Utilizadores', roles: [UserRole.ADMIN] },
-    { id: 'settings', label: 'Definições', roles: [UserRole.ADMIN] },
+    { id: 'dashboard', label: 'Dashboard', permissionKey: 'view_dashboard', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
+    { id: 'my_profile', label: 'Meu Perfil', permissionKey: 'view_my_profile', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
+    { id: 'community', label: 'Comunidade', permissionKey: 'view_community', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
+    { id: 'courses', label: 'Meus Cursos', permissionKey: 'view_courses', fallbackRoles: [UserRole.STUDENT] },
+    { id: 'manage_courses', label: 'Gerir Cursos', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
+    { id: 'users', label: 'Utilizadores', permissionKey: 'view_users', fallbackRoles: [UserRole.ADMIN] },
+    { id: 'settings', label: 'Definições', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
   ];
 
-  // Helper simples para verificar permissões
-  const hasAccess = (allowedRoles: string[]) => {
+  // Helper para verificar permissões
+  const hasAccess = (item: any) => {
+    // 1. Se formos Admin, temos sempre acesso (Safety net)
     if (role === UserRole.ADMIN) return true;
-    return allowedRoles.includes(role);
+
+    // 2. Se tivermos permissões carregadas da DB
+    if (userPermissions) {
+        // Se a chave existe, usa o valor. Se não existe, assume false.
+        return !!userPermissions[item.permissionKey];
+    }
+
+    // 3. Fallback para sistema antigo baseado em array de roles
+    return item.fallbackRoles.includes(role);
   }
 
-  const visibleItems = menuItems.filter(item => hasAccess(item.roles));
+  const visibleItems = menuItems.filter(item => hasAccess(item));
 
   return (
     <GlassCard className="h-full flex flex-col justify-between w-64 rounded-none rounded-r-2xl border-l-0 min-h-[80vh] p-0 overflow-hidden relative">
@@ -62,7 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, appVersion, currentVi
       {/* Bottom Section: User Info & Version & Logout */}
       <div className="bg-white/20 backdrop-blur-md p-6 border-t border-white/40 flex flex-col gap-6">
         
-        {/* User Profile & Version - Updated layout per request */}
+        {/* User Profile & Version */}
         {profile && (
             <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-3">
@@ -89,7 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, appVersion, currentVi
             </div>
         )}
 
-        {/* Logout Button - Moved to bottom, smaller, single line */}
+        {/* Logout Button */}
         <button
           onClick={onLogout}
           className="w-full text-left flex items-center gap-2 text-red-700 hover:text-red-800 font-medium transition-colors text-sm whitespace-nowrap pt-2 border-t border-indigo-900/10"

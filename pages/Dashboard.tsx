@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Profile, UserRole, Course, RoleDefinition, UserInvite, ProfileVisibility } from '../types';
+import { Profile, UserRole, Course, RoleDefinition, UserInvite, ProfileVisibility, UserPermissions } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { GlassCard } from '../components/GlassCard';
 import { SQL_VERSION, APP_VERSION } from '../constants';
@@ -17,8 +17,20 @@ const PORTUGUESE_CITIES = [
   "Évora", "Beja", "Bragança", "Santarém", "Funchal", "Ponta Delgada"
 ];
 
+const AVAILABLE_PERMISSIONS = [
+    { key: 'view_dashboard', label: 'Ver Dashboard' },
+    { key: 'view_my_profile', label: 'Ver Próprio Perfil' },
+    { key: 'view_community', label: 'Ver Comunidade' },
+    { key: 'view_courses', label: 'Ver Cursos (Aluno)' },
+    { key: 'manage_courses', label: 'Gerir Cursos (Criar/Editar)' },
+    { key: 'view_users', label: 'Gerir Utilizadores' },
+    { key: 'view_settings', label: 'Ver Definições' },
+];
+
 export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [userPermissions, setUserPermissions] = useState<UserPermissions | undefined>(undefined);
+  
   const [currentView, setCurrentView] = useState('dashboard');
   const [loading, setLoading] = useState(true);
 
@@ -63,12 +75,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [inviteRole, setInviteRole] = useState('aluno');
   const [bulkEmails, setBulkEmails] = useState('');
   
-  // Role Creation
+  // Role Creation & Editing
   const [newRoleName, setNewRoleName] = useState('');
+  const [roleEditing, setRoleEditing] = useState<RoleDefinition | null>(null);
 
   // My Profile Edit State
   const [myFullName, setMyFullName] = useState('');
-  const [myAvatarUrl, setMyAvatarUrl] = useState(''); // Keep for state logic but remove input
+  const [myAvatarUrl, setMyAvatarUrl] = useState(''); // Keep for state logic
   const [myBio, setMyBio] = useState('');
   const [myBirthDate, setMyBirthDate] = useState('');
   const [myCity, setMyCity] = useState('');
@@ -104,6 +117,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
         setMyPhone(profile.phone || '');
         setMyLinkedin(profile.linkedin_url || '');
         setMyVisibility(profile.visibility_settings || {});
+        
+        // Fetch permissions for this role
+        fetchUserPermissions(profile.role);
     }
   }, [profile]);
 
@@ -193,6 +209,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
     }
   };
 
+  const fetchUserPermissions = async (roleName: string) => {
+      // Fetch permissions from roles table
+      const { data, error } = await supabase
+        .from('roles')
+        .select('permissions')
+        .eq('name', roleName)
+        .single();
+      
+      if (data && data.permissions) {
+          setUserPermissions(data.permissions);
+      }
+  };
+
   const fetchManageCourses = async () => {
     const { data } = await supabase.from('courses').select('*').order('created_at', { ascending: false });
     if (data) setManageCourses(data);
@@ -207,19 +236,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   const fetchCommunityUsers = async () => {
-      // Reusing logic but maybe restrict fields in select later if needed for perf
       const { data: profiles } = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
       if (profiles) setUsersList(profiles as Profile[]);
   };
 
   const fetchRoles = async () => {
-      const { data, error } = await supabase.from('roles').select('*');
-      if (!error && data && data.length > 0) {
+      const { data, error } = await supabase.from('roles').select('*').order('name');
+      if (!error && data) {
           setAvailableRoles(data);
-      } else {
-          setAvailableRoles([
-              { name: 'admin' }, { name: 'editor' }, { name: 'formador' }, { name: 'aluno' }
-          ]);
       }
   };
 
@@ -430,18 +454,43 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       }
   };
 
+  // --- ROLE MANAGEMENT LOGIC ---
+
   const handleCreateRole = async () => {
       if (!newRoleName) return;
       const roleSlug = newRoleName.toLowerCase().replace(/\s+/g, '_');
       try {
-          const { error } = await supabase.from('roles').insert([{ name: roleSlug }]);
+          const { error } = await supabase.from('roles').insert([{ name: roleSlug, description: 'Novo cargo' }]);
           if (error) throw error;
           setNewRoleName('');
           fetchRoles();
-          alert(`Cargo '${roleSlug}' criado!`);
+          alert(`Cargo '${roleSlug}' criado! Agora configure as permissões.`);
       } catch (err: any) {
           alert('Erro ao criar cargo: ' + err.message);
       }
+  };
+
+  const handleUpdateRole = async (role: RoleDefinition) => {
+      try {
+          const { error } = await supabase
+            .from('roles')
+            .update({ description: role.description, permissions: role.permissions })
+            .eq('name', role.name);
+          
+          if (error) throw error;
+          setRoleEditing(null);
+          fetchRoles();
+          alert('Cargo e permissões atualizados!');
+      } catch (err: any) {
+          alert('Erro ao atualizar: ' + err.message);
+      }
+  };
+
+  const togglePermission = (role: RoleDefinition, permKey: string) => {
+      if (!role) return;
+      const currentPerms = role.permissions || {};
+      const newPerms = { ...currentPerms, [permKey]: !currentPerms[permKey] };
+      setRoleEditing({ ...role, permissions: newPerms });
   };
 
   const openPublicProfile = (user: Profile) => {
@@ -472,23 +521,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
   // Usa template literals para inserir a versão correta do ficheiro constants.ts
-  const sqlCodeString = `-- SCRIPT ${SQL_VERSION} - Extensão de Perfil e Privacidade
+  const sqlCodeString = `-- SCRIPT ${SQL_VERSION} - Sistema de Permissões Dinâmicas
 -- Execute este script COMPLETO.
 
--- 1. BASE DE CONFIGURAÇÃO E NOVAS CHAVES DE AVATAR
+-- 1. BASE DE CONFIGURAÇÃO
 create table if not exists public.app_config (key text primary key, value text);
 alter table public.app_config enable row level security;
 
--- Políticas de app_config
 drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
 
 drop policy if exists "Admins can update config" on public.app_config;
 create policy "Admins can update config" on public.app_config for all using (
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'::public.app_role)
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
 );
 
--- Atualizar versão do SQL e inserir configurações padrão de avatar
 insert into public.app_config (key, value) values 
 ('sql_version', '${SQL_VERSION}-installing'),
 ('avatar_resizer_link', 'https://www.iloveimg.com/resize-image'),
@@ -511,35 +558,38 @@ begin
   end loop;
 end $$;
 
--- 3. TABELAS (Estrutura Básica e Novos Campos)
+-- 3. MIGRAÇÃO DE ENUM PARA TEXTO (CRÍTICO PARA EDITAR CARGOS)
+-- Isto permite que 'role' seja qualquer string, não apenas as 4 fixas
 do $$
 begin
-  if not exists (select 1 from pg_type where typname = 'app_role') then
-    create type public.app_role as enum ('admin', 'editor', 'formador', 'aluno');
-  end if;
-  
-  if exists (select 1 from information_schema.table_constraints where constraint_name = 'courses_instructor_id_fkey') then
-    alter table public.courses drop constraint courses_instructor_id_fkey;
-  end if;
+    -- Tenta converter a coluna se ela depender do tipo app_role
+    if exists (select 1 from information_schema.columns where table_name = 'profiles' and data_type = 'USER-DEFINED') then
+        alter table public.profiles alter column role type text using role::text;
+    end if;
 end $$;
 
+-- 4. TABELAS
 create table if not exists public.profiles (
   id uuid references auth.users not null primary key,
   email text,
   full_name text,
-  role public.app_role default 'aluno'::public.app_role,
+  role text default 'aluno', -- Agora é text
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  avatar_url text
+  avatar_url text,
+  birth_date date,
+  city text,
+  personal_email text,
+  phone text,
+  linkedin_url text,
+  bio text,
+  visibility_settings jsonb default '{}'::jsonb
 );
 
--- Adicionar novas colunas se não existirem
-alter table public.profiles add column if not exists birth_date date;
-alter table public.profiles add column if not exists city text;
-alter table public.profiles add column if not exists personal_email text;
-alter table public.profiles add column if not exists phone text;
-alter table public.profiles add column if not exists linkedin_url text;
-alter table public.profiles add column if not exists bio text;
-alter table public.profiles add column if not exists visibility_settings jsonb default '{}'::jsonb;
+create table if not exists public.roles (
+  name text primary key,
+  description text,
+  permissions jsonb default '{}'::jsonb -- Nova coluna de permissões
+);
 
 create table if not exists public.courses (
   id uuid default gen_random_uuid() primary key,
@@ -555,11 +605,6 @@ create table if not exists public.user_invites (
   email text primary key,
   role text not null,
   created_at timestamp with time zone default timezone('utc'::text, now())
-);
-
-create table if not exists public.roles (
-  name text primary key,
-  description text
 );
 
 create table if not exists public.access_requests (
@@ -580,49 +625,48 @@ begin
   end if;
 end $$;
 
--- 4. SEGURANÇA (RLS)
+-- 5. POPULAR ROLES E PERMISSÕES PADRÃO
+insert into public.roles (name, description, permissions) values 
+('admin', 'Acesso total ao sistema', '{"view_dashboard": true, "view_my_profile": true, "view_community": true, "view_users": true, "view_settings": true, "manage_courses": true, "view_courses": true}'),
+('editor', 'Gestão de conteúdos e cursos', '{"view_dashboard": true, "view_my_profile": true, "view_community": true, "manage_courses": true, "view_courses": true}'),
+('formador', 'Criar e gerir as suas turmas', '{"view_dashboard": true, "view_my_profile": true, "view_community": true, "manage_courses": true, "view_courses": true}'),
+('aluno', 'Acesso aos cursos inscritos', '{"view_dashboard": true, "view_my_profile": true, "view_community": true, "view_courses": true}')
+on conflict (name) do update set permissions = excluded.permissions; -- Atualiza permissões se já existir
+
+-- 6. SEGURANÇA (RLS)
+-- Nota: Usamos cast explícito para texto ou removemos o cast se já for texto. Como agora é text, removemos ::public.app_role
+
 alter table public.profiles enable row level security;
 create policy "Public Profiles Access" on public.profiles for select using (true);
-create policy "Users can update own profile" on public.profiles for update using (id = auth.uid() OR exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'::public.app_role));
-create policy "Admins can delete any profile" on public.profiles for delete using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'::public.app_role));
+create policy "Users can update own profile" on public.profiles for update using (id = auth.uid() OR exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
+create policy "Admins can delete any profile" on public.profiles for delete using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
 alter table public.roles enable row level security;
-insert into public.roles (name) values ('admin'), ('editor'), ('formador'), ('aluno') on conflict do nothing;
 create policy "Read Roles" on public.roles for select using (true);
-create policy "Admin Manage Roles" on public.roles for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'::public.app_role));
+create policy "Admin Manage Roles" on public.roles for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
 alter table public.user_invites enable row level security;
-create policy "Admins manage invites" on public.user_invites for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'::public.app_role));
+create policy "Admins manage invites" on public.user_invites for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
 alter table public.courses enable row level security;
 create policy "Courses are viewable by everyone" on public.courses for select using (true);
-create policy "Staff can manage courses" on public.courses for all using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin'::public.app_role, 'editor'::public.app_role, 'formador'::public.app_role)));
+create policy "Staff can manage courses" on public.courses for all using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
 
 alter table public.access_requests enable row level security;
 create policy "Users can insert requests" on public.access_requests for insert with check (auth.uid() = user_id);
-create policy "Admins view all requests" on public.access_requests for select using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'::public.app_role));
+create policy "Admins view all requests" on public.access_requests for select using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
--- 5. STORAGE BUCKET E POLÍTICAS (NOVO)
--- Tenta criar o bucket se a extensão storage estiver ativa (standard no Supabase)
+-- 7. STORAGE
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
-
--- Remover políticas antigas de storage para evitar duplicação/erro
 drop policy if exists "Avatar Images are Public" on storage.objects;
 drop policy if exists "Users can upload own avatar" on storage.objects;
 drop policy if exists "Users can update own avatar" on storage.objects;
 
--- Criar políticas de storage
 create policy "Avatar Images are Public" on storage.objects for select using ( bucket_id = 'avatars' );
+create policy "Users can upload own avatar" on storage.objects for insert with check ( bucket_id = 'avatars' and auth.uid() = owner );
+create policy "Users can update own avatar" on storage.objects for update using ( bucket_id = 'avatars' and auth.uid() = owner );
 
-create policy "Users can upload own avatar" on storage.objects for insert with check (
-  bucket_id = 'avatars' and auth.uid() = owner
-);
-
-create policy "Users can update own avatar" on storage.objects for update using (
-  bucket_id = 'avatars' and auth.uid() = owner
-);
-
--- 6. TRIGGER COM LOGICA DE CONVITE OBRIGATORIO
+-- 8. TRIGGER
 create or replace function public.handle_new_user() 
 returns trigger as $$
 declare
@@ -630,7 +674,7 @@ declare
 begin
   if new.email = 'edutechpt@hotmail.com' then
       insert into public.profiles (id, email, full_name, role)
-      values (new.id, new.email, new.raw_user_meta_data->>'full_name', 'admin'::public.app_role);
+      values (new.id, new.email, new.raw_user_meta_data->>'full_name', 'admin');
       return new;
   end if;
 
@@ -638,7 +682,7 @@ begin
 
   if invite_role is not null then
       insert into public.profiles (id, email, full_name, role)
-      values (new.id, new.email, new.raw_user_meta_data->>'full_name', invite_role::public.app_role);
+      values (new.id, new.email, new.raw_user_meta_data->>'full_name', invite_role);
       return new;
   else
       raise exception 'ACESSO NEGADO: O email % não possui um convite válido.', new.email;
@@ -650,8 +694,8 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 7. FINALIZAÇÃO
-update public.profiles set role = 'admin'::public.app_role where email = 'edutechpt@hotmail.com';
+-- 9. FINALIZAÇÃO
+update public.profiles set role = 'admin' where email = 'edutechpt@hotmail.com';
 update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';`;
 
   const copyToClipboard = async () => {
@@ -916,7 +960,6 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
           );
 
       case 'public_profile':
-          // Fix: Ensure renderContent returns ReactNode (null) instead of void
           if (!viewedProfile) {
               setCurrentView('community');
               return null;
@@ -1242,25 +1285,94 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
 
                   {settingsTab === 'cargos' && (
                       <GlassCard>
-                          <h3 className="font-bold text-xl text-indigo-900 mb-4">Gestão de Cargos</h3>
-                          <div className="flex gap-4 mb-6">
-                              <input 
-                                type="text" 
-                                value={newRoleName}
-                                onChange={(e) => setNewRoleName(e.target.value)}
-                                placeholder="Nome do novo cargo"
-                                className="flex-1 p-2 rounded bg-white/50 border border-white/60 outline-none"
-                              />
-                              <button onClick={handleCreateRole} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Criar Cargo</button>
-                          </div>
+                          <h3 className="font-bold text-xl text-indigo-900 mb-4">Gestão de Cargos e Permissões</h3>
                           
-                          <h4 className="font-bold text-indigo-800 mb-2">Cargos Existentes</h4>
-                          <div className="flex flex-wrap gap-2">
-                              {availableRoles.map(r => (
-                                  <span key={r.name} className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full font-medium uppercase text-sm border border-indigo-200">
-                                      {r.name}
-                                  </span>
-                              ))}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                              {/* Sidebar Roles List */}
+                              <div className="col-span-1 space-y-4 border-r border-indigo-100 pr-4">
+                                  <div className="flex gap-2 mb-4">
+                                      <input 
+                                        type="text" 
+                                        value={newRoleName}
+                                        onChange={(e) => setNewRoleName(e.target.value)}
+                                        placeholder="Nome novo cargo"
+                                        className="flex-1 p-2 rounded bg-white/50 border border-white/60 outline-none text-sm"
+                                      />
+                                      <button onClick={handleCreateCourse} className="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-bold">+</button>
+                                  </div>
+                                  
+                                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                                      {availableRoles.map(r => (
+                                          <button 
+                                              key={r.name} 
+                                              onClick={() => setRoleEditing(r)}
+                                              className={`w-full text-left px-4 py-3 rounded-xl transition-all font-medium flex justify-between items-center ${
+                                                  roleEditing?.name === r.name 
+                                                      ? 'bg-indigo-600 text-white shadow-md' 
+                                                      : 'bg-white/40 text-indigo-900 hover:bg-white/60'
+                                              }`}
+                                          >
+                                              <span className="capitalize">{r.name.replace('_', ' ')}</span>
+                                              <span className="text-xs opacity-70">➜</span>
+                                          </button>
+                                      ))}
+                                  </div>
+                              </div>
+
+                              {/* Permission Editor */}
+                              <div className="col-span-2">
+                                  {roleEditing ? (
+                                      <div className="animate-in fade-in slide-in-from-right duration-300">
+                                          <div className="flex justify-between items-center mb-6">
+                                              <h4 className="font-bold text-lg text-indigo-900 capitalize">
+                                                  Editar: <span className="text-indigo-600">{roleEditing.name.replace('_', ' ')}</span>
+                                              </h4>
+                                              <button onClick={() => handleUpdateRole(roleEditing)} className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold shadow-md">
+                                                  Guardar Alterações
+                                              </button>
+                                          </div>
+                                          
+                                          <div className="mb-6">
+                                              <label className="block text-sm font-medium text-indigo-900 mb-1">Descrição</label>
+                                              <input 
+                                                  type="text" 
+                                                  value={roleEditing.description || ''} 
+                                                  onChange={(e) => setRoleEditing({...roleEditing, description: e.target.value})} 
+                                                  className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                              />
+                                          </div>
+
+                                          <div className="space-y-3 bg-white/30 p-4 rounded-xl border border-indigo-100">
+                                              <h5 className="font-bold text-indigo-800 text-sm uppercase tracking-wider mb-2">Permissões de Acesso</h5>
+                                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                  {AVAILABLE_PERMISSIONS.map(perm => (
+                                                      <label key={perm.key} className="flex items-center gap-3 p-2 hover:bg-white/50 rounded cursor-pointer transition-colors">
+                                                          <div className="relative flex items-center">
+                                                              <input 
+                                                                  type="checkbox"
+                                                                  checked={roleEditing.permissions?.[perm.key] || false}
+                                                                  onChange={() => togglePermission(roleEditing, perm.key)}
+                                                                  className="peer h-5 w-5 cursor-pointer appearance-none rounded border border-indigo-300 shadow transition-all checked:border-indigo-600 checked:bg-indigo-600 hover:shadow-md"
+                                                              />
+                                                              <span className="absolute text-white opacity-0 peer-checked:opacity-100 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                                                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                                  </svg>
+                                                              </span>
+                                                          </div>
+                                                          <span className="text-sm font-medium text-indigo-900">{perm.label}</span>
+                                                      </label>
+                                                  ))}
+                                              </div>
+                                          </div>
+                                      </div>
+                                  ) : (
+                                      <div className="h-full flex flex-col items-center justify-center text-indigo-400 opacity-60">
+                                          <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
+                                          <p>Selecione um cargo à esquerda para editar as permissões.</p>
+                                      </div>
+                                  )}
+                              </div>
                           </div>
                       </GlassCard>
                   )}
@@ -1405,6 +1517,7 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
       <div className="relative z-10 flex w-full max-w-[1600px] mx-auto p-4 md:p-6 gap-6 h-screen">
         <Sidebar 
             profile={profile}
+            userPermissions={userPermissions}
             appVersion={APP_VERSION}
             currentView={currentView} 
             setView={setCurrentView} 

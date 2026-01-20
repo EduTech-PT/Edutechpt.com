@@ -36,6 +36,17 @@ export interface Profile {
   visibility_settings?: ProfileVisibility;
 }
 
+export interface UserPermissions {
+  view_dashboard?: boolean;
+  view_my_profile?: boolean;
+  view_community?: boolean;
+  view_courses?: boolean; // Aluno: Ver meus cursos
+  manage_courses?: boolean; // Formador/Admin: Gerir cursos
+  view_users?: boolean;
+  view_settings?: boolean;
+  [key: string]: boolean | undefined;
+}
+
 export interface Course {
   id: string;
   title: string;
@@ -63,7 +74,7 @@ export interface SupabaseSession {
 export interface RoleDefinition {
   name: string;
   description?: string;
-  permissions?: any;
+  permissions?: UserPermissions;
 }
 
 export interface UserInvite {
