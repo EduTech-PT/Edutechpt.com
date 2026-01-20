@@ -14,6 +14,7 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
     const [tab, setTab] = useState<'geral' | 'sql' | 'avatars'>('geral');
     const [sqlScript, setSqlScript] = useState('');
     const [config, setConfig] = useState<any>({});
+    const [copyFeedback, setCopyFeedback] = useState('');
     
     useEffect(() => {
         setSqlScript(generateSetupScript(SQL_VERSION));
@@ -33,6 +34,16 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
             await adminService.updateAppConfig('avatar_help_text', config.helpText);
             alert('Guardado!');
         } catch (e: any) { alert(e.message); }
+    };
+
+    const handleCopySQL = async () => {
+        try {
+            await navigator.clipboard.writeText(sqlScript);
+            setCopyFeedback('Copiado!');
+            setTimeout(() => setCopyFeedback(''), 2000);
+        } catch (err) {
+            setCopyFeedback('Erro');
+        }
     };
 
     return (
@@ -65,8 +76,16 @@ export const Settings: React.FC<Props> = ({ dbVersion }) => {
 
             {tab === 'sql' && (
                 <GlassCard className="flex-1 flex flex-col min-h-0">
-                    <h3 className="font-bold text-xl text-indigo-900 mb-4">Script de Reparação</h3>
-                    <textarea readOnly value={sqlScript} className="w-full flex-1 p-4 rounded-xl bg-slate-900 text-slate-200 font-mono text-xs overflow-auto resize-none border border-slate-700"/>
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-xl text-indigo-900">Script de Reparação</h3>
+                        <button 
+                            onClick={handleCopySQL}
+                            className={`px-4 py-2 rounded-lg font-bold shadow-md transition-all active:scale-95 ${copyFeedback ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+                        >
+                            {copyFeedback || "Copiar Código SQL"}
+                        </button>
+                    </div>
+                    <textarea readOnly value={sqlScript} className="w-full flex-1 p-4 rounded-xl bg-slate-900 text-slate-200 font-mono text-xs overflow-auto resize-none border border-slate-700 shadow-inner"/>
                 </GlassCard>
             )}
 
