@@ -241,8 +241,13 @@ begin
 
   select role into invite_role from public.user_invites where lower(email) = lower(new.email);
   if invite_role is not null then
+      -- 1. Cria o perfil
       insert into public.profiles (id, email, full_name, role)
       values (new.id, new.email, final_name, invite_role);
+      
+      -- 2. Remove o convite (Limpeza automática)
+      delete from public.user_invites where lower(email) = lower(new.email);
+      
       return new;
   else
       raise exception 'ACESSO NEGADO: Email não convidado.';
