@@ -40,27 +40,27 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Navbar */}
-      <nav className="w-full p-6 flex justify-between items-center z-10">
-        <div className="text-2xl font-bold text-indigo-900">EduTech PT</div>
+      <nav className="w-full p-4 md:p-6 flex justify-between items-center z-10">
+        <div className="text-xl md:text-2xl font-bold text-indigo-900">EduTech PT</div>
         <button 
           onClick={onLoginClick}
-          className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-medium transition-all shadow-lg hover:shadow-indigo-500/30"
+          className="px-4 py-2 md:px-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-sm md:text-base font-medium transition-all shadow-lg hover:shadow-indigo-500/30"
         >
           Área de Membro
         </button>
       </nav>
 
       {/* Hero Section */}
-      <div className="flex-grow flex flex-col items-center justify-center text-center px-4 py-20 relative">
+      <div className="flex-grow flex flex-col items-center justify-center text-center px-4 py-12 md:py-20 relative">
         <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
         <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
         <div className="absolute bottom-1/4 left-1/2 w-64 h-64 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
 
-        <GlassCard className="max-w-4xl z-10">
-          <h1 className="text-5xl md:text-6xl font-bold text-indigo-900 mb-6 leading-tight">
-            Domine as <span className="text-indigo-600">Novas Tecnologias</span>
+        <GlassCard className="max-w-4xl z-10 w-full">
+          <h1 className="text-4xl md:text-6xl font-bold text-indigo-900 mb-6 leading-tight">
+            Domine as <span className="text-indigo-600 block md:inline">Novas Tecnologias</span>
           </h1>
-          <p className="text-lg text-indigo-800 mb-10 max-w-2xl mx-auto opacity-80">
+          <p className="text-base md:text-lg text-indigo-800 mb-10 max-w-2xl mx-auto opacity-80">
             Plataforma de excelência para formação técnica. Desenvolva as suas competências com os melhores especialistas do mercado.
           </p>
           
@@ -80,7 +80,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
 
       {/* Course Highlight Section */}
       <div className="px-4 pb-20 max-w-7xl mx-auto w-full z-10">
-        <h2 className="text-3xl font-bold text-indigo-900 mb-8 text-center">Cursos em Destaque</h2>
+        <h2 className="text-2xl md:text-3xl font-bold text-indigo-900 mb-8 text-center">Cursos em Destaque</h2>
         
         {loading ? (
             <div className="flex justify-center p-10">

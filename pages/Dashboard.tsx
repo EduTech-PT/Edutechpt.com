@@ -29,6 +29,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [currentView, setCurrentView] = useState('dashboard');
   const [currentTime, setCurrentTime] = useState(new Date());
   
+  // Responsive State
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
   // System Status State
   const [dbVersion, setDbVersion] = useState('Checking...');
   const [gasStatus, setGasStatus] = useState<{ match: boolean; remote: string; local: string } | null>(null);
@@ -147,22 +150,59 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           <div className="absolute bottom-[-10%] left-[20%] w-96 h-96 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
       </div>
 
-      <div className="relative z-10 flex w-full max-w-[1600px] mx-auto p-4 md:p-6 gap-6 h-screen">
-        <Sidebar profile={profile} appVersion={APP_VERSION} currentView={currentView} setView={setCurrentView} onLogout={onLogout} />
+      <div className="relative z-10 flex w-full max-w-[1600px] mx-auto p-0 md:p-6 md:gap-6 h-screen">
         
-        <main className="flex-1 min-w-0 h-full flex flex-col">
-            <header className="flex justify-between items-center mb-6 p-4 bg-white/30 backdrop-blur-md rounded-2xl shadow-sm border border-white/40">
-                <div className="text-indigo-900 font-medium">
-                   <span className="opacity-70">EduTech PT / </span> 
-                   <span className="font-bold capitalize">{getPageTitle(currentView)}</span>
+        {/* Mobile Backdrop */}
+        {mobileMenuOpen && (
+            <div 
+                className="fixed inset-0 z-40 bg-indigo-900/30 backdrop-blur-sm md:hidden animate-in fade-in duration-200"
+                onClick={() => setMobileMenuOpen(false)}
+            ></div>
+        )}
+
+        {/* Sidebar: Drawer on Mobile, Relative on Desktop */}
+        <div className={`
+            fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none
+            md:relative md:translate-x-0 md:w-auto md:block
+            ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}>
+            <Sidebar 
+                profile={profile} 
+                appVersion={APP_VERSION} 
+                currentView={currentView} 
+                setView={setCurrentView} 
+                onLogout={onLogout}
+                onMobileClose={() => setMobileMenuOpen(false)}
+            />
+        </div>
+        
+        <main className="flex-1 min-w-0 h-full flex flex-col w-full p-4 md:p-0">
+            {/* Header */}
+            <header className="flex justify-between items-center mb-6 p-4 bg-white/30 backdrop-blur-md rounded-2xl shadow-sm border border-white/40 sticky top-0 z-20 md:relative">
+                <div className="flex items-center gap-3">
+                    {/* Hamburger Button (Mobile Only) */}
+                    <button 
+                        onClick={() => setMobileMenuOpen(true)}
+                        className="md:hidden p-2 -ml-2 text-indigo-900 rounded-lg hover:bg-white/40 transition-colors"
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                    
+                    <div className="text-indigo-900 font-medium">
+                        <span className="opacity-70 hidden sm:inline">EduTech PT / </span> 
+                        <span className="font-bold capitalize">{getPageTitle(currentView)}</span>
+                    </div>
                 </div>
-                <div className="text-right">
+
+                <div className="text-right hidden sm:block">
                     <div className="text-xl font-bold text-indigo-900 tabular-nums leading-none">{formatTime(currentTime)}</div>
                     <div className="text-xs text-indigo-700 font-medium uppercase tracking-wide opacity-80 mt-1">{formatDate(currentTime)}</div>
                 </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar pb-10">
+            <div className="flex-1 overflow-y-auto custom-scrollbar pb-20 md:pb-10">
                 {renderView()}
             </div>
         </main>

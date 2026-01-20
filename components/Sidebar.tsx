@@ -10,6 +10,7 @@ interface SidebarProps {
   currentView: string;
   setView: (view: string) => void;
   onLogout: () => void;
+  onMobileClose?: () => void; // Nova prop para fechar menu em mobile
 }
 
 interface MenuItem {
@@ -26,7 +27,7 @@ interface MenuGroup {
   items: MenuItem[];
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appVersion, currentView, setView, onLogout }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appVersion, currentView, setView, onLogout, onMobileClose }) => {
   const role = profile?.role || UserRole.STUDENT;
   
   // Estado para controlar quais grupos estão abertos
@@ -39,6 +40,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
         ? prev.filter(g => g !== groupId) 
         : [...prev, groupId]
     );
+  };
+
+  const handleSetView = (view: string) => {
+      setView(view);
+      if (onMobileClose) onMobileClose();
   };
 
   // Helper de Permissões
@@ -110,7 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
     return (
       <button
         key={item.id}
-        onClick={() => setView(item.id)}
+        onClick={() => handleSetView(item.id)}
         className={`w-full text-left px-4 py-3 rounded-xl transition-all duration-200 font-medium mb-1 flex items-center gap-3 ${
           isActive 
             ? 'bg-indigo-600 text-white shadow-md' 
@@ -156,7 +162,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
             {accessibleItems.map(item => (
               <button
                 key={item.id}
-                onClick={() => setView(item.id)}
+                onClick={() => handleSetView(item.id)}
                 className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                   currentView === item.id
                     ? 'bg-indigo-600 text-white shadow-sm'
@@ -173,11 +179,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
   };
 
   return (
-    <GlassCard className="h-full flex flex-col w-64 rounded-none rounded-r-2xl border-l-0 min-h-[80vh] p-0 overflow-hidden relative">
+    <GlassCard className="h-full flex flex-col w-64 md:rounded-l-none md:rounded-r-2xl md:border-l-0 rounded-none border-0 md:border md:border-l-0 min-h-screen md:min-h-[80vh] p-0 overflow-hidden relative shadow-2xl md:shadow-lg">
       
-      {/* Top Section: Logo */}
-      <div className="p-6 pb-4 flex-shrink-0">
+      {/* Top Section: Logo & Mobile Close */}
+      <div className="p-6 pb-4 flex-shrink-0 flex justify-between items-center">
         <h2 className="text-2xl font-bold text-indigo-900 tracking-tight">EduTech PT</h2>
+        
+        {/* Mobile Close Button */}
+        {onMobileClose && (
+            <button 
+                onClick={onMobileClose}
+                className="md:hidden p-2 text-indigo-900 hover:bg-indigo-100 rounded-lg"
+            >
+                ✕
+            </button>
+        )}
       </div>
       
       {/* Middle Section: Nav */}
