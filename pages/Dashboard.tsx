@@ -16,6 +16,7 @@ import { UserAdmin } from '../components/dashboard/UserAdmin';
 import { Settings } from '../components/dashboard/Settings';
 import { MediaManager } from '../components/dashboard/MediaManager';
 import { DriveManager } from '../components/dashboard/DriveManager';
+import { MyProfile } from '../components/dashboard/MyProfile';
 
 interface DashboardProps {
   session: any;
@@ -37,38 +38,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   // Load Initial Data
   useEffect(() => {
-    const init = async () => {
-        try {
-            const userProfile = await userService.getProfile(session.user.id);
-            setProfile(userProfile);
-            
-            if (userProfile?.role === UserRole.ADMIN) {
-                // 1. Check SQL Version
-                const config = await adminService.getAppConfig();
-                setDbVersion(config.sqlVersion || 'Unknown');
-                
-                // 2. Check GAS Version (Async, non-blocking)
-                if (config.googleScriptUrl) {
-                    driveService.checkScriptVersion(config.googleScriptUrl).then(remoteVer => {
-                        setGasStatus({
-                            match: remoteVer === GAS_VERSION,
-                            remote: remoteVer,
-                            local: GAS_VERSION
-                        });
-                    });
-                } else {
-                     setGasStatus({
-                        match: false,
-                        remote: 'not_configured',
-                        local: GAS_VERSION
-                    });
-                }
-            }
-        } catch (e) { console.error("Init Error", e); } 
-        finally { setLoading(false); }
-    };
     init();
   }, [session]);
+
+  const init = async () => {
+      try {
+          const userProfile = await userService.getProfile(session.user.id);
+          setProfile(userProfile);
+          
+          if (userProfile?.role === UserRole.ADMIN) {
+              // 1. Check SQL Version
+              const config = await adminService.getAppConfig();
+              setDbVersion(config.sqlVersion || 'Unknown');
+              
+              // 2. Check GAS Version (Async, non-blocking)
+              if (config.googleScriptUrl) {
+                  driveService.checkScriptVersion(config.googleScriptUrl).then(remoteVer => {
+                      setGasStatus({
+                          match: remoteVer === GAS_VERSION,
+                          remote: remoteVer,
+                          local: GAS_VERSION
+                      });
+                  });
+              } else {
+                   setGasStatus({
+                      match: false,
+                      remote: 'not_configured',
+                      local: GAS_VERSION
+                  });
+              }
+          }
+      } catch (e) { console.error("Init Error", e); } 
+      finally { setLoading(false); }
+  };
 
   // Clock
   useEffect(() => {
@@ -84,6 +86,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const handleFixGas = () => {
       setInitialSettingsTab('drive');
       setCurrentView('settings');
+  };
+
+  const handleRefreshProfile = () => {
+      init(); // Re-fetch profile data
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-indigo-600">A carregar EduTech PT...</div>;
@@ -109,6 +115,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 isAdmin={profile.role === UserRole.ADMIN} 
             />
           );
+          case 'my_profile': return <MyProfile user={profile} refreshProfile={handleRefreshProfile} />;
           case 'manage_courses': return <CourseManager profile={profile} />;
           case 'media': return <MediaManager />;
           case 'drive': return <DriveManager profile={profile} />;
