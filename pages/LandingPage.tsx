@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { supabase } from '../lib/supabaseClient';
@@ -20,6 +21,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
       const { data, error } = await supabase
         .from('courses')
         .select('*')
+        .eq('is_public', true) // Only show public courses
         .order('created_at', { ascending: false })
         .limit(3);
 
@@ -103,9 +105,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
                              </span>
                         </div>
                         <h3 className="text-xl font-bold text-indigo-900 mb-2">{course.title}</h3>
-                        <p className="text-indigo-700 opacity-80 text-sm flex-grow mb-4 line-clamp-3">
-                            {course.description}
-                        </p>
+                        <div 
+                           className="text-indigo-700 opacity-80 text-sm flex-grow mb-4 line-clamp-3 prose prose-sm prose-indigo"
+                           dangerouslySetInnerHTML={{ __html: course.description }}
+                        />
                         <button onClick={onLoginClick} className="w-full py-2 border-2 border-indigo-600 text-indigo-600 rounded-lg font-semibold hover:bg-indigo-600 hover:text-white transition-colors">
                             Ver Detalhes
                         </button>

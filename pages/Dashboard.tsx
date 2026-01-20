@@ -38,11 +38,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   // Clock State
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // States for Manage Courses
+  // States for Manage Courses (Create)
   const [manageCourses, setManageCourses] = useState<Course[]>([]);
   const [newCourseTitle, setNewCourseTitle] = useState('');
   const [newCourseDesc, setNewCourseDesc] = useState('');
   const [newCourseLevel, setNewCourseLevel] = useState('iniciante');
+  const [newCourseImage, setNewCourseImage] = useState('');
+  const [newCoursePublic, setNewCoursePublic] = useState(false);
+
+  // States for Edit Course
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [showEditCourseModal, setShowEditCourseModal] = useState(false);
+  const [editCourseTitle, setEditCourseTitle] = useState('');
+  const [editCourseDesc, setEditCourseDesc] = useState('');
+  const [editCourseLevel, setEditCourseLevel] = useState('iniciante');
+  const [editCourseImage, setEditCourseImage] = useState('');
+  const [editCoursePublic, setEditCoursePublic] = useState(false);
 
   // SQL & Settings State
   const [copySuccess, setCopySuccess] = useState('');
@@ -248,6 +259,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       }
   };
 
+  // --- COURSE MANAGEMENT LOGIC ---
+
   const handleCreateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
@@ -256,13 +269,63 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 title: newCourseTitle,
                 description: newCourseDesc,
                 instructor_id: profile.id,
-                level: newCourseLevel
+                level: newCourseLevel,
+                image_url: newCourseImage || null,
+                is_public: newCoursePublic
         }]);
         if (error) throw error;
-        setNewCourseTitle(''); setNewCourseDesc('');
+        
+        // Reset form
+        setNewCourseTitle(''); 
+        setNewCourseDesc('');
+        setNewCourseImage('');
+        setNewCoursePublic(false);
+        setNewCourseLevel('iniciante');
+
         fetchManageCourses();
-        alert('Curso criado!');
+        alert('Curso criado com sucesso!');
     } catch (error: any) { alert(error.message); }
+  };
+
+  const openEditCourseModal = (course: Course) => {
+      setEditingCourse(course);
+      setEditCourseTitle(course.title);
+      setEditCourseDesc(course.description);
+      setEditCourseLevel(course.level);
+      setEditCourseImage(course.image_url || '');
+      setEditCoursePublic(course.is_public || false);
+      setShowEditCourseModal(true);
+  };
+
+  const handleUpdateCourse = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!editingCourse) return;
+      try {
+          const { error } = await supabase.from('courses').update({
+              title: editCourseTitle,
+              description: editCourseDesc,
+              level: editCourseLevel,
+              image_url: editCourseImage || null,
+              is_public: editCoursePublic
+          }).eq('id', editingCourse.id);
+          
+          if (error) throw error;
+          
+          setShowEditCourseModal(false);
+          setEditingCourse(null);
+          fetchManageCourses();
+          alert('Curso atualizado!');
+      } catch (err: any) { alert(err.message); }
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+      if (!window.confirm("Tem a certeza que deseja eliminar este curso? Esta ação é irreversível.")) return;
+      try {
+          const { error } = await supabase.from('courses').delete().eq('id', courseId);
+          if (error) throw error;
+          fetchManageCourses();
+          alert('Curso eliminado.');
+      } catch (err: any) { alert(err.message); }
   };
 
   // --- AVATAR UPLOAD LOGIC ---
@@ -548,12 +611,17 @@ begin
   drop policy if exists "Admins view all requests" on public.access_requests;
 end $$;
 
--- 1. MIGRAÇÃO DE ENUM PARA TEXTO (CRÍTICO)
+-- 1. MIGRAÇÃO DE ENUM PARA TEXTO E ADIÇÃO DE COLUNAS
 do $$
 begin
     -- Se a coluna role for USER-DEFINED (Enum), converte para text
     if exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'role' and data_type = 'USER-DEFINED') then
         alter table public.profiles alter column role type text using role::text;
+    end if;
+
+    -- Adiciona is_public em courses se não existir
+    if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'is_public') then
+        alter table public.courses add column is_public boolean default false;
     end if;
 end $$;
 
@@ -611,6 +679,7 @@ create table if not exists public.courses (
   instructor_id uuid references public.profiles(id),
   level text check (level in ('iniciante', 'intermedio', 'avancado')),
   image_url text,
+  is_public boolean default false,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -1473,9 +1542,15 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
                  <GlassCard>
                      <h3 className="font-bold text-lg text-indigo-900 mb-4">Criar Novo Curso</h3>
                      <form onSubmit={handleCreateCourse} className="space-y-4">
-                         <div>
-                             <label className="block text-sm mb-1">Título</label>
-                             <input type="text" required value={newCourseTitle} onChange={e => setNewCourseTitle(e.target.value)} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"/>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div>
+                                 <label className="block text-sm mb-1 text-indigo-900">Título</label>
+                                 <input type="text" required value={newCourseTitle} onChange={e => setNewCourseTitle(e.target.value)} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"/>
+                             </div>
+                             <div>
+                                 <label className="block text-sm mb-1 text-indigo-900">Imagem de Capa (URL)</label>
+                                 <input type="url" placeholder="https://..." value={newCourseImage} onChange={e => setNewCourseImage(e.target.value)} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"/>
+                             </div>
                          </div>
                          <div>
                              <RichTextEditor 
@@ -1484,13 +1559,31 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
                                 onChange={(val) => setNewCourseDesc(val)}
                              />
                          </div>
-                         <div>
-                             <label className="block text-sm mb-1">Nível</label>
-                             <select value={newCourseLevel} onChange={e => setNewCourseLevel(e.target.value)} className="w-full p-2 rounded bg-white/50 border border-white/60 outline-none">
-                                 <option value="iniciante">Iniciante</option>
-                                 <option value="intermedio">Intermédio</option>
-                                 <option value="avancado">Avançado</option>
-                             </select>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                            <div>
+                                 <label className="block text-sm mb-1 text-indigo-900">Nível</label>
+                                 <select value={newCourseLevel} onChange={e => setNewCourseLevel(e.target.value)} className="w-full p-2 rounded bg-white/50 border border-white/60 outline-none">
+                                     <option value="iniciante">Iniciante</option>
+                                     <option value="intermedio">Intermédio</option>
+                                     <option value="avancado">Avançado</option>
+                                 </select>
+                             </div>
+                             <div className="flex items-center gap-3 pt-6">
+                                <div className="relative flex items-center">
+                                    <input 
+                                        type="checkbox"
+                                        checked={newCoursePublic}
+                                        onChange={(e) => setNewCoursePublic(e.target.checked)}
+                                        className="peer h-6 w-6 cursor-pointer appearance-none rounded border border-indigo-300 shadow transition-all checked:border-indigo-600 checked:bg-indigo-600 hover:shadow-md"
+                                    />
+                                    <span className="absolute text-white opacity-0 peer-checked:opacity-100 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                    </span>
+                                </div>
+                                <span className="text-sm font-bold text-indigo-900">Publicar na Landing Page</span>
+                             </div>
                          </div>
                          <div className="flex justify-end">
                              <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-bold shadow-md">Criar Curso</button>
@@ -1500,19 +1593,109 @@ update public.app_config set value = '${SQL_VERSION}' where key = 'sql_version';
 
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                      {manageCourses.map(course => (
-                         <GlassCard key={course.id} className="flex flex-col">
+                         <GlassCard key={course.id} className="flex flex-col relative group">
+                             <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                 <button 
+                                     onClick={() => openEditCourseModal(course)} 
+                                     className="p-2 bg-white text-indigo-600 rounded-full shadow-lg hover:bg-indigo-50" 
+                                     title="Editar"
+                                 >
+                                     ✏️
+                                 </button>
+                                 <button 
+                                     onClick={() => handleDeleteCourse(course.id)} 
+                                     className="p-2 bg-white text-red-600 rounded-full shadow-lg hover:bg-red-50" 
+                                     title="Eliminar"
+                                 >
+                                     🗑️
+                                 </button>
+                             </div>
+                             
+                             <div className="relative h-40 bg-indigo-100 rounded-lg mb-4 overflow-hidden">
+                                {course.image_url ? (
+                                    <img src={course.image_url} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-4xl">📚</div>
+                                )}
+                                {course.is_public && (
+                                    <span className="absolute bottom-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded font-bold shadow">
+                                        Público
+                                    </span>
+                                )}
+                             </div>
+
                              <h4 className="font-bold text-indigo-900 text-lg mb-2">{course.title}</h4>
                              <div 
                                 className="text-sm text-indigo-700 mb-4 flex-grow line-clamp-3 prose prose-sm prose-indigo"
                                 dangerouslySetInnerHTML={{ __html: course.description }}
                              />
-                             <div className="flex justify-between items-center text-xs opacity-70">
+                             <div className="flex justify-between items-center text-xs opacity-70 mt-auto">
                                  <span className="uppercase font-bold">{course.level}</span>
                                  <span>{new Date(course.created_at).toLocaleDateString()}</span>
                              </div>
                          </GlassCard>
                      ))}
                  </div>
+
+                 {/* Edit Course Modal */}
+                 {showEditCourseModal && editingCourse && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/40 backdrop-blur-sm p-4">
+                        <GlassCard className="w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-in fade-in zoom-in duration-300">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="font-bold text-xl text-indigo-900">Editar Curso</h3>
+                                <button onClick={() => setShowEditCourseModal(false)} className="text-indigo-500 hover:text-indigo-800 font-bold text-xl">✕</button>
+                            </div>
+                            <form onSubmit={handleUpdateCourse} className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm mb-1 text-indigo-900">Título</label>
+                                        <input type="text" required value={editCourseTitle} onChange={e => setEditCourseTitle(e.target.value)} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"/>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm mb-1 text-indigo-900">Imagem de Capa (URL)</label>
+                                        <input type="url" placeholder="https://..." value={editCourseImage} onChange={e => setEditCourseImage(e.target.value)} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"/>
+                                    </div>
+                                </div>
+                                <div>
+                                    <RichTextEditor 
+                                        label="Descrição"
+                                        value={editCourseDesc}
+                                        onChange={(val) => setEditCourseDesc(val)}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                                    <div>
+                                        <label className="block text-sm mb-1 text-indigo-900">Nível</label>
+                                        <select value={editCourseLevel} onChange={e => setEditCourseLevel(e.target.value)} className="w-full p-2 rounded bg-white/50 border border-white/60 outline-none">
+                                            <option value="iniciante">Iniciante</option>
+                                            <option value="intermedio">Intermédio</option>
+                                            <option value="avancado">Avançado</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex items-center gap-3 pt-6">
+                                        <div className="relative flex items-center">
+                                            <input 
+                                                type="checkbox"
+                                                checked={editCoursePublic}
+                                                onChange={(e) => setEditCoursePublic(e.target.checked)}
+                                                className="peer h-6 w-6 cursor-pointer appearance-none rounded border border-indigo-300 shadow transition-all checked:border-indigo-600 checked:bg-indigo-600 hover:shadow-md"
+                                            />
+                                            <span className="absolute text-white opacity-0 peer-checked:opacity-100 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                </svg>
+                                            </span>
+                                        </div>
+                                        <span className="text-sm font-bold text-indigo-900">Publicar na Landing Page</span>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end pt-4 border-t border-indigo-100">
+                                    <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-bold shadow-md">Guardar Alterações</button>
+                                </div>
+                            </form>
+                        </GlassCard>
+                    </div>
+                 )}
             </div>
         );
       

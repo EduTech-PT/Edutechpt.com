@@ -55,6 +55,7 @@ export interface Course {
   created_at: string;
   image_url?: string;
   level: 'iniciante' | 'intermedio' | 'avancado';
+  is_public?: boolean;
 }
 
 export interface Enrollment {
