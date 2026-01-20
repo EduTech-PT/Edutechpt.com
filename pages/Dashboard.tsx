@@ -419,7 +419,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   // Este SQL String é o mesmo que está no supabase_setup.sql, para referência do Admin
   // Usa template literals para inserir a versão correta do ficheiro constants.ts
-  const sqlCodeString = `-- SCRIPT ${SQL_VERSION} - Configuração de Storage e Avatares
+  const sqlCodeString = `-- SCRIPT ${SQL_VERSION} - Configuração de Storage e Avatares (FIX)
 -- Execute este script COMPLETO.
 
 -- 1. BASE DE CONFIGURAÇÃO E NOVAS CHAVES DE AVATAR
@@ -429,6 +429,7 @@ drop policy if exists "Read Config" on public.app_config;
 create policy "Read Config" on public.app_config for select using (true);
 
 -- Atualizar versão do SQL e inserir configurações padrão de avatar
+-- FIX: app_config.key para resolver ambiguidade
 insert into public.app_config (key, value) values 
 ('sql_version', '${SQL_VERSION}-installing'),
 ('avatar_resizer_link', 'https://www.iloveimg.com/resize-image'),
@@ -436,7 +437,7 @@ insert into public.app_config (key, value) values
 ('avatar_max_size_mb', '2'),
 ('avatar_allowed_formats', 'image/jpeg,image/png,image/webp')
 on conflict (key) do update set value = excluded.value 
-where key = 'sql_version'; -- Apenas força update da versão, mantém configs de utilizador se já existirem
+where app_config.key = 'sql_version'; -- Apenas força update da versão, mantém configs de utilizador se já existirem
 
 -- 2. LIMPEZA ESTRUTURAL
 drop trigger if exists on_auth_user_created on auth.users;
