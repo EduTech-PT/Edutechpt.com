@@ -227,6 +227,7 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
                                 ? new Date(evt.end.dateTime).toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})
                                 : '';
                             
+                            // Garente que aparece Hora Início - Hora Fim
                             const timeString = endTime ? `${startTime} - ${endTime}` : startTime;
 
                             return (

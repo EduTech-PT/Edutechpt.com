@@ -11,8 +11,9 @@ interface AvailabilityProps {
 interface DayAvailability {
     day: number;
     date: Date;
-    morning: boolean;   // 09:00 - 13:00
-    afternoon: boolean; // 14:00 - 18:00
+    // Alterado: Agora guardamos arrays de strings com os horários reais
+    morningEvents: string[];   // ex: ["09:30 - 10:30", "11:00 - 12:00"]
+    afternoonEvents: string[]; // ex: ["14:00 - 15:30"]
     isPast: boolean;
     isWeekend: boolean;
 }
@@ -72,11 +73,11 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
 
           // Se for fim de semana ou passado
           if (isWeekend || isPast) {
-              availabilityMap.push({ day: d, date: currentDay, morning: false, afternoon: false, isPast, isWeekend });
+              availabilityMap.push({ day: d, date: currentDay, morningEvents: [], afternoonEvents: [], isPast, isWeekend });
               continue;
           }
 
-          // Definir Períodos do Dia
+          // Definir Janelas de Análise
           const morningStart = new Date(currentDay); morningStart.setHours(9, 0, 0, 0);
           const morningEnd = new Date(currentDay); morningEnd.setHours(13, 0, 0, 0);
 
@@ -95,24 +96,42 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
               return eStart.getDate() === d && eStart.getMonth() === month && eStart.getFullYear() === year;
           });
 
-          let morningFree = true;
-          let afternoonFree = true;
+          const mEvents: string[] = [];
+          const aEvents: string[] = [];
 
           for (const ev of dayEvents) {
+              // Eventos de Dia Inteiro
               if (ev.start.date) {
-                  morningFree = false;
-                  afternoonFree = false;
-                  break;
+                  mEvents.push("Dia Inteiro");
+                  aEvents.push("Dia Inteiro");
+                  continue; // Passa ao próximo
               }
+
               const evStart = new Date(ev.start.dateTime!);
               const evEnd = new Date(ev.end.dateTime!);
 
-              // Conflict Check
-              if (evStart < morningEnd && evEnd > morningStart) morningFree = false;
-              if (evStart < afternoonEnd && evEnd > afternoonStart) afternoonFree = false;
+              // Formatar horas (HH:mm)
+              const timeStr = `${evStart.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})}-${evEnd.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})}`;
+
+              // Check Manhã Conflict (Overlap Logic)
+              if (evStart < morningEnd && evEnd > morningStart) {
+                  mEvents.push(timeStr);
+              }
+
+              // Check Tarde Conflict
+              if (evStart < afternoonEnd && evEnd > afternoonStart) {
+                  aEvents.push(timeStr);
+              }
           }
 
-          availabilityMap.push({ day: d, date: currentDay, morning: morningFree, afternoon: afternoonFree, isPast, isWeekend });
+          availabilityMap.push({ 
+              day: d, 
+              date: currentDay, 
+              morningEvents: mEvents, 
+              afternoonEvents: aEvents, 
+              isPast, 
+              isWeekend 
+          });
       }
 
       setMonthlySlots(availabilityMap);
@@ -125,10 +144,8 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
           const end = new Date(exportRange.end);
           end.setHours(23, 59, 59);
 
-          // 1. Fetch Events for Range
           const { items: exportEvents } = await calendarService.listEvents(null, start, end);
 
-          // 2. Process logic day by day
           let csvContent = "Data,Dia da Semana,Manhã (09h-13h),Tarde (14h-18h)\n";
           
           for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
@@ -142,44 +159,37 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
                   continue;
               }
 
-              // Logic Duplicate from calculateMonthlyAvailability
+              // Reutiliza lógica simplificada
+              const dayEvents = exportEvents.filter(e => {
+                   const eStart = e.start.dateTime ? new Date(e.start.dateTime) : (e.start.date ? new Date(e.start.date) : null);
+                   return eStart && eStart.getDate() === currentDay.getDate() && eStart.getMonth() === currentDay.getMonth();
+              });
+
+              // Processamento simples para exportação (apenas saber se está livre ou ocupado)
+              // Poderíamos detalhar, mas para Excel simples "LIVRE/OCUPADO" é geralmente preferido.
+              // Contudo, se quiser os horários no Excel também, podemos ajustar. 
+              // Vou manter LIVRE/OCUPADO no Excel para legibilidade, mas mostrar Horas na UI.
+              
               const morningStart = new Date(currentDay); morningStart.setHours(9, 0, 0, 0);
               const morningEnd = new Date(currentDay); morningEnd.setHours(13, 0, 0, 0);
               const afternoonStart = new Date(currentDay); afternoonStart.setHours(14, 0, 0, 0);
               const afternoonEnd = new Date(currentDay); afternoonEnd.setHours(18, 0, 0, 0);
 
-              const dayEvents = exportEvents.filter(e => {
-                  const eStart = e.start.dateTime ? new Date(e.start.dateTime) : (e.start.date ? new Date(e.start.date) : null);
-                  const eEnd = e.end.dateTime ? new Date(e.end.dateTime) : (e.end.date ? new Date(e.end.date) : null);
-                  if (!eStart || !eEnd) return false;
-                  if (e.start.date) {
-                      const evtDate = new Date(e.start.date);
-                      return evtDate.toDateString() === currentDay.toDateString();
-                  }
-                  return eStart.getDate() === currentDay.getDate() && eStart.getMonth() === currentDay.getMonth();
-              });
-
-              let morningFree = true;
-              let afternoonFree = true;
+              let mStatus = "LIVRE";
+              let aStatus = "LIVRE";
 
               for (const ev of dayEvents) {
-                  if (ev.start.date) {
-                      morningFree = false;
-                      afternoonFree = false;
-                      break;
-                  }
-                  const evStart = new Date(ev.start.dateTime!);
-                  const evEnd = new Date(ev.end.dateTime!);
-
-                  if (evStart < morningEnd && evEnd > morningStart) morningFree = false;
-                  if (evStart < afternoonEnd && evEnd > afternoonStart) afternoonFree = false;
+                  if (ev.start.date) { mStatus = "OCUPADO (Dia Todo)"; aStatus = "OCUPADO (Dia Todo)"; break; }
+                  const s = new Date(ev.start.dateTime!);
+                  const e = new Date(ev.end.dateTime!);
+                  if (s < morningEnd && e > morningStart) mStatus = "OCUPADO";
+                  if (s < afternoonEnd && e > afternoonStart) aStatus = "OCUPADO";
               }
 
-              csvContent += `"${dateStr}","${weekDayStr}","${morningFree ? 'LIVRE' : 'OCUPADO'}","${afternoonFree ? 'LIVRE' : 'OCUPADO'}"\n`;
+              csvContent += `"${dateStr}","${weekDayStr}","${mStatus}","${aStatus}"\n`;
           }
 
-          // 3. Download
-          const bom = "\uFEFF"; // Byte Order Mark para Excel reconhecer UTF-8
+          const bom = "\uFEFF"; 
           const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
@@ -200,6 +210,30 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
 
   const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+
+  // Helper para renderizar a lista de horários ou "LIVRE"
+  const renderSlot = (events: string[], period: string) => {
+      if (events.length === 0) {
+          return (
+            <div className={`flex-1 rounded-lg flex flex-col items-center justify-center p-2 transition-all border bg-green-100 text-green-800 border-green-200 shadow-sm`}>
+                <span className="text-[10px] uppercase font-bold mb-1 opacity-70">{period}</span>
+                <span className="font-bold text-sm">LIVRE</span>
+            </div>
+          );
+      }
+      
+      // Se houver eventos, mostra os horários
+      return (
+        <div className={`flex-1 rounded-lg flex flex-col items-center justify-start p-2 transition-all border bg-red-50 text-red-700 border-red-100 overflow-hidden`}>
+            <span className="text-[10px] uppercase font-bold mb-1 opacity-70 border-b border-red-200 w-full text-center pb-1">{period}</span>
+            <div className="flex flex-col gap-1 w-full overflow-y-auto custom-scrollbar max-h-[60px]">
+                {events.map((time, idx) => (
+                    <span key={idx} className="text-[10px] font-bold bg-white/60 rounded px-1 text-center whitespace-nowrap">{time}</span>
+                ))}
+            </div>
+        </div>
+      );
+  };
 
   return (
     <div className="h-full flex flex-col animate-in slide-in-from-right duration-300 relative">
@@ -227,34 +261,15 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
 
          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto custom-scrollbar p-2">
             {monthlySlots.filter(s => !s.isWeekend).map(slot => (
-                <GlassCard key={slot.day} className={`flex flex-col items-center justify-between min-h-[140px] border-2 ${slot.isPast ? 'opacity-50 grayscale' : 'border-white/50'}`}>
+                <GlassCard key={slot.day} className={`flex flex-col items-center justify-between min-h-[160px] border-2 ${slot.isPast ? 'opacity-50 grayscale' : 'border-white/50'}`}>
                     <div className="w-full border-b border-indigo-50 pb-2 mb-2 flex justify-between items-center">
                         <span className="font-bold text-indigo-900 text-lg">{slot.day}</span>
                         <span className="text-xs uppercase text-indigo-400 font-bold">{slot.date.toLocaleDateString('pt-PT', { weekday: 'short' })}</span>
                     </div>
 
                     <div className="w-full flex gap-2 h-full">
-                        {/* Morning Slot */}
-                        <div className={`flex-1 rounded-lg flex flex-col items-center justify-center p-2 transition-all border ${
-                            slot.morning 
-                                ? 'bg-green-100 text-green-800 border-green-200 shadow-sm' 
-                                : 'bg-red-50 text-red-300 border-red-100'
-                        }`}>
-                            <span className="text-[10px] uppercase font-bold mb-1 opacity-70">Manhã</span>
-                            <span className="font-bold text-sm">{slot.morning ? 'LIVRE' : 'OCUPADO'}</span>
-                            <span className="text-[9px] font-mono opacity-80 mt-1 block border-t border-black/10 pt-1 w-full text-center">09:00 - 13:00</span>
-                        </div>
-
-                        {/* Afternoon Slot */}
-                        <div className={`flex-1 rounded-lg flex flex-col items-center justify-center p-2 transition-all border ${
-                            slot.afternoon
-                                ? 'bg-blue-100 text-blue-800 border-blue-200 shadow-sm' 
-                                : 'bg-red-50 text-red-300 border-red-100'
-                        }`}>
-                             <span className="text-[10px] uppercase font-bold mb-1 opacity-70">Tarde</span>
-                             <span className="font-bold text-sm">{slot.afternoon ? 'LIVRE' : 'OCUPADO'}</span>
-                             <span className="text-[9px] font-mono opacity-80 mt-1 block border-t border-black/10 pt-1 w-full text-center">14:00 - 18:00</span>
-                        </div>
+                        {renderSlot(slot.morningEvents, 'Manhã')}
+                        {renderSlot(slot.afternoonEvents, 'Tarde')}
                     </div>
                 </GlassCard>
             ))}
