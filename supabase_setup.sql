@@ -1,9 +1,10 @@
 
--- SCRIPT v1.2.0 - Classes & Batch Enrollments
+-- SCRIPT v1.2.1 - Classes & Batch Enrollments Fix
 -- Execute este script para habilitar a gestão de turmas e convites em massa
 
 -- 1. ATUALIZAR VERSÃO
-update public.app_config set value = 'v1.2.0' where key = 'sql_version';
+insert into public.app_config (key, value) values ('sql_version', 'v1.2.1')
+on conflict (key) do update set value = 'v1.2.1';
 
 -- 2. CRIAR TABELA DE TURMAS (CLASSES)
 create table if not exists public.classes (

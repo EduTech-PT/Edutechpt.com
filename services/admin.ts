@@ -9,21 +9,26 @@ export const adminService = {
         return data as UserInvite[];
     },
 
-    // Atualizado para suportar Curso e Turma
+    // Atualizado para suportar Curso e Turma de forma resiliente
     async createInvite(email: string, role: string, courseId?: string, classId?: string) {
         const { data: existing } = await supabase.from('profiles').select('id').eq('email', email).single();
         if (existing) throw new Error(`Utilizador ${email} já registado.`);
 
-        const { error } = await supabase.from('user_invites').upsert([{ 
+        // Construção dinâmica do payload para evitar erros em DBs desatualizadas (sem colunas course_id/class_id)
+        const payload: any = { 
             email, 
             role,
-            course_id: courseId || null,
-            class_id: classId || null
-        }]);
+            created_at: new Date().toISOString()
+        };
+        
+        if (courseId) payload.course_id = courseId;
+        if (classId) payload.class_id = classId;
+
+        const { error } = await supabase.from('user_invites').upsert([payload]);
         if (error) throw error;
     },
 
-    // Novo Método: Bulk Invites
+    // Novo Método: Bulk Invites (Resiliente)
     async createBulkInvites(emails: string[], role: string, courseId?: string, classId?: string) {
         // 1. Verificar existentes na tabela de perfis
         const { data: existingProfiles } = await supabase
@@ -38,13 +43,17 @@ export const adminService = {
             throw new Error('Todos os emails fornecidos já estão registados na plataforma.');
         }
 
-        // 2. Preparar payload
-        const invitesPayload = newEmails.map(email => ({
-            email,
-            role,
-            course_id: courseId || null,
-            class_id: classId || null
-        }));
+        // 2. Preparar payload dinâmico
+        const invitesPayload = newEmails.map(email => {
+            const item: any = {
+                email,
+                role,
+                created_at: new Date().toISOString()
+            };
+            if (courseId) item.course_id = courseId;
+            if (classId) item.class_id = classId;
+            return item;
+        });
 
         const { error } = await supabase.from('user_invites').upsert(invitesPayload, { onConflict: 'email' });
         if (error) throw error;
