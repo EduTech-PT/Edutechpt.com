@@ -36,6 +36,12 @@ begin
       drop policy if exists "Admins manage enrollments" on public.enrollments;
       drop policy if exists "Users view own enrollments" on public.enrollments;
   end if;
+  
+  -- Classes Policies Cleanup
+  if exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'classes') then
+      drop policy if exists "Read Classes" on public.classes;
+      drop policy if exists "Staff Manage Classes" on public.classes;
+  end if;
 end $$;
 
 -- 1. MIGRAÇÃO ESTRUTURAL
@@ -238,6 +244,7 @@ create policy "Staff can manage courses" on public.courses for all using (exists
 alter table public.classes enable row level security;
 drop policy if exists "Read Classes" on public.classes;
 create policy "Read Classes" on public.classes for select using (true);
+drop policy if exists "Staff Manage Classes" on public.classes;
 create policy "Staff Manage Classes" on public.classes for all using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
 
 alter table public.enrollments enable row level security;
