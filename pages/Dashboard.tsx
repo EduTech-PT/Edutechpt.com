@@ -42,9 +42,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [gasStatus, setGasStatus] = useState<{ match: boolean; remote: string; local: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Recovery State
-  const [recovering, setRecovering] = useState(false);
-
   // Load Initial Data
   useEffect(() => {
     init();
@@ -53,37 +50,60 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const init = async () => {
       try {
           if (!session.user) return;
-          const userProfile = await userService.getProfile(session.user.id);
-          setProfile(userProfile);
           
-          // AUTO-CREATE DRIVE FOLDER FOR TRAINERS
-          if (userProfile?.role === UserRole.TRAINER && !userProfile.personal_folder_id) {
-              driveService.getPersonalFolder(userProfile).then((id) => {
-                  setProfile(prev => prev ? {...prev, personal_folder_id: id} : null);
-              }).catch(err => console.warn(err));
+          let userProfile: Profile | null = null;
+          
+          try {
+             userProfile = await userService.getProfile(session.user.id);
+          } catch (err) {
+             // Se falhar (perfil não existe), tenta auto-recuperar silenciosamente
+             // Isto resolve o problema de users que ficaram presos no Auth sem Profile
+             console.log("Profile missing, attempting auto-recovery...");
+             try {
+                 const claimed = await userService.claimInvite();
+                 if (claimed) {
+                     userProfile = await userService.getProfile(session.user.id);
+                 }
+             } catch (claimErr) {
+                 console.warn("Auto-claim failed", claimErr);
+             }
           }
 
-          if (userProfile?.role === UserRole.ADMIN) {
-              // 1. Check SQL Version
-              const config = await adminService.getAppConfig();
-              setDbVersion(config.sqlVersion || 'Unknown');
+          if (userProfile) {
+              setProfile(userProfile);
               
-              // 2. Check GAS Version (Async)
-              if (config.googleScriptUrl) {
-                  driveService.checkScriptVersion(config.googleScriptUrl).then(remoteVer => {
-                      setGasStatus({
-                          match: remoteVer === GAS_VERSION,
-                          remote: remoteVer,
-                          local: GAS_VERSION
-                      });
-                  });
-              } else {
-                   setGasStatus({ match: false, remote: 'not_configured', local: GAS_VERSION });
+              // AUTO-CREATE DRIVE FOLDER FOR TRAINERS
+              if (userProfile.role === UserRole.TRAINER && !userProfile.personal_folder_id) {
+                  driveService.getPersonalFolder(userProfile).then((id) => {
+                      setProfile(prev => prev ? {...prev, personal_folder_id: id} : null);
+                  }).catch(err => console.warn(err));
+              }
+
+              if (userProfile.role === UserRole.ADMIN) {
+                  // 1. Check SQL Version
+                  try {
+                    const config = await adminService.getAppConfig();
+                    setDbVersion(config.sqlVersion || 'Unknown');
+                    
+                    // 2. Check GAS Version (Async)
+                    if (config.googleScriptUrl) {
+                        driveService.checkScriptVersion(config.googleScriptUrl).then(remoteVer => {
+                            setGasStatus({
+                                match: remoteVer === GAS_VERSION,
+                                remote: remoteVer,
+                                local: GAS_VERSION
+                            });
+                        });
+                    } else {
+                        setGasStatus({ match: false, remote: 'not_configured', local: GAS_VERSION });
+                    }
+                  } catch (cfgErr) {
+                      console.error("Config check failed", cfgErr);
+                  }
               }
           }
       } catch (e) { 
-          // Perfil não encontrado é normal no primeiro login ou erro
-          console.error("Init Error", e); 
+          console.error("Critical Init Error", e); 
       } finally { 
           setLoading(false); 
       }
@@ -124,23 +144,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       setCurrentView('users');
   };
 
-  const handleRecoverInvite = async () => {
-      setRecovering(true);
-      try {
-          const success = await userService.claimInvite();
-          if (success) {
-              alert("✅ Convite validado com sucesso! A entrar...");
-              window.location.reload(); // Reload para garantir estado limpo
-          } else {
-              alert("❌ Não foi encontrado nenhum convite pendente para este email.\nContacte o administrador.");
-          }
-      } catch (e: any) {
-          alert("Erro ao validar convite: " + e.message);
-      } finally {
-          setRecovering(false);
-      }
-  };
-
   if (loading) return <div className="min-h-screen flex items-center justify-center text-indigo-600">A carregar EduTech PT...</div>;
 
   if (!profile) return (
@@ -153,16 +156,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
               </p>
               
               <div className="space-y-3">
-                  <button 
-                    onClick={handleRecoverInvite} 
-                    disabled={recovering}
-                    className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-md flex items-center justify-center gap-2"
-                  >
-                      {recovering ? <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div> : '🔍'}
-                      Validar Convite Pendente
-                  </button>
-                  
-                  <button onClick={onLogout} className="w-full px-6 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg">
+                  <button onClick={onLogout} className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-md">
                       Sair / Tentar Outra Conta
                   </button>
               </div>

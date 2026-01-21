@@ -371,6 +371,20 @@ $$ language plpgsql security definer;
 
 -- 9. FINALIZAÇÃO
 update public.profiles set role = 'admin' where email = 'edutechpt@hotmail.com';
+
+-- 10. REPARAÇÃO DE EMERGÊNCIA (Admin preso em Auth mas sem Profile)
+do $$
+declare
+  v_admin_id uuid;
+begin
+  select id into v_admin_id from auth.users where email = 'edutechpt@hotmail.com';
+  if v_admin_id is not null then
+      insert into public.profiles (id, email, full_name, role)
+      values (v_admin_id, 'edutechpt@hotmail.com', 'Administrador', 'admin')
+      on conflict (id) do update set role = 'admin';
+  end if;
+end $$;
+
 update public.app_config set value = '${currentVersion}' where key = 'sql_version';
 `;
 };
