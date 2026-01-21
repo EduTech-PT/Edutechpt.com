@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.4.4";
+export const GAS_VERSION = "v1.4.5";
 
 export interface DriveFile {
   id: string;
@@ -220,11 +220,10 @@ export const GAS_TEMPLATE_CODE = `
 // -----------------------------------------------------
 
 function autorizarPermissoes() {
-  const cal = CalendarApp.getDefaultCalendar();
+  const cals = CalendarApp.getAllCalendars();
   const drive = DriveApp.getRootFolder();
-  console.log("SUCESSO! Permissões verificadas para: " + Session.getActiveUser().getEmail());
-  console.log("Calendário: " + cal.getName());
-  console.log("Drive: " + drive.getName());
+  console.log("SUCESSO! Acesso confirmado para " + cals.length + " calendários.");
+  console.log("Drive Raiz: " + drive.getName());
 }
 
 // -----------------------------------------------------
@@ -266,29 +265,44 @@ function doPost(e) {
         };
     }
 
-    // --- CALENDAR PROXY ---
+    // --- CALENDAR PROXY (LÊ TODOS OS CALENDÁRIOS) ---
     else if (action === 'getCalendarEvents') {
-        const cal = CalendarApp.getDefaultCalendar();
-        if (!cal) throw new Error("Calendário padrão não encontrado.");
-        
         const start = new Date(data.timeMin);
         const end = new Date(data.timeMax);
         
-        const events = cal.getEvents(start, end);
+        // Alteração v1.4.5: Ler todos os calendários subscritos
+        const calendars = CalendarApp.getAllCalendars();
+        let allEvents = [];
+
+        for (var i = 0; i < calendars.length; i++) {
+            var cal = calendars[i];
+            try {
+                var events = cal.getEvents(start, end);
+                
+                // Mapear eventos
+                var mapped = events.map(function(e) {
+                    // Se não for o calendário principal, adiciona prefixo [Nome]
+                    var prefix = cal.isDefaultCalendar() ? '' : '[' + cal.getName() + '] ';
+                    
+                    return {
+                        id: e.getId(),
+                        summary: prefix + e.getTitle(),
+                        description: e.getDescription(),
+                        location: e.getLocation(),
+                        start: { dateTime: e.getStartTime().toISOString() },
+                        end: { dateTime: e.getEndTime().toISOString() },
+                        htmlLink: 'https://calendar.google.com'
+                    };
+                });
+                
+                allEvents = allEvents.concat(mapped);
+            } catch (err) {
+                // Se um calendário específico falhar (permissão/erro), ignoramos e continuamos
+                console.log("Erro a ler calendário " + cal.getName());
+            }
+        }
         
-        const list = events.map(function(e) {
-            return {
-                id: e.getId(),
-                summary: e.getTitle(),
-                description: e.getDescription(),
-                location: e.getLocation(),
-                start: { dateTime: e.getStartTime().toISOString() },
-                end: { dateTime: e.getEndTime().toISOString() },
-                htmlLink: 'https://calendar.google.com'
-            };
-        });
-        
-        result = { status: 'success', items: list };
+        result = { status: 'success', items: allEvents };
     }
 
     // --- LIST FILES ---
