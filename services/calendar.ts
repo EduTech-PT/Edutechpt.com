@@ -1,10 +1,10 @@
 
-import { CalendarEvent } from '../types';
+import { CalendarEvent, CalendarResponse } from '../types';
 import { adminService } from './admin';
 
 export const calendarService = {
-  // Alterado: accessToken já não é usado, removemos o parâmetro mas mantemos compatibilidade de interface se necessário
-  async listEvents(accessToken: string | null | undefined, timeMin: Date, timeMax: Date): Promise<CalendarEvent[]> {
+  // Agora retorna objeto completo { items, debug }
+  async listEvents(accessToken: string | null | undefined, timeMin: Date, timeMax: Date): Promise<{ items: CalendarEvent[], debug?: string[] }> {
     
     // Obter configuração do URL do Script
     const config = await adminService.getAppConfig();
@@ -38,7 +38,7 @@ export const calendarService = {
         throw new Error("Erro de comunicação com o serviço de calendário.");
       }
 
-      const data = await response.json();
+      const data: CalendarResponse = await response.json();
       
       if (data.status === 'error') {
         const msg = data.message || "Erro desconhecido";
@@ -49,7 +49,10 @@ export const calendarService = {
         throw new Error("Google Script: " + msg);
       }
 
-      return data.items || [];
+      return { 
+          items: data.items || [], 
+          debug: data.debug 
+      };
 
     } catch (err: any) {
       // Se falhar a rede ou o fetch, geralmente é CORS devido a bloqueio de permissão no GAS

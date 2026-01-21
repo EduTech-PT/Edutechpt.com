@@ -108,3 +108,10 @@ export interface CalendarEvent {
   htmlLink: string;
   location?: string;
 }
+
+export interface CalendarResponse {
+    status: string;
+    items?: CalendarEvent[];
+    message?: string;
+    debug?: string[]; // New debug field
+}

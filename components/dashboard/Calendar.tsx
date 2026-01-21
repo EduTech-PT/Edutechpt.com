@@ -15,6 +15,8 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scriptUrl, setScriptUrl] = useState<string | null>(null);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [showDebug, setShowDebug] = useState(false);
   
   // State de Navegação
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -29,12 +31,15 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
   const fetchEvents = async () => {
     setLoading(true);
     setError(null);
+    setDebugLog([]);
     try {
       const start = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59);
       
-      const data = await calendarService.listEvents(null, start, end);
-      setEvents(data);
+      const { items, debug } = await calendarService.listEvents(null, start, end);
+      setEvents(items);
+      if (debug) setDebugLog(debug);
+
     } catch (err: any) {
       console.error(err);
       setError(err.message);
@@ -186,11 +191,26 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
 
         <div className="w-full xl:w-80 flex flex-col gap-4 h-full">
             <GlassCard className="h-full flex flex-col overflow-hidden">
-                <h3 className="font-bold text-indigo-900 mb-1">
-                    {selectedDay ? selectedDay.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' }) : 'Selecione um dia'}
-                </h3>
+                <div className="flex justify-between items-center mb-1">
+                    <h3 className="font-bold text-indigo-900">
+                        {selectedDay ? selectedDay.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' }) : 'Selecione um dia'}
+                    </h3>
+                    {debugLog.length > 0 && (
+                        <button onClick={() => setShowDebug(!showDebug)} className="text-[10px] px-2 py-1 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200">
+                           {showDebug ? 'Ocultar Log' : 'Ver Diagnóstico'}
+                        </button>
+                    )}
+                </div>
+
                 <p className="text-xs text-indigo-500 uppercase font-bold mb-4 border-b border-indigo-100 pb-2">Eventos Institucionais</p>
                 
+                {showDebug && (
+                    <div className="mb-4 bg-slate-800 text-slate-200 p-2 rounded text-[10px] font-mono overflow-y-auto max-h-40">
+                        <strong className="block mb-1 text-slate-400">Log do Servidor:</strong>
+                        {debugLog.map((log, i) => <div key={i}>{log}</div>)}
+                    </div>
+                )}
+
                 <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
                     {selectedDayEvents.length === 0 ? (
                         <div className="text-center py-10 opacity-50">

@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.4.5";
+export const GAS_VERSION = "v1.4.6";
 
 export interface DriveFile {
   id: string;
@@ -270,39 +270,84 @@ function doPost(e) {
         const start = new Date(data.timeMin);
         const end = new Date(data.timeMax);
         
-        // Alteração v1.4.5: Ler todos os calendários subscritos
-        const calendars = CalendarApp.getAllCalendars();
         let allEvents = [];
-
-        for (var i = 0; i < calendars.length; i++) {
-            var cal = calendars[i];
-            try {
-                var events = cal.getEvents(start, end);
+        let debugLog = []; // Log para enviar para o frontend
+        
+        // 1. Tentar ler o Calendário Padrão Explicito (Fallback de segurança)
+        try {
+            var defaultCal = CalendarApp.getDefaultCalendar();
+            if (defaultCal) {
+                var defEvents = defaultCal.getEvents(start, end);
+                debugLog.push("Calendário Padrão (" + defaultCal.getName() + "): " + defEvents.length + " eventos.");
                 
-                // Mapear eventos
-                var mapped = events.map(function(e) {
-                    // Se não for o calendário principal, adiciona prefixo [Nome]
-                    var prefix = cal.isDefaultCalendar() ? '' : '[' + cal.getName() + '] ';
-                    
+                // Mapear
+                allEvents = allEvents.concat(defEvents.map(function(e) {
                     return {
                         id: e.getId(),
-                        summary: prefix + e.getTitle(),
+                        summary: e.getTitle(),
                         description: e.getDescription(),
                         location: e.getLocation(),
                         start: { dateTime: e.getStartTime().toISOString() },
                         end: { dateTime: e.getEndTime().toISOString() },
                         htmlLink: 'https://calendar.google.com'
                     };
-                });
+                }));
+            }
+        } catch (e) {
+            debugLog.push("ERRO CRITICO no Calendário Padrão: " + e.toString());
+        }
+        
+        // 2. Tentar ler TODOS os calendários (incluindo partilhados)
+        try {
+            const calendars = CalendarApp.getAllCalendars();
+            debugLog.push("Total Calendários detetados na conta: " + calendars.length);
+
+            for (var i = 0; i < calendars.length; i++) {
+                var cal = calendars[i];
                 
-                allEvents = allEvents.concat(mapped);
-            } catch (err) {
-                // Se um calendário específico falhar (permissão/erro), ignoramos e continuamos
-                console.log("Erro a ler calendário " + cal.getName());
+                // Evitar duplicar o Default se já o lemos acima (comparamos por ID ou isDefault)
+                if (cal.isDefaultCalendar()) continue; 
+                
+                try {
+                    var events = cal.getEvents(start, end);
+                    debugLog.push("Lido: " + cal.getName() + " (" + events.length + ")");
+                    
+                    var mapped = events.map(function(e) {
+                        return {
+                            id: e.getId(),
+                            summary: '[' + cal.getName() + '] ' + e.getTitle(),
+                            description: e.getDescription(),
+                            location: e.getLocation(),
+                            start: { dateTime: e.getStartTime().toISOString() },
+                            end: { dateTime: e.getEndTime().toISOString() },
+                            htmlLink: 'https://calendar.google.com'
+                        };
+                    });
+                    
+                    allEvents = allEvents.concat(mapped);
+                } catch (err) {
+                    debugLog.push("ERRO a ler " + cal.getName() + ": " + err.toString());
+                }
+            }
+        } catch (e) {
+            debugLog.push("ERRO GERAL ao listar calendários: " + e.toString());
+        }
+        
+        // Remover duplicados (caso o default tenha sido apanhado 2 vezes por algum motivo)
+        var seenIds = {};
+        var uniqueEvents = [];
+        for (var k = 0; k < allEvents.length; k++) {
+            if (!seenIds[allEvents[k].id]) {
+                seenIds[allEvents[k].id] = true;
+                uniqueEvents.push(allEvents[k]);
             }
         }
         
-        result = { status: 'success', items: allEvents };
+        result = { 
+            status: 'success', 
+            items: uniqueEvents,
+            debug: debugLog // Envia logs para o frontend
+        };
     }
 
     // --- LIST FILES ---
