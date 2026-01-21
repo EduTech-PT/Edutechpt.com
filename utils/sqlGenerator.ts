@@ -2,11 +2,10 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    return `-- SCRIPT ${currentVersion} - Robust Access & Policy Fixes
+    return `-- SCRIPT ${currentVersion} - Name Collision Fix & Auto-Recovery
 -- Gerado automaticamente pelo Sistema EduTech PT
 
 -- 0. REMOÇÃO PREVENTIVA DE POLÍTICAS (CLEAN SLATE)
--- Garante que não existem erros de "Policy already exists"
 do $$
 begin
   -- App Config
@@ -32,7 +31,7 @@ begin
   drop policy if exists "Admins view all requests" on public.access_requests;
   drop policy if exists "Users can insert requests" on public.access_requests;
   
-  -- Storage (Avatars)
+  -- Storage
   drop policy if exists "Users can upload own avatar" on storage.objects;
   drop policy if exists "Users can update own avatar" on storage.objects;
   drop policy if exists "Users can delete own avatar" on storage.objects;
@@ -41,19 +40,16 @@ begin
   drop policy if exists "Users and Admins can delete avatar" on storage.objects;
   drop policy if exists "Avatar Images are Public" on storage.objects;
 
-  -- Storage (Courses)
   drop policy if exists "Course Images are Public" on storage.objects;
   drop policy if exists "Staff can upload course images" on storage.objects;
   drop policy if exists "Staff can update course images" on storage.objects;
   drop policy if exists "Staff can delete course images" on storage.objects;
 
-  -- Enrollments Cleanup (Safe Drop)
+  -- Enrollments & Classes
   if exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'enrollments') then
       drop policy if exists "Admins manage enrollments" on public.enrollments;
       drop policy if exists "Users view own enrollments" on public.enrollments;
   end if;
-  
-  -- Classes Policies Cleanup (Safe Drop)
   if exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'classes') then
       drop policy if exists "Read Classes" on public.classes;
       drop policy if exists "Staff Manage Classes" on public.classes;
@@ -86,9 +82,9 @@ begin
         alter table public.profiles add column personal_folder_id text;
     end if;
     
-    -- 1.4 Classes & Invites Updates (v1.2.1 Check)
+    -- 1.4 Classes & Invites Updates
     if not exists (select 1 from information_schema.columns where table_name = 'enrollments' and column_name = 'class_id') then
-        alter table public.enrollments add column class_id uuid; -- references adicionado na criação da tabela se não existir
+        alter table public.enrollments add column class_id uuid;
     end if;
     if not exists (select 1 from information_schema.columns where table_name = 'user_invites' and column_name = 'course_id') then
         alter table public.user_invites add column course_id uuid;
@@ -98,6 +94,7 @@ begin
     end if;
 
     -- 1.5 RESTRIÇÃO DE NOME ÚNICO (DEDUPLICAÇÃO PRÉVIA)
+    -- Importante: Deduplica nomes existentes antes de aplicar a constraint
     for r in (
       select full_name, count(*)
       from public.profiles
@@ -142,7 +139,7 @@ insert into public.app_config (key, value) values
 on conflict (key) do update set value = excluded.value 
 where app_config.key = 'sql_version';
 
--- 3. TABELAS
+-- 3. TABELAS (Estrutura)
 create table if not exists public.profiles (
   id uuid references auth.users not null primary key,
   email text,
@@ -273,24 +270,29 @@ create policy "Staff can delete course images" on storage.objects for delete usi
 
 -- 8. FUNÇÕES & TRIGGERS (Lógica de Negócio)
 
--- 8.1 Handle New User (ROBUST EMAIL MATCHING)
+-- 8.1 Handle New User (ROBUST EMAIL MATCHING + NAME DEDUPLICATION)
 create or replace function public.handle_new_user() returns trigger as $$
 declare
   invite_record record;
   final_name text;
+  base_name text;
 begin
-  final_name := coalesce(new.raw_user_meta_data->>'full_name', 'Utilizador');
+  base_name := coalesce(new.raw_user_meta_data->>'full_name', 'Utilizador');
+  final_name := base_name;
+  
+  -- DEDUPLICAÇÃO DE NOME: Se já existe, adiciona ID (ex: João Silva (a1b2))
   if exists (select 1 from public.profiles where lower(full_name) = lower(final_name)) then
       final_name := final_name || ' (' || substring(new.id::text, 1, 4) || ')';
   end if;
 
   if new.email = 'edutechpt@hotmail.com' then
       insert into public.profiles (id, email, full_name, role)
-      values (new.id, new.email, final_name, 'admin');
+      values (new.id, new.email, final_name, 'admin')
+      on conflict (id) do nothing;
       return new;
   end if;
 
-  -- CORREÇÃO CRÍTICA: TRIM() e LOWER() para ignorar espaços e maiúsculas
+  -- Verifica convite ignorando maiúsculas/espaços
   select * into invite_record from public.user_invites 
   where lower(trim(email)) = lower(trim(new.email));
 
@@ -316,14 +318,15 @@ $$ language plpgsql security definer;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
 
--- 8.2 Invite Recovery Mechanism (ROBUST MATCHING)
+-- 8.2 Invite Recovery Mechanism (FIX: NAME DEDUPLICATION ADDED)
 create or replace function public.claim_invite()
 returns boolean as $$
 declare
   invite_record record;
   final_name text;
+  base_name text;
 begin
-  -- CORREÇÃO CRÍTICA: TRIM() e LOWER()
+  -- Busca convite pendente
   select * into invite_record from public.user_invites 
   where lower(trim(email)) = lower(trim(auth.email()));
   
@@ -331,8 +334,16 @@ begin
     return false;
   end if;
 
-  final_name := coalesce((auth.jwt() -> 'user_metadata') ->> 'full_name', auth.email());
+  base_name := coalesce((auth.jwt() -> 'user_metadata') ->> 'full_name', auth.email());
+  final_name := base_name;
 
+  -- CRITICAL FIX: DEDUPLICAÇÃO DE NOME EM TEMPO REAL
+  -- Impede erro de "unique violation" se já existir um user com mesmo nome
+  if exists (select 1 from public.profiles where lower(full_name) = lower(final_name)) then
+      final_name := final_name || ' (' || substring(auth.uid()::text, 1, 4) || ')';
+  end if;
+
+  -- Insere perfil de forma segura
   insert into public.profiles (id, email, full_name, role)
   values (auth.uid(), auth.email(), final_name, invite_record.role)
   on conflict (id) do update
@@ -369,10 +380,7 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- 9. FINALIZAÇÃO
-update public.profiles set role = 'admin' where email = 'edutechpt@hotmail.com';
-
--- 10. REPARAÇÃO DE EMERGÊNCIA (Admin preso em Auth mas sem Profile)
+-- 9. FINALIZAÇÃO & REPARAÇÃO DE ADMIN
 do $$
 declare
   v_admin_id uuid;
