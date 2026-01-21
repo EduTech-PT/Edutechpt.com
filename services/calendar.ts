@@ -1,33 +1,55 @@
 
 import { CalendarEvent } from '../types';
+import { adminService } from './admin';
 
 export const calendarService = {
-  async listEvents(accessToken: string, timeMin: Date, timeMax: Date): Promise<CalendarEvent[]> {
-    if (!accessToken) throw new Error("Token de acesso em falta.");
+  // Alterado: accessToken já não é usado, removemos o parâmetro mas mantemos compatibilidade de interface se necessário
+  async listEvents(accessToken: string | null | undefined, timeMin: Date, timeMax: Date): Promise<CalendarEvent[]> {
+    
+    // Obter configuração do URL do Script
+    const config = await adminService.getAppConfig();
+    const scriptUrl = config.googleScriptUrl;
 
-    const params = new URLSearchParams({
-      calendarId: 'primary',
-      timeMin: timeMin.toISOString(),
-      timeMax: timeMax.toISOString(),
-      singleEvents: 'true',
-      orderBy: 'startTime',
-      maxResults: '250'
-    });
-
-    const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params.toString()}`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) throw new Error("Token expirado");
-      const err = await response.json();
-      throw new Error(err.error?.message || "Erro ao carregar calendário");
+    if (!scriptUrl) {
+      throw new Error("Serviço de Calendário não configurado (URL Script em falta).");
     }
 
-    const data = await response.json();
-    return data.items || [];
+    try {
+      const response = await fetch(scriptUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'getCalendarEvents',
+          timeMin: timeMin.toISOString(),
+          timeMax: timeMax.toISOString()
+        })
+      });
+
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("text/html")) {
+          throw new Error("O Script retornou HTML. Verifique se publicou como 'Qualquer pessoa'.");
+      }
+
+      if (!response.ok) {
+        throw new Error("Erro de comunicação com o serviço de calendário.");
+      }
+
+      const data = await response.json();
+      
+      if (data.status === 'error') {
+        throw new Error(data.message || "Erro no Script de Calendário");
+      }
+
+      return data.items || [];
+
+    } catch (err: any) {
+      // Se falhar a rede ou o fetch
+      if (err.message === 'Failed to fetch') {
+         throw new Error("Não foi possível conectar ao Calendário Institucional.");
+      }
+      throw err;
+    }
   }
 };

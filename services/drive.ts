@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.3.0";
+export const GAS_VERSION = "v1.4.0";
 
 export interface DriveFile {
   id: string;
@@ -197,7 +197,7 @@ export const driveService = {
 
 export const GAS_TEMPLATE_CODE = `
 // ==========================================
-// EDUTECH PT - GOOGLE DRIVE API GATEWAY
+// EDUTECH PT - GOOGLE DRIVE & CALENDAR API
 // VERSION: ${GAS_VERSION}
 // ==========================================
 
@@ -221,6 +221,31 @@ function doPost(e) {
             version: '${GAS_VERSION}',
             timestamp: new Date().toISOString()
         };
+    }
+
+    // --- CALENDAR PROXY (NEW) ---
+    else if (action === 'getCalendarEvents') {
+        // Usa o calendário padrão da conta que implementou o script (Admin)
+        const cal = CalendarApp.getDefaultCalendar();
+        const start = new Date(data.timeMin);
+        const end = new Date(data.timeMax);
+        
+        const events = cal.getEvents(start, end);
+        
+        const list = events.map(function(e) {
+            return {
+                id: e.getId(),
+                summary: e.getTitle(),
+                description: e.getDescription(),
+                location: e.getLocation(),
+                // Simplificação de datas para JSON
+                start: { dateTime: e.getStartTime().toISOString() },
+                end: { dateTime: e.getEndTime().toISOString() },
+                htmlLink: 'https://calendar.google.com' // Placeholder
+            };
+        });
+        
+        result = { status: 'success', items: list };
     }
 
     // --- LIST FILES ---

@@ -3,14 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { calendarService } from '../../services/calendar';
 import { CalendarEvent, SupabaseSession } from '../../types';
-import { supabase } from '../../lib/supabaseClient';
 
 interface CalendarProps {
   session: SupabaseSession['user'];
   accessToken?: string | null;
 }
 
-export const Calendar: React.FC<CalendarProps> = ({ session, accessToken }) => {
+export const Calendar: React.FC<CalendarProps> = ({ session }) => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,15 +21,10 @@ export const Calendar: React.FC<CalendarProps> = ({ session, accessToken }) => {
   const [selectedDay, setSelectedDay] = useState<Date | null>(new Date());
 
   useEffect(() => {
-    if (accessToken) {
-      fetchEvents();
-    } else {
-        setError("missing_token");
-    }
-  }, [currentDate, accessToken]);
+    fetchEvents();
+  }, [currentDate]);
 
   const fetchEvents = async () => {
-    if (!accessToken) return;
     setLoading(true);
     setError(null);
     try {
@@ -38,22 +32,15 @@ export const Calendar: React.FC<CalendarProps> = ({ session, accessToken }) => {
       const start = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59);
       
-      const data = await calendarService.listEvents(accessToken, start, end);
+      // Passamos null no token, pois agora o serviço usa o Proxy Institucional
+      const data = await calendarService.listEvents(null, start, end);
       setEvents(data);
     } catch (err: any) {
-      if (err.message === "Token expirado") {
-          setError("token_expired");
-      } else {
-          setError(err.message);
-      }
+      console.error(err);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleReconnect = async () => {
-    // Força re-login para obter novo token
-    await supabase.auth.signOut();
   };
 
   // Funções de Ajuda do Calendário
@@ -137,24 +124,12 @@ export const Calendar: React.FC<CalendarProps> = ({ session, accessToken }) => {
                  <div className="w-10"></div> {/* Spacer for balance */}
             </GlassCard>
 
-            {(error === 'missing_token' || error === 'token_expired') ? (
-                <GlassCard className="flex-1 flex flex-col items-center justify-center text-center">
-                    <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center text-3xl mb-4">📅</div>
-                    <h3 className="text-xl font-bold text-indigo-900 mb-2">Conexão Necessária</h3>
-                    <p className="text-indigo-700 max-w-md mb-6">
-                        Para visualizar a sua agenda Google aqui, precisamos de atualizar a sua permissão de acesso.
-                    </p>
-                    <button 
-                        onClick={handleReconnect}
-                        className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg flex items-center gap-2"
-                    >
-                        <svg className="w-5 h-5" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-1.07 3.97-2.9 5.39z" fill="currentColor"/></svg>
-                        Reconectar com Google
-                    </button>
-                </GlassCard>
-            ) : error ? (
-                 <GlassCard className="flex-1 flex items-center justify-center text-red-500">
-                    Erro: {error}
+            {error ? (
+                 <GlassCard className="flex-1 flex flex-col items-center justify-center text-center">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-3xl mb-4">⚠️</div>
+                    <h3 className="text-xl font-bold text-indigo-900 mb-2">Calendário Indisponível</h3>
+                    <p className="text-indigo-700 max-w-md mb-6">{error}</p>
+                    <button onClick={fetchEvents} className="px-4 py-2 bg-indigo-600 text-white rounded-lg">Tentar Novamente</button>
                  </GlassCard>
             ) : (
                 <div className="flex-1 bg-white/30 backdrop-blur-md rounded-2xl border border-white/40 shadow-lg overflow-hidden flex flex-col">
@@ -185,7 +160,7 @@ export const Calendar: React.FC<CalendarProps> = ({ session, accessToken }) => {
                 <h3 className="font-bold text-indigo-900 mb-1">
                     {selectedDay ? selectedDay.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' }) : 'Selecione um dia'}
                 </h3>
-                <p className="text-xs text-indigo-500 uppercase font-bold mb-4 border-b border-indigo-100 pb-2">Eventos do Dia</p>
+                <p className="text-xs text-indigo-500 uppercase font-bold mb-4 border-b border-indigo-100 pb-2">Eventos Institucionais</p>
                 
                 <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
                     {selectedDayEvents.length === 0 ? (
@@ -208,14 +183,6 @@ export const Calendar: React.FC<CalendarProps> = ({ session, accessToken }) => {
                                         <span>📍</span> {evt.location}
                                     </div>
                                 )}
-                                <a 
-                                    href={evt.htmlLink} 
-                                    target="_blank" 
-                                    rel="noreferrer"
-                                    className="block mt-2 text-[10px] text-indigo-500 hover:underline opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                    Abrir no Google Calendar ↗
-                                </a>
                             </div>
                         ))
                     )}
