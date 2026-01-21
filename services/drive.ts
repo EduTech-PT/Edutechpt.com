@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.4.0";
+export const GAS_VERSION = "v1.4.1";
 
 export interface DriveFile {
   id: string;
@@ -201,6 +201,18 @@ export const GAS_TEMPLATE_CODE = `
 // VERSION: ${GAS_VERSION}
 // ==========================================
 
+// -----------------------------------------------------
+// 1. EXECUTE ESTA FUNÇÃO UMA VEZ PARA AUTORIZAR
+// Selecione "autorizarPermissoes" na barra acima e clique em "Executar"
+// Isto forçará o Google a pedir as permissões de Calendário em falta.
+// -----------------------------------------------------
+function autorizarPermissoes() {
+  const cal = CalendarApp.getDefaultCalendar();
+  const drive = DriveApp.getRootFolder();
+  console.log("Permissões de Calendário (" + cal.getName() + ") e Drive (" + drive.getName() + ") ativas.");
+}
+// -----------------------------------------------------
+
 function doPost(e) {
   // Configuração CORS
   const headers = {
@@ -223,7 +235,7 @@ function doPost(e) {
         };
     }
 
-    // --- CALENDAR PROXY (NEW) ---
+    // --- CALENDAR PROXY ---
     else if (action === 'getCalendarEvents') {
         // Usa o calendário padrão da conta que implementou o script (Admin)
         const cal = CalendarApp.getDefaultCalendar();
@@ -241,7 +253,7 @@ function doPost(e) {
                 // Simplificação de datas para JSON
                 start: { dateTime: e.getStartTime().toISOString() },
                 end: { dateTime: e.getEndTime().toISOString() },
-                htmlLink: 'https://calendar.google.com' // Placeholder
+                htmlLink: 'https://calendar.google.com'
             };
         });
         

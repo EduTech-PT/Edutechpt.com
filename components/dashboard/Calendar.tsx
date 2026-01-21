@@ -128,8 +128,21 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
                  <GlassCard className="flex-1 flex flex-col items-center justify-center text-center">
                     <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-3xl mb-4">⚠️</div>
                     <h3 className="text-xl font-bold text-indigo-900 mb-2">Calendário Indisponível</h3>
-                    <p className="text-indigo-700 max-w-md mb-6">{error}</p>
-                    <button onClick={fetchEvents} className="px-4 py-2 bg-indigo-600 text-white rounded-lg">Tentar Novamente</button>
+                    <p className="text-indigo-700 max-w-md mb-6 font-medium">{error}</p>
+                    
+                    {error.includes('autorização') && (
+                        <div className="text-xs text-left bg-white/50 p-4 rounded mb-6 border border-indigo-100 max-w-md w-full">
+                             <b className="text-indigo-900">Solução provável (Para o Admin):</b>
+                             <ol className="list-decimal ml-4 mt-2 space-y-1 text-indigo-800">
+                                 <li>Vá a Definições {'>'} Integração Drive.</li>
+                                 <li>Copie o novo código e atualize o Script no Google.</li>
+                                 <li><b>Importante:</b> No editor do Google, selecione a função <code>autorizarPermissoes</code> e clique em <b>Executar</b>.</li>
+                                 <li>Faça nova implementação (Deploy) como "Nova Versão".</li>
+                             </ol>
+                        </div>
+                    )}
+
+                    <button onClick={fetchEvents} className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow-md hover:bg-indigo-700">Tentar Novamente</button>
                  </GlassCard>
             ) : (
                 <div className="flex-1 bg-white/30 backdrop-blur-md rounded-2xl border border-white/40 shadow-lg overflow-hidden flex flex-col">

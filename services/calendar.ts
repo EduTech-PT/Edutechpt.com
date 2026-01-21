@@ -45,9 +45,9 @@ export const calendarService = {
       return data.items || [];
 
     } catch (err: any) {
-      // Se falhar a rede ou o fetch
+      // Se falhar a rede ou o fetch, geralmente é CORS devido a bloqueio de permissão no GAS
       if (err.message === 'Failed to fetch') {
-         throw new Error("Não foi possível conectar ao Calendário Institucional.");
+         throw new Error("Erro de Conexão: O Script pode precisar de re-autorização no Google (Scope de Calendário).");
       }
       throw err;
     }
