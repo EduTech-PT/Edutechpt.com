@@ -106,6 +106,8 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
      return new Date(start).toDateString() === selectedDay.toDateString();
   }) : [];
 
+  const isPermissionError = error?.includes('PERMISSAO_PENDENTE') || error?.includes('permission');
+
   return (
     <div className="flex flex-col xl:flex-row gap-6 h-[calc(100vh-140px)] animate-in slide-in-from-right duration-300">
         <div className="flex-1 flex flex-col h-full">
@@ -124,17 +126,25 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
                  <GlassCard className="flex-1 flex flex-col items-center justify-center text-center">
                     <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-3xl mb-4">⚠️</div>
                     <h3 className="text-xl font-bold text-indigo-900 mb-2">Calendário Indisponível</h3>
-                    <p className="text-indigo-700 max-w-md mb-6 font-medium">{error}</p>
                     
-                    {error.includes('autorização') && (
-                        <div className="text-xs text-left bg-white/50 p-4 rounded mb-6 border border-indigo-100 max-w-md w-full">
-                             <b className="text-indigo-900">Como resolver (Admin):</b>
-                             <ol className="list-decimal ml-4 mt-2 space-y-2 text-indigo-800">
-                                 <li>Vá a Definições {'>'} Integração Drive e copie o novo código.</li>
-                                 <li>No Google Script, faça <b>Deploy {'>'} Nova Versão</b> (Essencial!).</li>
-                                 <li>Clique no botão abaixo para abrir o script. Se o Google pedir autorização, <b>aceite</b>.</li>
-                             </ol>
-                        </div>
+                    {isPermissionError ? (
+                         <div className="text-left bg-red-50 p-6 rounded-lg border border-red-200 shadow-sm max-w-lg w-full mb-6">
+                             <h4 className="font-bold text-red-800 text-lg mb-2">Falta Autorização Manual</h4>
+                             <p className="text-red-700 text-sm mb-4">O código está correto, mas o Google bloqueou o acesso porque você (o Admin) ainda não autorizou o script a ler o Calendário.</p>
+                             
+                             <div className="bg-white p-4 rounded border border-red-100 text-sm text-indigo-900 space-y-2">
+                                 <p className="font-bold">Passos Obrigatórios para Resolver:</p>
+                                 <ol className="list-decimal ml-4 space-y-1">
+                                     <li>Vá a Definições &gt; Integração Drive e copie o novo código.</li>
+                                     <li>Cole no Editor do Google Apps Script.</li>
+                                     <li><b className="text-red-600">CRÍTICO:</b> Selecione a função <code>autorizarPermissoes</code> na barra superior e clique em <b>Executar (Play)</b>.</li>
+                                     <li>O Google vai pedir permissão. <b>Aceite tudo</b> (Avançadas &gt; Aceder a ...).</li>
+                                     <li>Por fim, faça <b>Implementar &gt; Nova Implementação</b>.</li>
+                                 </ol>
+                             </div>
+                         </div>
+                    ) : (
+                        <p className="text-indigo-700 max-w-md mb-6 font-medium">{error}</p>
                     )}
 
                     <div className="flex gap-3">

@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.4.3";
+export const GAS_VERSION = "v1.4.4";
 
 export interface DriveFile {
   id: string;
@@ -209,13 +209,24 @@ export const GAS_TEMPLATE_CODE = `
 // ==========================================
 
 // -----------------------------------------------------
-// 1. EXECUTE ESTA FUNÇÃO UMA VEZ PARA AUTORIZAR
+// 1. IMPORTANTE: PASSO DE AUTORIZAÇÃO MANUAL
 // -----------------------------------------------------
+// Após colar este código e guardar (Disquete):
+// 1. Selecione a função "autorizarPermissoes" na barra superior.
+// 2. Clique no botão "Executar" (Play).
+// 3. O Google pedirá permissão para aceder ao Calendário e Drive.
+// 4. Aceite tudo (Avançadas > Aceder a ... (não seguro)).
+// 5. SÓ DEPOIS faça "Implementar > Nova Implementação".
+// -----------------------------------------------------
+
 function autorizarPermissoes() {
   const cal = CalendarApp.getDefaultCalendar();
   const drive = DriveApp.getRootFolder();
-  console.log("Permissões de Calendário (" + cal.getName() + ") e Drive (" + drive.getName() + ") ativas.");
+  console.log("SUCESSO! Permissões verificadas para: " + Session.getActiveUser().getEmail());
+  console.log("Calendário: " + cal.getName());
+  console.log("Drive: " + drive.getName());
 }
+
 // -----------------------------------------------------
 
 // Permite testar o link diretamente no browser (Diagnóstico)

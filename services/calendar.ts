@@ -17,7 +17,6 @@ export const calendarService = {
     try {
       // CORREÇÃO CRÍTICA CORS:
       // Usamos 'text/plain' para evitar que o browser envie um pedido 'OPTIONS' (Preflight)
-      // que o Google Apps Script não suporta e causa o erro "Failed to fetch".
       const response = await fetch(scriptUrl, {
         method: 'POST',
         headers: {
@@ -42,7 +41,12 @@ export const calendarService = {
       const data = await response.json();
       
       if (data.status === 'error') {
-        throw new Error(data.message || "Erro no Script de Calendário");
+        const msg = data.message || "Erro desconhecido";
+        // Deteta erro específico de permissão do Google Apps Script
+        if (msg.includes("permission") || msg.includes("required permissions")) {
+            throw new Error("PERMISSAO_PENDENTE: " + msg);
+        }
+        throw new Error("Google Script: " + msg);
       }
 
       return data.items || [];
