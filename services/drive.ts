@@ -119,6 +119,12 @@ export const driveService = {
       });
 
       const result = await response.json();
+      
+      // Validação Extra para Scripts Antigos
+      if (!result.status && !result.message) {
+          throw new Error("Funcionalidade de renomear não disponível. O Script Google está desatualizado (v1.4.9 necessária).");
+      }
+
       if (result.status !== 'success') {
           throw new Error("Erro ao renomear pasta: " + result.message);
       }

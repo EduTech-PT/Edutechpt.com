@@ -27,8 +27,6 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
   useEffect(() => {
     resetForm();
     loadAvatarConfig();
-    // Se for Admin Mode, começamos já em modo de edição por conveniência? 
-    // Não, deixamos à escolha, mas garantimos que o form está sincronizado.
   }, [user]);
 
   const loadAvatarConfig = async () => {
@@ -57,44 +55,36 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
 
-    // 1. Obter limites da configuração (com fallbacks seguros)
     const maxKb = avatarConfig?.maxSizeKb || 100;
     const maxWidth = avatarConfig?.maxWidth || 100;
     const maxHeight = avatarConfig?.maxHeight || 100;
 
-    // 2. Validação de Tamanho (KB)
     if (file.size > maxKb * 1024) {
       alert(`O ficheiro é demasiado grande.\nLimite: ${maxKb}KB\nSeu ficheiro: ${(file.size / 1024).toFixed(0)}KB`);
-      e.target.value = ''; // Reset input
+      e.target.value = ''; 
       return;
     }
 
-    // 3. Validação de Dimensões e Rácio (Px)
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
     
     img.onload = async () => {
-        // Validação Rígida
         const width = img.width;
         const height = img.height;
-        
-        URL.revokeObjectURL(objectUrl); // Limpeza de memória
+        URL.revokeObjectURL(objectUrl);
 
-        // Verificar Dimensões Exatas (ou máximas, dependendo da interpretação, mas o prompt pediu limites definidos "100x100")
         if (width > maxWidth || height > maxHeight) {
             alert(`Dimensões inválidas.\nMáximo permitido: ${maxWidth}x${maxHeight}px.\nSua imagem: ${width}x${height}px.`);
             e.target.value = '';
             return;
         }
 
-        // Verificar Rácio 1x1 (Quadrado)
         if (width !== height) {
             alert(`A imagem deve ser quadrada (1x1).\nSua imagem: ${width}x${height}px.`);
             e.target.value = '';
             return;
         }
 
-        // Se passou todas as validações, prossegue com upload
         try {
             setUploading(true);
             const publicUrl = await userService.uploadAvatar(user.id, file);
@@ -121,22 +111,28 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // 1. Drive Rename Hook (Novo v2.8.2)
-      // Se o nome mudou E o utilizador tem uma pasta pessoal, tentamos renomeá-la
+      // 1. Integração Drive (Renomear Pasta)
+      // Deteta se o nome mudou e se existe pasta associada
       if (formData.full_name && formData.full_name !== user.full_name && user.personal_folder_id) {
-           console.log("Detetada alteração de nome. A atualizar Drive...");
+           console.log("A atualizar nome da pasta no Drive...");
            try {
-               // Mantém o prefixo padrão se aplicável
-               const newFolderName = `[Formador] ${formData.full_name}`;
+               let newFolderName = formData.full_name;
+               
+               // Lógica Condicional: Adiciona prefixo apenas se for Formador
+               // Isto evita que Admins ou Alunos fiquem com "[Formador]" no nome da pasta
+               if (user.role === 'formador') {
+                   newFolderName = `[Formador] ${formData.full_name}`;
+               }
+               
                await driveService.renameFolder(user.personal_folder_id, newFolderName);
-               console.log("Pasta Drive renomeada com sucesso.");
+               console.log("Pasta renomeada para:", newFolderName);
            } catch (driveErr) {
-               // Não bloqueia o update do perfil, apenas avisa
-               console.warn("Aviso: Não foi possível renomear a pasta do Drive.", driveErr);
+               console.warn("Aviso Drive:", driveErr);
+               // Não bloqueia o update do perfil, mas regista o aviso
            }
       }
 
-      // 2. Update Profile
+      // 2. Atualizar Perfil
       await userService.updateProfile(user.id, {
         ...formData,
         visibility_settings: visibility
@@ -199,7 +195,7 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
               )}
             </div>
             
-            {/* Upload Overlay - Only visible when editing */}
+            {/* Upload Overlay */}
             {isEditing && (
                 <label className={`absolute inset-0 rounded-full bg-black/50 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ${uploading ? 'opacity-100' : ''}`}>
                 {uploading ? (
@@ -422,7 +418,6 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
               )}
             </div>
 
-            {/* Aviso de Ajuda Avatares */}
             {avatarConfig && avatarConfig.helpText && isEditing && (
                 <div className="mt-4 p-3 bg-indigo-50 border border-indigo-100 rounded text-xs text-indigo-800">
                     <strong>ℹ️ Nota sobre a Foto:</strong>
