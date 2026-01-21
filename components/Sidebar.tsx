@@ -31,7 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
   const role = profile?.role || UserRole.STUDENT;
   
   // Estado para controlar Mobile Accordion (Desktop usa Hover/CSS)
-  const [openGroups, setOpenGroups] = useState<string[]>(['perfil']);
+  const [openGroups, setOpenGroups] = useState<string[]>(['perfil', 'agenda']);
 
   const toggleGroup = (groupId: string) => {
     setOpenGroups(prev => 
@@ -66,6 +66,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       items: [
         { id: 'my_profile', label: 'Meu Perfil', permissionKey: 'view_my_profile', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
         { id: 'community', label: 'Comunidade', permissionKey: 'view_community', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
+      ]
+    },
+    {
+      id: 'agenda',
+      label: 'Pessoal',
+      icon: '📅',
+      items: [
+         { id: 'calendar', label: 'Agenda Google', permissionKey: 'view_calendar', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
       ]
     },
     {

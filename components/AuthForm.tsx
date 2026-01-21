@@ -27,6 +27,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel }) => {
           access_type: 'offline',
           prompt: 'consent', // Força o ecrã de seleção de conta
         };
+        // Adicionado scope de Calendário (Read-only)
+        options.scopes = 'https://www.googleapis.com/auth/calendar.readonly';
       }
 
       if (provider === 'azure') {

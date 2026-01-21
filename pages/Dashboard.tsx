@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Profile, UserRole } from '../types';
+import { Profile, UserRole, SupabaseSession } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { GlassCard } from '../components/GlassCard';
 import { userService } from '../services/users';
@@ -18,9 +18,10 @@ import { MediaManager } from '../components/dashboard/MediaManager';
 import { DriveManager } from '../components/dashboard/DriveManager';
 import { MyProfile } from '../components/dashboard/MyProfile';
 import { Community } from '../components/dashboard/Community';
+import { Calendar } from '../components/dashboard/Calendar';
 
 interface DashboardProps {
-  session: any;
+  session: SupabaseSession;
   onLogout: () => void;
 }
 
@@ -47,6 +48,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   const init = async () => {
       try {
+          if (!session.user) return;
           const userProfile = await userService.getProfile(session.user.id);
           setProfile(userProfile);
           
@@ -152,6 +154,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           
           // Perfil do Próprio
           case 'my_profile': return <MyProfile user={profile} refreshProfile={handleRefreshProfile} />;
+          case 'calendar': return <Calendar session={session.user} accessToken={session.provider_token} />;
           
           // Admin a Editar Outro Perfil
           case 'admin_edit_profile': 
@@ -189,6 +192,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       if (view === 'my_profile') return 'Meu Perfil';
       if (view === 'admin_edit_profile') return 'Gestão / Editar Perfil';
       if (view === 'manage_courses') return 'Gestão de Cursos';
+      if (view === 'calendar') return 'Minha Agenda';
       return view.replace('_', ' ');
   };
 

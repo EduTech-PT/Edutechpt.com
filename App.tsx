@@ -7,7 +7,7 @@ import { AuthForm } from './components/AuthForm';
 import { SupabaseSession } from './types';
 
 function App() {
-  const [session, setSession] = useState<SupabaseSession['user'] | null>(null);
+  const [session, setSession] = useState<SupabaseSession | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -62,7 +62,15 @@ function App() {
 
     // 2. Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session?.user ?? null);
+      if (session) {
+        setSession({
+          user: session.user,
+          access_token: session.access_token,
+          provider_token: session.provider_token
+        });
+      } else {
+        setSession(null);
+      }
       setLoading(false);
     });
 
@@ -70,8 +78,16 @@ function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session?.user ?? null);
-      if (session) setShowAuthModal(false);
+      if (session) {
+        setSession({
+          user: session.user,
+          access_token: session.access_token,
+          provider_token: session.provider_token
+        });
+        setShowAuthModal(false);
+      } else {
+        setSession(null);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -97,7 +113,7 @@ function App() {
           {showAuthModal && <AuthForm onCancel={() => setShowAuthModal(false)} />}
         </>
       ) : (
-        <Dashboard session={{ user: session }} onLogout={handleLogout} />
+        <Dashboard session={session} onLogout={handleLogout} />
       )}
     </div>
   );

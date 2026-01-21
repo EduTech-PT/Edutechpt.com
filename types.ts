@@ -46,6 +46,7 @@ export interface UserPermissions {
   manage_courses?: boolean; // Formador/Admin: Gerir cursos
   view_users?: boolean;
   view_settings?: boolean;
+  view_calendar?: boolean; // Nova permissão
   [key: string]: boolean | undefined;
 }
 
@@ -80,6 +81,7 @@ export interface SupabaseSession {
     email?: string;
   } | null;
   access_token: string;
+  provider_token?: string | null; // Token Google
 }
 
 export interface RoleDefinition {
@@ -94,4 +96,15 @@ export interface UserInvite {
   created_at: string;
   course_id?: string;
   class_id?: string;
+}
+
+// Calendar Interfaces
+export interface CalendarEvent {
+  id: string;
+  summary: string;
+  description?: string;
+  start: { dateTime?: string; date?: string };
+  end: { dateTime?: string; date?: string };
+  htmlLink: string;
+  location?: string;
 }
