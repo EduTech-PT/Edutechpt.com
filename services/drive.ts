@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.4.2";
+export const GAS_VERSION = "v1.4.3";
 
 export interface DriveFile {
   id: string;
@@ -40,8 +40,10 @@ export const driveService = {
 
           if (!url) return 'not_configured';
 
+          // Usa text/plain também aqui para garantir consistência
           const response = await fetch(url, {
               method: 'POST',
+              headers: { 'Content-Type': 'text/plain' },
               body: JSON.stringify({ action: 'check_health' })
           });
 
@@ -77,6 +79,7 @@ export const driveService = {
 
       const response = await fetch(config.googleScriptUrl, {
           method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({
               action: 'ensureFolder',
               rootId: config.driveFolderId,
@@ -105,7 +108,8 @@ export const driveService = {
 
     try {
         const response = await fetch(config.googleScriptUrl, {
-          method: 'POST', 
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({ action: 'list', folderId: targetId })
         });
 
@@ -144,6 +148,7 @@ export const driveService = {
           
           const response = await fetch(config.googleScriptUrl, {
             method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
             body: JSON.stringify({
               action: 'upload',
               folderId: targetId,
@@ -170,6 +175,7 @@ export const driveService = {
 
     const response = await fetch(config.googleScriptUrl, {
         method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({
             action: 'createFolder',
             folderId: targetId,
@@ -185,6 +191,7 @@ export const driveService = {
     const config = await this.getConfig();
     const response = await fetch(config.googleScriptUrl, {
       method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'delete',
         id: fileId

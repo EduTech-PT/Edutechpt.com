@@ -15,10 +15,13 @@ export const calendarService = {
     }
 
     try {
+      // CORREÇÃO CRÍTICA CORS:
+      // Usamos 'text/plain' para evitar que o browser envie um pedido 'OPTIONS' (Preflight)
+      // que o Google Apps Script não suporta e causa o erro "Failed to fetch".
       const response = await fetch(scriptUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'text/plain' 
         },
         body: JSON.stringify({
           action: 'getCalendarEvents',
