@@ -11,8 +11,7 @@ interface AvailabilityProps {
 interface DayAvailability {
     day: number;
     date: Date;
-    // Alterado: Agora guardamos arrays de strings com os horários reais
-    morningEvents: string[];   // ex: ["09:30 - 10:30", "11:00 - 12:00"]
+    morningEvents: string[];   // ex: ["09:30 - 10:30", "11:00 - 13:00"]
     afternoonEvents: string[]; // ex: ["14:00 - 15:30"]
     isPast: boolean;
     isWeekend: boolean;
@@ -77,50 +76,69 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
               continue;
           }
 
-          // Definir Janelas de Análise
+          // 1. Definir Limites Rígidos dos Turnos
           const morningStart = new Date(currentDay); morningStart.setHours(9, 0, 0, 0);
           const morningEnd = new Date(currentDay); morningEnd.setHours(13, 0, 0, 0);
 
           const afternoonStart = new Date(currentDay); afternoonStart.setHours(14, 0, 0, 0);
           const afternoonEnd = new Date(currentDay); afternoonEnd.setHours(18, 0, 0, 0);
 
-          // Filtrar eventos deste dia
+          // 2. Filtrar eventos deste dia específico
           const dayEvents = events.filter(e => {
               const eStart = e.start.dateTime ? new Date(e.start.dateTime) : (e.start.date ? new Date(e.start.date) : null);
               const eEnd = e.end.dateTime ? new Date(e.end.dateTime) : (e.end.date ? new Date(e.end.date) : null);
               if (!eStart || !eEnd) return false;
+              
+              // Se for evento de dia inteiro
               if (e.start.date) {
                   const evtDate = new Date(e.start.date);
                   return evtDate.toDateString() === currentDay.toDateString();
               }
+              
+              // Se cruza o dia atual (mesmo que comece antes ou termine depois)
+              // Logica simplificada: se começa no dia, ou termina no dia, ou engloba o dia
+              // Para simplificar a visualização mensal, focamos nos que "tocam" no dia de hoje
               return eStart.getDate() === d && eStart.getMonth() === month && eStart.getFullYear() === year;
           });
 
           const mEvents: string[] = [];
           const aEvents: string[] = [];
 
+          const formatTime = (date: Date) => date.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'});
+
           for (const ev of dayEvents) {
-              // Eventos de Dia Inteiro
+              // Eventos de Dia Inteiro bloqueiam tudo
               if (ev.start.date) {
                   mEvents.push("Dia Inteiro");
                   aEvents.push("Dia Inteiro");
-                  continue; // Passa ao próximo
+                  continue;
               }
 
               const evStart = new Date(ev.start.dateTime!);
               const evEnd = new Date(ev.end.dateTime!);
 
-              // Formatar horas (HH:mm)
-              const timeStr = `${evStart.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})}-${evEnd.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})}`;
+              // LÓGICA DE RECORTE (CLIPPING)
+              
+              // --- ANÁLISE MANHÃ (09-13) ---
+              // O início efetivo é o maior valor entre (Início Evento) e (09:00)
+              const mStartEff = new Date(Math.max(evStart.getTime(), morningStart.getTime()));
+              // O fim efetivo é o menor valor entre (Fim Evento) e (13:00)
+              const mEndEff = new Date(Math.min(evEnd.getTime(), morningEnd.getTime()));
 
-              // Check Manhã Conflict (Overlap Logic)
-              if (evStart < morningEnd && evEnd > morningStart) {
-                  mEvents.push(timeStr);
+              // Se o início efetivo for menor que o fim efetivo, existe sobreposição válida na manhã
+              if (mStartEff < mEndEff) {
+                  mEvents.push(`${formatTime(mStartEff)} - ${formatTime(mEndEff)}`);
               }
 
-              // Check Tarde Conflict
-              if (evStart < afternoonEnd && evEnd > afternoonStart) {
-                  aEvents.push(timeStr);
+              // --- ANÁLISE TARDE (14-18) ---
+              // O início efetivo é o maior valor entre (Início Evento) e (14:00)
+              const aStartEff = new Date(Math.max(evStart.getTime(), afternoonStart.getTime()));
+              // O fim efetivo é o menor valor entre (Fim Evento) e (18:00)
+              const aEndEff = new Date(Math.min(evEnd.getTime(), afternoonEnd.getTime()));
+
+              // Se o início efetivo for menor que o fim efetivo, existe sobreposição válida na tarde
+              if (aStartEff < aEndEff) {
+                  aEvents.push(`${formatTime(aStartEff)} - ${formatTime(aEndEff)}`);
               }
           }
 
@@ -159,17 +177,12 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
                   continue;
               }
 
-              // Reutiliza lógica simplificada
               const dayEvents = exportEvents.filter(e => {
                    const eStart = e.start.dateTime ? new Date(e.start.dateTime) : (e.start.date ? new Date(e.start.date) : null);
                    return eStart && eStart.getDate() === currentDay.getDate() && eStart.getMonth() === currentDay.getMonth();
               });
 
-              // Processamento simples para exportação (apenas saber se está livre ou ocupado)
-              // Poderíamos detalhar, mas para Excel simples "LIVRE/OCUPADO" é geralmente preferido.
-              // Contudo, se quiser os horários no Excel também, podemos ajustar. 
-              // Vou manter LIVRE/OCUPADO no Excel para legibilidade, mas mostrar Horas na UI.
-              
+              // Recriar limites para o dia da exportação
               const morningStart = new Date(currentDay); morningStart.setHours(9, 0, 0, 0);
               const morningEnd = new Date(currentDay); morningEnd.setHours(13, 0, 0, 0);
               const afternoonStart = new Date(currentDay); afternoonStart.setHours(14, 0, 0, 0);
@@ -178,12 +191,25 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
               let mStatus = "LIVRE";
               let aStatus = "LIVRE";
 
+              // Na exportação para Excel, mantemos simplificado (Livre/Ocupado)
+              // Se houver qualquer interseção, marca como Ocupado
               for (const ev of dayEvents) {
-                  if (ev.start.date) { mStatus = "OCUPADO (Dia Todo)"; aStatus = "OCUPADO (Dia Todo)"; break; }
+                  if (ev.start.date) { 
+                      mStatus = "OCUPADO (Dia Todo)"; 
+                      aStatus = "OCUPADO (Dia Todo)"; 
+                      break; 
+                  }
+                  
                   const s = new Date(ev.start.dateTime!);
                   const e = new Date(ev.end.dateTime!);
-                  if (s < morningEnd && e > morningStart) mStatus = "OCUPADO";
-                  if (s < afternoonEnd && e > afternoonStart) aStatus = "OCUPADO";
+
+                  // Verifica interseção simples
+                  if (Math.max(s.getTime(), morningStart.getTime()) < Math.min(e.getTime(), morningEnd.getTime())) {
+                      mStatus = "OCUPADO";
+                  }
+                  if (Math.max(s.getTime(), afternoonStart.getTime()) < Math.min(e.getTime(), afternoonEnd.getTime())) {
+                      aStatus = "OCUPADO";
+                  }
               }
 
               csvContent += `"${dateStr}","${weekDayStr}","${mStatus}","${aStatus}"\n`;
@@ -222,7 +248,7 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
           );
       }
       
-      // Se houver eventos, mostra os horários
+      // Se houver eventos, mostra os horários REAIS RECORTADOS
       return (
         <div className={`flex-1 rounded-lg flex flex-col items-center justify-start p-2 transition-all border bg-red-50 text-red-700 border-red-100 overflow-hidden`}>
             <span className="text-[10px] uppercase font-bold mb-1 opacity-70 border-b border-red-200 w-full text-center pb-1">{period}</span>
