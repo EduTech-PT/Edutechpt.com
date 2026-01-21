@@ -10,11 +10,13 @@ interface CalendarProps {
   accessToken?: string | null;
 }
 
-interface TimeSlot {
-    start: Date;
-    end: Date;
-    status: 'free' | 'busy';
-    summary?: string;
+interface DayAvailability {
+    day: number;
+    date: Date;
+    morning: boolean;   // 09:00 - 13:00
+    afternoon: boolean; // 14:00 - 18:00
+    isPast: boolean;
+    isWeekend: boolean;
 }
 
 export const Calendar: React.FC<CalendarProps> = ({ session }) => {
@@ -25,23 +27,21 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
   const [debugLog, setDebugLog] = useState<string[]>([]);
   const [showDebug, setShowDebug] = useState(false);
   
-  // State de Navegação
+  // State de Navegação e Disponibilidade
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(new Date());
-  const [dailySlots, setDailySlots] = useState<TimeSlot[]>([]);
+  const [monthlySlots, setMonthlySlots] = useState<DayAvailability[]>([]);
 
   useEffect(() => {
-    // Carrega o URL para o botão de diagnóstico
     adminService.getAppConfig().then(c => setScriptUrl(c.googleScriptUrl || null));
     fetchEvents();
   }, [currentDate]);
 
-  // Recalcular slots sempre que muda o dia selecionado ou os eventos
   useEffect(() => {
-    if (selectedDay) {
-        calculateAvailability(selectedDay);
+    if (events.length > 0 || !loading) {
+        calculateMonthlyAvailability();
     }
-  }, [selectedDay, events]);
+  }, [events, currentDate]);
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -63,77 +63,88 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
     }
   };
 
-  const calculateAvailability = (date: Date) => {
-      // Configuração Horário Laboral
-      const WORK_START = 9; // 09:00
-      const WORK_END = 18;  // 18:00
+  const calculateMonthlyAvailability = () => {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const today = new Date();
+      today.setHours(0,0,0,0);
 
-      const dayStart = new Date(date);
-      dayStart.setHours(WORK_START, 0, 0, 0);
-      
-      const dayEnd = new Date(date);
-      dayEnd.setHours(WORK_END, 0, 0, 0);
+      const availabilityMap: DayAvailability[] = [];
 
-      // 1. Filtrar eventos do dia
-      const dayEvents = events.filter(e => {
-          const eStart = e.start.dateTime ? new Date(e.start.dateTime) : (e.start.date ? new Date(e.start.date) : null);
-          const eEnd = e.end.dateTime ? new Date(e.end.dateTime) : (e.end.date ? new Date(e.end.date) : null);
+      for (let d = 1; d <= daysInMonth; d++) {
+          const currentDay = new Date(year, month, d);
+          const isWeekend = currentDay.getDay() === 0 || currentDay.getDay() === 6;
+          const isPast = currentDay < today;
+
+          // Se for fim de semana ou passado, marcamos como indisponível para facilitar
+          if (isWeekend || isPast) {
+              availabilityMap.push({ day: d, date: currentDay, morning: false, afternoon: false, isPast, isWeekend });
+              continue;
+          }
+
+          // Definir Períodos do Dia
+          const morningStart = new Date(currentDay); morningStart.setHours(9, 0, 0, 0);
+          const morningEnd = new Date(currentDay); morningEnd.setHours(13, 0, 0, 0);
+
+          const afternoonStart = new Date(currentDay); afternoonStart.setHours(14, 0, 0, 0);
+          const afternoonEnd = new Date(currentDay); afternoonEnd.setHours(18, 0, 0, 0);
+
+          // Filtrar eventos deste dia
+          const dayEvents = events.filter(e => {
+              const eStart = e.start.dateTime ? new Date(e.start.dateTime) : (e.start.date ? new Date(e.start.date) : null);
+              const eEnd = e.end.dateTime ? new Date(e.end.dateTime) : (e.end.date ? new Date(e.end.date) : null);
+              
+              if (!eStart || !eEnd) return false;
+
+              // Se for evento de dia inteiro no próprio dia
+              if (e.start.date) {
+                  const evtDate = new Date(e.start.date);
+                  return evtDate.toDateString() === currentDay.toDateString();
+              }
+
+              return eStart.getDate() === d && eStart.getMonth() === month && eStart.getFullYear() === year;
+          });
+
+          // Verificar conflitos
+          // Lógica de interseção: (EventStart < PeriodEnd) && (EventEnd > PeriodStart)
           
-          if (!eStart || !eEnd) return false;
+          let morningFree = true;
+          let afternoonFree = true;
 
-          // Se for evento de dia inteiro, ocupa tudo
-          if (e.start.date) {
-             const evtDate = new Date(e.start.date);
-             return evtDate.toDateString() === date.toDateString();
+          for (const ev of dayEvents) {
+              // Verifica se é evento de dia inteiro
+              if (ev.start.date) {
+                  morningFree = false;
+                  afternoonFree = false;
+                  break;
+              }
+
+              const evStart = new Date(ev.start.dateTime!);
+              const evEnd = new Date(ev.end.dateTime!);
+
+              // Check Morning Conflict (09-13)
+              if (evStart < morningEnd && evEnd > morningStart) {
+                  morningFree = false;
+              }
+
+              // Check Afternoon Conflict (14-18)
+              if (evStart < afternoonEnd && evEnd > afternoonStart) {
+                  afternoonFree = false;
+              }
           }
 
-          // Verifica sobreposição com o horário laboral
-          return eStart < dayEnd && eEnd > dayStart;
-      }).sort((a, b) => {
-          const dateA = new Date(a.start.dateTime || a.start.date || '');
-          const dateB = new Date(b.start.dateTime || b.start.date || '');
-          return dateA.getTime() - dateB.getTime();
-      });
-
-      // 2. Se houver um evento de dia inteiro, bloquear tudo
-      const hasAllDayEvent = dayEvents.some(e => !!e.start.date);
-      if (hasAllDayEvent) {
-          setDailySlots([{ start: dayStart, end: dayEnd, status: 'busy', summary: 'Dia Inteiro Ocupado' }]);
-          return;
+          availabilityMap.push({ 
+              day: d, 
+              date: currentDay, 
+              morning: morningFree, 
+              afternoon: afternoonFree,
+              isPast,
+              isWeekend
+          });
       }
 
-      // 3. Calcular "buracos" (Free Slots)
-      const slots: TimeSlot[] = [];
-      let cursor = new Date(dayStart);
-
-      dayEvents.forEach(evt => {
-          const eStart = new Date(evt.start.dateTime!);
-          const eEnd = new Date(evt.end.dateTime!);
-
-          // Ajustar ao horário laboral
-          const validStart = eStart < dayStart ? dayStart : eStart;
-          const validEnd = eEnd > dayEnd ? dayEnd : eEnd;
-
-          // Se houver espaço entre o cursor e o início do evento -> Slot Livre
-          if (validStart > cursor) {
-              slots.push({ start: new Date(cursor), end: new Date(validStart), status: 'free' });
-          }
-
-          // Adicionar o Slot Ocupado (apenas visualmente ou lógica)
-          // slots.push({ start: validStart, end: validEnd, status: 'busy', summary: evt.summary });
-
-          // Mover cursor
-          if (validEnd > cursor) {
-              cursor = validEnd;
-          }
-      });
-
-      // Slot final (do último evento até às 18h)
-      if (cursor < dayEnd) {
-          slots.push({ start: new Date(cursor), end: dayEnd, status: 'free' });
-      }
-
-      setDailySlots(slots);
+      setMonthlySlots(availabilityMap);
   };
 
   const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
@@ -162,6 +173,9 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
         const isToday = new Date().toDateString() === dateObj.toDateString();
         const isSelected = selectedDay?.toDateString() === dateObj.toDateString();
 
+        const dayAvailability = monthlySlots.find(s => s.day === dayNum);
+        
+        // Eventos Visuais (pontos)
         const dayEvents = events.filter(e => {
             const eventDate = e.start.dateTime ? new Date(e.start.dateTime) : (e.start.date ? new Date(e.start.date) : null);
             return eventDate && eventDate.getDate() === dayNum;
@@ -172,20 +186,38 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
                 key={dayNum} 
                 onClick={() => setSelectedDay(dateObj)}
                 className={`
-                    min-h-[100px] p-2 border border-white/30 transition-all cursor-pointer relative group
+                    min-h-[100px] p-2 border border-white/30 transition-all cursor-pointer relative group flex flex-col justify-between
                     ${isToday ? 'bg-indigo-50/40 font-bold' : 'bg-white/20 hover:bg-white/40'}
-                    ${isSelected ? 'ring-2 ring-indigo-500 z-10' : ''}
+                    ${isSelected ? 'ring-2 ring-indigo-500 z-10 shadow-lg bg-white/50' : ''}
                 `}
             >
-                <div className={`text-right mb-1 text-sm ${isToday ? 'text-indigo-600' : 'text-indigo-900'}`}>
-                    {dayNum}
+                <div className="flex justify-between items-start">
+                    <span className={`text-sm ${isToday ? 'text-indigo-600' : 'text-indigo-900'}`}>{dayNum}</span>
+                    
+                    {/* Indicadores de Disponibilidade M/T */}
+                    {dayAvailability && !dayAvailability.isWeekend && !dayAvailability.isPast && (
+                        <div className="flex gap-1">
+                            <span 
+                                className={`text-[9px] w-4 h-4 flex items-center justify-center rounded-full font-bold border ${dayAvailability.morning ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-50 text-red-300 border-red-100 opacity-50'}`}
+                                title="Manhã (09h-13h)"
+                            >
+                                M
+                            </span>
+                            <span 
+                                className={`text-[9px] w-4 h-4 flex items-center justify-center rounded-full font-bold border ${dayAvailability.afternoon ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-red-50 text-red-300 border-red-100 opacity-50'}`}
+                                title="Tarde (14h-18h)"
+                            >
+                                T
+                            </span>
+                        </div>
+                    )}
                 </div>
                 
-                <div className="flex flex-wrap gap-1 content-start">
-                    {dayEvents.slice(0, 4).map((evt, idx) => (
-                         <div key={evt.id} className="w-full h-1.5 rounded-full bg-indigo-400 mb-0.5" title={evt.summary}></div>
+                <div className="flex flex-wrap gap-1 content-end mt-2">
+                    {dayEvents.slice(0, 3).map((evt, idx) => (
+                         <div key={evt.id} className="w-full h-1.5 rounded-full bg-indigo-400 opacity-60" title={evt.summary}></div>
                     ))}
-                    {dayEvents.length > 4 && <span className="text-[10px] text-indigo-600">+</span>}
+                    {dayEvents.length > 3 && <span className="text-[9px] text-indigo-500 font-bold">+ {dayEvents.length - 3}</span>}
                 </div>
             </div>
         );
@@ -200,6 +232,9 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
   }) : [];
 
   const isPermissionError = error?.includes('PERMISSAO_PENDENTE') || error?.includes('permission');
+  
+  // Filtra apenas os dias com alguma disponibilidade para mostrar no painel de baixo
+  const availableDays = monthlySlots.filter(s => (s.morning || s.afternoon) && !s.isWeekend && !s.isPast);
 
   return (
     <div className="flex flex-col xl:flex-row gap-6 h-[calc(100vh-140px)] animate-in slide-in-from-right duration-300">
@@ -278,61 +313,43 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
                         )}
                     </div>
 
-                    {/* NEW: Availability Map */}
-                    <GlassCard className="shrink-0 p-4">
-                        <h3 className="text-sm font-bold text-indigo-900 mb-2 flex items-center gap-2">
-                             <span>⏱️</span> Mapa de Disponibilidade ({selectedDay?.toLocaleDateString('pt-PT')})
-                        </h3>
+                    {/* NEW: Monthly Availability Map */}
+                    <GlassCard className="shrink-0 p-4 max-h-[220px] flex flex-col">
+                        <div className="flex justify-between items-center mb-3 shrink-0">
+                            <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                                <span>🗓️</span> Mapa de Disponibilidade Mensal
+                            </h3>
+                            <div className="flex gap-2 text-[10px] font-bold">
+                                <span className="px-2 py-1 bg-green-100 text-green-700 rounded border border-green-200">Manhã: 09h-13h</span>
+                                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded border border-blue-200">Tarde: 14h-18h</span>
+                            </div>
+                        </div>
                         
-                        {/* Visual Timeline Bar */}
-                        <div className="h-6 w-full bg-gray-200 rounded-full overflow-hidden flex mb-3 border border-gray-300 relative shadow-inner">
-                             {/* Background Lines for hours (Optional visual aid) */}
-                             {[...Array(9)].map((_, i) => (
-                                <div key={i} className="absolute top-0 bottom-0 border-r border-white/30 text-[8px] text-gray-500 pt-1" style={{ left: `${(i+1) * 11.1}%` }}></div>
-                             ))}
-
-                             {dailySlots.length === 0 ? (
-                                <div className="w-full bg-red-300 flex items-center justify-center text-[10px] font-bold text-red-800 uppercase tracking-wider">
-                                    {events.length > 0 ? 'Indisponível / Dia Cheio' : 'Indisponível'}
-                                </div>
-                             ) : (
-                                dailySlots.map((slot, idx) => {
-                                    // Calcular largura baseada em 9 horas (09h-18h = 540 min)
-                                    // Total Work Minutes = 540
-                                    const totalWorkMin = 540;
-                                    
-                                    // Calcular posição de início (offset das 09:00)
-                                    const startMin = (slot.start.getHours() * 60 + slot.start.getMinutes()) - (9 * 60);
-                                    const durationMin = (slot.end.getTime() - slot.start.getTime()) / 60000;
-                                    
-                                    const leftPct = (startMin / totalWorkMin) * 100;
-                                    const widthPct = (durationMin / totalWorkMin) * 100;
-
-                                    return (
-                                        <div 
-                                            key={idx}
-                                            className="absolute h-full bg-green-400 hover:bg-green-500 transition-colors cursor-help border-r border-white/20"
-                                            style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                                            title={`Livre: ${slot.start.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})} - ${slot.end.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})}`}
-                                        >
-                                            <span className="sr-only">Livre</span>
+                        {availableDays.length === 0 ? (
+                            <div className="flex-1 flex items-center justify-center bg-white/40 rounded-lg border border-dashed border-indigo-200 text-indigo-400 text-sm italic">
+                                Sem disponibilidade encontrada para este mês.
+                            </div>
+                        ) : (
+                            <div className="flex-1 overflow-x-auto custom-scrollbar">
+                                <div className="flex gap-3 pb-2">
+                                    {availableDays.map((slot) => (
+                                        <div key={slot.day} className="flex-shrink-0 w-24 bg-white/60 border border-white/60 rounded-lg p-2 flex flex-col items-center shadow-sm">
+                                            <span className="text-xs font-bold text-indigo-900 mb-1">
+                                                {slot.day} {slot.date.toLocaleDateString('pt-PT', { month: 'short' })}
+                                            </span>
+                                            <div className="flex flex-col gap-1 w-full">
+                                                {slot.morning && (
+                                                    <span className="text-[10px] text-center bg-green-100 text-green-700 py-0.5 rounded border border-green-200 font-bold">Manhã</span>
+                                                )}
+                                                {slot.afternoon && (
+                                                    <span className="text-[10px] text-center bg-blue-100 text-blue-700 py-0.5 rounded border border-blue-200 font-bold">Tarde</span>
+                                                )}
+                                            </div>
                                         </div>
-                                    );
-                                })
-                             )}
-                        </div>
-
-                        {/* Text List of Slots */}
-                        <div className="flex flex-wrap gap-2 text-xs">
-                            <span className="font-bold text-indigo-900 opacity-70 py-1">Slots Livres:</span>
-                            {dailySlots.length > 0 ? dailySlots.map((slot, i) => (
-                                <div key={i} className="px-3 py-1 bg-green-100 text-green-800 rounded-md border border-green-200 font-mono font-bold shadow-sm">
-                                    {slot.start.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})} - {slot.end.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})}
+                                    ))}
                                 </div>
-                            )) : (
-                                <span className="text-gray-500 italic py-1">Sem horários livres entre as 09:00 e as 18:00.</span>
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </GlassCard>
                 </>
             )}
@@ -346,12 +363,12 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
                     </h3>
                     {debugLog.length > 0 && (
                         <button onClick={() => setShowDebug(!showDebug)} className="text-[10px] px-2 py-1 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200">
-                           {showDebug ? 'Ocultar Log' : 'Ver Diagnóstico'}
+                           {showDebug ? 'Ocultar Log' : 'Diagnóstico'}
                         </button>
                     )}
                 </div>
 
-                <p className="text-xs text-indigo-500 uppercase font-bold mb-4 border-b border-indigo-100 pb-2">Eventos Institucionais</p>
+                <p className="text-xs text-indigo-500 uppercase font-bold mb-4 border-b border-indigo-100 pb-2">Agenda do Dia</p>
                 
                 {showDebug && (
                     <div className="mb-4 bg-slate-800 text-slate-200 p-2 rounded text-[10px] font-mono overflow-y-auto max-h-40">
