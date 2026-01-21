@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { calendarService } from '../../services/calendar';
+import { adminService } from '../../services/admin';
 import { CalendarEvent, SupabaseSession } from '../../types';
 
 interface CalendarProps {
@@ -13,14 +14,15 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scriptUrl, setScriptUrl] = useState<string | null>(null);
   
   // State de Navegação
   const [currentDate, setCurrentDate] = useState(new Date());
-  
-  // Para mostrar detalhes ao clicar
   const [selectedDay, setSelectedDay] = useState<Date | null>(new Date());
 
   useEffect(() => {
+    // Carrega o URL para o botão de diagnóstico
+    adminService.getAppConfig().then(c => setScriptUrl(c.googleScriptUrl || null));
     fetchEvents();
   }, [currentDate]);
 
@@ -28,11 +30,9 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
     setLoading(true);
     setError(null);
     try {
-      // Pedimos desde o início do mês até ao fim do mês
       const start = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59);
       
-      // Passamos null no token, pois agora o serviço usa o Proxy Institucional
       const data = await calendarService.listEvents(null, start, end);
       setEvents(data);
     } catch (err: any) {
@@ -43,7 +43,6 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
     }
   };
 
-  // Funções de Ajuda do Calendário
   const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
 
@@ -51,7 +50,7 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
   const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
 
   const daysInMonth = getDaysInMonth(currentDate.getFullYear(), currentDate.getMonth());
-  const startDay = getFirstDayOfMonth(currentDate.getFullYear(), currentDate.getMonth()); // 0 = Sunday
+  const startDay = getFirstDayOfMonth(currentDate.getFullYear(), currentDate.getMonth()); 
 
   const renderCalendarGrid = () => {
     const totalSlots = Math.ceil((daysInMonth + startDay) / 7) * 7;
@@ -70,7 +69,6 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
         const isToday = new Date().toDateString() === dateObj.toDateString();
         const isSelected = selectedDay?.toDateString() === dateObj.toDateString();
 
-        // Find events for this day
         const dayEvents = events.filter(e => {
             const eventDate = e.start.dateTime ? new Date(e.start.dateTime) : (e.start.date ? new Date(e.start.date) : null);
             return eventDate && eventDate.getDate() === dayNum;
@@ -90,7 +88,6 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
                     {dayNum}
                 </div>
                 
-                {/* Dots indicators */}
                 <div className="flex flex-wrap gap-1 content-start">
                     {dayEvents.slice(0, 4).map((evt, idx) => (
                          <div key={evt.id} className="w-full h-1.5 rounded-full bg-indigo-400 mb-0.5" title={evt.summary}></div>
@@ -111,7 +108,6 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
 
   return (
     <div className="flex flex-col xl:flex-row gap-6 h-[calc(100vh-140px)] animate-in slide-in-from-right duration-300">
-        {/* Main Calendar Area */}
         <div className="flex-1 flex flex-col h-full">
             <GlassCard className="flex items-center justify-between mb-4 py-3">
                  <div className="flex gap-2">
@@ -121,7 +117,7 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
                  <h2 className="text-xl font-bold text-indigo-900 capitalize">
                     {currentDate.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' })}
                  </h2>
-                 <div className="w-10"></div> {/* Spacer for balance */}
+                 <div className="w-10"></div>
             </GlassCard>
 
             {error ? (
@@ -132,21 +128,33 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
                     
                     {error.includes('autorização') && (
                         <div className="text-xs text-left bg-white/50 p-4 rounded mb-6 border border-indigo-100 max-w-md w-full">
-                             <b className="text-indigo-900">Solução provável (Para o Admin):</b>
-                             <ol className="list-decimal ml-4 mt-2 space-y-1 text-indigo-800">
-                                 <li>Vá a Definições {'>'} Integração Drive.</li>
-                                 <li>Copie o novo código e atualize o Script no Google.</li>
-                                 <li><b>Importante:</b> No editor do Google, selecione a função <code>autorizarPermissoes</code> e clique em <b>Executar</b>.</li>
-                                 <li>Faça nova implementação (Deploy) como "Nova Versão".</li>
+                             <b className="text-indigo-900">Como resolver (Admin):</b>
+                             <ol className="list-decimal ml-4 mt-2 space-y-2 text-indigo-800">
+                                 <li>Vá a Definições {'>'} Integração Drive e copie o novo código.</li>
+                                 <li>No Google Script, faça <b>Deploy {'>'} Nova Versão</b> (Essencial!).</li>
+                                 <li>Clique no botão abaixo para abrir o script. Se o Google pedir autorização, <b>aceite</b>.</li>
                              </ol>
                         </div>
                     )}
 
-                    <button onClick={fetchEvents} className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow-md hover:bg-indigo-700">Tentar Novamente</button>
+                    <div className="flex gap-3">
+                         {scriptUrl && (
+                             <a 
+                                href={scriptUrl} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="px-4 py-2 bg-white text-indigo-600 border border-indigo-200 rounded-lg font-bold shadow-sm hover:bg-indigo-50"
+                             >
+                                 Testar Link no Browser ↗
+                             </a>
+                         )}
+                         <button onClick={fetchEvents} className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow-md hover:bg-indigo-700">
+                             Tentar Novamente
+                         </button>
+                    </div>
                  </GlassCard>
             ) : (
                 <div className="flex-1 bg-white/30 backdrop-blur-md rounded-2xl border border-white/40 shadow-lg overflow-hidden flex flex-col">
-                    {/* Header Days */}
                     <div className="grid grid-cols-7 bg-indigo-50/50 border-b border-white/40">
                         {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => (
                             <div key={d} className="py-2 text-center text-xs font-bold text-indigo-800 uppercase tracking-wide">
@@ -154,7 +162,6 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
                             </div>
                         ))}
                     </div>
-                    {/* Grid */}
                     <div className="grid grid-cols-7 flex-1 auto-rows-fr overflow-y-auto">
                         {renderCalendarGrid()}
                     </div>
@@ -167,7 +174,6 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
             )}
         </div>
 
-        {/* Side Panel (Agenda View) */}
         <div className="w-full xl:w-80 flex flex-col gap-4 h-full">
             <GlassCard className="h-full flex flex-col overflow-hidden">
                 <h3 className="font-bold text-indigo-900 mb-1">
