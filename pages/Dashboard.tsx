@@ -42,6 +42,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [gasStatus, setGasStatus] = useState<{ match: boolean; remote: string; local: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Recovery State
+  const [recovering, setRecovering] = useState(false);
+
   // Load Initial Data
   useEffect(() => {
     init();
@@ -54,14 +57,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           setProfile(userProfile);
           
           // AUTO-CREATE DRIVE FOLDER FOR TRAINERS
-          // Garante que Formadores têm pasta criada assim que entram no Dashboard
           if (userProfile?.role === UserRole.TRAINER && !userProfile.personal_folder_id) {
               driveService.getPersonalFolder(userProfile).then((id) => {
-                  console.log("Pasta pessoal verificada/criada:", id);
                   setProfile(prev => prev ? {...prev, personal_folder_id: id} : null);
-              }).catch(err => {
-                  console.warn("Aviso: Não foi possível criar pasta Drive automática.", err);
-              });
+              }).catch(err => console.warn(err));
           }
 
           if (userProfile?.role === UserRole.ADMIN) {
@@ -79,15 +78,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                       });
                   });
               } else {
-                   setGasStatus({
-                      match: false,
-                      remote: 'not_configured',
-                      local: GAS_VERSION
-                  });
+                   setGasStatus({ match: false, remote: 'not_configured', local: GAS_VERSION });
               }
           }
-      } catch (e) { console.error("Init Error", e); } 
-      finally { setLoading(false); }
+      } catch (e) { 
+          // Perfil não encontrado é normal no primeiro login ou erro
+          console.error("Init Error", e); 
+      } finally { 
+          setLoading(false); 
+      }
   };
 
   // Clock
@@ -105,37 +104,68 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   const handleRefreshProfile = async () => {
-      // Se estamos a editar outro utilizador, recarregamos esse utilizador específico
       if (selectedUserToEdit) {
           try {
             const updated = await userService.getProfile(selectedUserToEdit.id);
             setSelectedUserToEdit(updated);
           } catch (e) { console.error(e); }
       } else {
-          // Senão, recarregamos o utilizador logado
           init(); 
       }
   };
 
-  // Callback para quando o Admin clica em editar na lista de users
   const handleAdminEditUser = (userToEdit: Profile) => {
       setSelectedUserToEdit(userToEdit);
       setCurrentView('admin_edit_profile');
   };
 
-  // Callback para voltar à lista
   const handleBackToUserList = () => {
       setSelectedUserToEdit(null);
       setCurrentView('users');
+  };
+
+  const handleRecoverInvite = async () => {
+      setRecovering(true);
+      try {
+          const success = await userService.claimInvite();
+          if (success) {
+              alert("✅ Convite validado com sucesso! A entrar...");
+              window.location.reload(); // Reload para garantir estado limpo
+          } else {
+              alert("❌ Não foi encontrado nenhum convite pendente para este email.\nContacte o administrador.");
+          }
+      } catch (e: any) {
+          alert("Erro ao validar convite: " + e.message);
+      } finally {
+          setRecovering(false);
+      }
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-indigo-600">A carregar EduTech PT...</div>;
 
   if (!profile) return (
       <div className="min-h-screen flex items-center justify-center p-8 bg-indigo-50">
-          <GlassCard className="text-center">
-              <h2 className="text-2xl font-bold text-red-600 mb-4">Acesso Negado</h2>
-              <button onClick={onLogout} className="px-6 py-2 bg-indigo-600 text-white rounded-lg">Sair</button>
+          <GlassCard className="text-center max-w-md w-full">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">⚠️</div>
+              <h2 className="text-2xl font-bold text-indigo-900 mb-2">Acesso Negado</h2>
+              <p className="text-indigo-700 mb-6">
+                  A sua conta não tem um perfil associado ou o convite não foi processado corretamente.
+              </p>
+              
+              <div className="space-y-3">
+                  <button 
+                    onClick={handleRecoverInvite} 
+                    disabled={recovering}
+                    className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-md flex items-center justify-center gap-2"
+                  >
+                      {recovering ? <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div> : '🔍'}
+                      Validar Convite Pendente
+                  </button>
+                  
+                  <button onClick={onLogout} className="w-full px-6 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg">
+                      Sair / Tentar Outra Conta
+                  </button>
+              </div>
           </GlassCard>
       </div>
   );
@@ -152,13 +182,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 isAdmin={profile.role === UserRole.ADMIN} 
             />
           );
-          
-          // Perfil do Próprio
           case 'my_profile': return <MyProfile user={profile} refreshProfile={handleRefreshProfile} />;
           case 'calendar': return <Calendar session={session.user} accessToken={session.provider_token} />;
           case 'availability': return <AvailabilityMap session={session.user} />;
-          
-          // Admin a Editar Outro Perfil
           case 'admin_edit_profile': 
             return selectedUserToEdit ? (
                 <MyProfile 
@@ -174,21 +200,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           case 'media': return <MediaManager />;
           case 'drive': return <DriveManager profile={profile} />;
           case 'users': return <UserAdmin onEditUser={handleAdminEditUser} />;
-          
-          // Mapeamento das Sub-paginas de definições
           case 'settings_geral': return <Settings dbVersion={dbVersion} initialTab="geral" />;
           case 'settings_roles': return <Settings dbVersion={dbVersion} initialTab="roles" />;
           case 'settings_sql': return <Settings dbVersion={dbVersion} initialTab="sql" />;
           case 'settings_drive': return <Settings dbVersion={dbVersion} initialTab="drive" />;
           case 'settings_avatars': return <Settings dbVersion={dbVersion} initialTab="avatars" />;
           case 'settings_access': return <Settings dbVersion={dbVersion} initialTab="access" />;
-          case 'settings': return <Settings dbVersion={dbVersion} initialTab="geral" />; // Fallback
-
+          case 'settings': return <Settings dbVersion={dbVersion} initialTab="geral" />;
           default: return <GlassCard><h2>Em Construção: {currentView}</h2></GlassCard>;
       }
   };
 
-  // Humanize title
   const getPageTitle = (view: string) => {
       if (view.startsWith('settings_')) return 'Definições / ' + view.replace('settings_', '').toUpperCase();
       if (view === 'my_profile') return 'Meu Perfil';
@@ -210,7 +232,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
       <div className="relative z-10 flex w-full max-w-[1600px] mx-auto p-0 md:p-6 md:gap-6 h-screen">
         
-        {/* Mobile Backdrop */}
         {mobileMenuOpen && (
             <div 
                 className="fixed inset-0 z-40 bg-indigo-900/30 backdrop-blur-sm md:hidden animate-in fade-in duration-200"
@@ -218,7 +239,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
             ></div>
         )}
 
-        {/* Sidebar: Drawer on Mobile, Relative on Desktop */}
         <div className={`
             fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none
             md:relative md:translate-x-0 md:w-auto md:block
@@ -227,10 +247,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
             <Sidebar 
                 profile={profile} 
                 appVersion={APP_VERSION} 
-                currentView={currentView === 'admin_edit_profile' ? 'users' : currentView} // Mantém 'users' ativo na sidebar se estiver a editar
+                currentView={currentView === 'admin_edit_profile' ? 'users' : currentView}
                 setView={(view) => {
                     setCurrentView(view);
-                    setSelectedUserToEdit(null); // Limpa seleção ao mudar de menu
+                    setSelectedUserToEdit(null);
                 }} 
                 onLogout={onLogout}
                 onMobileClose={() => setMobileMenuOpen(false)}
@@ -238,10 +258,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
         </div>
         
         <main className="flex-1 min-w-0 h-full flex flex-col w-full p-4 md:p-0">
-            {/* Header */}
             <header className="flex justify-between items-center mb-6 p-4 bg-white/30 backdrop-blur-md rounded-2xl shadow-sm border border-white/40 sticky top-0 z-20 md:relative">
                 <div className="flex items-center gap-3">
-                    {/* Hamburger Button (Mobile Only) */}
                     <button 
                         onClick={() => setMobileMenuOpen(true)}
                         className="md:hidden p-2 -ml-2 text-indigo-900 rounded-lg hover:bg-white/40 transition-colors"

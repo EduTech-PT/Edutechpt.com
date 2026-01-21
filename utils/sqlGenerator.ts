@@ -2,7 +2,7 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    return `-- SCRIPT ${currentVersion} - Admin Avatar Management
+    return `-- SCRIPT ${currentVersion} - Invite Recovery & Fixes
 -- Gerado automaticamente pelo Sistema EduTech PT
 
 -- 0. REMOÇÃO PREVENTIVA DE POLÍTICAS
@@ -63,8 +63,19 @@ begin
     if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'personal_folder_id') then
         alter table public.profiles add column personal_folder_id text;
     end if;
+    
+    -- 1.4 Classes & Invites Updates (v1.2.1 Check)
+    if not exists (select 1 from information_schema.columns where table_name = 'enrollments' and column_name = 'class_id') then
+        alter table public.enrollments add column class_id uuid; -- references adicionado na criação da tabela se não existir
+    end if;
+    if not exists (select 1 from information_schema.columns where table_name = 'user_invites' and column_name = 'course_id') then
+        alter table public.user_invites add column course_id uuid;
+    end if;
+    if not exists (select 1 from information_schema.columns where table_name = 'user_invites' and column_name = 'class_id') then
+        alter table public.user_invites add column class_id uuid;
+    end if;
 
-    -- 1.4 RESTRIÇÃO DE NOME ÚNICO (DEDUPLICAÇÃO PRÉVIA)
+    -- 1.5 RESTRIÇÃO DE NOME ÚNICO (DEDUPLICAÇÃO PRÉVIA)
     -- Antes de aplicar UNIQUE, corrigimos duplicados existentes adicionando os 4 primeiros caracteres do ID
     for r in (
       select full_name, count(*)
@@ -148,10 +159,18 @@ create table if not exists public.courses (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
+create table if not exists public.classes (
+  id uuid default gen_random_uuid() primary key,
+  course_id uuid references public.courses(id) on delete cascade,
+  name text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
 -- Nova Tabela: Inscrições
 create table if not exists public.enrollments (
   user_id uuid references public.profiles(id) on delete cascade,
   course_id uuid references public.courses(id) on delete cascade,
+  class_id uuid references public.classes(id),
   enrolled_at timestamp with time zone default timezone('utc'::text, now()),
   primary key (user_id, course_id)
 );
@@ -159,6 +178,8 @@ create table if not exists public.enrollments (
 create table if not exists public.user_invites (
   email text primary key,
   role text not null,
+  course_id uuid references public.courses(id),
+  class_id uuid references public.classes(id),
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
@@ -214,6 +235,11 @@ drop policy if exists "Courses are viewable by everyone" on public.courses;
 create policy "Courses are viewable by everyone" on public.courses for select using (true);
 create policy "Staff can manage courses" on public.courses for all using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
 
+alter table public.classes enable row level security;
+drop policy if exists "Read Classes" on public.classes;
+create policy "Read Classes" on public.classes for select using (true);
+create policy "Staff Manage Classes" on public.classes for all using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
+
 alter table public.enrollments enable row level security;
 create policy "Admins manage enrollments" on public.enrollments for all using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'formador')));
 create policy "Users view own enrollments" on public.enrollments for select using (user_id = auth.uid());
@@ -263,13 +289,13 @@ create policy "Staff can delete course images" on storage.objects for delete usi
 
 -- 8. FUNÇÕES & TRIGGERS (Lógica de Negócio Server-Side)
 
--- 8.1 Handle New User
+-- 8.1 Handle New User (Updated for Robustness)
 create or replace function public.handle_new_user() returns trigger as $$
 declare
-  invite_role text;
+  invite_record record;
   final_name text;
 begin
-  final_name := new.raw_user_meta_data->>'full_name';
+  final_name := coalesce(new.raw_user_meta_data->>'full_name', 'Utilizador');
   if exists (select 1 from public.profiles where lower(full_name) = lower(final_name)) then
       final_name := final_name || ' (' || substring(new.id::text, 1, 4) || ')';
   end if;
@@ -280,13 +306,20 @@ begin
       return new;
   end if;
 
-  select role into invite_role from public.user_invites where lower(email) = lower(new.email);
-  if invite_role is not null then
+  select * into invite_record from public.user_invites where lower(email) = lower(new.email);
+  if invite_record.role is not null then
       -- 1. Cria o perfil
       insert into public.profiles (id, email, full_name, role)
-      values (new.id, new.email, final_name, invite_role);
+      values (new.id, new.email, final_name, invite_record.role);
       
-      -- 2. Remove o convite (Limpeza automática)
+      -- 2. Inscreve em Curso/Turma
+      if invite_record.course_id is not null then
+          insert into public.enrollments (user_id, course_id, class_id)
+          values (new.id, invite_record.course_id, invite_record.class_id)
+          on conflict do nothing;
+      end if;
+
+      -- 3. Remove o convite (Limpeza automática)
       delete from public.user_invites where lower(email) = lower(new.email);
       
       return new;
@@ -299,17 +332,51 @@ $$ language plpgsql security definer;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
 
--- 8.2 Get Community Members (CRÍTICO para a funcionalidade pedida)
--- Retorna todos os utilizadores para Admins
--- Retorna apenas colegas de curso para Alunos
+-- 8.2 Invite Recovery Mechanism (NEW v1.2.2)
+-- Permite que utilizadores "presos" sem perfil possam ativar o seu convite manualmente
+create or replace function public.claim_invite()
+returns boolean as $$
+declare
+  invite_record record;
+  final_name text;
+begin
+  -- 1. Verificar se o email do utilizador logado tem convite
+  select * into invite_record from public.user_invites where lower(email) = lower(auth.email());
+  
+  if invite_record.email is null then
+    return false;
+  end if;
+
+  -- 2. Tentar obter nome dos metadados
+  final_name := coalesce(auth.jwt()->>'user_metadata'->>'full_name', auth.email());
+
+  -- 3. Criar Perfil (Upsert seguro)
+  insert into public.profiles (id, email, full_name, role)
+  values (auth.uid(), auth.email(), final_name, invite_record.role)
+  on conflict (id) do update
+  set role = excluded.role;
+
+  -- 4. Inscrever (Enrollment) se aplicável
+  if invite_record.course_id is not null then
+      insert into public.enrollments (user_id, course_id, class_id)
+      values (auth.uid(), invite_record.course_id, invite_record.class_id)
+      on conflict do nothing;
+  end if;
+
+  -- 5. Consumir convite
+  delete from public.user_invites where lower(email) = lower(auth.email());
+
+  return true;
+end;
+$$ language plpgsql security definer;
+
+-- 8.3 Get Community Members
 create or replace function public.get_community_members()
 returns setof public.profiles as $$
 begin
   if exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
-      -- Admin vê tudo
       return query select * from public.profiles order by full_name;
   else
-      -- Aluno vê colegas (quem tem pelo menos um course_id em comum)
       return query 
       select distinct p.*
       from public.profiles p
@@ -317,8 +384,6 @@ begin
       where e_others.course_id in (
           select my_e.course_id from public.enrollments my_e where my_e.user_id = auth.uid()
       )
-      -- Opcional: Descomentar para remover o próprio user da lista
-      -- and p.id != auth.uid()
       order by p.full_name;
   end if;
 end;

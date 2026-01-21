@@ -49,6 +49,13 @@ export const userService = {
         return data as Profile[];
     },
 
+    // Método de Auto-Reparação de Login
+    async claimInvite() {
+        const { data, error } = await supabase.rpc('claim_invite');
+        if (error) throw error;
+        return data as boolean; // Retorna true se encontrou e ativou convite, false se não encontrou
+    },
+
     async deleteUsers(ids: string[]) {
         const { error } = await supabase.from('profiles').delete().in('id', ids);
         if (error) throw error;
