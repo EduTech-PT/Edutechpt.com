@@ -176,6 +176,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           case 'settings_sql': return <Settings dbVersion={dbVersion} initialTab="sql" />;
           case 'settings_drive': return <Settings dbVersion={dbVersion} initialTab="drive" />;
           case 'settings_avatars': return <Settings dbVersion={dbVersion} initialTab="avatars" />;
+          case 'settings_access': return <Settings dbVersion={dbVersion} initialTab="access" />;
           case 'settings': return <Settings dbVersion={dbVersion} initialTab="geral" />; // Fallback
 
           default: return <GlassCard><h2>Em Construção: {currentView}</h2></GlassCard>;

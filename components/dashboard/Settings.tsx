@@ -198,14 +198,6 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
 
     return (
         <div className="h-full flex flex-col animate-in fade-in duration-300">
-            <div className="flex space-x-2 mb-6 border-b border-indigo-200 pb-2 overflow-x-auto">
-                {['geral', 'roles', 'drive', 'avatars', 'access', 'sql'].map(t => (
-                    <button key={t} onClick={() => setTab(t as any)} className={`px-4 py-2 rounded-lg font-medium capitalize whitespace-nowrap ${tab === t ? 'bg-indigo-600 text-white' : 'text-indigo-800'}`}>
-                        {t === 'roles' ? 'Cargos' : t === 'drive' ? 'Integração Drive' : t === 'access' ? 'Acesso & Alertas' : t}
-                    </button>
-                ))}
-            </div>
-
             {tab === 'geral' && (
                 <GlassCard>
                     <h3 className="font-bold text-xl text-indigo-900 mb-4">Sistema</h3>

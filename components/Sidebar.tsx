@@ -97,6 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
         { id: 'settings_sql', label: 'Base de Dados', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
         { id: 'settings_drive', label: 'Integração Drive', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
         { id: 'settings_avatars', label: 'Config Avatares', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
+        { id: 'settings_access', label: 'Acesso & Alertas', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
       ]
     }
   ];
