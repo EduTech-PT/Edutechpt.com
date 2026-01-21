@@ -6,6 +6,7 @@ import { userService } from '../../services/users';
 import { adminService } from '../../services/admin';
 import { RichTextEditor } from '../RichTextEditor';
 import { formatDate } from '../../utils/formatters';
+import { driveService } from '../../services/drive';
 
 interface Props {
   user: Profile;
@@ -120,10 +121,27 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // 1. Drive Rename Hook (Novo v2.8.2)
+      // Se o nome mudou E o utilizador tem uma pasta pessoal, tentamos renomeá-la
+      if (formData.full_name && formData.full_name !== user.full_name && user.personal_folder_id) {
+           console.log("Detetada alteração de nome. A atualizar Drive...");
+           try {
+               // Mantém o prefixo padrão se aplicável
+               const newFolderName = `[Formador] ${formData.full_name}`;
+               await driveService.renameFolder(user.personal_folder_id, newFolderName);
+               console.log("Pasta Drive renomeada com sucesso.");
+           } catch (driveErr) {
+               // Não bloqueia o update do perfil, apenas avisa
+               console.warn("Aviso: Não foi possível renomear a pasta do Drive.", driveErr);
+           }
+      }
+
+      // 2. Update Profile
       await userService.updateProfile(user.id, {
         ...formData,
         visibility_settings: visibility
       });
+      
       refreshProfile();
       setIsEditing(false);
       alert("Perfil atualizado com sucesso!");

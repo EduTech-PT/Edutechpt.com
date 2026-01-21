@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.4.8";
+export const GAS_VERSION = "v1.4.9";
 
 export interface DriveFile {
   id: string;
@@ -100,6 +100,28 @@ export const driveService = {
           .eq('id', profile.id);
 
       return newFolderId;
+  },
+
+  /**
+   * Renomeia uma pasta no Google Drive
+   */
+  async renameFolder(folderId: string, newName: string): Promise<void> {
+      const config = await this.getConfig();
+      
+      const response = await fetch(config.googleScriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+              action: 'renameFolder',
+              id: folderId,
+              name: newName
+          })
+      });
+
+      const result = await response.json();
+      if (result.status !== 'success') {
+          throw new Error("Erro ao renomear pasta: " + result.message);
+      }
   },
 
   async listFiles(currentFolderId?: string | null): Promise<{ files: DriveFile[], rootId: string }> {
@@ -365,6 +387,20 @@ function doPost(e) {
         targetFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       }
       result = { status: 'success', id: targetFolder.getId(), url: targetFolder.getUrl() };
+    }
+
+    else if (action === 'renameFolder') {
+      // Nova funcionalidade v1.4.9
+      try {
+          const folder = DriveApp.getFolderById(data.id);
+          folder.setName(data.name);
+          result = { status: 'success' };
+      } catch (e) {
+          // Fallback se for ficheiro (embora o método diga folder)
+          const file = DriveApp.getFileById(data.id);
+          file.setName(data.name);
+          result = { status: 'success' };
+      }
     }
 
     else if (action === 'upload') {
