@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.4.6";
+export const GAS_VERSION = "v1.4.7";
 
 export interface DriveFile {
   id: string;
@@ -272,11 +272,13 @@ function doPost(e) {
         
         let allEvents = [];
         let debugLog = []; // Log para enviar para o frontend
+        let defaultCalId = null; // Guardar ID para evitar duplicados
         
         // 1. Tentar ler o Calendário Padrão Explicito (Fallback de segurança)
         try {
             var defaultCal = CalendarApp.getDefaultCalendar();
             if (defaultCal) {
+                defaultCalId = defaultCal.getId(); // Guardar ID
                 var defEvents = defaultCal.getEvents(start, end);
                 debugLog.push("Calendário Padrão (" + defaultCal.getName() + "): " + defEvents.length + " eventos.");
                 
@@ -305,8 +307,8 @@ function doPost(e) {
             for (var i = 0; i < calendars.length; i++) {
                 var cal = calendars[i];
                 
-                // Evitar duplicar o Default se já o lemos acima (comparamos por ID ou isDefault)
-                if (cal.isDefaultCalendar()) continue; 
+                // Evitar duplicar o Default se já o lemos acima (comparamos por ID)
+                if (defaultCalId && cal.getId() === defaultCalId) continue; 
                 
                 try {
                     var events = cal.getEvents(start, end);
