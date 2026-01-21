@@ -6,9 +6,10 @@ export const calendarService = {
   // Agora retorna objeto completo { items, debug }
   async listEvents(accessToken: string | null | undefined, timeMin: Date, timeMax: Date): Promise<{ items: CalendarEvent[], debug?: string[] }> {
     
-    // Obter configuração do URL do Script
+    // Obter configuração do URL do Script e IDs manuais
     const config = await adminService.getAppConfig();
     const scriptUrl = config.googleScriptUrl;
+    const manualIds = config.calendarIds ? config.calendarIds.split(',').map((id: string) => id.trim()) : [];
 
     if (!scriptUrl) {
       throw new Error("Serviço de Calendário não configurado (URL Script em falta).");
@@ -25,7 +26,8 @@ export const calendarService = {
         body: JSON.stringify({
           action: 'getCalendarEvents',
           timeMin: timeMin.toISOString(),
-          timeMax: timeMax.toISOString()
+          timeMax: timeMax.toISOString(),
+          extraCalendarIds: manualIds // Envia IDs manuais
         })
       });
 

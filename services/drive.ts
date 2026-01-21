@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.4.7";
+export const GAS_VERSION = "v1.4.8";
 
 export interface DriveFile {
   id: string;
@@ -208,17 +208,6 @@ export const GAS_TEMPLATE_CODE = `
 // VERSION: ${GAS_VERSION}
 // ==========================================
 
-// -----------------------------------------------------
-// 1. IMPORTANTE: PASSO DE AUTORIZAÇÃO MANUAL
-// -----------------------------------------------------
-// Após colar este código e guardar (Disquete):
-// 1. Selecione a função "autorizarPermissoes" na barra superior.
-// 2. Clique no botão "Executar" (Play).
-// 3. O Google pedirá permissão para aceder ao Calendário e Drive.
-// 4. Aceite tudo (Avançadas > Aceder a ... (não seguro)).
-// 5. SÓ DEPOIS faça "Implementar > Nova Implementação".
-// -----------------------------------------------------
-
 function autorizarPermissoes() {
   const cals = CalendarApp.getAllCalendars();
   const drive = DriveApp.getRootFolder();
@@ -228,7 +217,6 @@ function autorizarPermissoes() {
 
 // -----------------------------------------------------
 
-// Permite testar o link diretamente no browser (Diagnóstico)
 function doGet(e) {
   return ContentService.createTextOutput(JSON.stringify({
     status: 'success',
@@ -239,7 +227,6 @@ function doGet(e) {
 }
 
 function doPost(e) {
-  // Configuração CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST',
@@ -247,16 +234,12 @@ function doPost(e) {
   };
 
   try {
-    // Parsing seguro
-    if (!e || !e.postData) {
-        throw new Error("No POST data received");
-    }
+    if (!e || !e.postData) throw new Error("No POST data received");
 
     const data = JSON.parse(e.postData.contents);
     const action = data.action;
     let result = {};
 
-    // --- HEALTH CHECK ---
     if (action === 'check_health') {
         result = { 
             status: 'success', 
@@ -265,125 +248,106 @@ function doPost(e) {
         };
     }
 
-    // --- CALENDAR PROXY (LÊ TODOS OS CALENDÁRIOS) ---
     else if (action === 'getCalendarEvents') {
         const start = new Date(data.timeMin);
         const end = new Date(data.timeMax);
+        const extraIds = data.extraCalendarIds || []; // IDs manuais
         
         let allEvents = [];
-        let debugLog = []; // Log para enviar para o frontend
-        let defaultCalId = null; // Guardar ID para evitar duplicados
-        
-        // 1. Tentar ler o Calendário Padrão Explicito (Fallback de segurança)
-        try {
-            var defaultCal = CalendarApp.getDefaultCalendar();
-            if (defaultCal) {
-                defaultCalId = defaultCal.getId(); // Guardar ID
-                var defEvents = defaultCal.getEvents(start, end);
-                debugLog.push("Calendário Padrão (" + defaultCal.getName() + "): " + defEvents.length + " eventos.");
+        let debugLog = [];
+        let processedIds = {}; // Para evitar duplicados
+
+        // Função auxiliar para processar calendário
+        function processCalendar(cal, source) {
+            if (!cal) return;
+            const cid = cal.getId();
+            if (processedIds[cid]) return; // Já processado
+            
+            try {
+                // Tenta ler eventos
+                const events = cal.getEvents(start, end);
+                const prefix = source === 'default' ? '' : '[' + cal.getName() + '] ';
                 
-                // Mapear
-                allEvents = allEvents.concat(defEvents.map(function(e) {
+                const mapped = events.map(function(e) {
                     return {
                         id: e.getId(),
-                        summary: e.getTitle(),
+                        summary: prefix + e.getTitle(),
                         description: e.getDescription(),
                         location: e.getLocation(),
                         start: { dateTime: e.getStartTime().toISOString() },
                         end: { dateTime: e.getEndTime().toISOString() },
                         htmlLink: 'https://calendar.google.com'
                     };
-                }));
+                });
+                
+                allEvents = allEvents.concat(mapped);
+                processedIds[cid] = true;
+                debugLog.push("Lido (" + source + "): " + cal.getName() + " - " + events.length + " ev.");
+            } catch (err) {
+                debugLog.push("ERRO em " + cal.getName() + ": " + err.toString());
             }
-        } catch (e) {
-            debugLog.push("ERRO CRITICO no Calendário Padrão: " + e.toString());
         }
-        
-        // 2. Tentar ler TODOS os calendários (incluindo partilhados)
-        try {
-            const calendars = CalendarApp.getAllCalendars();
-            debugLog.push("Total Calendários detetados na conta: " + calendars.length);
 
-            for (var i = 0; i < calendars.length; i++) {
-                var cal = calendars[i];
-                
-                // Evitar duplicar o Default se já o lemos acima (comparamos por ID)
-                if (defaultCalId && cal.getId() === defaultCalId) continue; 
-                
-                try {
-                    var events = cal.getEvents(start, end);
-                    debugLog.push("Lido: " + cal.getName() + " (" + events.length + ")");
-                    
-                    var mapped = events.map(function(e) {
-                        return {
-                            id: e.getId(),
-                            summary: '[' + cal.getName() + '] ' + e.getTitle(),
-                            description: e.getDescription(),
-                            location: e.getLocation(),
-                            start: { dateTime: e.getStartTime().toISOString() },
-                            end: { dateTime: e.getEndTime().toISOString() },
-                            htmlLink: 'https://calendar.google.com'
-                        };
-                    });
-                    
-                    allEvents = allEvents.concat(mapped);
-                } catch (err) {
-                    debugLog.push("ERRO a ler " + cal.getName() + ": " + err.toString());
-                }
+        // 1. Calendário Padrão
+        try {
+            const defCal = CalendarApp.getDefaultCalendar();
+            processCalendar(defCal, 'default');
+        } catch (e) { debugLog.push("Erro Default Cal: " + e.toString()); }
+
+        // 2. Todos os Calendários Detetáveis (Auto-discovery)
+        try {
+            const allCals = CalendarApp.getAllCalendars();
+            debugLog.push("Auto-detetados: " + allCals.length);
+            for (var i = 0; i < allCals.length; i++) {
+                processCalendar(allCals[i], 'auto');
             }
-        } catch (e) {
-            debugLog.push("ERRO GERAL ao listar calendários: " + e.toString());
-        }
-        
-        // Remover duplicados (caso o default tenha sido apanhado 2 vezes por algum motivo)
-        var seenIds = {};
-        var uniqueEvents = [];
-        for (var k = 0; k < allEvents.length; k++) {
-            if (!seenIds[allEvents[k].id]) {
-                seenIds[allEvents[k].id] = true;
-                uniqueEvents.push(allEvents[k]);
+        } catch (e) { debugLog.push("Erro Auto-Discovery: " + e.toString()); }
+
+        // 3. Calendários Manuais (IDs Específicos das Definições)
+        if (extraIds.length > 0) {
+            debugLog.push("IDs Manuais solicitados: " + extraIds.length);
+            for (var j = 0; j < extraIds.length; j++) {
+                try {
+                    // Limpar espaços
+                    const id = extraIds[j].trim();
+                    if (!id) continue;
+                    
+                    const manCal = CalendarApp.getCalendarById(id);
+                    if (manCal) {
+                        processCalendar(manCal, 'manual');
+                    } else {
+                        debugLog.push("ID Manual não encontrado/acessível: " + id);
+                    }
+                } catch (e) {
+                    debugLog.push("Erro ID Manual (" + extraIds[j] + "): " + e.toString());
+                }
             }
         }
         
         result = { 
             status: 'success', 
-            items: uniqueEvents,
-            debug: debugLog // Envia logs para o frontend
+            items: allEvents,
+            debug: debugLog 
         };
     }
 
-    // --- LIST FILES ---
+    // --- FILE OPERATIONS ---
     else if (action === 'list') {
       const folder = DriveApp.getFolderById(data.folderId);
       const list = [];
-      
       const subfolders = folder.getFolders();
       while (subfolders.hasNext()) {
         const sub = subfolders.next();
-        list.push({
-          id: sub.getId(),
-          name: sub.getName(),
-          mimeType: 'application/vnd.google-apps.folder',
-          url: sub.getUrl(),
-          size: 0
-        });
+        list.push({ id: sub.getId(), name: sub.getName(), mimeType: 'application/vnd.google-apps.folder', url: sub.getUrl(), size: 0 });
       }
-
       const files = folder.getFiles();
       while (files.hasNext()) {
         const file = files.next();
-        list.push({
-          id: file.getId(),
-          name: file.getName(),
-          mimeType: file.getMimeType(),
-          url: file.getUrl(),
-          size: file.getSize()
-        });
+        list.push({ id: file.getId(), name: file.getName(), mimeType: file.getMimeType(), url: file.getUrl(), size: file.getSize() });
       }
       result = { status: 'success', files: list };
     }
 
-    // --- FOLDER OPERATIONS ---
     else if (action === 'createFolder') {
       const parent = DriveApp.getFolderById(data.folderId);
       const newFolder = parent.createFolder(data.name);
@@ -395,17 +359,14 @@ function doPost(e) {
       const root = DriveApp.getFolderById(data.rootId);
       const folders = root.getFoldersByName(data.name);
       let targetFolder;
-      
-      if (folders.hasNext()) {
-        targetFolder = folders.next();
-      } else {
+      if (folders.hasNext()) targetFolder = folders.next();
+      else {
         targetFolder = root.createFolder(data.name);
         targetFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       }
       result = { status: 'success', id: targetFolder.getId(), url: targetFolder.getUrl() };
     }
 
-    // --- UPLOAD & DELETE ---
     else if (action === 'upload') {
       const folder = DriveApp.getFolderById(data.folderId);
       const blob = Utilities.newBlob(Utilities.base64Decode(data.file), data.mimeType, data.filename);
@@ -425,13 +386,10 @@ function doPost(e) {
       result = { status: 'success' };
     }
 
-    return ContentService.createTextOutput(JSON.stringify(result))
-      .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {
-    // Garante retorno JSON mesmo em erro fatal
-    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.toString() }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.toString() })).setMimeType(ContentService.MimeType.JSON);
   }
 }
 `;

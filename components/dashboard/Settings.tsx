@@ -103,6 +103,7 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
 
                 await adminService.updateAppConfig('google_script_url', cleanUrl);
                 await adminService.updateAppConfig('google_drive_folder_id', cleanId);
+                await adminService.updateAppConfig('calendar_ids', config.calendarIds || ''); // Guardar IDs Calendário
                 
                 // Força um check imediato após guardar
                 await checkRealVersion(cleanUrl);
@@ -347,6 +348,22 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                     className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm"
                                 />
                             </div>
+                            
+                            {/* NEW: Extra Calendars */}
+                            <div>
+                                <label className="block text-sm text-indigo-800 font-bold mb-1">IDs Calendários Extra (Opcional)</label>
+                                <input 
+                                    type="text" 
+                                    value={config.calendarIds || ''} 
+                                    onChange={e => setConfig({...config, calendarIds: e.target.value})} 
+                                    placeholder="ex: turma_x@group.calendar.google.com, pt.portuguese#holiday@group.v.calendar.google.com" 
+                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm"
+                                />
+                                <p className="text-xs text-indigo-600 mt-1">
+                                    Se os calendários partilhados não aparecerem automaticamente, cole aqui os seus IDs (separados por vírgula). Encontra o ID nas Definições do Google Agenda {'>'} Integrar Agenda.
+                                </p>
+                            </div>
+
                             <div>
                                 <label className="block text-sm text-indigo-800 font-bold mb-1">ID da Pasta Google Drive</label>
                                 <div className="relative">
