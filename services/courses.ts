@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabaseClient';
-import { Course } from '../types';
+import { Course, Class } from '../types';
 
 export const courseService = {
     async getAll() {
@@ -31,5 +31,27 @@ export const courseService = {
             .delete()
             .eq('id', id);
         if (error) throw error;
+    },
+
+    // --- CLASSES (TURMAS) METHODS ---
+
+    async getClasses(courseId: string) {
+        const { data, error } = await supabase
+            .from('classes')
+            .select('*')
+            .eq('course_id', courseId)
+            .order('name', { ascending: true });
+        if (error) throw error;
+        return data as Class[];
+    },
+
+    async createClass(courseId: string, name: string) {
+        const { data, error } = await supabase
+            .from('classes')
+            .insert([{ course_id: courseId, name: name }])
+            .select()
+            .single();
+        if (error) throw error;
+        return data as Class;
     }
 };

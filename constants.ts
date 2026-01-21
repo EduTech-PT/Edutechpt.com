@@ -6,6 +6,6 @@
 export const SUPABASE_URL = "https://zeedhuzljsbaoqafpfom.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ZOMCawahrL7OImeWeT6Fug_U_WMN0H1";
 
-export const APP_VERSION = "v2.6.5"; // Update minor version
-export const SQL_VERSION = "v1.1.34"; // Sync version with Admin Avatar permissions
+export const APP_VERSION = "v2.7.0"; // Feature Update: Batch Invites & Classes
+export const SQL_VERSION = "v1.2.0"; // Major DB Update: Classes Support
 export const APP_NAME = "EduTech PT";

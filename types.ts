@@ -60,9 +60,17 @@ export interface Course {
   is_public?: boolean;
 }
 
+export interface Class {
+  id: string;
+  course_id: string;
+  name: string;
+  created_at: string;
+}
+
 export interface Enrollment {
   user_id: string;
   course_id: string;
+  class_id?: string;
   enrolled_at: string;
 }
 
@@ -84,4 +92,6 @@ export interface UserInvite {
   email: string;
   role: string;
   created_at: string;
+  course_id?: string;
+  class_id?: string;
 }

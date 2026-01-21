@@ -9,12 +9,50 @@ export const adminService = {
         return data as UserInvite[];
     },
 
-    async createInvite(email: string, role: string) {
+    // Atualizado para suportar Curso e Turma
+    async createInvite(email: string, role: string, courseId?: string, classId?: string) {
         const { data: existing } = await supabase.from('profiles').select('id').eq('email', email).single();
-        if (existing) throw new Error('Utilizador já registado.');
+        if (existing) throw new Error(`Utilizador ${email} já registado.`);
 
-        const { error } = await supabase.from('user_invites').upsert([{ email, role }]);
+        const { error } = await supabase.from('user_invites').upsert([{ 
+            email, 
+            role,
+            course_id: courseId || null,
+            class_id: classId || null
+        }]);
         if (error) throw error;
+    },
+
+    // Novo Método: Bulk Invites
+    async createBulkInvites(emails: string[], role: string, courseId?: string, classId?: string) {
+        // 1. Verificar existentes na tabela de perfis
+        const { data: existingProfiles } = await supabase
+            .from('profiles')
+            .select('email')
+            .in('email', emails);
+            
+        const registeredEmails = existingProfiles?.map(p => p.email) || [];
+        const newEmails = emails.filter(e => !registeredEmails.includes(e));
+
+        if (newEmails.length === 0) {
+            throw new Error('Todos os emails fornecidos já estão registados na plataforma.');
+        }
+
+        // 2. Preparar payload
+        const invitesPayload = newEmails.map(email => ({
+            email,
+            role,
+            course_id: courseId || null,
+            class_id: classId || null
+        }));
+
+        const { error } = await supabase.from('user_invites').upsert(invitesPayload, { onConflict: 'email' });
+        if (error) throw error;
+
+        return {
+            added: newEmails.length,
+            skipped: registeredEmails.length
+        };
     },
 
     async deleteInvite(email: string) {
