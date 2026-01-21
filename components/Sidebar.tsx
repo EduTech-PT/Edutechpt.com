@@ -74,6 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       icon: '📅',
       items: [
          { id: 'calendar', label: 'Agenda Google', permissionKey: 'view_calendar', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
+         { id: 'availability', label: 'Disponibilidade', permissionKey: 'view_availability', fallbackRoles: [UserRole.ADMIN, UserRole.TRAINER] },
       ]
     },
     {

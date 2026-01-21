@@ -46,7 +46,8 @@ export interface UserPermissions {
   manage_courses?: boolean; // Formador/Admin: Gerir cursos
   view_users?: boolean;
   view_settings?: boolean;
-  view_calendar?: boolean; // Nova permissão
+  view_calendar?: boolean; // Agenda Google
+  view_availability?: boolean; // Novo: Mapa de Disponibilidade
   [key: string]: boolean | undefined;
 }
 

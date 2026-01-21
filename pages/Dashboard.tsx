@@ -19,6 +19,7 @@ import { DriveManager } from '../components/dashboard/DriveManager';
 import { MyProfile } from '../components/dashboard/MyProfile';
 import { Community } from '../components/dashboard/Community';
 import { Calendar } from '../components/dashboard/Calendar';
+import { AvailabilityMap } from '../components/dashboard/AvailabilityMap';
 
 interface DashboardProps {
   session: SupabaseSession;
@@ -155,6 +156,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           // Perfil do Próprio
           case 'my_profile': return <MyProfile user={profile} refreshProfile={handleRefreshProfile} />;
           case 'calendar': return <Calendar session={session.user} accessToken={session.provider_token} />;
+          case 'availability': return <AvailabilityMap session={session.user} />;
           
           // Admin a Editar Outro Perfil
           case 'admin_edit_profile': 
@@ -193,6 +195,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       if (view === 'admin_edit_profile') return 'Gestão / Editar Perfil';
       if (view === 'manage_courses') return 'Gestão de Cursos';
       if (view === 'calendar') return 'Minha Agenda';
+      if (view === 'availability') return 'Mapa de Disponibilidade';
       return view.replace('_', ' ');
   };
 

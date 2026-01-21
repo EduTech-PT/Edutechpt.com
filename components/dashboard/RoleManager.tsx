@@ -12,6 +12,8 @@ const PERMISSIONS_CONFIG = [
     { key: 'manage_courses', label: 'Gerir Cursos', desc: 'Criar/Editar/Apagar Cursos e Materiais' },
     { key: 'view_users', label: 'Gerir Utilizadores', desc: 'Aceder menu de Utilizadores' },
     { key: 'view_settings', label: 'Aceder Definições', desc: 'Acesso total à configuração' },
+    { key: 'view_calendar', label: 'Ver Agenda Google', desc: 'Aceder ao Calendário' },
+    { key: 'view_availability', label: 'Ver Disponibilidade', desc: 'Aceder ao Mapa de Disponibilidade Mensal' },
 ];
 
 export const RoleManager: React.FC = () => {
