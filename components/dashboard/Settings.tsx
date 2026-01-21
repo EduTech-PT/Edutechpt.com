@@ -35,12 +35,14 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
         setTab(initialTab);
     }, [initialTab]);
 
-    // Verifica a versão sempre que a tab muda para drive ou config é carregada
+    // Verifica a versão assim que a config existe (para mostrar no Geral) ou quando muda para drive
     useEffect(() => {
-        if (tab === 'drive' && config.googleScriptUrl) {
+        if (config.googleScriptUrl) {
             checkRealVersion(config.googleScriptUrl);
+        } else {
+            setRemoteGasVersion('not_configured');
         }
-    }, [tab, config.googleScriptUrl]);
+    }, [config.googleScriptUrl]);
 
     const loadConfig = async () => {
         try {
@@ -196,22 +198,99 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
         );
     };
 
+    // Componente auxiliar para as linhas de versão
+    const VersionRow = ({ 
+        label, 
+        current, 
+        expected, 
+        onUpdate, 
+        status 
+    }: { 
+        label: string, 
+        current: string, 
+        expected: string, 
+        onUpdate?: () => void,
+        status: 'ok' | 'error' | 'loading' | 'warning'
+    }) => (
+        <div className="flex items-center justify-between p-4 bg-white/50 border border-white/60 rounded-xl hover:bg-white/60 transition-colors">
+            <div className="flex flex-col">
+                <span className="text-sm font-bold text-indigo-900 uppercase tracking-wide opacity-70">{label}</span>
+                <div className="flex items-center gap-2">
+                    <span className={`font-mono font-bold text-lg ${status === 'ok' ? 'text-green-600' : status === 'loading' ? 'text-indigo-500' : 'text-red-600'}`}>
+                        {current}
+                    </span>
+                    {status === 'error' && (
+                        <span className="text-xs text-red-500 bg-red-50 px-2 py-0.5 rounded border border-red-100">
+                            Requer: {expected}
+                        </span>
+                    )}
+                </div>
+            </div>
+            
+            <div>
+                {status === 'ok' && (
+                     <div className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg border border-green-200 shadow-sm">
+                         <span>✅</span>
+                         <span className="font-bold text-sm hidden sm:inline">Atualizado</span>
+                     </div>
+                )}
+                
+                {status === 'loading' && (
+                    <div className="w-8 h-8 flex items-center justify-center">
+                         <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                )}
+
+                {(status === 'error' || status === 'warning') && onUpdate && (
+                    <button 
+                        onClick={onUpdate}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm shadow-md hover:bg-indigo-700 transition-all hover:-translate-y-0.5"
+                    >
+                        <span>🔄</span>
+                        <span>{status === 'warning' ? 'Configurar' : 'Atualizar'}</span>
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+
     return (
         <div className="h-full flex flex-col animate-in fade-in duration-300">
             {tab === 'geral' && (
                 <GlassCard>
-                    <h3 className="font-bold text-xl text-indigo-900 mb-4">Sistema</h3>
+                    <h3 className="font-bold text-xl text-indigo-900 mb-6 flex items-center gap-2">
+                        <span>🛠️</span> Estado do Sistema
+                    </h3>
                     <div className="space-y-4">
-                        <div className="flex justify-between border-b border-indigo-100 pb-2">
-                            <span className="text-indigo-800">Versão App</span>
-                            <span className="font-mono font-bold text-indigo-600">{APP_VERSION}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-indigo-100 pb-2">
-                            <span className="text-indigo-800">Versão SQL</span>
-                            <span className={`font-mono font-bold ${dbVersion !== SQL_VERSION ? 'text-red-600' : 'text-green-600'}`}>
-                                {dbVersion} (Esperado: {SQL_VERSION})
-                            </span>
-                        </div>
+                        {/* 1. App Version (Frontend) - Sempre atualizada pois é o código corrente */}
+                        <VersionRow 
+                            label="Versão Aplicação (Frontend)"
+                            current={APP_VERSION}
+                            expected={APP_VERSION}
+                            status="ok"
+                        />
+
+                        {/* 2. SQL Version (Database) */}
+                        <VersionRow 
+                            label="Versão Base de Dados (SQL)"
+                            current={dbVersion}
+                            expected={SQL_VERSION}
+                            status={dbVersion === SQL_VERSION ? 'ok' : 'error'}
+                            onUpdate={() => setTab('sql')}
+                        />
+
+                        {/* 3. Script Version (GAS) */}
+                        <VersionRow 
+                            label="Versão Google Script (Backend)"
+                            current={remoteGasVersion === 'checking' ? 'A verificar...' : (remoteGasVersion === 'not_configured' ? 'Não Configurado' : remoteGasVersion)}
+                            expected={GAS_VERSION}
+                            status={
+                                remoteGasVersion === 'checking' ? 'loading' :
+                                remoteGasVersion === GAS_VERSION ? 'ok' : 
+                                remoteGasVersion === 'not_configured' ? 'warning' : 'error'
+                            }
+                            onUpdate={() => setTab('drive')}
+                        />
                     </div>
                 </GlassCard>
             )}
