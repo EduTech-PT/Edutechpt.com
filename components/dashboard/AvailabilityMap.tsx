@@ -111,10 +111,10 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
               const evStart = new Date(ev.start.dateTime!);
               const evEnd = new Date(ev.end.dateTime!);
 
-              // Formatar horas (HH:mm)
+              // Formatar horas (HH:mm) - Usado internamente para debug ou exportação
               const timeStr = `${evStart.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})}-${evEnd.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})}`;
 
-              // Lógica de Sobreposição Simples (Revertida para garantir funcionamento)
+              // Lógica de Sobreposição Simples
               // Se o evento começa antes do fim da manhã E termina depois do início da manhã -> Ocupa Manhã
               if (evStart < morningEnd && evEnd > morningStart) {
                   mEvents.push(timeStr);
@@ -207,26 +207,18 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
   const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
 
-  // Helper para renderizar a lista de horários ou "LIVRE"
+  // Helper para renderizar "LIVRE" ou "OCUPADO"
   const renderSlot = (events: string[], period: string) => {
-      if (events.length === 0) {
-          return (
-            <div className={`flex-1 rounded-lg flex flex-col items-center justify-center p-2 transition-all border bg-green-100 text-green-800 border-green-200 shadow-sm`}>
-                <span className="text-[10px] uppercase font-bold mb-1 opacity-70">{period}</span>
-                <span className="font-bold text-sm">LIVRE</span>
-            </div>
-          );
-      }
-      
-      // Se houver eventos, mostra os horários
+      const isFree = events.length === 0;
+
       return (
-        <div className={`flex-1 rounded-lg flex flex-col items-center justify-start p-2 transition-all border bg-red-50 text-red-700 border-red-100 overflow-hidden`}>
-            <span className="text-[10px] uppercase font-bold mb-1 opacity-70 border-b border-red-200 w-full text-center pb-1">{period}</span>
-            <div className="flex flex-col gap-1 w-full overflow-y-auto custom-scrollbar max-h-[60px]">
-                {events.map((time, idx) => (
-                    <span key={idx} className="text-[10px] font-bold bg-white/60 rounded px-1 text-center whitespace-nowrap">{time}</span>
-                ))}
-            </div>
+        <div className={`flex-1 rounded-lg flex flex-col items-center justify-center p-2 transition-all border shadow-sm ${
+            isFree 
+                ? 'bg-green-100 text-green-800 border-green-200' 
+                : 'bg-red-100 text-red-800 border-red-200'
+        }`}>
+            <span className="text-[10px] uppercase font-bold mb-1 opacity-70">{period}</span>
+            <span className="font-bold text-sm">{isFree ? 'LIVRE' : 'OCUPADO'}</span>
         </div>
       );
   };
