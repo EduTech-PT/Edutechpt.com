@@ -11,12 +11,15 @@ export const adminService = {
 
     // Atualizado para suportar Curso e Turma de forma resiliente
     async createInvite(email: string, role: string, courseId?: string, classId?: string) {
-        const { data: existing } = await supabase.from('profiles').select('id').eq('email', email).single();
-        if (existing) throw new Error(`Utilizador ${email} já registado.`);
+        // Normalização: Remove espaços e converte para minúsculas
+        const cleanEmail = email.trim().toLowerCase();
 
-        // Construção dinâmica do payload para evitar erros em DBs desatualizadas (sem colunas course_id/class_id)
+        const { data: existing } = await supabase.from('profiles').select('id').eq('email', cleanEmail).single();
+        if (existing) throw new Error(`Utilizador ${cleanEmail} já registado.`);
+
+        // Construção dinâmica do payload para evitar erros em DBs desatualizadas
         const payload: any = { 
-            email, 
+            email: cleanEmail, 
             role,
             created_at: new Date().toISOString()
         };
@@ -30,20 +33,29 @@ export const adminService = {
 
     // Novo Método: Bulk Invites (Resiliente)
     async createBulkInvites(emails: string[], role: string, courseId?: string, classId?: string) {
-        // 1. Verificar existentes na tabela de perfis
+        // 1. Limpeza e Normalização dos Emails
+        const cleanEmails = emails
+            .map(e => e.trim().toLowerCase())
+            .filter(e => e.length > 0 && e.includes('@')); // Validação básica extra
+
+        if (cleanEmails.length === 0) {
+            throw new Error('Nenhum email válido fornecido.');
+        }
+
+        // 2. Verificar existentes na tabela de perfis
         const { data: existingProfiles } = await supabase
             .from('profiles')
             .select('email')
-            .in('email', emails);
+            .in('email', cleanEmails);
             
         const registeredEmails = existingProfiles?.map(p => p.email) || [];
-        const newEmails = emails.filter(e => !registeredEmails.includes(e));
+        const newEmails = cleanEmails.filter(e => !registeredEmails.includes(e));
 
         if (newEmails.length === 0) {
             throw new Error('Todos os emails fornecidos já estão registados na plataforma.');
         }
 
-        // 2. Preparar payload dinâmico
+        // 3. Preparar payload dinâmico
         const invitesPayload = newEmails.map(email => {
             const item: any = {
                 email,
@@ -108,7 +120,7 @@ export const adminService = {
                 if (item.key === 'google_script_url') config.googleScriptUrl = item.value;
                 if (item.key === 'google_drive_folder_id') config.driveFolderId = item.value;
                 if (item.key === 'gas_version') config.gasVersion = item.value;
-                if (item.key === 'calendar_ids') config.calendarIds = item.value; // Novo Campo
+                if (item.key === 'calendar_ids') config.calendarIds = item.value; 
                 
                 // Access Settings
                 if (item.key === 'access_denied_email') config.accessDeniedEmail = item.value;
