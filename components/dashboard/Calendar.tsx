@@ -10,6 +10,13 @@ interface CalendarProps {
   accessToken?: string | null;
 }
 
+interface TimeSlot {
+    start: Date;
+    end: Date;
+    status: 'free' | 'busy';
+    summary?: string;
+}
+
 export const Calendar: React.FC<CalendarProps> = ({ session }) => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
@@ -21,12 +28,20 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
   // State de Navegação
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(new Date());
+  const [dailySlots, setDailySlots] = useState<TimeSlot[]>([]);
 
   useEffect(() => {
     // Carrega o URL para o botão de diagnóstico
     adminService.getAppConfig().then(c => setScriptUrl(c.googleScriptUrl || null));
     fetchEvents();
   }, [currentDate]);
+
+  // Recalcular slots sempre que muda o dia selecionado ou os eventos
+  useEffect(() => {
+    if (selectedDay) {
+        calculateAvailability(selectedDay);
+    }
+  }, [selectedDay, events]);
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -46,6 +61,79 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculateAvailability = (date: Date) => {
+      // Configuração Horário Laboral
+      const WORK_START = 9; // 09:00
+      const WORK_END = 18;  // 18:00
+
+      const dayStart = new Date(date);
+      dayStart.setHours(WORK_START, 0, 0, 0);
+      
+      const dayEnd = new Date(date);
+      dayEnd.setHours(WORK_END, 0, 0, 0);
+
+      // 1. Filtrar eventos do dia
+      const dayEvents = events.filter(e => {
+          const eStart = e.start.dateTime ? new Date(e.start.dateTime) : (e.start.date ? new Date(e.start.date) : null);
+          const eEnd = e.end.dateTime ? new Date(e.end.dateTime) : (e.end.date ? new Date(e.end.date) : null);
+          
+          if (!eStart || !eEnd) return false;
+
+          // Se for evento de dia inteiro, ocupa tudo
+          if (e.start.date) {
+             const evtDate = new Date(e.start.date);
+             return evtDate.toDateString() === date.toDateString();
+          }
+
+          // Verifica sobreposição com o horário laboral
+          return eStart < dayEnd && eEnd > dayStart;
+      }).sort((a, b) => {
+          const dateA = new Date(a.start.dateTime || a.start.date || '');
+          const dateB = new Date(b.start.dateTime || b.start.date || '');
+          return dateA.getTime() - dateB.getTime();
+      });
+
+      // 2. Se houver um evento de dia inteiro, bloquear tudo
+      const hasAllDayEvent = dayEvents.some(e => !!e.start.date);
+      if (hasAllDayEvent) {
+          setDailySlots([{ start: dayStart, end: dayEnd, status: 'busy', summary: 'Dia Inteiro Ocupado' }]);
+          return;
+      }
+
+      // 3. Calcular "buracos" (Free Slots)
+      const slots: TimeSlot[] = [];
+      let cursor = new Date(dayStart);
+
+      dayEvents.forEach(evt => {
+          const eStart = new Date(evt.start.dateTime!);
+          const eEnd = new Date(evt.end.dateTime!);
+
+          // Ajustar ao horário laboral
+          const validStart = eStart < dayStart ? dayStart : eStart;
+          const validEnd = eEnd > dayEnd ? dayEnd : eEnd;
+
+          // Se houver espaço entre o cursor e o início do evento -> Slot Livre
+          if (validStart > cursor) {
+              slots.push({ start: new Date(cursor), end: new Date(validStart), status: 'free' });
+          }
+
+          // Adicionar o Slot Ocupado (apenas visualmente ou lógica)
+          // slots.push({ start: validStart, end: validEnd, status: 'busy', summary: evt.summary });
+
+          // Mover cursor
+          if (validEnd > cursor) {
+              cursor = validEnd;
+          }
+      });
+
+      // Slot final (do último evento até às 18h)
+      if (cursor < dayEnd) {
+          slots.push({ start: new Date(cursor), end: dayEnd, status: 'free' });
+      }
+
+      setDailySlots(slots);
   };
 
   const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
@@ -115,8 +203,9 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
 
   return (
     <div className="flex flex-col xl:flex-row gap-6 h-[calc(100vh-140px)] animate-in slide-in-from-right duration-300">
-        <div className="flex-1 flex flex-col h-full">
-            <GlassCard className="flex items-center justify-between mb-4 py-3">
+        <div className="flex-1 flex flex-col h-full overflow-hidden">
+            {/* Calendar Controls */}
+            <GlassCard className="flex items-center justify-between mb-4 py-3 shrink-0">
                  <div className="flex gap-2">
                     <button onClick={prevMonth} className="p-2 hover:bg-indigo-50 rounded-full text-indigo-600">◀</button>
                     <button onClick={nextMonth} className="p-2 hover:bg-indigo-50 rounded-full text-indigo-600">▶</button>
@@ -169,23 +258,83 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
                     </div>
                  </GlassCard>
             ) : (
-                <div className="flex-1 bg-white/30 backdrop-blur-md rounded-2xl border border-white/40 shadow-lg overflow-hidden flex flex-col">
-                    <div className="grid grid-cols-7 bg-indigo-50/50 border-b border-white/40">
-                        {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => (
-                            <div key={d} className="py-2 text-center text-xs font-bold text-indigo-800 uppercase tracking-wide">
-                                {d}
-                            </div>
-                        ))}
-                    </div>
-                    <div className="grid grid-cols-7 flex-1 auto-rows-fr overflow-y-auto">
-                        {renderCalendarGrid()}
-                    </div>
-                    {loading && (
-                        <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-20">
-                            <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent"></div>
+                <>
+                    {/* Calendar Grid */}
+                    <div className="flex-1 bg-white/30 backdrop-blur-md rounded-2xl border border-white/40 shadow-lg overflow-hidden flex flex-col mb-4 min-h-0">
+                        <div className="grid grid-cols-7 bg-indigo-50/50 border-b border-white/40 shrink-0">
+                            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => (
+                                <div key={d} className="py-2 text-center text-xs font-bold text-indigo-800 uppercase tracking-wide">
+                                    {d}
+                                </div>
+                            ))}
                         </div>
-                    )}
-                </div>
+                        <div className="grid grid-cols-7 flex-1 auto-rows-fr overflow-y-auto">
+                            {renderCalendarGrid()}
+                        </div>
+                        {loading && (
+                            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-20">
+                                <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent"></div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* NEW: Availability Map */}
+                    <GlassCard className="shrink-0 p-4">
+                        <h3 className="text-sm font-bold text-indigo-900 mb-2 flex items-center gap-2">
+                             <span>⏱️</span> Mapa de Disponibilidade ({selectedDay?.toLocaleDateString('pt-PT')})
+                        </h3>
+                        
+                        {/* Visual Timeline Bar */}
+                        <div className="h-6 w-full bg-gray-200 rounded-full overflow-hidden flex mb-3 border border-gray-300 relative shadow-inner">
+                             {/* Background Lines for hours (Optional visual aid) */}
+                             {[...Array(9)].map((_, i) => (
+                                <div key={i} className="absolute top-0 bottom-0 border-r border-white/30 text-[8px] text-gray-500 pt-1" style={{ left: `${(i+1) * 11.1}%` }}></div>
+                             ))}
+
+                             {dailySlots.length === 0 ? (
+                                <div className="w-full bg-red-300 flex items-center justify-center text-[10px] font-bold text-red-800 uppercase tracking-wider">
+                                    {events.length > 0 ? 'Indisponível / Dia Cheio' : 'Indisponível'}
+                                </div>
+                             ) : (
+                                dailySlots.map((slot, idx) => {
+                                    // Calcular largura baseada em 9 horas (09h-18h = 540 min)
+                                    // Total Work Minutes = 540
+                                    const totalWorkMin = 540;
+                                    
+                                    // Calcular posição de início (offset das 09:00)
+                                    const startMin = (slot.start.getHours() * 60 + slot.start.getMinutes()) - (9 * 60);
+                                    const durationMin = (slot.end.getTime() - slot.start.getTime()) / 60000;
+                                    
+                                    const leftPct = (startMin / totalWorkMin) * 100;
+                                    const widthPct = (durationMin / totalWorkMin) * 100;
+
+                                    return (
+                                        <div 
+                                            key={idx}
+                                            className="absolute h-full bg-green-400 hover:bg-green-500 transition-colors cursor-help border-r border-white/20"
+                                            style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                                            title={`Livre: ${slot.start.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})} - ${slot.end.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})}`}
+                                        >
+                                            <span className="sr-only">Livre</span>
+                                        </div>
+                                    );
+                                })
+                             )}
+                        </div>
+
+                        {/* Text List of Slots */}
+                        <div className="flex flex-wrap gap-2 text-xs">
+                            <span className="font-bold text-indigo-900 opacity-70 py-1">Slots Livres:</span>
+                            {dailySlots.length > 0 ? dailySlots.map((slot, i) => (
+                                <div key={i} className="px-3 py-1 bg-green-100 text-green-800 rounded-md border border-green-200 font-mono font-bold shadow-sm">
+                                    {slot.start.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})} - {slot.end.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})}
+                                </div>
+                            )) : (
+                                <span className="text-gray-500 italic py-1">Sem horários livres entre as 09:00 e as 18:00.</span>
+                            )}
+                        </div>
+                    </GlassCard>
+                </>
             )}
         </div>
 
