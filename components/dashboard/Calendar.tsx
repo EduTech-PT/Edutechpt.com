@@ -219,22 +219,25 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
                             <p className="text-sm">Nada agendado.</p>
                         </div>
                     ) : (
-                        selectedDayEvents.map(evt => (
-                            <div key={evt.id} className="bg-white/40 p-3 rounded-lg border-l-4 border-indigo-500 hover:bg-white/60 transition-colors shadow-sm group">
-                                <div className="text-xs font-bold text-indigo-600 mb-0.5">
-                                    {evt.start.dateTime 
-                                        ? new Date(evt.start.dateTime).toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})
-                                        : 'Todo o dia'
-                                    }
-                                </div>
-                                <div className="font-bold text-indigo-900 text-sm leading-tight mb-1">{evt.summary}</div>
-                                {evt.location && (
-                                    <div className="text-xs text-indigo-700 opacity-80 flex items-center gap-1 mt-1 truncate">
-                                        <span>📍</span> {evt.location}
+                        selectedDayEvents.map(evt => {
+                            const startTime = evt.start.dateTime 
+                                ? new Date(evt.start.dateTime).toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})
+                                : 'Todo o dia';
+                            const endTime = evt.end.dateTime
+                                ? new Date(evt.end.dateTime).toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})
+                                : '';
+                            
+                            const timeString = endTime ? `${startTime} - ${endTime}` : startTime;
+
+                            return (
+                                <div key={evt.id} className="bg-white/40 p-3 rounded-lg border-l-4 border-indigo-500 hover:bg-white/60 transition-colors shadow-sm group">
+                                    <div className="text-xs font-bold text-indigo-600 mb-0.5">
+                                        {timeString}
                                     </div>
-                                )}
-                            </div>
-                        ))
+                                    <div className="font-bold text-indigo-900 text-sm leading-tight mb-1">Ocupado</div>
+                                </div>
+                            );
+                        })
                     )}
                 </div>
             </GlassCard>

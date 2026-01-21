@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { calendarService } from '../../services/calendar';
-import { adminService } from '../../services/admin';
 import { CalendarEvent, SupabaseSession } from '../../types';
 
 interface AvailabilityProps {
@@ -139,19 +138,26 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
                     </div>
 
                     <div className="w-full flex gap-2 h-full">
-                        <div className={`flex-1 rounded-lg flex items-center justify-center font-bold text-sm transition-all ${
+                        {/* Morning Slot */}
+                        <div className={`flex-1 rounded-lg flex flex-col items-center justify-center p-2 transition-all border ${
                             slot.morning 
-                                ? 'bg-green-100 text-green-800 border border-green-200 shadow-sm' 
-                                : 'bg-red-50 text-red-300 border border-red-100'
+                                ? 'bg-green-100 text-green-800 border-green-200 shadow-sm' 
+                                : 'bg-red-50 text-red-300 border-red-100'
                         }`}>
-                            {slot.morning ? 'LIVRE' : 'OCUPADO'}
+                            <span className="text-[10px] uppercase font-bold mb-1 opacity-70">Manhã</span>
+                            <span className="font-bold text-sm">{slot.morning ? 'LIVRE' : 'OCUPADO'}</span>
+                            <span className="text-[9px] font-mono opacity-80 mt-1 block border-t border-black/10 pt-1 w-full text-center">09:00 - 13:00</span>
                         </div>
-                        <div className={`flex-1 rounded-lg flex items-center justify-center font-bold text-sm transition-all ${
+
+                        {/* Afternoon Slot */}
+                        <div className={`flex-1 rounded-lg flex flex-col items-center justify-center p-2 transition-all border ${
                             slot.afternoon
-                                ? 'bg-blue-100 text-blue-800 border border-blue-200 shadow-sm' 
-                                : 'bg-red-50 text-red-300 border border-red-100'
+                                ? 'bg-blue-100 text-blue-800 border-blue-200 shadow-sm' 
+                                : 'bg-red-50 text-red-300 border-red-100'
                         }`}>
-                            {slot.afternoon ? 'LIVRE' : 'OCUPADO'}
+                             <span className="text-[10px] uppercase font-bold mb-1 opacity-70">Tarde</span>
+                             <span className="font-bold text-sm">{slot.afternoon ? 'LIVRE' : 'OCUPADO'}</span>
+                             <span className="text-[9px] font-mono opacity-80 mt-1 block border-t border-black/10 pt-1 w-full text-center">14:00 - 18:00</span>
                         </div>
                     </div>
                 </GlassCard>
