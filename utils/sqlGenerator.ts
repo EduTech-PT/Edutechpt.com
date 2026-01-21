@@ -348,7 +348,8 @@ begin
   end if;
 
   -- 2. Tentar obter nome dos metadados
-  final_name := coalesce(auth.jwt()->>'user_metadata'->>'full_name', auth.email());
+  -- Corrigido: Usar -> para obter objeto JSON antes de extrair texto
+  final_name := coalesce((auth.jwt() -> 'user_metadata') ->> 'full_name', auth.email());
 
   -- 3. Criar Perfil (Upsert seguro)
   insert into public.profiles (id, email, full_name, role)
