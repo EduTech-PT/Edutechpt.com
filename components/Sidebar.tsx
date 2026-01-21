@@ -10,7 +10,7 @@ interface SidebarProps {
   currentView: string;
   setView: (view: string) => void;
   onLogout: () => void;
-  onMobileClose?: () => void; // Nova prop para fechar menu em mobile
+  onMobileClose?: () => void;
 }
 
 interface MenuItem {
@@ -30,9 +30,8 @@ interface MenuGroup {
 export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appVersion, currentView, setView, onLogout, onMobileClose }) => {
   const role = profile?.role || UserRole.STUDENT;
   
-  // Estado para controlar quais grupos estão abertos
-  // Por padrão, deixamos 'Perfil' aberto
-  const [openGroups, setOpenGroups] = useState<string[]>(['perfil', 'dashboard']);
+  // Estado para controlar Mobile Accordion (Desktop usa Hover/CSS)
+  const [openGroups, setOpenGroups] = useState<string[]>(['perfil']);
 
   const toggleGroup = (groupId: string) => {
     setOpenGroups(prev => 
@@ -47,23 +46,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       if (onMobileClose) onMobileClose();
   };
 
-  // Helper de Permissões
   const hasAccess = (permissionKey: string, fallbackRoles: string[]) => {
     if (role === UserRole.ADMIN) return true;
     if (userPermissions) return !!userPermissions[permissionKey];
     return fallbackRoles.includes(role);
   };
 
-  // Definição da Estrutura do Menu
   const structure: (MenuGroup | MenuItem)[] = [
-    // Item Solto (Dashboard)
     { 
       id: 'dashboard', 
       label: 'Dashboard', 
       permissionKey: 'view_dashboard', 
       fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] 
     },
-    // Grupo Perfil
     {
       id: 'perfil',
       label: 'Perfil',
@@ -73,7 +68,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
         { id: 'community', label: 'Comunidade', permissionKey: 'view_community', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
       ]
     },
-    // Grupo Cursos
     {
       id: 'cursos',
       label: 'Formação',
@@ -83,7 +77,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
         { id: 'manage_courses', label: 'Gerir Cursos', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
       ]
     },
-    // Grupo Material Didático
     {
       id: 'material',
       label: 'Material Didático',
@@ -93,7 +86,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
         { id: 'drive', label: 'Arquivos Drive', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
       ]
     },
-    // Grupo Definições & Admin
     {
       id: 'definicoes',
       label: 'Definições',
@@ -114,25 +106,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
     
     const isActive = currentView === item.id;
     return (
-      <button
-        key={item.id}
-        onClick={() => handleSetView(item.id)}
-        className={`w-full text-left px-4 py-3 rounded-xl transition-all duration-200 font-medium mb-1 flex items-center gap-3 ${
-          isActive 
-            ? 'bg-indigo-600 text-white shadow-md' 
-            : 'text-indigo-900 hover:bg-white/40'
-        }`}
-      >
-        <span className="text-lg">
-           {item.id === 'dashboard' ? '📊' : '•'}
-        </span>
-        {item.label}
-      </button>
+      <div key={item.id} className="mb-1 relative group">
+        <button
+          onClick={() => handleSetView(item.id)}
+          className={`w-full text-left px-4 py-3 rounded-xl transition-all duration-200 font-medium flex items-center gap-3 relative z-10 ${
+            isActive 
+              ? 'bg-indigo-600 text-white shadow-md' 
+              : 'text-indigo-900 hover:bg-white/40'
+          }`}
+        >
+          <span className="text-lg">
+             {item.id === 'dashboard' ? '📊' : '•'}
+          </span>
+          {item.label}
+        </button>
+      </div>
     );
   };
 
   const renderGroup = (group: MenuGroup) => {
-    // Verificar se o utilizador tem acesso a pelo menos UM item do grupo
     const accessibleItems = group.items.filter(item => hasAccess(item.permissionKey, item.fallbackRoles));
     if (accessibleItems.length === 0) return null;
 
@@ -140,10 +132,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
     const hasActiveChild = accessibleItems.some(i => i.id === currentView);
 
     return (
-      <div key={group.id} className="mb-2">
+      <div key={group.id} className="mb-2 relative group">
+        {/* Main Group Button */}
         <button
           onClick={() => toggleGroup(group.id)}
-          className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors font-bold ${
+          className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors font-bold relative z-10 ${
             hasActiveChild ? 'bg-indigo-100 text-indigo-900' : 'text-indigo-800 hover:bg-white/30'
           }`}
         >
@@ -151,53 +144,69 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
             <span>{group.icon}</span>
             <span>{group.label}</span>
           </div>
-          <span className={`transform transition-transform duration-200 text-xs ${isOpen ? 'rotate-180' : ''}`}>
-            ▼
-          </span>
+          {/* Icons: Rotate on Mobile, Arrow Right on Desktop */}
+          <span className={`transform transition-transform duration-200 text-xs md:hidden ${isOpen ? 'rotate-180' : ''}`}>▼</span>
+          <span className="hidden md:block text-xs opacity-50 group-hover:translate-x-1 transition-transform">▶</span>
         </button>
 
-        {/* Dropdown Content */}
-        {isOpen && (
-          <div className="mt-1 ml-4 border-l-2 border-indigo-200 pl-2 space-y-1 animate-in slide-in-from-top-2 duration-200">
-            {accessibleItems.map(item => (
+        {/* 
+            SUBMENU CONTAINER 
+            Mobile: Relative Accordion
+            Desktop: Absolute Flyout (Right side)
+        */}
+        <div className={`
+            /* MOBILE STYLES (Accordion) */
+            ${isOpen ? 'block' : 'hidden'} 
+            pl-4 mt-1 border-l-2 border-indigo-200 relative
+            
+            /* DESKTOP STYLES (Flyout) - Overrides Mobile */
+            md:block md:invisible md:opacity-0 md:group-hover:visible md:group-hover:opacity-100
+            md:absolute md:left-[calc(100%-10px)] md:top-0 md:w-60 md:z-50
+            md:pl-6 md:mt-0 md:border-l-0
+            md:transform md:-translate-x-4 md:group-hover:translate-x-0
+            transition-all duration-200 ease-out
+        `}>
+          {/* Glass Card for Desktop Flyout */}
+          <div className="md:bg-white/80 md:backdrop-blur-xl md:border md:border-white/50 md:shadow-2xl md:rounded-xl md:p-2 md:ring-1 md:ring-indigo-100/50">
+             {/* Header on Flyout only */}
+             <div className="hidden md:block px-3 py-2 text-xs font-bold text-indigo-400 uppercase tracking-wider border-b border-indigo-100/50 mb-1">
+                {group.label}
+             </div>
+
+             {accessibleItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => handleSetView(item.id)}
-                className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all mb-1 ${
                   currentView === item.id
                     ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-indigo-700 hover:bg-indigo-50'
+                    : 'text-indigo-700 hover:bg-indigo-50 hover:text-indigo-900'
                 }`}
               >
                 {item.label}
               </button>
             ))}
           </div>
-        )}
+        </div>
       </div>
     );
   };
 
   return (
-    <GlassCard className="h-full flex flex-col w-64 md:rounded-l-none md:rounded-r-2xl md:border-l-0 rounded-none border-0 md:border md:border-l-0 min-h-screen md:min-h-[80vh] p-0 overflow-hidden relative shadow-2xl md:shadow-lg">
+    // Alterado: Removemos 'overflow-hidden' no desktop para permitir que o Flyout saia do card
+    <GlassCard className="h-full flex flex-col w-64 md:rounded-l-none md:rounded-r-2xl md:border-l-0 rounded-none border-0 md:border md:border-l-0 min-h-screen md:min-h-[80vh] p-0 relative shadow-2xl md:shadow-lg overflow-hidden md:overflow-visible">
       
-      {/* Top Section: Logo & Mobile Close */}
-      <div className="p-6 pb-4 flex-shrink-0 flex justify-between items-center">
+      {/* Top Section */}
+      <div className="p-6 pb-4 flex-shrink-0 flex justify-between items-center bg-white/10 backdrop-blur-sm md:bg-transparent">
         <h2 className="text-2xl font-bold text-indigo-900 tracking-tight">EduTech PT</h2>
-        
-        {/* Mobile Close Button */}
         {onMobileClose && (
-            <button 
-                onClick={onMobileClose}
-                className="md:hidden p-2 text-indigo-900 hover:bg-indigo-100 rounded-lg"
-            >
-                ✕
-            </button>
+            <button onClick={onMobileClose} className="md:hidden p-2 text-indigo-900 hover:bg-indigo-100 rounded-lg">✕</button>
         )}
       </div>
       
       {/* Middle Section: Nav */}
-      <div className="flex-1 overflow-y-auto px-4 py-2 custom-scrollbar">
+      {/* Alterado: 'overflow-visible' no desktop para o menu não ser cortado */}
+      <div className="flex-1 px-4 py-2 custom-scrollbar overflow-y-auto md:overflow-visible">
         <nav className="space-y-1 pb-4">
           {structure.map(item => {
             if ('items' in item) {
@@ -210,7 +219,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       </div>
 
       {/* Bottom Section: User Info */}
-      <div className="flex-shrink-0 bg-white/20 backdrop-blur-md p-6 border-t border-white/40 flex flex-col gap-4">
+      <div className="flex-shrink-0 bg-white/20 backdrop-blur-md p-6 border-t border-white/40 flex flex-col gap-4 relative z-20">
         {profile && (
             <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-indigo-200 border-2 border-white shadow-sm flex items-center justify-center overflow-hidden shrink-0">
