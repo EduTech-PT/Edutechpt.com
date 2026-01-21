@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { calendarService } from '../../services/calendar';
 import { CalendarEvent, SupabaseSession } from '../../types';
+import * as XLSX from 'xlsx';
 
 interface AvailabilityProps {
   session: SupabaseSession['user'];
@@ -148,7 +149,10 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
 
           const { items: exportEvents } = await calendarService.listEvents(null, start, end);
 
-          let csvContent = "Data,Dia da Semana,Manhã (09h-13h),Tarde (14h-18h)\n";
+          // Preparar dados para Excel (Array de Arrays)
+          const data: any[][] = [
+              ["Data", "Dia da Semana", "Manhã (09h-13h)", "Tarde (14h-18h)"]
+          ];
           
           for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
               const currentDay = new Date(d);
@@ -157,7 +161,7 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
               const weekDayStr = currentDay.toLocaleDateString('pt-PT', { weekday: 'long' });
 
               if (isWeekend) {
-                  csvContent += `"${dateStr}","${weekDayStr}","Fim de Semana","Fim de Semana"\n`;
+                  data.push([dateStr, weekDayStr, "Fim de Semana", "Fim de Semana"]);
                   continue;
               }
 
@@ -182,23 +186,31 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
                   if (s < afternoonEnd && e > afternoonStart) aStatus = "OCUPADO";
               }
 
-              csvContent += `"${dateStr}","${weekDayStr}","${mStatus}","${aStatus}"\n`;
+              data.push([dateStr, weekDayStr, mStatus, aStatus]);
           }
 
-          const bom = "\uFEFF"; 
-          const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url;
-          link.setAttribute("download", `disponibilidade_${exportRange.start}_${exportRange.end}.csv`);
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          // Criar Workbook e Worksheet
+          const ws = XLSX.utils.aoa_to_sheet(data);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "Disponibilidade");
+
+          // Ajustar largura das colunas (Cosmética)
+          const wscols = [
+              {wch: 15}, // Data
+              {wch: 15}, // Dia da Semana
+              {wch: 20}, // Manhã
+              {wch: 20}  // Tarde
+          ];
+          ws['!cols'] = wscols;
+
+          // Gerar Ficheiro e Download
+          XLSX.writeFile(wb, `disponibilidade_${exportRange.start}_${exportRange.end}.xlsx`);
           
           setShowExportModal(false);
 
       } catch (e: any) {
-          alert("Erro ao exportar: " + e.message);
+          alert("Erro ao exportar Excel: " + e.message);
+          console.error(e);
       } finally {
           setExporting(false);
       }
@@ -270,7 +282,7 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
                      <button onClick={() => setShowExportModal(false)} className="absolute top-4 right-4 text-indigo-400 hover:text-indigo-800">✕</button>
                      
                      <h3 className="font-bold text-xl text-indigo-900 mb-2">Exportar Disponibilidade</h3>
-                     <p className="text-sm text-indigo-700 mb-6">Selecione o intervalo de datas para gerar o relatório em Excel.</p>
+                     <p className="text-sm text-indigo-700 mb-6">Selecione o intervalo de datas para gerar o relatório em Excel (.xlsx).</p>
                      
                      <div className="space-y-4">
                          <div>
@@ -299,14 +311,14 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
                              <button 
                                 onClick={handleExport} 
                                 disabled={exporting}
-                                className="flex-1 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md flex items-center justify-center gap-2"
+                                className="flex-1 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 shadow-md flex items-center justify-center gap-2"
                              >
                                  {exporting ? (
                                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                                  ) : (
                                      <span>⬇️</span>
                                  )}
-                                 {exporting ? 'A Gerar...' : 'Descarregar .CSV'}
+                                 {exporting ? 'A Gerar...' : 'Descarregar .XLSX'}
                              </button>
                          </div>
                      </div>
