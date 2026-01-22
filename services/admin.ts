@@ -91,16 +91,43 @@ export const adminService = {
     },
 
     async createRole(name: string, description: string = 'Novo cargo', permissions: UserPermissions = {}) {
+        // Garantir que permissions é um objeto limpo antes de enviar
+        // O Supabase converte automaticamente JS Object -> JSONB, mas garantimos que não é undefined
+        const cleanPermissions = permissions || {};
+        
         const { error } = await supabase.from('roles').insert([{ 
             name, 
             description,
-            permissions 
+            permissions: cleanPermissions
         }]);
         if (error) throw error;
     },
 
     async updateRole(name: string, updates: Partial<RoleDefinition>) {
         const { error } = await supabase.from('roles').update(updates).eq('name', name);
+        if (error) throw error;
+    },
+
+    // NOVO: Método de Eliminar Cargo
+    async deleteRole(name: string) {
+        const SYSTEM_ROLES = ['admin', 'editor', 'formador', 'aluno'];
+        if (SYSTEM_ROLES.includes(name)) {
+            throw new Error("Não é possível eliminar cargos de sistema.");
+        }
+
+        // Verificar se há utilizadores com este cargo
+        const { count, error: countError } = await supabase
+            .from('profiles')
+            .select('*', { count: 'exact', head: true })
+            .eq('role', name);
+
+        if (countError) throw countError;
+        
+        if (count && count > 0) {
+            throw new Error(`Existem ${count} utilizadores com este cargo. Altere o cargo deles antes de eliminar.`);
+        }
+
+        const { error } = await supabase.from('roles').delete().eq('name', name);
         if (error) throw error;
     },
 

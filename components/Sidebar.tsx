@@ -11,7 +11,7 @@ interface SidebarProps {
   setView: (view: string) => void;
   onLogout: () => void;
   onMobileClose?: () => void;
-  logoUrl?: string; // Novo Prop
+  logoUrl?: string;
 }
 
 interface MenuItem {
@@ -164,13 +164,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
             SUBMENU CONTAINER 
             Mobile: Relative Accordion
             Desktop: Absolute Flyout (Right side)
+            
+            FIX: overflow-visible on container ensures this is seen
+            z-50 ensures it stays on top of content
         */}
         <div className={`
             /* MOBILE STYLES (Accordion) */
             ${isOpen ? 'block' : 'hidden'} 
             pl-4 mt-1 border-l-2 border-indigo-200 relative
             
-            /* DESKTOP STYLES (Flyout) - Overrides Mobile */
+            /* DESKTOP STYLES (Flyout) */
             md:block md:invisible md:opacity-0 md:group-hover:visible md:group-hover:opacity-100
             md:absolute md:left-[calc(100%-10px)] md:top-0 md:w-60 md:z-50
             md:pl-6 md:mt-0 md:border-l-0
@@ -178,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
             transition-all duration-200 ease-out
         `}>
           {/* Glass Card for Desktop Flyout */}
-          <div className="md:bg-white/80 md:backdrop-blur-xl md:border md:border-white/50 md:shadow-2xl md:rounded-xl md:p-2 md:ring-1 md:ring-indigo-100/50">
+          <div className="md:bg-white/90 md:backdrop-blur-2xl md:border md:border-white/60 md:shadow-2xl md:rounded-xl md:p-2 md:ring-1 md:ring-indigo-100/50">
              {/* Header on Flyout only */}
              <div className="hidden md:block px-3 py-2 text-xs font-bold text-indigo-400 uppercase tracking-wider border-b border-indigo-100/50 mb-1">
                 {group.label}
@@ -204,10 +207,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
   };
 
   return (
-    // Alterado: Removemos 'overflow-hidden' no desktop para permitir que o Flyout saia do card
-    <GlassCard className="h-full flex flex-col w-64 md:rounded-l-none md:rounded-r-2xl md:border-l-0 rounded-none border-0 md:border md:border-l-0 min-h-screen md:min-h-[80vh] p-0 relative shadow-2xl md:shadow-lg overflow-hidden md:overflow-visible">
+    // FIX: md:overflow-visible allows flyouts to render outside the card
+    <GlassCard className="h-full flex flex-col w-64 md:rounded-l-none md:rounded-r-2xl md:border-l-0 rounded-none border-0 md:border md:border-l-0 min-h-screen md:min-h-[80vh] p-0 relative shadow-2xl md:shadow-lg overflow-hidden md:overflow-visible z-50">
       
-      {/* Top Section - LOGO AUMENTADO */}
+      {/* Top Section */}
       <div className="p-6 pb-4 flex-shrink-0 flex justify-between items-center bg-white/10 backdrop-blur-sm md:bg-transparent">
         {logoUrl ? (
             <img src={logoUrl} alt="Logo" className="h-12 md:h-16 object-contain max-w-[200px]" />
@@ -220,7 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       </div>
       
       {/* Middle Section: Nav */}
-      {/* Alterado: 'overflow-visible' no desktop para o menu não ser cortado */}
+      {/* FIX: md:overflow-visible here too */}
       <div className="flex-1 px-4 py-2 custom-scrollbar overflow-y-auto md:overflow-visible">
         <nav className="space-y-1 pb-4">
           {structure.map(item => {
