@@ -61,6 +61,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     if (url) execCommand('insertImage', url);
   };
 
+  const handleLorem = () => {
+      const lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.";
+      // Usamos insertText para inserir onde está o cursor, ou append se vazio
+      execCommand('insertText', lorem);
+  };
+
   const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'foreColor' | 'hiliteColor') => {
       const color = e.target.value;
       if (type === 'foreColor') setForeColor(color);
@@ -78,10 +84,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       `}>
         
         {/* Toolbar Glassmorphism */}
-        <div className="flex flex-col gap-1 p-2 border-b border-indigo-100/50 bg-indigo-50/30 backdrop-blur-sm select-none">
+        <div className="flex flex-col gap-2 p-2 border-b border-indigo-100/50 bg-indigo-50/30 backdrop-blur-sm select-none">
            
            {/* Row 1: Main Structure & Fonts */}
-           <div className="flex items-center gap-1 flex-wrap">
+           <div className="flex items-center gap-2 flex-wrap">
                {/* History */}
                <div className="flex gap-0.5 mr-1">
                    <ToolbarButton title="Desfazer" onClick={() => execCommand('undo')} icon={<IconUndo />} />
@@ -100,48 +106,48 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
                <Divider />
 
-               {/* Font Selectors */}
+               {/* Font Selectors (UPDATED: Larger and more readable) */}
                <select 
                   onChange={(e) => execCommand('fontName', e.target.value)} 
-                  className="h-7 text-xs rounded border-indigo-200 bg-white/70 text-indigo-900 outline-none focus:ring-1 focus:ring-indigo-400 px-1"
+                  className="h-9 text-sm rounded border-indigo-200 bg-white/70 text-indigo-900 outline-none focus:ring-1 focus:ring-indigo-400 px-2 min-w-[120px] cursor-pointer hover:bg-white"
                   defaultValue="Inter"
                >
-                   <option value="Inter">Padrão</option>
+                   <option value="Inter">Fonte Padrão</option>
                    <option value="Arial">Arial</option>
-                   <option value="Courier New">Courier</option>
+                   <option value="Courier New">Courier New</option>
                    <option value="Georgia">Georgia</option>
-                   <option value="Times New Roman">Times</option>
+                   <option value="Times New Roman">Times New Roman</option>
                    <option value="Verdana">Verdana</option>
                </select>
 
                <select 
                   onChange={(e) => execCommand('fontSize', e.target.value)} 
-                  className="h-7 text-xs rounded border-indigo-200 bg-white/70 text-indigo-900 outline-none focus:ring-1 focus:ring-indigo-400 px-1 w-16"
+                  className="h-9 text-sm rounded border-indigo-200 bg-white/70 text-indigo-900 outline-none focus:ring-1 focus:ring-indigo-400 px-2 min-w-[100px] cursor-pointer hover:bg-white"
                   defaultValue="3"
                >
-                   <option value="1">Mini</option>
-                   <option value="2">Pequeno</option>
-                   <option value="3">Normal</option>
-                   <option value="4">Médio</option>
-                   <option value="5">Grande</option>
-                   <option value="6">XL</option>
-                   <option value="7">XXL</option>
+                   <option value="1">1 - Mini</option>
+                   <option value="2">2 - Pequeno</option>
+                   <option value="3">3 - Normal</option>
+                   <option value="4">4 - Médio</option>
+                   <option value="5">5 - Grande</option>
+                   <option value="6">6 - XL</option>
+                   <option value="7">7 - XXL</option>
                </select>
 
-                <div className="flex gap-1 ml-1 items-center px-1 border border-indigo-100 rounded bg-white/30">
-                    <div className="relative w-5 h-5 overflow-hidden rounded-full cursor-pointer border border-indigo-200 shadow-sm" title="Cor do Texto">
-                        <input type="color" value={foreColor} onChange={(e) => handleColorChange(e, 'foreColor')} className="absolute -top-4 -left-4 w-12 h-12 cursor-pointer p-0 border-0" />
-                        <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold pointer-events-none mix-blend-difference text-white">A</span>
+                <div className="flex gap-1 ml-1 items-center px-1 border border-indigo-100 rounded bg-white/30 h-9">
+                    <div className="relative w-6 h-6 overflow-hidden rounded-full cursor-pointer border border-indigo-200 shadow-sm" title="Cor do Texto">
+                        <input type="color" value={foreColor} onChange={(e) => handleColorChange(e, 'foreColor')} className="absolute -top-4 -left-4 w-16 h-16 cursor-pointer p-0 border-0" />
+                        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold pointer-events-none mix-blend-difference text-white">A</span>
                     </div>
-                    <div className="relative w-5 h-5 overflow-hidden rounded-sm cursor-pointer border border-indigo-200 shadow-sm" title="Cor de Fundo (Realce)">
-                        <input type="color" value={hiliteColor} onChange={(e) => handleColorChange(e, 'hiliteColor')} className="absolute -top-4 -left-4 w-12 h-12 cursor-pointer p-0 border-0" />
-                        <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold pointer-events-none mix-blend-difference text-white">Bg</span>
+                    <div className="relative w-6 h-6 overflow-hidden rounded-sm cursor-pointer border border-indigo-200 shadow-sm" title="Cor de Fundo (Realce)">
+                        <input type="color" value={hiliteColor} onChange={(e) => handleColorChange(e, 'hiliteColor')} className="absolute -top-4 -left-4 w-16 h-16 cursor-pointer p-0 border-0" />
+                        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold pointer-events-none mix-blend-difference text-white">Bg</span>
                     </div>
                 </div>
            </div>
 
            {/* Row 2: Formatting & Tools */}
-           <div className="flex items-center gap-1 flex-wrap mt-1 pt-1 border-t border-indigo-100/50">
+           <div className="flex items-center gap-1 flex-wrap pt-1 border-t border-indigo-100/50">
                
                {/* Basic Formatting */}
                <div className="flex gap-0.5">
@@ -185,6 +191,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                    <ToolbarButton title="Link" onClick={handleLink} icon={<IconLink />} />
                    <ToolbarButton title="Imagem (URL)" onClick={handleImage} icon={<IconImage />} />
                    <ToolbarButton title="Linha Horizontal" onClick={() => execCommand('insertHorizontalRule')} icon={<IconMinus />} />
+                   <ToolbarButton title="Inserir Lorem Ipsum" onClick={handleLorem} icon={<IconLorem />} />
                </div>
 
                <div className="flex-1"></div>
@@ -292,4 +299,5 @@ const IconIndent = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="n
 const IconOutdent = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="7 8 3 12 7 16"/><line x1="21" y1="12" x2="3" y2="12"/><line x1="21" y1="6" x2="11" y2="6"/><line x1="21" y1="18" x2="11" y2="18"/></svg>;
 const IconSub = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 19 6-6"/><path d="m4 13 6 6"/><path d="M19 19a2 2 0 0 0 2-2v-1a2 2 0 0 0-2-2h-1v5"/></svg>;
 const IconSup = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 19 6-6"/><path d="m4 13 6 6"/><path d="M19 9a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1v5"/></svg>;
+const IconLorem = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
 
