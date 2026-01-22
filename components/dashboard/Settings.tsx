@@ -367,7 +367,7 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                          <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} />
                                      </label>
                                  </div>
-                                 <div className="flex flex-col items-center justify-center p-4 bg-indigo-50/50 rounded-lg border border-indigo-100 border-dashed h-32">
+                                 <div className="flex flex-col items-center justify-center p-4 bg-transparent rounded-lg border border-indigo-200 border-dashed h-32">
                                      {config.logoUrl ? (
                                          <img src={config.logoUrl} alt="Logo Preview" className="h-24 object-contain" />
                                      ) : (
@@ -392,7 +392,7 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                          <input type="file" className="hidden" accept="image/x-icon,image/png" onChange={handleFaviconUpload} disabled={uploadingFavicon} />
                                      </label>
                                  </div>
-                                 <div className="flex flex-col items-center justify-center p-4 bg-indigo-50/50 rounded-lg border border-indigo-100 border-dashed h-32">
+                                 <div className="flex flex-col items-center justify-center p-4 bg-transparent rounded-lg border border-indigo-200 border-dashed h-32">
                                      {config.faviconUrl ? (
                                          <img src={config.faviconUrl} alt="Favicon Preview" className="h-8 w-8 object-contain" />
                                      ) : (
