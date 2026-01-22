@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { userService } from '../../services/users';
+import { adminService } from '../../services/admin';
 import { Profile } from '../../types';
 import { formatDate } from '../../utils/formatters';
 import { sanitizeHTML } from '../../utils/security';
@@ -11,10 +12,21 @@ export const Community: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [selectedMember, setSelectedMember] = useState<Profile | null>(null);
+    const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
 
     useEffect(() => {
         loadCommunity();
+        loadBranding();
     }, []);
+
+    const loadBranding = async () => {
+        try {
+            const config = await adminService.getAppConfig();
+            if (config.logoUrl) setLogoUrl(config.logoUrl);
+        } catch (e) {
+            console.error("Erro loading logo", e);
+        }
+    };
 
     const loadCommunity = async () => {
         try {
@@ -76,11 +88,8 @@ export const Community: React.FC = () => {
                             key={member.id} 
                             hoverEffect={true} 
                             className="flex flex-col items-center text-center relative group overflow-hidden cursor-pointer active:scale-[0.98]"
-                            
+                            onClick={() => setSelectedMember(member)}
                         >
-                            {/* Click Area Overlay (to handle selection) */}
-                            <div className="absolute inset-0 z-0" onClick={() => setSelectedMember(member)}></div>
-                            
                             {/* Role Badge */}
                             <span className="absolute top-3 right-3 px-2 py-0.5 bg-indigo-100 text-indigo-800 text-[10px] uppercase font-bold rounded-full z-10">
                                 {member.role}
@@ -153,10 +162,14 @@ export const Community: React.FC = () => {
             {/* MEMBER DETAIL MODAL */}
             {selectedMember && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setSelectedMember(null)}>
-                    <GlassCard className="w-full max-w-2xl relative max-h-[90vh] flex flex-col overflow-hidden p-0" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                    <GlassCard className="w-full max-w-2xl relative max-h-[90vh] flex flex-col overflow-hidden p-0 shadow-2xl" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                         
-                        {/* Header Image Background */}
-                        <div className="h-32 bg-gradient-to-r from-indigo-500 to-purple-500 relative">
+                        {/* Header Image Background with Centered Logo */}
+                        <div className="h-32 bg-gradient-to-r from-indigo-500 to-purple-500 relative flex items-center justify-center">
+                            {logoUrl && (
+                                <img src={logoUrl} alt="Logo" className="h-16 object-contain opacity-90 drop-shadow-md z-10" />
+                            )}
+
                             <button 
                                 onClick={() => setSelectedMember(null)} 
                                 className="absolute top-4 right-4 bg-black/20 hover:bg-black/40 text-white rounded-full p-2 backdrop-blur-sm transition-all z-20"
@@ -165,12 +178,12 @@ export const Community: React.FC = () => {
                             </button>
                         </div>
 
-                        {/* Profile Info */}
-                        <div className="px-8 pb-8 -mt-16 flex flex-col flex-1 overflow-y-auto custom-scrollbar">
+                        {/* Profile Info - Added relative and z-index to fix overlapping issues */}
+                        <div className="px-8 pb-8 -mt-16 flex flex-col flex-1 overflow-y-auto custom-scrollbar relative z-20">
                             
                             <div className="flex flex-col md:flex-row items-end md:items-end gap-6 mb-6">
                                 {/* Avatar Big */}
-                                <div className="w-32 h-32 rounded-full border-[6px] border-white/80 shadow-xl bg-indigo-200 overflow-hidden shrink-0">
+                                <div className="w-32 h-32 rounded-full border-[6px] border-white/80 shadow-xl bg-indigo-200 overflow-hidden shrink-0 relative z-30">
                                     {selectedMember.avatar_url ? (
                                         <img src={selectedMember.avatar_url} alt="User" className="w-full h-full object-cover" />
                                     ) : (
@@ -180,8 +193,8 @@ export const Community: React.FC = () => {
                                     )}
                                 </div>
                                 
-                                <div className="flex-1 mb-2">
-                                    <h2 className="text-3xl font-bold text-indigo-900 leading-tight">
+                                <div className="flex-1 mb-2 relative z-20">
+                                    <h2 className="text-3xl font-bold text-indigo-900 leading-tight drop-shadow-sm bg-white/40 backdrop-blur-[2px] rounded-lg px-2 -ml-2 inline-block">
                                         {selectedMember.full_name}
                                     </h2>
                                     <div className="flex flex-wrap gap-2 mt-2">
