@@ -109,6 +109,7 @@ export const adminService = {
             data.forEach(item => {
                 // General Settings
                 if (item.key === 'app_logo_url') config.logoUrl = item.value;
+                if (item.key === 'app_favicon_url') config.faviconUrl = item.value;
 
                 // Avatar Settings
                 if (item.key === 'avatar_resizer_link') config.resizerLink = item.value;

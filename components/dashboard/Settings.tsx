@@ -22,7 +22,10 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
     const [testStatus, setTestStatus] = useState<{success: boolean, msg: string} | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [savedId, setSavedId] = useState<string | null>(null);
+    
+    // Upload States
     const [uploadingLogo, setUploadingLogo] = useState(false);
+    const [uploadingFavicon, setUploadingFavicon] = useState(false);
     
     // Novo Estado para versão remota real
     const [remoteGasVersion, setRemoteGasVersion] = useState<string>('checking');
@@ -83,7 +86,6 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
 
         try {
             setUploadingLogo(true);
-            // Reutiliza o storage de cursos (bucket público)
             const url = await storageService.uploadCourseImage(file);
             setConfig((prev: any) => ({ ...prev, logoUrl: url }));
         } catch (err: any) {
@@ -93,14 +95,36 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
         }
     };
 
+    const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        const file = e.target.files[0];
+        
+        if (file.size > 512 * 1024) { // 512KB Max for Favicon
+            alert("O Favicon deve ser pequeno. Máximo 512KB.");
+            return;
+        }
+
+        try {
+            setUploadingFavicon(true);
+            // Reutiliza o storage público
+            const url = await storageService.uploadCourseImage(file);
+            setConfig((prev: any) => ({ ...prev, faviconUrl: url }));
+        } catch (err: any) {
+            alert("Erro no upload: " + err.message);
+        } finally {
+            setUploadingFavicon(false);
+        }
+    };
+
     const handleSaveConfig = async () => {
         setIsSaving(true);
         setTestStatus(null);
         try {
             if (tab === 'geral') {
-                 // Salvar Logo
+                 // Salvar Branding
                  await adminService.updateAppConfig('app_logo_url', config.logoUrl || '');
-                 alert('Definições gerais guardadas. (Atualize a página para ver o novo logótipo)');
+                 await adminService.updateAppConfig('app_favicon_url', config.faviconUrl || '');
+                 alert('Definições gerais guardadas. (Atualize a página para ver as alterações)');
             }
             if (tab === 'avatars') {
                 await adminService.updateAppConfig('avatar_resizer_link', config.resizerLink?.trim());
@@ -326,34 +350,55 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                             <span>🎨</span> Personalização
                         </h3>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                             <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-2">Logótipo da Plataforma</label>
-                                 <div className="flex gap-2 items-center mb-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                             {/* LOGO UPLOAD */}
+                             <div className="bg-white/40 p-6 rounded-xl border border-white/50">
+                                 <label className="block text-sm text-indigo-800 font-bold mb-3 uppercase tracking-wide">Logótipo</label>
+                                 <div className="flex gap-2 items-center mb-3">
                                      <input 
                                          type="text" 
                                          placeholder="https://..." 
                                          value={config.logoUrl || ''} 
                                          onChange={e => setConfig({...config, logoUrl: e.target.value})} 
-                                         className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                         className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 outline-none text-xs"
                                      />
-                                     <label className={`px-4 py-2 bg-white text-indigo-600 border border-indigo-200 rounded font-bold cursor-pointer hover:bg-indigo-50 transition-all ${uploadingLogo ? 'opacity-50' : ''}`}>
-                                         {uploadingLogo ? '...' : 'Upload'}
+                                     <label className={`px-3 py-2 bg-white text-indigo-600 border border-indigo-200 rounded font-bold cursor-pointer hover:bg-indigo-50 transition-all text-xs flex items-center gap-1 ${uploadingLogo ? 'opacity-50' : ''}`}>
+                                         {uploadingLogo ? '...' : '📁'}
                                          <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} />
                                      </label>
                                  </div>
-                                 <p className="text-xs text-indigo-900/60">
-                                     Recomendado: Ficheiro PNG transparente, max 2MB. Substitui o texto "EduTech PT".
-                                 </p>
+                                 <div className="flex flex-col items-center justify-center p-4 bg-indigo-50/50 rounded-lg border border-indigo-100 border-dashed h-24">
+                                     {config.logoUrl ? (
+                                         <img src={config.logoUrl} alt="Logo Preview" className="h-full object-contain" />
+                                     ) : (
+                                         <span className="text-indigo-900 font-bold opacity-30 text-xs">Sem Logótipo</span>
+                                     )}
+                                 </div>
                              </div>
 
-                             <div className="flex flex-col items-center justify-center p-6 bg-indigo-50/50 rounded-xl border border-indigo-100 border-dashed">
-                                 <p className="text-xs text-indigo-400 font-bold uppercase mb-2">Pré-visualização</p>
-                                 {config.logoUrl ? (
-                                     <img src={config.logoUrl} alt="Logo Preview" className="h-16 object-contain" />
-                                 ) : (
-                                     <span className="text-indigo-900 font-bold text-xl opacity-50">EduTech PT</span>
-                                 )}
+                             {/* FAVICON UPLOAD */}
+                             <div className="bg-white/40 p-6 rounded-xl border border-white/50">
+                                 <label className="block text-sm text-indigo-800 font-bold mb-3 uppercase tracking-wide">Favicon (Ícone)</label>
+                                 <div className="flex gap-2 items-center mb-3">
+                                     <input 
+                                         type="text" 
+                                         placeholder="https://..." 
+                                         value={config.faviconUrl || ''} 
+                                         onChange={e => setConfig({...config, faviconUrl: e.target.value})} 
+                                         className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 outline-none text-xs"
+                                     />
+                                     <label className={`px-3 py-2 bg-white text-indigo-600 border border-indigo-200 rounded font-bold cursor-pointer hover:bg-indigo-50 transition-all text-xs flex items-center gap-1 ${uploadingFavicon ? 'opacity-50' : ''}`}>
+                                         {uploadingFavicon ? '...' : '📁'}
+                                         <input type="file" className="hidden" accept="image/x-icon,image/png" onChange={handleFaviconUpload} disabled={uploadingFavicon} />
+                                     </label>
+                                 </div>
+                                 <div className="flex flex-col items-center justify-center p-4 bg-indigo-50/50 rounded-lg border border-indigo-100 border-dashed h-24">
+                                     {config.faviconUrl ? (
+                                         <img src={config.faviconUrl} alt="Favicon Preview" className="h-8 w-8 object-contain" />
+                                     ) : (
+                                         <span className="text-indigo-900 font-bold opacity-30 text-xs">Sem Ícone</span>
+                                     )}
+                                 </div>
                              </div>
                         </div>
 

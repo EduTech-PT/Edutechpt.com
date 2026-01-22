@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { AuthForm } from './components/AuthForm';
 import { SupabaseSession } from './types';
+import { adminService } from './services/admin';
 
 function App() {
   const [session, setSession] = useState<SupabaseSession | null>(null);
@@ -37,6 +38,28 @@ function App() {
       };
       window.addEventListener('popstate', handlePopState);
       return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // GLOBAL CONFIG INJECTION (Favicon, Title, etc)
+  useEffect(() => {
+    const applyGlobalConfig = async () => {
+        try {
+            const config = await adminService.getAppConfig();
+            
+            // Apply Dynamic Favicon
+            if (config.faviconUrl) {
+                let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
+                if (!link) {
+                    link = document.createElement('link');
+                    link.type = 'image/x-icon';
+                    link.rel = 'shortcut icon';
+                    document.getElementsByTagName('head')[0].appendChild(link);
+                }
+                link.href = config.faviconUrl;
+            }
+        } catch (e) { console.error("Config fetch error", e); }
+    };
+    applyGlobalConfig();
   }, []);
 
   useEffect(() => {
