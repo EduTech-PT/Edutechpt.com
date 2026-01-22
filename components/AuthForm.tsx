@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { GlassCard } from './GlassCard';
 import { Provider } from '@supabase/supabase-js';
+import { adminService } from '../services/admin';
 
 interface AuthFormProps {
   onCancel: () => void;
@@ -12,6 +13,13 @@ interface AuthFormProps {
 export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    adminService.getAppConfig().then(c => {
+        if (c.logoUrl) setLogoUrl(c.logoUrl);
+    }).catch(e => console.log('Config load error (Auth)', e));
+  }, []);
 
   const handleOAuthLogin = async (provider: Provider) => {
     try {
@@ -64,6 +72,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick }) 
         </button>
         
         <div className="text-center mb-6">
+          {logoUrl && (
+              <img src={logoUrl} alt="Logo" className="h-12 mx-auto mb-4 object-contain" />
+          )}
           <h2 className="text-2xl font-bold text-indigo-900 mb-2">
             Bem-vindo
           </h2>

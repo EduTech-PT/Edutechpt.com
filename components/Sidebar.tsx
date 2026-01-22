@@ -11,6 +11,7 @@ interface SidebarProps {
   setView: (view: string) => void;
   onLogout: () => void;
   onMobileClose?: () => void;
+  logoUrl?: string; // Novo Prop
 }
 
 interface MenuItem {
@@ -27,7 +28,7 @@ interface MenuGroup {
   items: MenuItem[];
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appVersion, currentView, setView, onLogout, onMobileClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appVersion, currentView, setView, onLogout, onMobileClose, logoUrl }) => {
   const role = profile?.role || UserRole.STUDENT;
   
   // Estado para controlar Mobile Accordion (Desktop usa Hover/CSS)
@@ -208,7 +209,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       
       {/* Top Section */}
       <div className="p-6 pb-4 flex-shrink-0 flex justify-between items-center bg-white/10 backdrop-blur-sm md:bg-transparent">
-        <h2 className="text-2xl font-bold text-indigo-900 tracking-tight">EduTech PT</h2>
+        {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="h-8 md:h-10 object-contain max-w-[150px]" />
+        ) : (
+            <h2 className="text-2xl font-bold text-indigo-900 tracking-tight">EduTech PT</h2>
+        )}
         {onMobileClose && (
             <button onClick={onMobileClose} className="md:hidden p-2 text-indigo-900 hover:bg-indigo-100 rounded-lg">✕</button>
         )}

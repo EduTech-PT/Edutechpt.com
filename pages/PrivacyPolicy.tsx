@@ -1,17 +1,32 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
+import { adminService } from '../services/admin';
 
 interface Props {
   onBack: () => void;
 }
 
 export const PrivacyPolicy: React.FC<Props> = ({ onBack }) => {
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    adminService.getAppConfig().then(c => {
+        if (c.logoUrl) setLogoUrl(c.logoUrl);
+    }).catch(e => console.log('Config load error (Privacy)', e));
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Navbar */}
       <nav className="w-full p-4 md:p-6 flex justify-between items-center z-10 bg-white/10 backdrop-blur-md border-b border-white/20 sticky top-0">
-        <div className="text-xl font-bold text-indigo-900 cursor-pointer" onClick={onBack}>EduTech PT</div>
+        <div className="text-xl font-bold text-indigo-900 cursor-pointer" onClick={onBack}>
+             {logoUrl ? (
+                <img src={logoUrl} alt="EduTech PT" className="h-8 object-contain" />
+            ) : (
+                "EduTech PT"
+            )}
+        </div>
         <button 
           onClick={onBack}
           className="px-4 py-2 bg-white/50 hover:bg-white/80 text-indigo-900 rounded-lg text-sm font-bold transition-all shadow-sm flex items-center gap-2"

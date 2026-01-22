@@ -7,6 +7,7 @@ import { adminService } from '../../services/admin';
 import { RichTextEditor } from '../RichTextEditor';
 import { GAS_TEMPLATE_CODE, GAS_VERSION, driveService } from '../../services/drive';
 import { RoleManager } from './RoleManager';
+import { storageService } from '../../services/storage';
 
 interface Props {
   dbVersion: string;
@@ -21,6 +22,7 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
     const [testStatus, setTestStatus] = useState<{success: boolean, msg: string} | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [savedId, setSavedId] = useState<string | null>(null);
+    const [uploadingLogo, setUploadingLogo] = useState(false);
     
     // Novo Estado para versão remota real
     const [remoteGasVersion, setRemoteGasVersion] = useState<string>('checking');
@@ -70,21 +72,49 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
         return text;
     };
 
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        const file = e.target.files[0];
+        
+        if (file.size > 2 * 1024 * 1024) {
+            alert("Imagem muito grande. Máximo 2MB.");
+            return;
+        }
+
+        try {
+            setUploadingLogo(true);
+            // Reutiliza o storage de cursos (bucket público)
+            const url = await storageService.uploadCourseImage(file);
+            setConfig((prev: any) => ({ ...prev, logoUrl: url }));
+        } catch (err: any) {
+            alert("Erro no upload: " + err.message);
+        } finally {
+            setUploadingLogo(false);
+        }
+    };
+
     const handleSaveConfig = async () => {
         setIsSaving(true);
         setTestStatus(null);
         try {
+            if (tab === 'geral') {
+                 // Salvar Logo
+                 await adminService.updateAppConfig('app_logo_url', config.logoUrl || '');
+                 alert('Definições gerais guardadas. (Atualize a página para ver o novo logótipo)');
+            }
             if (tab === 'avatars') {
                 await adminService.updateAppConfig('avatar_resizer_link', config.resizerLink?.trim());
                 await adminService.updateAppConfig('avatar_help_text', config.helpText);
                 await adminService.updateAppConfig('avatar_max_size_kb', config.maxSizeKb?.toString());
                 await adminService.updateAppConfig('avatar_max_width', config.maxWidth?.toString());
                 await adminService.updateAppConfig('avatar_max_height', config.maxHeight?.toString());
+                alert('Configuração de Avatars guardada!');
             }
             if (tab === 'access') {
                 await adminService.updateAppConfig('access_denied_email', config.accessDeniedEmail?.trim());
                 await adminService.updateAppConfig('access_denied_subject', config.accessDeniedSubject);
                 await adminService.updateAppConfig('access_denied_body', config.accessDeniedBody);
+                alert('Configuração de Acesso guardada!');
             }
             if (tab === 'drive') {
                 const rawId = config.driveFolderId || '';
@@ -99,7 +129,7 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                      throw new Error("O campo ID da Pasta está vazio.");
                 }
 
-                setConfig(prev => ({...prev, driveFolderId: cleanId, googleScriptUrl: cleanUrl}));
+                setConfig((prev: any) => ({...prev, driveFolderId: cleanId, googleScriptUrl: cleanUrl}));
 
                 await adminService.updateAppConfig('google_script_url', cleanUrl);
                 await adminService.updateAppConfig('google_drive_folder_id', cleanId);
@@ -109,9 +139,7 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                 await checkRealVersion(cleanUrl);
                 
                 await loadConfig();
-                alert('Configuração guardada!');
-            } else {
-                alert('Guardado!');
+                alert('Configuração Drive guardada!');
             }
         } catch (e: any) { 
             alert('Erro ao guardar: ' + e.message); 
@@ -258,40 +286,86 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
     return (
         <div className="h-full flex flex-col animate-in fade-in duration-300">
             {tab === 'geral' && (
-                <GlassCard>
-                    <h3 className="font-bold text-xl text-indigo-900 mb-6 flex items-center gap-2">
-                        <span>🛠️</span> Estado do Sistema
-                    </h3>
-                    <div className="space-y-4">
-                        {/* 1. App Version (Frontend) - Sempre atualizada pois é o código corrente */}
-                        <VersionRow 
-                            label="Versão Aplicação (Frontend)"
-                            current={APP_VERSION}
-                            expected={APP_VERSION}
-                            status="ok"
-                        />
+                <GlassCard className="space-y-8">
+                    {/* SYSTEM HEALTH */}
+                    <div>
+                        <h3 className="font-bold text-xl text-indigo-900 mb-6 flex items-center gap-2">
+                            <span>🛠️</span> Estado do Sistema
+                        </h3>
+                        <div className="space-y-4">
+                            <VersionRow 
+                                label="Versão Aplicação (Frontend)"
+                                current={APP_VERSION}
+                                expected={APP_VERSION}
+                                status="ok"
+                            />
+                            <VersionRow 
+                                label="Versão Base de Dados (SQL)"
+                                current={dbVersion}
+                                expected={SQL_VERSION}
+                                status={dbVersion === SQL_VERSION ? 'ok' : 'error'}
+                                onUpdate={() => setTab('sql')}
+                            />
+                            <VersionRow 
+                                label="Versão Google Script (Backend)"
+                                current={remoteGasVersion === 'checking' ? 'A verificar...' : (remoteGasVersion === 'not_configured' ? 'Não Configurado' : remoteGasVersion)}
+                                expected={GAS_VERSION}
+                                status={
+                                    remoteGasVersion === 'checking' ? 'loading' :
+                                    remoteGasVersion === GAS_VERSION ? 'ok' : 
+                                    remoteGasVersion === 'not_configured' ? 'warning' : 'error'
+                                }
+                                onUpdate={() => setTab('drive')}
+                            />
+                        </div>
+                    </div>
 
-                        {/* 2. SQL Version (Database) */}
-                        <VersionRow 
-                            label="Versão Base de Dados (SQL)"
-                            current={dbVersion}
-                            expected={SQL_VERSION}
-                            status={dbVersion === SQL_VERSION ? 'ok' : 'error'}
-                            onUpdate={() => setTab('sql')}
-                        />
+                    {/* BRANDING CONFIGURATION */}
+                    <div className="border-t border-indigo-100 pt-6">
+                         <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
+                            <span>🎨</span> Personalização
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                             <div>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-2">Logótipo da Plataforma</label>
+                                 <div className="flex gap-2 items-center mb-2">
+                                     <input 
+                                         type="text" 
+                                         placeholder="https://..." 
+                                         value={config.logoUrl || ''} 
+                                         onChange={e => setConfig({...config, logoUrl: e.target.value})} 
+                                         className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                     />
+                                     <label className={`px-4 py-2 bg-white text-indigo-600 border border-indigo-200 rounded font-bold cursor-pointer hover:bg-indigo-50 transition-all ${uploadingLogo ? 'opacity-50' : ''}`}>
+                                         {uploadingLogo ? '...' : 'Upload'}
+                                         <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} />
+                                     </label>
+                                 </div>
+                                 <p className="text-xs text-indigo-900/60">
+                                     Recomendado: Ficheiro PNG transparente, max 2MB. Substitui o texto "EduTech PT".
+                                 </p>
+                             </div>
 
-                        {/* 3. Script Version (GAS) */}
-                        <VersionRow 
-                            label="Versão Google Script (Backend)"
-                            current={remoteGasVersion === 'checking' ? 'A verificar...' : (remoteGasVersion === 'not_configured' ? 'Não Configurado' : remoteGasVersion)}
-                            expected={GAS_VERSION}
-                            status={
-                                remoteGasVersion === 'checking' ? 'loading' :
-                                remoteGasVersion === GAS_VERSION ? 'ok' : 
-                                remoteGasVersion === 'not_configured' ? 'warning' : 'error'
-                            }
-                            onUpdate={() => setTab('drive')}
-                        />
+                             <div className="flex flex-col items-center justify-center p-6 bg-indigo-50/50 rounded-xl border border-indigo-100 border-dashed">
+                                 <p className="text-xs text-indigo-400 font-bold uppercase mb-2">Pré-visualização</p>
+                                 {config.logoUrl ? (
+                                     <img src={config.logoUrl} alt="Logo Preview" className="h-16 object-contain" />
+                                 ) : (
+                                     <span className="text-indigo-900 font-bold text-xl opacity-50">EduTech PT</span>
+                                 )}
+                             </div>
+                        </div>
+
+                        <div className="mt-6 flex justify-end">
+                            <button 
+                                onClick={handleSaveConfig} 
+                                disabled={isSaving}
+                                className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-lg disabled:opacity-50"
+                            >
+                                {isSaving ? 'A Guardar...' : 'Guardar Definições'}
+                            </button>
+                        </div>
                     </div>
                 </GlassCard>
             )}

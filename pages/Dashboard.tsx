@@ -41,6 +41,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [dbVersion, setDbVersion] = useState('Checking...');
   const [gasStatus, setGasStatus] = useState<{ match: boolean; remote: string; local: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Branding State
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
 
   // Load Initial Data
   useEffect(() => {
@@ -72,34 +75,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           if (userProfile) {
               setProfile(userProfile);
               
+              // Load App Config (incl. Logo)
+              try {
+                  const config = await adminService.getAppConfig();
+                  if (config.logoUrl) setLogoUrl(config.logoUrl);
+                  
+                  // Check Versions if Admin
+                  if (userProfile.role === UserRole.ADMIN) {
+                      setDbVersion(config.sqlVersion || 'Unknown');
+                      
+                      if (config.googleScriptUrl) {
+                          driveService.checkScriptVersion(config.googleScriptUrl).then(remoteVer => {
+                              setGasStatus({
+                                  match: remoteVer === GAS_VERSION,
+                                  remote: remoteVer,
+                                  local: GAS_VERSION
+                              });
+                          });
+                      } else {
+                          setGasStatus({ match: false, remote: 'not_configured', local: GAS_VERSION });
+                      }
+                  }
+              } catch (cfgErr) {
+                  console.error("Config load failed", cfgErr);
+              }
+
               // AUTO-CREATE DRIVE FOLDER FOR TRAINERS
               if (userProfile.role === UserRole.TRAINER && !userProfile.personal_folder_id) {
                   driveService.getPersonalFolder(userProfile).then((id) => {
                       setProfile(prev => prev ? {...prev, personal_folder_id: id} : null);
                   }).catch(err => console.warn(err));
-              }
-
-              if (userProfile.role === UserRole.ADMIN) {
-                  // 1. Check SQL Version
-                  try {
-                    const config = await adminService.getAppConfig();
-                    setDbVersion(config.sqlVersion || 'Unknown');
-                    
-                    // 2. Check GAS Version (Async)
-                    if (config.googleScriptUrl) {
-                        driveService.checkScriptVersion(config.googleScriptUrl).then(remoteVer => {
-                            setGasStatus({
-                                match: remoteVer === GAS_VERSION,
-                                remote: remoteVer,
-                                local: GAS_VERSION
-                            });
-                        });
-                    } else {
-                        setGasStatus({ match: false, remote: 'not_configured', local: GAS_VERSION });
-                    }
-                  } catch (cfgErr) {
-                      console.error("Config check failed", cfgErr);
-                  }
               }
           }
       } catch (e) { 
@@ -248,6 +253,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 }} 
                 onLogout={onLogout}
                 onMobileClose={() => setMobileMenuOpen(false)}
+                logoUrl={logoUrl}
             />
         </div>
         

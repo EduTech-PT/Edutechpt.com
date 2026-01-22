@@ -107,6 +107,9 @@ export const adminService = {
         const config: any = {};
         if (data) {
             data.forEach(item => {
+                // General Settings
+                if (item.key === 'app_logo_url') config.logoUrl = item.value;
+
                 // Avatar Settings
                 if (item.key === 'avatar_resizer_link') config.resizerLink = item.value;
                 if (item.key === 'avatar_help_text') config.helpText = item.value;
