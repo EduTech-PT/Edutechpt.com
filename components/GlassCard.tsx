@@ -1,14 +1,17 @@
+
 import React from 'react';
 
 interface GlassCardProps {
   children: React.ReactNode;
   className?: string;
   hoverEffect?: boolean;
+  onClick?: React.MouseEventHandler<HTMLDivElement>;
 }
 
-export const GlassCard: React.FC<GlassCardProps> = ({ children, className = '', hoverEffect = false }) => {
+export const GlassCard: React.FC<GlassCardProps> = ({ children, className = '', hoverEffect = false, onClick }) => {
   return (
     <div 
+      onClick={onClick}
       className={`
         bg-white/30 
         backdrop-blur-md 
