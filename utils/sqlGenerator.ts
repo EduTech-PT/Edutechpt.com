@@ -216,10 +216,10 @@ end $$;
 
 -- 5. ROLES & PERMISSÕES
 insert into public.roles (name, description, permissions) values 
-('admin', 'Acesso total ao sistema', '{\"view_dashboard\": true, \"view_my_profile\": true, \"view_community\": true, \"view_users\": true, \"view_settings\": true, \"manage_courses\": true, \"view_courses\": true}'),
-('editor', 'Gestão de conteúdos', '{\"view_dashboard\": true, \"view_my_profile\": true, \"view_community\": true, \"manage_courses\": true, \"view_courses\": true}'),
-('formador', 'Gestão de turmas', '{\"view_dashboard\": true, \"view_my_profile\": true, \"view_community\": true, \"manage_courses\": true, \"view_courses\": true}'),
-('aluno', 'Acesso padrão', '{\"view_dashboard\": true, \"view_my_profile\": true, \"view_community\": true, \"view_courses\": true}')
+('admin', 'Acesso total ao sistema', '{\"view_dashboard\": true, \"view_my_profile\": true, \"view_community\": true, \"view_users\": true, \"view_settings\": true, \"manage_courses\": true, \"view_courses\": true, \"view_all_community\": true}'),
+('editor', 'Gestão de conteúdos', '{\"view_dashboard\": true, \"view_my_profile\": true, \"view_community\": true, \"manage_courses\": true, \"view_courses\": true, \"view_all_community\": true}'),
+('formador', 'Gestão de turmas', '{\"view_dashboard\": true, \"view_my_profile\": true, \"view_community\": true, \"manage_courses\": true, \"view_courses\": true, \"view_all_community\": false}'),
+('aluno', 'Acesso padrão', '{\"view_dashboard\": true, \"view_my_profile\": true, \"view_community\": true, \"view_courses\": true, \"view_all_community\": false}')
 on conflict (name) do update set permissions = excluded.permissions;
 
 -- 6. POLÍTICAS DE SEGURANÇA (RLS)
@@ -361,13 +361,24 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- 8.3 Get Community Members
+-- 8.3 Get Community Members (Atualizado para view_all_community)
 create or replace function public.get_community_members()
 returns setof public.profiles as $$
+declare
+  v_role text;
+  v_perms jsonb;
 begin
-  if exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+  -- Get user role
+  select role into v_role from public.profiles where id = auth.uid();
+  
+  -- Get permissions for that role
+  select permissions into v_perms from public.roles where name = v_role;
+
+  -- Check if Admin OR has permission view_all_community
+  if v_role = 'admin' OR (v_perms->>'view_all_community')::boolean = true then
       return query select * from public.profiles order by full_name;
   else
+      -- Only same classes
       return query 
       select distinct p.*
       from public.profiles p

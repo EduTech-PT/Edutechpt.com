@@ -7,7 +7,8 @@ import { RoleDefinition, UserPermissions } from '../../types';
 const PERMISSIONS_CONFIG = [
     { key: 'view_dashboard', label: 'Ver Dashboard', desc: 'Acesso à página inicial' },
     { key: 'view_my_profile', label: 'Ver Perfil Próprio', desc: 'Editar os seus dados' },
-    { key: 'view_community', label: 'Ver Comunidade', desc: 'Ver lista de colegas' },
+    { key: 'view_community', label: 'Ver Comunidade', desc: 'Ver lista de colegas (apenas da turma)' },
+    { key: 'view_all_community', label: 'Ver Toda a Comunidade', desc: 'Ver todos os registados (ignora filtro de turma)' },
     { key: 'view_courses', label: 'Aceder Cursos', desc: 'Ver área de formação' },
     { key: 'manage_courses', label: 'Gerir Cursos', desc: 'Criar/Editar/Apagar Cursos e Materiais' },
     { key: 'view_users', label: 'Gerir Utilizadores', desc: 'Aceder menu de Utilizadores' },
