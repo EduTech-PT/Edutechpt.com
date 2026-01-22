@@ -1,10 +1,5 @@
 
-import React, { useEffect } from 'react';
-import { useEditor, EditorContent, Editor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Link from '@tiptap/extension-link';
-import Underline from '@tiptap/extension-underline';
-import Placeholder from '@tiptap/extension-placeholder';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface RichTextEditorProps {
   label?: string;
@@ -21,77 +16,56 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   className = '',
   placeholder = "Escreva o conteúdo aqui..."
 }) => {
-  
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: {
-            levels: [1, 2, 3],
-        }
-      }),
-      Underline,
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: {
-          class: 'text-blue-600 underline cursor-pointer hover:text-blue-800',
-        },
-      }),
-      Placeholder.configure({
-        placeholder: placeholder,
-      }),
-    ],
-    content: value,
-    editorProps: {
-      attributes: {
-        class: 'prose prose-indigo prose-sm max-w-none focus:outline-none min-h-[180px] p-4 text-indigo-900 leading-relaxed',
-      },
-    },
-    onUpdate: ({ editor }) => {
-      const html = editor.getHTML();
-      // Se estiver vazio (apenas tags p vazias), envia string vazia
-      onChange(editor.isEmpty ? '' : html);
-    },
-  });
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [isFocused, setIsFocused] = useState(false);
 
-  // Sync value from props if changed externally (e.g. form reset)
+  // Sincronizar valor externo com o editor (apenas se diferente para evitar saltos de cursor)
   useEffect(() => {
-    if (editor && value !== editor.getHTML()) {
-      // Avoid infinite loops/cursor jumps if content is effectively the same
-      if (editor.isEmpty && !value) return;
-      editor.commands.setContent(value);
+    if (editorRef.current && editorRef.current.innerHTML !== value) {
+        // Se o valor for vazio, limpar
+        if (!value) {
+            editorRef.current.innerHTML = '';
+        } else {
+            editorRef.current.innerHTML = value;
+        }
     }
-  }, [value, editor]);
+  }, [value]);
 
-  if (!editor) {
-    return null;
-  }
-
-  const handleLink = () => {
-    const previousUrl = editor.getAttributes('link').href;
-    const url = window.prompt('URL:', previousUrl);
-
-    // cancelled
-    if (url === null) {
-      return;
+  const handleInput = () => {
+    if (editorRef.current) {
+      const html = editorRef.current.innerHTML;
+      // Se tiver apenas tags vazias ou <br>, considerar vazio
+      const text = editorRef.current.innerText.trim();
+      if (!text && !html.includes('<img')) {
+          // Opcional: onChange('');
+          onChange(html); 
+      } else {
+          onChange(html);
+      }
     }
-
-    // empty
-    if (url === '') {
-      editor.chain().focus().extendMarkRange('link').unsetLink().run();
-      return;
-    }
-
-    // update
-    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   };
 
+  const execCommand = (command: string, value: string | undefined = undefined) => {
+    document.execCommand(command, false, value);
+    handleInput(); // Atualizar estado após comando
+    if (editorRef.current) editorRef.current.focus();
+  };
+
+  const handleLink = () => {
+    const url = window.prompt('URL do Link:');
+    if (url) execCommand('createLink', url);
+  };
+
+  // Verificar estado ativo (simplificado, pois execCommand queryCommandState é limitado em React sem rerender constante)
+  // Para esta versão "Safe", focamos na funcionalidade visual.
+  
   return (
     <div className={`flex flex-col ${className}`}>
       {label && <label className="block text-sm font-medium text-indigo-900 mb-1">{label}</label>}
       
       <div className={`
         bg-white/40 border transition-all duration-300 rounded-xl overflow-hidden shadow-sm flex flex-col
-        ${editor.isFocused ? 'ring-2 ring-indigo-400 border-indigo-300 bg-white/60' : 'border-white/50 hover:bg-white/50'}
+        ${isFocused ? 'ring-2 ring-indigo-400 border-indigo-300 bg-white/60' : 'border-white/50 hover:bg-white/50'}
       `}>
         
         {/* Toolbar Glassmorphism */}
@@ -99,83 +73,97 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
            
            <ToolbarButton 
               icon="H1" title="Título Principal" 
-              isActive={editor.isActive('heading', { level: 1 })}
-              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} 
+              onClick={() => execCommand('formatBlock', 'H1')} 
            />
            <ToolbarButton 
               icon="H2" title="Subtítulo" 
-              isActive={editor.isActive('heading', { level: 2 })}
-              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} 
+              onClick={() => execCommand('formatBlock', 'H2')} 
            />
 
            <div className="w-px h-4 bg-indigo-200 mx-1"></div>
 
            <ToolbarButton 
               icon="𝐁" title="Negrito" 
-              isActive={editor.isActive('bold')}
-              onClick={() => editor.chain().focus().toggleBold().run()} 
+              onClick={() => execCommand('bold')} 
            />
            <ToolbarButton 
               icon="𝐼" title="Itálico" 
-              isActive={editor.isActive('italic')}
-              onClick={() => editor.chain().focus().toggleItalic().run()} 
+              onClick={() => execCommand('italic')} 
            />
            <ToolbarButton 
               icon="U̲" title="Sublinhado" 
-              isActive={editor.isActive('underline')}
-              onClick={() => editor.chain().focus().toggleUnderline().run()} 
+              onClick={() => execCommand('underline')} 
            />
            
            <div className="w-px h-4 bg-indigo-200 mx-1"></div>
 
            <ToolbarButton 
               icon="• List" title="Lista" 
-              isActive={editor.isActive('bulletList')}
-              onClick={() => editor.chain().focus().toggleBulletList().run()} 
+              onClick={() => execCommand('insertUnorderedList')} 
            />
            <ToolbarButton 
               icon="1. List" title="Lista Numerada" 
-              isActive={editor.isActive('orderedList')}
-              onClick={() => editor.chain().focus().toggleOrderedList().run()} 
+              onClick={() => execCommand('insertOrderedList')} 
            />
            <ToolbarButton 
               icon="❞" title="Citação" 
-              isActive={editor.isActive('blockquote')}
-              onClick={() => editor.chain().focus().toggleBlockquote().run()} 
+              onClick={() => execCommand('formatBlock', 'BLOCKQUOTE')} 
            />
 
            <div className="w-px h-4 bg-indigo-200 mx-1"></div>
 
            <ToolbarButton 
               icon="🔗" title="Link" 
-              isActive={editor.isActive('link')}
               onClick={handleLink} 
            />
            <ToolbarButton 
               icon="🧹" title="Limpar Formatação" 
-              isActive={false}
-              onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()} 
+              onClick={() => {
+                  execCommand('removeFormat');
+                  execCommand('formatBlock', 'DIV'); // Reset blocks
+              }} 
            />
         </div>
 
-        {/* Tiptap Editor Content */}
-        <EditorContent editor={editor} />
+        {/* Content Editable Area */}
+        <div 
+            ref={editorRef}
+            className="prose prose-indigo prose-sm max-w-none focus:outline-none min-h-[180px] p-4 text-indigo-900 leading-relaxed overflow-y-auto"
+            contentEditable
+            onInput={handleInput}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            data-placeholder={placeholder}
+            style={{ minHeight: '180px' }}
+        />
         
+        <style>{`
+            [contenteditable]:empty:before {
+                content: attr(data-placeholder);
+                color: #818cf8;
+                opacity: 0.6;
+                pointer-events: none;
+                display: block; /* For Firefox */
+            }
+        `}</style>
       </div>
     </div>
   );
 };
 
-// Subcomponente de Botão da Toolbar com Active State
+// Subcomponente de Botão da Toolbar
 const ToolbarButton: React.FC<{ 
   icon: React.ReactNode, 
   title: string, 
   onClick: () => void,
-  isActive: boolean 
+  isActive?: boolean 
 }> = ({ icon, title, onClick, isActive }) => (
   <button
     type="button"
-    onClick={(e) => { e.preventDefault(); onClick(); }}
+    onMouseDown={(e) => { 
+        e.preventDefault(); // Impede perder o foco do editor
+        onClick(); 
+    }}
     className={`
       p-1.5 min-w-[32px] rounded-lg transition-all font-bold text-sm flex items-center justify-center active:scale-95
       ${isActive 

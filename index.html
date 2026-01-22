@@ -41,19 +41,6 @@
         background-attachment: fixed;
         min-height: 100vh;
       }
-      /* Tiptap Specific Styles for Placeholder */
-      .ProseMirror p.is-editor-empty:first-child::before {
-        color: #818cf8; /* indigo-400 */
-        content: attr(data-placeholder);
-        float: left;
-        height: 0;
-        pointer-events: none;
-        opacity: 0.6;
-      }
-      .ProseMirror {
-        outline: none;
-        min-height: 180px;
-      }
     </style>
   <script type="importmap">
 {
@@ -62,14 +49,7 @@
     "react-dom/": "https://esm.sh/react-dom@18.2.0/",
     "react/": "https://esm.sh/react@18.2.0/",
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
-    "xlsx": "https://esm.sh/xlsx@0.18.5",
-    "@tiptap/core": "https://esm.sh/@tiptap/core@2.11.2?deps=@tiptap/pm@2.11.2",
-    "@tiptap/react": "https://esm.sh/@tiptap/react@2.11.2?deps=react@18.2.0,react-dom@18.2.0,@tiptap/pm@2.11.2,@tiptap/core@2.11.2",
-    "@tiptap/pm/": "https://esm.sh/@tiptap/pm@2.11.2/",
-    "@tiptap/starter-kit": "https://esm.sh/@tiptap/starter-kit@2.11.2?deps=@tiptap/pm@2.11.2,@tiptap/core@2.11.2",
-    "@tiptap/extension-link": "https://esm.sh/@tiptap/extension-link@2.11.2?deps=@tiptap/pm@2.11.2,@tiptap/core@2.11.2",
-    "@tiptap/extension-underline": "https://esm.sh/@tiptap/extension-underline@2.11.2?deps=@tiptap/pm@2.11.2,@tiptap/core@2.11.2",
-    "@tiptap/extension-placeholder": "https://esm.sh/@tiptap/extension-placeholder@2.11.2?deps=@tiptap/pm@2.11.2,@tiptap/core@2.11.2"
+    "xlsx": "https://esm.sh/xlsx@0.18.5"
   }
 }
 </script>
