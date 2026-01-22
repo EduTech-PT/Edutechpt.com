@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 interface RichTextEditorProps {
   label?: string;
@@ -7,7 +7,6 @@ interface RichTextEditorProps {
   onChange: (value: string) => void;
   className?: string;
   placeholder?: string;
-  allowHtmlView?: boolean; // Mantido para compatibilidade de props, mas agora controlamos internamente
 }
 
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({ 
@@ -17,61 +16,125 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   className = '',
   placeholder
 }) => {
-  const [activeTab, setActiveTab] = useState<'write' | 'preview'>('write');
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [isFocused, setIsFocused] = useState(false);
+
+  // Sincronizar o valor externo com o conteúdo interno apenas quando necessário
+  useEffect(() => {
+    if (contentRef.current && contentRef.current.innerHTML !== value) {
+      // Verifica se a diferença é apenas semântica para evitar saltos de cursor desnecessários
+      if (contentRef.current.innerHTML === '<br>' && !value) return;
+      contentRef.current.innerHTML = value;
+    }
+  }, [value]);
+
+  const handleInput = () => {
+    if (contentRef.current) {
+      const html = contentRef.current.innerHTML;
+      // Se estiver vazio ou apenas com <br>, envia string vazia
+      onChange(html === '<br>' ? '' : html);
+    }
+  };
+
+  const execCommand = (command: string, arg: string | undefined = undefined) => {
+    document.execCommand(command, false, arg);
+    handleInput();
+    contentRef.current?.focus();
+  };
+
+  const handleLink = () => {
+    const url = prompt('Inserir URL:', 'https://');
+    if (url) {
+      execCommand('createLink', url);
+    }
+  };
 
   return (
     <div className={`flex flex-col ${className}`}>
       {label && <label className="block text-sm font-medium text-indigo-900 mb-1">{label}</label>}
       
-      <div className="bg-white/40 border border-white/50 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500 transition-all shadow-sm flex flex-col">
+      <div className={`
+        bg-white/40 border transition-all duration-300 rounded-xl overflow-hidden shadow-sm flex flex-col
+        ${isFocused ? 'ring-2 ring-indigo-400 border-indigo-300 bg-white/60' : 'border-white/50 hover:bg-white/50'}
+      `}>
         
-        {/* Tabs Header */}
-        <div className="flex items-center gap-1 p-1 border-b border-indigo-100 bg-indigo-50/50 backdrop-blur-sm select-none">
-           <button
-             type="button"
-             onClick={() => setActiveTab('write')}
-             className={`px-4 py-1.5 text-xs font-bold rounded transition-colors ${
-               activeTab === 'write'
-                 ? 'bg-indigo-600 text-white shadow-sm' 
-                 : 'text-indigo-900 hover:bg-indigo-100'
-             }`}
-           >
-             Escrever (HTML/Texto)
-           </button>
-           <button
-             type="button"
-             onClick={() => setActiveTab('preview')}
-             className={`px-4 py-1.5 text-xs font-bold rounded transition-colors ${
-               activeTab === 'preview'
-                 ? 'bg-indigo-600 text-white shadow-sm' 
-                 : 'text-indigo-900 hover:bg-indigo-100'
-             }`}
-           >
-             Visualizar Resultado
-           </button>
+        {/* Toolbar */}
+        <div className="flex items-center gap-1 p-2 border-b border-indigo-100/50 bg-indigo-50/30 backdrop-blur-sm select-none flex-wrap">
+           <ToolbarButton 
+              icon="𝐁" 
+              title="Negrito" 
+              onClick={() => execCommand('bold')} 
+           />
+           <ToolbarButton 
+              icon="𝐼" 
+              title="Itálico" 
+              onClick={() => execCommand('italic')} 
+           />
+           <ToolbarButton 
+              icon="U̲" 
+              title="Sublinhado" 
+              onClick={() => execCommand('underline')} 
+           />
+           
+           <div className="w-px h-4 bg-indigo-200 mx-1"></div>
+
+           <ToolbarButton 
+              icon="• List" 
+              title="Lista" 
+              onClick={() => execCommand('insertUnorderedList')} 
+           />
+           <ToolbarButton 
+              icon="1. List" 
+              title="Lista Numerada" 
+              onClick={() => execCommand('insertOrderedList')} 
+           />
+
+           <div className="w-px h-4 bg-indigo-200 mx-1"></div>
+
+           <ToolbarButton 
+              icon="🔗" 
+              title="Link" 
+              onClick={handleLink} 
+           />
+           <ToolbarButton 
+              icon="🧹" 
+              title="Limpar Formatação" 
+              onClick={() => execCommand('removeFormat')} 
+           />
         </div>
 
-        {/* Content Area */}
-        <div className="relative min-h-[200px] bg-white/30">
-          {activeTab === 'write' ? (
-            <textarea
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
-              className="w-full h-full min-h-[200px] p-4 bg-transparent text-indigo-900 text-sm outline-none resize-y font-mono leading-relaxed"
-              placeholder={placeholder || "Escreva aqui... Aceita tags HTML simples como <b>negrito</b>, <ul><li>listas</li></ul>, etc."}
-              spellCheck={false}
-            />
-          ) : (
-            <div
-              className="w-full h-full min-h-[200px] p-4 outline-none text-indigo-900 leading-relaxed overflow-y-auto prose prose-indigo prose-sm max-w-none break-words"
-              dangerouslySetInnerHTML={{ __html: value || '<span class="text-indigo-400 italic">Sem conteúdo para visualizar...</span>' }}
-            />
-          )}
-        </div>
+        {/* Editable Area */}
+        <div 
+          ref={contentRef}
+          contentEditable
+          onInput={handleInput}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          className={`
+            w-full min-h-[200px] p-4 outline-none text-indigo-900 leading-relaxed 
+            prose prose-indigo prose-sm max-w-none 
+            empty:before:content-[attr(data-placeholder)] empty:before:text-indigo-900/40
+          `}
+          data-placeholder={placeholder || "Escreva o conteúdo aqui..."}
+          suppressContentEditableWarning={true}
+        />
       </div>
-      <p className="text-[10px] text-indigo-900/40 mt-1 text-right">
-        {activeTab === 'write' ? 'Use tags HTML para formatação avançada.' : 'Pré-visualização do conteúdo.'}
-      </p>
     </div>
   );
 };
+
+// Subcomponente de Botão da Toolbar
+const ToolbarButton: React.FC<{ icon: React.ReactNode, title: string, onClick: () => void }> = ({ icon, title, onClick }) => (
+  <button
+    type="button"
+    onClick={(e) => { e.preventDefault(); onClick(); }}
+    className="
+      p-1.5 min-w-[32px] rounded-lg text-indigo-700 hover:bg-indigo-100/80 hover:text-indigo-900 
+      transition-all font-bold text-sm flex items-center justify-center
+      active:scale-95
+    "
+    title={title}
+  >
+    {icon}
+  </button>
+);
