@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Profile, UserRole, SupabaseSession } from '../types';
+import { Profile, UserRole, SupabaseSession, UserPermissions } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { GlassCard } from '../components/GlassCard';
 import { userService } from '../services/users';
@@ -28,6 +28,7 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [permissions, setPermissions] = useState<UserPermissions | undefined>(undefined);
   const [currentView, setCurrentView] = useState('dashboard');
   const [currentTime, setCurrentTime] = useState(new Date());
   
@@ -59,8 +60,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           try {
              userProfile = await userService.getProfile(session.user.id);
           } catch (err) {
-             // Se falhar (perfil não existe), tenta auto-recuperar silenciosamente
-             // Isto resolve o problema de users que ficaram presos no Auth sem Profile
              console.log("Profile missing, attempting auto-recovery...");
              try {
                  const claimed = await userService.claimInvite();
@@ -75,6 +74,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           if (userProfile) {
               setProfile(userProfile);
               
+              // CRÍTICO: Carregar as permissões dinâmicas da Base de Dados
+              try {
+                  const roleDef = await adminService.getRoleByName(userProfile.role);
+                  if (roleDef && roleDef.permissions) {
+                      setPermissions(roleDef.permissions);
+                  }
+              } catch (permErr) {
+                  console.warn("Failed to load permissions", permErr);
+              }
+
               // Load App Config (incl. Logo)
               try {
                   const config = await adminService.getAppConfig();
@@ -245,6 +254,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
         `}>
             <Sidebar 
                 profile={profile} 
+                userPermissions={permissions}
                 appVersion={APP_VERSION} 
                 currentView={currentView === 'admin_edit_profile' ? 'users' : currentView}
                 setView={(view) => {

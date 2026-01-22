@@ -48,8 +48,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
   };
 
   const hasAccess = (permissionKey: string, fallbackRoles: string[]) => {
+    // 1. Admin Supremo (Bypass)
     if (role === UserRole.ADMIN) return true;
-    if (userPermissions) return !!userPermissions[permissionKey];
+
+    // 2. Permissões Dinâmicas (Se existirem, têm prioridade absoluta)
+    if (userPermissions) {
+        return userPermissions[permissionKey] === true;
+    }
+
+    // 3. Fallback para Hardcoded (Apenas se a DB falhar ou for login inicial antes do fetch)
     return fallbackRoles.includes(role);
   };
 

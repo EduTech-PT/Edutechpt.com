@@ -90,9 +90,15 @@ export const adminService = {
         return data as RoleDefinition[];
     },
 
+    // NOVO: Buscar um cargo específico para aplicar permissões no login
+    async getRoleByName(name: string) {
+        const { data, error } = await supabase.from('roles').select('*').eq('name', name).single();
+        if (error) return null;
+        return data as RoleDefinition;
+    },
+
     async createRole(name: string, description: string = 'Novo cargo', permissions: UserPermissions = {}) {
         // Garantir que permissions é um objeto limpo antes de enviar
-        // O Supabase converte automaticamente JS Object -> JSONB, mas garantimos que não é undefined
         const cleanPermissions = permissions || {};
         
         const { error } = await supabase.from('roles').insert([{ 
@@ -108,14 +114,12 @@ export const adminService = {
         if (error) throw error;
     },
 
-    // NOVO: Método de Eliminar Cargo
     async deleteRole(name: string) {
         const SYSTEM_ROLES = ['admin', 'editor', 'formador', 'aluno'];
         if (SYSTEM_ROLES.includes(name)) {
             throw new Error("Não é possível eliminar cargos de sistema.");
         }
 
-        // Verificar se há utilizadores com este cargo
         const { count, error: countError } = await supabase
             .from('profiles')
             .select('*', { count: 'exact', head: true })
