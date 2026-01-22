@@ -6,9 +6,10 @@ import { Course } from '../types';
 
 interface LandingPageProps {
   onLoginClick: () => void;
+  onPrivacyClick: () => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivacyClick }) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -118,8 +119,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
         )}
       </div>
 
-      <footer className="w-full py-6 text-center text-indigo-900/60 text-sm bg-white/20 backdrop-blur-md mt-auto">
-        &copy; {new Date().getFullYear()} EduTech PT. v1.0.0
+      <footer className="w-full py-6 text-center text-indigo-900/60 text-sm bg-white/20 backdrop-blur-md mt-auto flex flex-col gap-2">
+        <p>&copy; {new Date().getFullYear()} EduTech PT. v1.0.0</p>
+        <div>
+            <button 
+                onClick={onPrivacyClick}
+                className="hover:text-indigo-900 hover:underline transition-colors font-medium"
+            >
+                Política de Privacidade
+            </button>
+        </div>
       </footer>
     </div>
   );

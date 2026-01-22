@@ -6,9 +6,10 @@ import { Provider } from '@supabase/supabase-js';
 
 interface AuthFormProps {
   onCancel: () => void;
+  onPrivacyClick?: () => void;
 }
 
-export const AuthForm: React.FC<AuthFormProps> = ({ onCancel }) => {
+export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -124,7 +125,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel }) => {
         </div>
 
         <p className="mt-8 text-xs text-center text-indigo-900/60">
-           Ao continuar, aceita os Termos de Uso e Política de Privacidade da plataforma.
+           Ao continuar, aceita os Termos de Uso e a <button onClick={onPrivacyClick} className="underline hover:text-indigo-900 font-bold">Política de Privacidade</button>.
         </p>
       </GlassCard>
     </div>

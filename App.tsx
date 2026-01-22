@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from './lib/supabaseClient';
 import { LandingPage } from './pages/LandingPage';
 import { Dashboard } from './pages/Dashboard';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { AuthForm } from './components/AuthForm';
 import { SupabaseSession } from './types';
 
@@ -10,6 +11,9 @@ function App() {
   const [session, setSession] = useState<SupabaseSession | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // Estado para navegação pública (Landing vs Privacy)
+  const [publicView, setPublicView] = useState<'landing' | 'privacy'>('landing');
 
   useEffect(() => {
     // 1. Intercetar Erros de Acesso Negado via Hash do URL (Retornado pelo OAuth se o trigger falhar)
@@ -95,6 +99,7 @@ function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    setPublicView('landing'); // Reset view on logout
   };
 
   if (loading) {
@@ -109,8 +114,24 @@ function App() {
     <div className="text-gray-800">
       {!session ? (
         <>
-          <LandingPage onLoginClick={() => setShowAuthModal(true)} />
-          {showAuthModal && <AuthForm onCancel={() => setShowAuthModal(false)} />}
+          {publicView === 'landing' ? (
+              <LandingPage 
+                  onLoginClick={() => setShowAuthModal(true)} 
+                  onPrivacyClick={() => setPublicView('privacy')}
+              />
+          ) : (
+              <PrivacyPolicy onBack={() => setPublicView('landing')} />
+          )}
+          
+          {showAuthModal && (
+              <AuthForm 
+                  onCancel={() => setShowAuthModal(false)} 
+                  onPrivacyClick={() => {
+                      setShowAuthModal(false);
+                      setPublicView('privacy');
+                  }}
+              />
+          )}
         </>
       ) : (
         <Dashboard session={session} onLogout={handleLogout} />
