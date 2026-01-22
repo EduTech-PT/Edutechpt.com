@@ -8,9 +8,10 @@ import { courseService } from '../../services/courses';
 
 interface UserAdminProps {
     onEditUser?: (user: Profile) => void;
+    currentUserRole?: string;
 }
 
-export const UserAdmin: React.FC<UserAdminProps> = ({ onEditUser }) => {
+export const UserAdmin: React.FC<UserAdminProps> = ({ onEditUser, currentUserRole }) => {
     const [users, setUsers] = useState<Profile[]>([]);
     const [invites, setInvites] = useState<UserInvite[]>([]);
     const [roles, setRoles] = useState<RoleDefinition[]>([]);
@@ -37,6 +38,9 @@ export const UserAdmin: React.FC<UserAdminProps> = ({ onEditUser }) => {
     
     // Loading State for Role Update (in list)
     const [updatingRoleFor, setUpdatingRoleFor] = useState<string | null>(null);
+
+    // Determine if current user is admin
+    const isAdmin = currentUserRole === 'admin';
 
     useEffect(() => {
         fetchData();
@@ -192,8 +196,14 @@ export const UserAdmin: React.FC<UserAdminProps> = ({ onEditUser }) => {
                     onChange={e => setSelectedRole(e.target.value)}
                     className="w-full p-2 rounded bg-white border border-indigo-200"
                 >
-                    {roles.map(r => <option key={r.name} value={r.name}>{r.name.toUpperCase()}</option>)}
+                    {roles
+                        .filter(r => isAdmin || r.name !== 'admin') // FILTRO: Só Admins veem 'admin'
+                        .map(r => <option key={r.name} value={r.name}>{r.name.toUpperCase()}</option>)
+                    }
                 </select>
+                {!isAdmin && (
+                    <p className="text-[10px] text-gray-500 mt-1">A atribuição de cargo de Administrador é reservada.</p>
+                )}
             </div>
 
             {/* Contexto de Curso (Apenas para Alunos) */}
@@ -350,50 +360,59 @@ export const UserAdmin: React.FC<UserAdminProps> = ({ onEditUser }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {users.map(u => (
-                                    <tr key={u.id} className="border-b border-indigo-50 hover:bg-white/30 group">
-                                        <td className="py-3 pl-2">
-                                            <input type="checkbox" checked={selectedIds.includes(u.id)} onChange={() => setSelectedIds(prev => prev.includes(u.id) ? prev.filter(id => id !== u.id) : [...prev, u.id])} />
-                                        </td>
-                                        <td className="py-3 font-medium text-indigo-900">{u.full_name || '-'}</td>
-                                        <td className="py-3 opacity-70">{u.email}</td>
-                                        <td className="py-3">
-                                            <div className="relative">
-                                                {updatingRoleFor === u.id && (
-                                                    <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
-                                                        <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                                                    </div>
+                                {users.map(u => {
+                                    const isTargetAdmin = u.role === 'admin';
+                                    const canEditThisUser = isAdmin || !isTargetAdmin;
+
+                                    return (
+                                        <tr key={u.id} className="border-b border-indigo-50 hover:bg-white/30 group">
+                                            <td className="py-3 pl-2">
+                                                <input type="checkbox" checked={selectedIds.includes(u.id)} onChange={() => setSelectedIds(prev => prev.includes(u.id) ? prev.filter(id => id !== u.id) : [...prev, u.id])} />
+                                            </td>
+                                            <td className="py-3 font-medium text-indigo-900">{u.full_name || '-'}</td>
+                                            <td className="py-3 opacity-70">{u.email}</td>
+                                            <td className="py-3">
+                                                <div className="relative">
+                                                    {updatingRoleFor === u.id && (
+                                                        <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
+                                                            <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                                                        </div>
+                                                    )}
+                                                    <select 
+                                                        value={u.role} 
+                                                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                                                        disabled={updatingRoleFor === u.id || !canEditThisUser}
+                                                        className={`
+                                                            px-2 py-1 rounded text-xs uppercase font-bold border outline-none cursor-pointer transition-colors
+                                                            ${u.role === 'admin' ? 'bg-indigo-100 text-indigo-800 border-indigo-200' : 
+                                                            u.role === 'formador' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                                                            'bg-white text-gray-700 border-gray-200 hover:border-indigo-300'}
+                                                            ${!canEditThisUser ? 'opacity-50 cursor-not-allowed' : ''}
+                                                        `}
+                                                    >
+                                                        {roles
+                                                            .filter(r => isAdmin || r.name !== 'admin') // FILTRO: Só Admins veem 'admin'
+                                                            .map(r => (
+                                                                <option key={r.name} value={r.name}>{r.name}</option>
+                                                            ))
+                                                        }
+                                                    </select>
+                                                </div>
+                                            </td>
+                                            <td className="py-3 text-right">
+                                                {onEditUser && (
+                                                    <button 
+                                                        onClick={() => onEditUser(u)}
+                                                        className="p-1.5 bg-indigo-50 text-indigo-600 rounded-md hover:bg-indigo-200 transition-colors opacity-0 group-hover:opacity-100"
+                                                        title="Editar Perfil"
+                                                    >
+                                                        ✏️
+                                                    </button>
                                                 )}
-                                                <select 
-                                                    value={u.role} 
-                                                    onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                                                    disabled={updatingRoleFor === u.id}
-                                                    className={`
-                                                        px-2 py-1 rounded text-xs uppercase font-bold border outline-none cursor-pointer transition-colors
-                                                        ${u.role === 'admin' ? 'bg-indigo-100 text-indigo-800 border-indigo-200' : 
-                                                          u.role === 'formador' ? 'bg-purple-100 text-purple-800 border-purple-200' :
-                                                          'bg-white text-gray-700 border-gray-200 hover:border-indigo-300'}
-                                                    `}
-                                                >
-                                                    {roles.map(r => (
-                                                        <option key={r.name} value={r.name}>{r.name}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        </td>
-                                        <td className="py-3 text-right">
-                                            {onEditUser && (
-                                                <button 
-                                                    onClick={() => onEditUser(u)}
-                                                    className="p-1.5 bg-indigo-50 text-indigo-600 rounded-md hover:bg-indigo-200 transition-colors opacity-0 group-hover:opacity-100"
-                                                    title="Editar Perfil"
-                                                >
-                                                    ✏️
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

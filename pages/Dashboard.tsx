@@ -201,13 +201,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                     onBack={handleBackToUserList}
                     isAdminMode={true}
                 />
-            ) : <UserAdmin onEditUser={handleAdminEditUser} />;
+            ) : <UserAdmin currentUserRole={profile.role} onEditUser={handleAdminEditUser} />;
 
           case 'community': return <Community />;
           case 'manage_courses': return <CourseManager profile={profile} />;
           case 'media': return <MediaManager />;
           case 'drive': return <DriveManager profile={profile} />;
-          case 'users': return <UserAdmin onEditUser={handleAdminEditUser} />;
+          case 'users': return <UserAdmin currentUserRole={profile.role} onEditUser={handleAdminEditUser} />;
           case 'settings_geral': return <Settings dbVersion={dbVersion} initialTab="geral" />;
           case 'settings_roles': return <Settings dbVersion={dbVersion} initialTab="roles" />;
           case 'settings_sql': return <Settings dbVersion={dbVersion} initialTab="sql" />;
