@@ -367,7 +367,7 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                          <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} />
                                      </label>
                                  </div>
-                                 <div className="flex flex-col items-center justify-center py-4 pl-4 pr-10 bg-transparent rounded-lg border border-indigo-200 border-dashed h-32">
+                                 <div className="flex flex-col items-center justify-center py-4 pl-4 pr-20 bg-transparent rounded-lg border border-indigo-200 border-dashed h-32">
                                      {config.logoUrl ? (
                                          <img src={config.logoUrl} alt="Logo Preview" className="h-24 object-contain" />
                                      ) : (
