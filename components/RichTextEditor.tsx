@@ -24,7 +24,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        heading: {
+            levels: [1, 2, 3],
+        }
+      }),
       Underline,
       Link.configure({
         openOnClick: false,
@@ -93,6 +97,19 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         {/* Toolbar Glassmorphism */}
         <div className="flex items-center gap-1 p-2 border-b border-indigo-100/50 bg-indigo-50/30 backdrop-blur-sm select-none flex-wrap">
            
+           <ToolbarButton 
+              icon="H1" title="Título Principal" 
+              isActive={editor.isActive('heading', { level: 1 })}
+              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} 
+           />
+           <ToolbarButton 
+              icon="H2" title="Subtítulo" 
+              isActive={editor.isActive('heading', { level: 2 })}
+              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} 
+           />
+
+           <div className="w-px h-4 bg-indigo-200 mx-1"></div>
+
            <ToolbarButton 
               icon="𝐁" title="Negrito" 
               isActive={editor.isActive('bold')}
