@@ -18,11 +18,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const [isFocused, setIsFocused] = useState(false);
+  const [foreColor, setForeColor] = useState('#000000');
+  const [hiliteColor, setHiliteColor] = useState('#ffffff');
 
-  // Sincronizar valor externo com o editor (apenas se diferente para evitar saltos de cursor)
+  // Sincronizar valor externo com o editor
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
-        // Se o valor for vazio, limpar
         if (!value) {
             editorRef.current.innerHTML = '';
         } else {
@@ -34,11 +35,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const handleInput = () => {
     if (editorRef.current) {
       const html = editorRef.current.innerHTML;
-      // Se tiver apenas tags vazias ou <br>, considerar vazio
       const text = editorRef.current.innerText.trim();
-      if (!text && !html.includes('<img')) {
-          // Opcional: onChange('');
-          onChange(html); 
+      if (!text && !html.includes('<img') && !html.includes('<hr>')) {
+          onChange(''); 
       } else {
           onChange(html);
       }
@@ -47,7 +46,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   const execCommand = (command: string, value: string | undefined = undefined) => {
     document.execCommand(command, false, value);
-    handleInput(); // Atualizar estado após comando
+    handleInput();
     if (editorRef.current) editorRef.current.focus();
   };
 
@@ -56,9 +55,18 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     if (url) execCommand('createLink', url);
   };
 
-  // Verificar estado ativo (simplificado, pois execCommand queryCommandState é limitado em React sem rerender constante)
-  // Para esta versão "Safe", focamos na funcionalidade visual.
-  
+  const handleImage = () => {
+    const url = window.prompt('URL da Imagem:');
+    if (url) execCommand('insertImage', url);
+  };
+
+  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'foreColor' | 'hiliteColor') => {
+      const color = e.target.value;
+      if (type === 'foreColor') setForeColor(color);
+      else setHiliteColor(color);
+      execCommand(type, color);
+  };
+
   return (
     <div className={`flex flex-col ${className}`}>
       {label && <label className="block text-sm font-medium text-indigo-900 mb-1">{label}</label>}
@@ -71,70 +79,89 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         {/* Toolbar Glassmorphism */}
         <div className="flex items-center gap-1 p-2 border-b border-indigo-100/50 bg-indigo-50/30 backdrop-blur-sm select-none flex-wrap">
            
-           <ToolbarButton 
-              icon="H1" title="Título Principal" 
-              onClick={() => execCommand('formatBlock', 'H1')} 
-           />
-           <ToolbarButton 
-              icon="H2" title="Subtítulo" 
-              onClick={() => execCommand('formatBlock', 'H2')} 
-           />
-
-           <div className="w-px h-4 bg-indigo-200 mx-1"></div>
-
-           <ToolbarButton 
-              icon="𝐁" title="Negrito" 
-              onClick={() => execCommand('bold')} 
-           />
-           <ToolbarButton 
-              icon="𝐼" title="Itálico" 
-              onClick={() => execCommand('italic')} 
-           />
-           <ToolbarButton 
-              icon="U̲" title="Sublinhado" 
-              onClick={() => execCommand('underline')} 
-           />
+           {/* History */}
+           <div className="flex gap-0.5">
+               <ToolbarButton title="Desfazer" onClick={() => execCommand('undo')} icon={<IconUndo />} />
+               <ToolbarButton title="Refazer" onClick={() => execCommand('redo')} icon={<IconRedo />} />
+           </div>
            
-           <div className="w-px h-4 bg-indigo-200 mx-1"></div>
+           <Divider />
 
-           <ToolbarButton 
-              icon="• List" title="Lista" 
-              onClick={() => execCommand('insertUnorderedList')} 
-           />
-           <ToolbarButton 
-              icon="1. List" title="Lista Numerada" 
-              onClick={() => execCommand('insertOrderedList')} 
-           />
-           <ToolbarButton 
-              icon="❞" title="Citação" 
-              onClick={() => execCommand('formatBlock', 'BLOCKQUOTE')} 
-           />
+           {/* Headers */}
+           <div className="flex gap-0.5">
+               <ToolbarButton title="Parágrafo" onClick={() => execCommand('formatBlock', 'P')} icon={<span className="font-serif font-bold text-xs">P</span>} />
+               <ToolbarButton title="Título 1" onClick={() => execCommand('formatBlock', 'H1')} icon={<span className="font-serif font-bold text-xs">H1</span>} />
+               <ToolbarButton title="Título 2" onClick={() => execCommand('formatBlock', 'H2')} icon={<span className="font-serif font-bold text-xs">H2</span>} />
+           </div>
 
-           <div className="w-px h-4 bg-indigo-200 mx-1"></div>
+           <Divider />
 
-           <ToolbarButton 
-              icon="🔗" title="Link" 
-              onClick={handleLink} 
-           />
-           <ToolbarButton 
-              icon="🧹" title="Limpar Formatação" 
-              onClick={() => {
-                  execCommand('removeFormat');
-                  execCommand('formatBlock', 'DIV'); // Reset blocks
-              }} 
-           />
+           {/* Formatting */}
+           <div className="flex gap-0.5">
+               <ToolbarButton title="Negrito" onClick={() => execCommand('bold')} icon={<IconBold />} />
+               <ToolbarButton title="Itálico" onClick={() => execCommand('italic')} icon={<IconItalic />} />
+               <ToolbarButton title="Sublinhado" onClick={() => execCommand('underline')} icon={<IconUnderline />} />
+               <ToolbarButton title="Rasurado" onClick={() => execCommand('strikeThrough')} icon={<IconStrikethrough />} />
+           </div>
+           
+           <Divider />
+
+            {/* Colors */}
+            <div className="flex gap-1 items-center px-1">
+                <div className="relative w-6 h-6 overflow-hidden rounded cursor-pointer border border-indigo-200" title="Cor do Texto">
+                    <input type="color" value={foreColor} onChange={(e) => handleColorChange(e, 'foreColor')} className="absolute -top-2 -left-2 w-10 h-10 cursor-pointer p-0 border-0" />
+                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold pointer-events-none mix-blend-difference text-white">A</span>
+                </div>
+                <div className="relative w-6 h-6 overflow-hidden rounded cursor-pointer border border-indigo-200" title="Cor de Fundo (Realce)">
+                    <input type="color" value={hiliteColor} onChange={(e) => handleColorChange(e, 'hiliteColor')} className="absolute -top-2 -left-2 w-10 h-10 cursor-pointer p-0 border-0" />
+                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold pointer-events-none mix-blend-difference text-white">🖍</span>
+                </div>
+            </div>
+
+           <Divider />
+
+           {/* Alignment */}
+           <div className="flex gap-0.5">
+               <ToolbarButton title="Esquerda" onClick={() => execCommand('justifyLeft')} icon={<IconAlignLeft />} />
+               <ToolbarButton title="Centro" onClick={() => execCommand('justifyCenter')} icon={<IconAlignCenter />} />
+               <ToolbarButton title="Direita" onClick={() => execCommand('justifyRight')} icon={<IconAlignRight />} />
+               <ToolbarButton title="Justificado" onClick={() => execCommand('justifyFull')} icon={<IconAlignJustify />} />
+           </div>
+
+           <Divider />
+
+           {/* Lists */}
+           <div className="flex gap-0.5">
+               <ToolbarButton title="Lista" onClick={() => execCommand('insertUnorderedList')} icon={<IconList />} />
+               <ToolbarButton title="Lista Numerada" onClick={() => execCommand('insertOrderedList')} icon={<IconListOrdered />} />
+               <ToolbarButton title="Citação" onClick={() => execCommand('formatBlock', 'BLOCKQUOTE')} icon={<IconQuote />} />
+           </div>
+
+           <Divider />
+
+           {/* Inserts */}
+           <div className="flex gap-0.5">
+               <ToolbarButton title="Link" onClick={handleLink} icon={<IconLink />} />
+               <ToolbarButton title="Imagem (URL)" onClick={handleImage} icon={<IconImage />} />
+               <ToolbarButton title="Linha Horizontal" onClick={() => execCommand('insertHorizontalRule')} icon={<IconMinus />} />
+           </div>
+
+           <div className="flex-1"></div>
+
+           {/* Clear */}
+           <ToolbarButton title="Limpar Formatação" onClick={() => { execCommand('removeFormat'); execCommand('formatBlock', 'DIV'); }} icon={<IconEraser />} />
         </div>
 
         {/* Content Editable Area */}
         <div 
             ref={editorRef}
-            className="prose prose-indigo prose-sm max-w-none focus:outline-none min-h-[180px] p-4 text-indigo-900 leading-relaxed overflow-y-auto"
+            className="prose prose-indigo prose-sm max-w-none focus:outline-none min-h-[250px] p-4 text-indigo-900 leading-relaxed overflow-y-auto"
             contentEditable
             onInput={handleInput}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             data-placeholder={placeholder}
-            style={{ minHeight: '180px' }}
+            style={{ minHeight: '250px' }}
         />
         
         <style>{`
@@ -143,7 +170,20 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 color: #818cf8;
                 opacity: 0.6;
                 pointer-events: none;
-                display: block; /* For Firefox */
+                display: block;
+            }
+            /* Custom Colors for Dark Mode readiness or custom styling */
+            .prose blockquote {
+                font-style: italic;
+                border-left-color: #6366f1;
+                background: rgba(99, 102, 241, 0.1);
+                padding: 0.5rem 1rem;
+                border-radius: 0 0.5rem 0.5rem 0;
+            }
+            .prose img {
+                border-radius: 0.5rem;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                max-width: 100%;
             }
         `}</style>
       </div>
@@ -151,7 +191,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   );
 };
 
-// Subcomponente de Botão da Toolbar
+// UI Components
+const Divider = () => <div className="w-px h-5 bg-indigo-200 mx-1.5 opacity-50"></div>;
+
 const ToolbarButton: React.FC<{ 
   icon: React.ReactNode, 
   title: string, 
@@ -161,17 +203,37 @@ const ToolbarButton: React.FC<{
   <button
     type="button"
     onMouseDown={(e) => { 
-        e.preventDefault(); // Impede perder o foco do editor
+        e.preventDefault(); 
         onClick(); 
     }}
     className={`
-      p-1.5 min-w-[32px] rounded-lg transition-all font-bold text-sm flex items-center justify-center active:scale-95
+      p-1.5 w-7 h-7 rounded-md transition-all flex items-center justify-center active:scale-95
       ${isActive 
         ? 'bg-indigo-600 text-white shadow-sm' 
-        : 'text-indigo-700 hover:bg-indigo-100/80 hover:text-indigo-900'}
+        : 'text-indigo-600 hover:bg-indigo-100 hover:text-indigo-900'}
     `}
     title={title}
   >
     {icon}
   </button>
 );
+
+// Icons (SVG)
+const IconUndo = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>;
+const IconRedo = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>;
+const IconBold = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 12a4 4 0 0 0 0-8H6v8"/><path d="M15 20a4 4 0 0 0 0-8H6v8Z"/></svg>;
+const IconItalic = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>;
+const IconUnderline = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 4v6a6 6 0 0 0 12 0V4"/><line x1="4" y1="20" x2="20" y2="20"/></svg>;
+const IconStrikethrough = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4H9a3 3 0 0 0-2.83 4"/><path d="M14 12a4 4 0 0 1 0 8H6"/><line x1="4" y1="12" x2="20" y2="12"/></svg>;
+const IconAlignLeft = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="21" y1="6" x2="3" y2="6"/><line x1="15" y1="12" x2="3" y2="12"/><line x1="17" y1="18" x2="3" y2="18"/></svg>;
+const IconAlignCenter = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="21" y1="6" x2="3" y2="6"/><line x1="19" y1="12" x2="5" y2="12"/><line x1="21" y1="18" x2="3" y2="18"/></svg>;
+const IconAlignRight = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="12" x2="9" y2="12"/><line x1="21" y1="18" x2="7" y2="18"/></svg>;
+const IconAlignJustify = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="12" x2="3" y2="12"/><line x1="21" y1="18" x2="3" y2="18"/></svg>;
+const IconList = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>;
+const IconListOrdered = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>;
+const IconQuote = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/></svg>;
+const IconLink = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
+const IconImage = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>;
+const IconMinus = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+const IconEraser = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>;
+
