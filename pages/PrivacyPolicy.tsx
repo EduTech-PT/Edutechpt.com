@@ -22,7 +22,7 @@ export const PrivacyPolicy: React.FC<Props> = ({ onBack }) => {
       <nav className="w-full p-4 md:p-6 flex justify-between items-center z-10 bg-white/10 backdrop-blur-md border-b border-white/20 sticky top-0">
         <div className="text-xl font-bold text-indigo-900 cursor-pointer" onClick={onBack}>
              {logoUrl ? (
-                <img src={logoUrl} alt="EduTech PT" className="h-8 object-contain" />
+                <img src={logoUrl} alt="EduTech PT" className="h-10 md:h-12 object-contain" />
             ) : (
                 "EduTech PT"
             )}

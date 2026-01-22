@@ -51,11 +51,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Navbar */}
+      {/* Navbar - LOGO AUMENTADO */}
       <nav className="w-full p-4 md:p-6 flex justify-between items-center z-10">
         <div className="text-xl md:text-2xl font-bold text-indigo-900">
             {logoUrl ? (
-                <img src={logoUrl} alt="EduTech PT" className="h-10 md:h-12 object-contain" />
+                <img src={logoUrl} alt="EduTech PT" className="h-14 md:h-20 object-contain" />
             ) : (
                 "EduTech PT"
             )}

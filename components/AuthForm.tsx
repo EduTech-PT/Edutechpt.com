@@ -72,8 +72,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick }) 
         </button>
         
         <div className="text-center mb-6">
+          {/* LOGO AUMENTADO */}
           {logoUrl && (
-              <img src={logoUrl} alt="Logo" className="h-12 mx-auto mb-4 object-contain" />
+              <img src={logoUrl} alt="Logo" className="h-20 mx-auto mb-6 object-contain" />
           )}
           <h2 className="text-2xl font-bold text-indigo-900 mb-2">
             Bem-vindo

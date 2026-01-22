@@ -207,10 +207,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
     // Alterado: Removemos 'overflow-hidden' no desktop para permitir que o Flyout saia do card
     <GlassCard className="h-full flex flex-col w-64 md:rounded-l-none md:rounded-r-2xl md:border-l-0 rounded-none border-0 md:border md:border-l-0 min-h-screen md:min-h-[80vh] p-0 relative shadow-2xl md:shadow-lg overflow-hidden md:overflow-visible">
       
-      {/* Top Section */}
+      {/* Top Section - LOGO AUMENTADO */}
       <div className="p-6 pb-4 flex-shrink-0 flex justify-between items-center bg-white/10 backdrop-blur-sm md:bg-transparent">
         {logoUrl ? (
-            <img src={logoUrl} alt="Logo" className="h-8 md:h-10 object-contain max-w-[150px]" />
+            <img src={logoUrl} alt="Logo" className="h-12 md:h-16 object-contain max-w-[200px]" />
         ) : (
             <h2 className="text-2xl font-bold text-indigo-900 tracking-tight">EduTech PT</h2>
         )}
