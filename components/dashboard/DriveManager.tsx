@@ -120,9 +120,12 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
         }
     };
 
-    const handleDelete = async (id: string, isFolder: boolean) => {
+    const handleDelete = async (e: React.MouseEvent, id: string, isFolder: boolean) => {
+        e.stopPropagation(); // Impede a navegação ao clicar no botão
+        e.preventDefault();
+
         const msg = isFolder 
-            ? "Tem a certeza que deseja eliminar esta pasta e todo o seu conteúdo?" 
+            ? "ATENÇÃO: Deseja eliminar esta PASTA e TODO o seu conteúdo?" 
             : "Eliminar ficheiro do Drive?";
             
         if (!window.confirm(msg)) return;
@@ -275,8 +278,8 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                                         )}
                                     </div>
                                     <button 
-                                        onClick={(e) => { e.stopPropagation(); handleDelete(file.id, isFolder); }}
-                                        className="absolute top-2 right-2 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded z-10"
+                                        onClick={(e) => handleDelete(e, file.id, isFolder)}
+                                        className="absolute top-2 right-2 text-red-500 bg-white/80 rounded-full w-6 h-6 flex items-center justify-center shadow-sm hover:bg-red-100 hover:text-red-700 transition-all opacity-0 group-hover:opacity-100"
                                         title="Eliminar"
                                     >
                                         ✕

@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.4.9";
+export const GAS_VERSION = "v1.5.0";
 
 export interface DriveFile {
   id: string;
@@ -122,7 +122,7 @@ export const driveService = {
       
       // Validação Extra para Scripts Antigos
       if (!result.status && !result.message) {
-          throw new Error("Funcionalidade de renomear não disponível. O Script Google está desatualizado (v1.4.9 necessária).");
+          throw new Error("Funcionalidade de renomear não disponível. O Script Google está desatualizado (v1.4.9+ necessária).");
       }
 
       if (result.status !== 'success') {
@@ -396,13 +396,11 @@ function doPost(e) {
     }
 
     else if (action === 'renameFolder') {
-      // Nova funcionalidade v1.4.9
       try {
           const folder = DriveApp.getFolderById(data.id);
           folder.setName(data.name);
           result = { status: 'success' };
       } catch (e) {
-          // Fallback se for ficheiro (embora o método diga folder)
           const file = DriveApp.getFileById(data.id);
           file.setName(data.name);
           result = { status: 'success' };
@@ -419,11 +417,17 @@ function doPost(e) {
 
     else if (action === 'delete') {
       try {
+        // Tenta apagar como ficheiro primeiro
         const file = DriveApp.getFileById(data.id);
         file.setTrashed(true);
       } catch (e) {
-        const folder = DriveApp.getFolderById(data.id);
-        folder.setTrashed(true);
+        try {
+          // Se falhar, tenta como pasta
+          const folder = DriveApp.getFolderById(data.id);
+          folder.setTrashed(true);
+        } catch (errFolder) {
+           throw new Error("Item não encontrado ou sem permissão para eliminar. Apenas o proprietário pode apagar pastas.");
+        }
       }
       result = { status: 'success' };
     }
