@@ -13,7 +13,31 @@ function App() {
   const [loading, setLoading] = useState(true);
   
   // Estado para navegação pública (Landing vs Privacy)
-  const [publicView, setPublicView] = useState<'landing' | 'privacy'>('landing');
+  // Inicializa baseado no URL query param para satisfazer requisitos da Google
+  const [publicView, setPublicView] = useState<'landing' | 'privacy'>(() => {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('page') === 'privacy' ? 'privacy' : 'landing';
+  });
+
+  // Função para gerir navegação e atualizar URL
+  const handleNavigate = (view: 'landing' | 'privacy') => {
+      setPublicView(view);
+      if (view === 'privacy') {
+          window.history.pushState({ view: 'privacy' }, '', '?page=privacy');
+      } else {
+          window.history.pushState({ view: 'landing' }, '', window.location.pathname);
+      }
+  };
+
+  // Escuta o botão "Voltar" do browser
+  useEffect(() => {
+      const handlePopState = () => {
+          const params = new URLSearchParams(window.location.search);
+          setPublicView(params.get('page') === 'privacy' ? 'privacy' : 'landing');
+      };
+      window.addEventListener('popstate', handlePopState);
+      return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   useEffect(() => {
     // 1. Intercetar Erros de Acesso Negado via Hash do URL (Retornado pelo OAuth se o trigger falhar)
@@ -99,7 +123,7 @@ function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setPublicView('landing'); // Reset view on logout
+    handleNavigate('landing'); // Reset view on logout
   };
 
   if (loading) {
@@ -117,10 +141,10 @@ function App() {
           {publicView === 'landing' ? (
               <LandingPage 
                   onLoginClick={() => setShowAuthModal(true)} 
-                  onPrivacyClick={() => setPublicView('privacy')}
+                  onPrivacyClick={() => handleNavigate('privacy')}
               />
           ) : (
-              <PrivacyPolicy onBack={() => setPublicView('landing')} />
+              <PrivacyPolicy onBack={() => handleNavigate('landing')} />
           )}
           
           {showAuthModal && (
@@ -128,7 +152,7 @@ function App() {
                   onCancel={() => setShowAuthModal(false)} 
                   onPrivacyClick={() => {
                       setShowAuthModal(false);
-                      setPublicView('privacy');
+                      handleNavigate('privacy');
                   }}
               />
           )}

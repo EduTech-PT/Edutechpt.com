@@ -38,6 +38,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
     }
   };
 
+  const handlePrivacyLinkClick = (e: React.MouseEvent) => {
+      // Impede o refresh total da página, mas mantém o href válido para crawlers
+      e.preventDefault();
+      onPrivacyClick();
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Navbar */}
@@ -122,12 +128,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       <footer className="w-full py-6 text-center text-indigo-900/60 text-sm bg-white/20 backdrop-blur-md mt-auto flex flex-col gap-2">
         <p>&copy; {new Date().getFullYear()} EduTech PT. v1.0.0</p>
         <div>
-            <button 
-                onClick={onPrivacyClick}
-                className="hover:text-indigo-900 hover:underline transition-colors font-medium"
+            {/* 
+              ALTERAÇÃO CRÍTICA PARA GOOGLE VERIFICATION:
+              Usamos um <a> real com href explicito para '?page=privacy'.
+              O onClick previne o reload total (SPA) mas o href permite 
+              que os crawlers da Google validem o link na homepage.
+            */}
+            <a 
+                href="?page=privacy"
+                onClick={handlePrivacyLinkClick}
+                className="hover:text-indigo-900 hover:underline transition-colors font-medium cursor-pointer"
             >
                 Política de Privacidade
-            </button>
+            </a>
         </div>
       </footer>
     </div>
