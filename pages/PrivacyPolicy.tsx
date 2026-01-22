@@ -95,9 +95,23 @@ export const PrivacyPolicy: React.FC<Props> = ({ onBack }) => {
                 Podemos atualizar esta política ocasionalmente. Recomendamos que reveja esta página periodicamente para quaisquer alterações. O uso continuado da plataforma após alterações constitui aceitação das mesmas.
             </p>
 
+            <div className="bg-indigo-50 border-l-4 border-indigo-500 p-4 my-8 rounded-r-lg">
+                <h3 className="mt-0 text-indigo-900">9. Conformidade com Serviços Google</h3>
+                <p>
+                    A utilização e transferência de informações recebidas das APIs do Google para qualquer outra aplicação pela EduTech PT aderirá à 
+                    <a href="https://developers.google.com/terms/api-services-user-data-policy#additional_requirements_for_specific_api_scopes" target="_blank" rel="noreferrer" className="font-bold text-indigo-700 hover:text-indigo-900 mx-1">
+                         Política de Dados do Utilizador dos Serviços API da Google
+                    </a>, 
+                    incluindo os requisitos de Uso Limitado.
+                </p>
+            </div>
+
             <div className="mt-12 pt-8 border-t border-indigo-200/50 text-center">
                 <p className="text-sm opacity-70">
                     Dúvidas? Contacte-nos: <strong>edutechpt@hotmail.com</strong>
+                </p>
+                <p className="text-xs opacity-50 mt-2">
+                    <a href="/" className="hover:underline">Página Inicial</a>
                 </p>
             </div>
         </GlassCard>
