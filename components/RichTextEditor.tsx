@@ -36,7 +36,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     if (editorRef.current) {
       const html = editorRef.current.innerHTML;
       const text = editorRef.current.innerText.trim();
-      if (!text && !html.includes('<img') && !html.includes('<hr>')) {
+      // Verificação mais robusta de conteúdo vazio
+      if (!text && !html.includes('<img') && !html.includes('<hr>') && !html.includes('<iframe')) {
           onChange(''); 
       } else {
           onChange(html);
@@ -77,79 +78,120 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       `}>
         
         {/* Toolbar Glassmorphism */}
-        <div className="flex items-center gap-1 p-2 border-b border-indigo-100/50 bg-indigo-50/30 backdrop-blur-sm select-none flex-wrap">
+        <div className="flex flex-col gap-1 p-2 border-b border-indigo-100/50 bg-indigo-50/30 backdrop-blur-sm select-none">
            
-           {/* History */}
-           <div className="flex gap-0.5">
-               <ToolbarButton title="Desfazer" onClick={() => execCommand('undo')} icon={<IconUndo />} />
-               <ToolbarButton title="Refazer" onClick={() => execCommand('redo')} icon={<IconRedo />} />
-           </div>
-           
-           <Divider />
+           {/* Row 1: Main Structure & Fonts */}
+           <div className="flex items-center gap-1 flex-wrap">
+               {/* History */}
+               <div className="flex gap-0.5 mr-1">
+                   <ToolbarButton title="Desfazer" onClick={() => execCommand('undo')} icon={<IconUndo />} />
+                   <ToolbarButton title="Refazer" onClick={() => execCommand('redo')} icon={<IconRedo />} />
+               </div>
+               
+               <Divider />
 
-           {/* Headers */}
-           <div className="flex gap-0.5">
-               <ToolbarButton title="Parágrafo" onClick={() => execCommand('formatBlock', 'P')} icon={<span className="font-serif font-bold text-xs">P</span>} />
-               <ToolbarButton title="Título 1" onClick={() => execCommand('formatBlock', 'H1')} icon={<span className="font-serif font-bold text-xs">H1</span>} />
-               <ToolbarButton title="Título 2" onClick={() => execCommand('formatBlock', 'H2')} icon={<span className="font-serif font-bold text-xs">H2</span>} />
-           </div>
+               {/* Headers */}
+               <div className="flex gap-0.5">
+                   <ToolbarButton title="Parágrafo Normal" onClick={() => execCommand('formatBlock', 'P')} icon={<span className="font-serif font-bold text-xs">P</span>} />
+                   <ToolbarButton title="Título 1" onClick={() => execCommand('formatBlock', 'H1')} icon={<span className="font-serif font-bold text-xs">H1</span>} />
+                   <ToolbarButton title="Título 2" onClick={() => execCommand('formatBlock', 'H2')} icon={<span className="font-serif font-bold text-xs">H2</span>} />
+                   <ToolbarButton title="Título 3" onClick={() => execCommand('formatBlock', 'H3')} icon={<span className="font-serif font-bold text-xs">H3</span>} />
+               </div>
 
-           <Divider />
+               <Divider />
 
-           {/* Formatting */}
-           <div className="flex gap-0.5">
-               <ToolbarButton title="Negrito" onClick={() => execCommand('bold')} icon={<IconBold />} />
-               <ToolbarButton title="Itálico" onClick={() => execCommand('italic')} icon={<IconItalic />} />
-               <ToolbarButton title="Sublinhado" onClick={() => execCommand('underline')} icon={<IconUnderline />} />
-               <ToolbarButton title="Rasurado" onClick={() => execCommand('strikeThrough')} icon={<IconStrikethrough />} />
-           </div>
-           
-           <Divider />
+               {/* Font Selectors */}
+               <select 
+                  onChange={(e) => execCommand('fontName', e.target.value)} 
+                  className="h-7 text-xs rounded border-indigo-200 bg-white/70 text-indigo-900 outline-none focus:ring-1 focus:ring-indigo-400 px-1"
+                  defaultValue="Inter"
+               >
+                   <option value="Inter">Padrão</option>
+                   <option value="Arial">Arial</option>
+                   <option value="Courier New">Courier</option>
+                   <option value="Georgia">Georgia</option>
+                   <option value="Times New Roman">Times</option>
+                   <option value="Verdana">Verdana</option>
+               </select>
 
-            {/* Colors */}
-            <div className="flex gap-1 items-center px-1">
-                <div className="relative w-6 h-6 overflow-hidden rounded cursor-pointer border border-indigo-200" title="Cor do Texto">
-                    <input type="color" value={foreColor} onChange={(e) => handleColorChange(e, 'foreColor')} className="absolute -top-2 -left-2 w-10 h-10 cursor-pointer p-0 border-0" />
-                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold pointer-events-none mix-blend-difference text-white">A</span>
+               <select 
+                  onChange={(e) => execCommand('fontSize', e.target.value)} 
+                  className="h-7 text-xs rounded border-indigo-200 bg-white/70 text-indigo-900 outline-none focus:ring-1 focus:ring-indigo-400 px-1 w-16"
+                  defaultValue="3"
+               >
+                   <option value="1">Mini</option>
+                   <option value="2">Pequeno</option>
+                   <option value="3">Normal</option>
+                   <option value="4">Médio</option>
+                   <option value="5">Grande</option>
+                   <option value="6">XL</option>
+                   <option value="7">XXL</option>
+               </select>
+
+                <div className="flex gap-1 ml-1 items-center px-1 border border-indigo-100 rounded bg-white/30">
+                    <div className="relative w-5 h-5 overflow-hidden rounded-full cursor-pointer border border-indigo-200 shadow-sm" title="Cor do Texto">
+                        <input type="color" value={foreColor} onChange={(e) => handleColorChange(e, 'foreColor')} className="absolute -top-4 -left-4 w-12 h-12 cursor-pointer p-0 border-0" />
+                        <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold pointer-events-none mix-blend-difference text-white">A</span>
+                    </div>
+                    <div className="relative w-5 h-5 overflow-hidden rounded-sm cursor-pointer border border-indigo-200 shadow-sm" title="Cor de Fundo (Realce)">
+                        <input type="color" value={hiliteColor} onChange={(e) => handleColorChange(e, 'hiliteColor')} className="absolute -top-4 -left-4 w-12 h-12 cursor-pointer p-0 border-0" />
+                        <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold pointer-events-none mix-blend-difference text-white">Bg</span>
+                    </div>
                 </div>
-                <div className="relative w-6 h-6 overflow-hidden rounded cursor-pointer border border-indigo-200" title="Cor de Fundo (Realce)">
-                    <input type="color" value={hiliteColor} onChange={(e) => handleColorChange(e, 'hiliteColor')} className="absolute -top-2 -left-2 w-10 h-10 cursor-pointer p-0 border-0" />
-                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold pointer-events-none mix-blend-difference text-white">🖍</span>
-                </div>
+           </div>
+
+           {/* Row 2: Formatting & Tools */}
+           <div className="flex items-center gap-1 flex-wrap mt-1 pt-1 border-t border-indigo-100/50">
+               
+               {/* Basic Formatting */}
+               <div className="flex gap-0.5">
+                   <ToolbarButton title="Negrito" onClick={() => execCommand('bold')} icon={<IconBold />} />
+                   <ToolbarButton title="Itálico" onClick={() => execCommand('italic')} icon={<IconItalic />} />
+                   <ToolbarButton title="Sublinhado" onClick={() => execCommand('underline')} icon={<IconUnderline />} />
+                   <ToolbarButton title="Rasurado" onClick={() => execCommand('strikeThrough')} icon={<IconStrikethrough />} />
+               </div>
+
+               {/* Sub/Sup */}
+               <div className="flex gap-0.5 ml-1">
+                   <ToolbarButton title="Subscrito" onClick={() => execCommand('subscript')} icon={<IconSub />} />
+                   <ToolbarButton title="Sobrescrito" onClick={() => execCommand('superscript')} icon={<IconSup />} />
+               </div>
+               
+               <Divider />
+
+               {/* Lists & Indent */}
+               <div className="flex gap-0.5">
+                   <ToolbarButton title="Lista" onClick={() => execCommand('insertUnorderedList')} icon={<IconList />} />
+                   <ToolbarButton title="Lista Numerada" onClick={() => execCommand('insertOrderedList')} icon={<IconListOrdered />} />
+                   <ToolbarButton title="Diminuir Avanço" onClick={() => execCommand('outdent')} icon={<IconOutdent />} />
+                   <ToolbarButton title="Aumentar Avanço" onClick={() => execCommand('indent')} icon={<IconIndent />} />
+               </div>
+
+               <Divider />
+
+               {/* Alignment */}
+               <div className="flex gap-0.5">
+                   <ToolbarButton title="Esquerda" onClick={() => execCommand('justifyLeft')} icon={<IconAlignLeft />} />
+                   <ToolbarButton title="Centro" onClick={() => execCommand('justifyCenter')} icon={<IconAlignCenter />} />
+                   <ToolbarButton title="Direita" onClick={() => execCommand('justifyRight')} icon={<IconAlignRight />} />
+                   <ToolbarButton title="Justificado" onClick={() => execCommand('justifyFull')} icon={<IconAlignJustify />} />
+               </div>
+
+               <Divider />
+
+               {/* Inserts */}
+               <div className="flex gap-0.5">
+                   <ToolbarButton title="Citação" onClick={() => execCommand('formatBlock', 'BLOCKQUOTE')} icon={<IconQuote />} />
+                   <ToolbarButton title="Link" onClick={handleLink} icon={<IconLink />} />
+                   <ToolbarButton title="Imagem (URL)" onClick={handleImage} icon={<IconImage />} />
+                   <ToolbarButton title="Linha Horizontal" onClick={() => execCommand('insertHorizontalRule')} icon={<IconMinus />} />
+               </div>
+
+               <div className="flex-1"></div>
+
+               {/* Clear */}
+               <ToolbarButton title="Limpar Formatação" onClick={() => { execCommand('removeFormat'); execCommand('formatBlock', 'DIV'); }} icon={<IconEraser />} />
             </div>
-
-           <Divider />
-
-           {/* Alignment */}
-           <div className="flex gap-0.5">
-               <ToolbarButton title="Esquerda" onClick={() => execCommand('justifyLeft')} icon={<IconAlignLeft />} />
-               <ToolbarButton title="Centro" onClick={() => execCommand('justifyCenter')} icon={<IconAlignCenter />} />
-               <ToolbarButton title="Direita" onClick={() => execCommand('justifyRight')} icon={<IconAlignRight />} />
-               <ToolbarButton title="Justificado" onClick={() => execCommand('justifyFull')} icon={<IconAlignJustify />} />
-           </div>
-
-           <Divider />
-
-           {/* Lists */}
-           <div className="flex gap-0.5">
-               <ToolbarButton title="Lista" onClick={() => execCommand('insertUnorderedList')} icon={<IconList />} />
-               <ToolbarButton title="Lista Numerada" onClick={() => execCommand('insertOrderedList')} icon={<IconListOrdered />} />
-               <ToolbarButton title="Citação" onClick={() => execCommand('formatBlock', 'BLOCKQUOTE')} icon={<IconQuote />} />
-           </div>
-
-           <Divider />
-
-           {/* Inserts */}
-           <div className="flex gap-0.5">
-               <ToolbarButton title="Link" onClick={handleLink} icon={<IconLink />} />
-               <ToolbarButton title="Imagem (URL)" onClick={handleImage} icon={<IconImage />} />
-               <ToolbarButton title="Linha Horizontal" onClick={() => execCommand('insertHorizontalRule')} icon={<IconMinus />} />
-           </div>
-
-           <div className="flex-1"></div>
-
-           {/* Clear */}
-           <ToolbarButton title="Limpar Formatação" onClick={() => { execCommand('removeFormat'); execCommand('formatBlock', 'DIV'); }} icon={<IconEraser />} />
         </div>
 
         {/* Content Editable Area */}
@@ -172,19 +214,29 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 pointer-events: none;
                 display: block;
             }
-            /* Custom Colors for Dark Mode readiness or custom styling */
+            /* Enhanced Prose Styles for Native Editor */
             .prose blockquote {
                 font-style: italic;
-                border-left-color: #6366f1;
-                background: rgba(99, 102, 241, 0.1);
+                border-left: 4px solid #6366f1;
+                background: rgba(99, 102, 241, 0.05);
                 padding: 0.5rem 1rem;
                 border-radius: 0 0.5rem 0.5rem 0;
+                margin: 1rem 0;
             }
             .prose img {
                 border-radius: 0.5rem;
                 box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
                 max-width: 100%;
+                margin: 1rem 0;
             }
+            .prose h1 { color: #312e81; font-weight: 800; margin-top: 1.5em; margin-bottom: 0.5em; line-height: 1.1; }
+            .prose h2 { color: #3730a3; font-weight: 700; margin-top: 1.2em; margin-bottom: 0.5em; line-height: 1.2; }
+            .prose h3 { color: #4338ca; font-weight: 600; margin-top: 1em; margin-bottom: 0.5em; }
+            .prose a { color: #4f46e5; text-decoration: underline; font-weight: 500; }
+            .prose ul { list-style-type: disc; padding-left: 1.5em; }
+            .prose ol { list-style-type: decimal; padding-left: 1.5em; }
+            .prose sup { vertical-align: super; font-size: smaller; }
+            .prose sub { vertical-align: sub; font-size: smaller; }
         `}</style>
       </div>
     </div>
@@ -207,7 +259,7 @@ const ToolbarButton: React.FC<{
         onClick(); 
     }}
     className={`
-      p-1.5 w-7 h-7 rounded-md transition-all flex items-center justify-center active:scale-95
+      p-1 w-7 h-7 rounded-md transition-all flex items-center justify-center active:scale-95
       ${isActive 
         ? 'bg-indigo-600 text-white shadow-sm' 
         : 'text-indigo-600 hover:bg-indigo-100 hover:text-indigo-900'}
@@ -236,4 +288,8 @@ const IconLink = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="non
 const IconImage = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>;
 const IconMinus = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>;
 const IconEraser = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>;
+const IconIndent = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 8 7 12 3 16"/><line x1="21" y1="12" x2="7" y2="12"/><line x1="21" y1="6" x2="11" y2="6"/><line x1="21" y1="18" x2="11" y2="18"/></svg>;
+const IconOutdent = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="7 8 3 12 7 16"/><line x1="21" y1="12" x2="3" y2="12"/><line x1="21" y1="6" x2="11" y2="6"/><line x1="21" y1="18" x2="11" y2="18"/></svg>;
+const IconSub = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 19 6-6"/><path d="m4 13 6 6"/><path d="M19 19a2 2 0 0 0 2-2v-1a2 2 0 0 0-2-2h-1v5"/></svg>;
+const IconSup = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 19 6-6"/><path d="m4 13 6 6"/><path d="M19 9a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1v5"/></svg>;
 
