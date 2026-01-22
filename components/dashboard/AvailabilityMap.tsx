@@ -235,6 +235,18 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
       );
   };
 
+  // Cálculo de Placeholders para alinhamento da Grelha
+  const workingDays = monthlySlots.filter(s => !s.isWeekend);
+  let startOffset = 0;
+  if (workingDays.length > 0) {
+      const firstDay = workingDays[0];
+      const dayOfWeek = firstDay.date.getDay(); // 1=Mon, 5=Fri
+      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+          startOffset = dayOfWeek - 1;
+      }
+  }
+  const placeholders = Array.from({ length: startOffset });
+
   return (
     <div className="h-full flex flex-col animate-in slide-in-from-right duration-300 relative">
          <GlassCard className="flex flex-col md:flex-row items-center justify-between mb-6 py-4 gap-4">
@@ -259,8 +271,22 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
              </div>
          </GlassCard>
 
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto custom-scrollbar p-2">
-            {monthlySlots.filter(s => !s.isWeekend).map(slot => (
+         {/* Desktop Headers */}
+         <div className="hidden lg:grid grid-cols-5 gap-4 px-2 pb-2 shrink-0">
+            {['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'].map(d => (
+                <div key={d} className="text-center text-indigo-900 font-bold uppercase text-xs bg-white/40 rounded py-1 border border-white/50">{d}</div>
+            ))}
+         </div>
+
+         {/* Grid View */}
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 overflow-y-auto custom-scrollbar p-2">
+            
+            {/* Placeholders invisíveis para alinhar o primeiro dia (Só desktop) */}
+            {placeholders.map((_, i) => (
+                <div key={`ph-${i}`} className="hidden lg:block min-h-[160px] rounded-2xl border-2 border-dashed border-indigo-100 bg-white/10 opacity-50"></div>
+            ))}
+
+            {workingDays.map(slot => (
                 <GlassCard key={slot.day} className={`flex flex-col items-center justify-between min-h-[160px] border-2 ${slot.isPast ? 'opacity-50 grayscale' : 'border-white/50'}`}>
                     <div className="w-full border-b border-indigo-50 pb-2 mb-2 flex justify-between items-center">
                         <span className="font-bold text-indigo-900 text-lg">{slot.day}</span>
