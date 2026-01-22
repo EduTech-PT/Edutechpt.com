@@ -19,8 +19,15 @@ const PERMISSIONS_CONFIG = [
 export const RoleManager: React.FC = () => {
     const [roles, setRoles] = useState<RoleDefinition[]>([]);
     const [loading, setLoading] = useState(true);
-    const [newRoleName, setNewRoleName] = useState('');
     const [processing, setProcessing] = useState<string | null>(null);
+
+    // Create Modal State
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [createData, setCreateData] = useState({
+        name: '',
+        description: '',
+        permissions: {} as UserPermissions
+    });
 
     useEffect(() => {
         loadRoles();
@@ -38,13 +45,15 @@ export const RoleManager: React.FC = () => {
         }
     };
 
-    const handleCreateRole = async (e: React.FormEvent) => {
+    const handleCreateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newRoleName.trim()) return;
+        const { name, description, permissions } = createData;
+        
+        if (!name.trim()) return;
 
         try {
-            // Normaliza o nome para lowercase/sem espaços para a chave (opcional, mas boa prática)
-            const normalizedName = newRoleName.toLowerCase().replace(/\s+/g, '_');
+            // Normaliza o nome para lowercase/sem espaços para a chave
+            const normalizedName = name.trim().toLowerCase().replace(/\s+/g, '_');
             
             // Verifica se já existe
             if (roles.some(r => r.name === normalizedName)) {
@@ -52,12 +61,25 @@ export const RoleManager: React.FC = () => {
                 return;
             }
 
-            await adminService.createRole(normalizedName);
-            setNewRoleName('');
+            await adminService.createRole(normalizedName, description, permissions);
+            
+            // Reset
+            setCreateData({ name: '', description: '', permissions: {} });
+            setShowCreateModal(false);
             loadRoles();
         } catch (err: any) {
             alert("Erro ao criar cargo: " + err.message);
         }
+    };
+
+    const toggleCreatePermission = (permKey: string) => {
+        setCreateData(prev => ({
+            ...prev,
+            permissions: {
+                ...prev.permissions,
+                [permKey]: !prev.permissions[permKey]
+            }
+        }));
     };
 
     const handleTogglePermission = async (roleName: string, permKey: string, currentValue: boolean) => {
@@ -101,21 +123,12 @@ export const RoleManager: React.FC = () => {
                         <p className="text-sm text-indigo-700">Defina o que cada cargo pode fazer na plataforma.</p>
                     </div>
                     
-                    <form onSubmit={handleCreateRole} className="flex gap-2 w-full md:w-auto">
-                        <input 
-                            type="text" 
-                            placeholder="Nome do novo cargo (ex: supervisor)" 
-                            value={newRoleName}
-                            onChange={(e) => setNewRoleName(e.target.value)}
-                            className="px-3 py-2 rounded-lg bg-white/50 border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none text-sm w-full md:w-64"
-                        />
-                        <button 
-                            type="submit" 
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 shadow-md whitespace-nowrap"
-                        >
-                            + Criar
-                        </button>
-                    </form>
+                    <button 
+                        onClick={() => setShowCreateModal(true)}
+                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 shadow-md flex items-center gap-2"
+                    >
+                        <span>+</span> Criar Cargo
+                    </button>
                 </div>
 
                 {loading ? (
@@ -183,6 +196,105 @@ export const RoleManager: React.FC = () => {
                     ℹ️ <b>Nota:</b> As alterações nas permissões são guardadas automaticamente. Os utilizadores afetados poderão ter de atualizar a página para ver as mudanças.
                 </div>
             </GlassCard>
+
+            {/* CREATE ROLE MODAL */}
+            {showCreateModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/40 backdrop-blur-sm p-4 animate-in fade-in">
+                    <GlassCard className="w-full max-w-2xl relative max-h-[90vh] flex flex-col">
+                        <button onClick={() => setShowCreateModal(false)} className="absolute top-4 right-4 text-indigo-400 hover:text-indigo-800">✕</button>
+                        
+                        <h3 className="font-bold text-xl text-indigo-900 mb-6">Criar Novo Cargo</h3>
+                        
+                        <form onSubmit={handleCreateSubmit} className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                <div>
+                                    <label className="block text-sm font-bold text-indigo-900 mb-1">Nome do Cargo</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="ex: coordenador" 
+                                        value={createData.name}
+                                        onChange={(e) => setCreateData({...createData, name: e.target.value})}
+                                        className="w-full p-2 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                        required
+                                    />
+                                    <p className="text-xs text-indigo-500 mt-1">Será guardado como ID (sem espaços, minúsculas).</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-indigo-900 mb-1">Descrição</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="ex: Responsável pedagógico" 
+                                        value={createData.description}
+                                        onChange={(e) => setCreateData({...createData, description: e.target.value})}
+                                        className="w-full p-2 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="mb-2 flex justify-between items-center border-b border-indigo-100 pb-2">
+                                <label className="block text-sm font-bold text-indigo-900">Permissões Iniciais</label>
+                                <div className="space-x-2">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => {
+                                            const all = PERMISSIONS_CONFIG.reduce((acc, curr) => ({...acc, [curr.key]: true}), {});
+                                            setCreateData({...createData, permissions: all});
+                                        }}
+                                        className="text-xs text-indigo-600 hover:underline"
+                                    >
+                                        Selecionar Tudo
+                                    </button>
+                                    <span className="text-indigo-300">|</span>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setCreateData({...createData, permissions: {}})}
+                                        className="text-xs text-indigo-600 hover:underline"
+                                    >
+                                        Limpar
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                                {PERMISSIONS_CONFIG.map((perm) => (
+                                    <div 
+                                        key={perm.key} 
+                                        className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${createData.permissions[perm.key] ? 'bg-indigo-50 border-indigo-300' : 'bg-white/50 border-transparent hover:bg-white'}`}
+                                        onClick={() => toggleCreatePermission(perm.key)}
+                                    >
+                                        <input 
+                                            type="checkbox" 
+                                            checked={!!createData.permissions[perm.key]} 
+                                            onChange={() => {}} // Handled by div click
+                                            className="mt-1 w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 pointer-events-none"
+                                        />
+                                        <div>
+                                            <div className="text-sm font-bold text-indigo-900">{perm.label}</div>
+                                            <div className="text-xs text-indigo-500">{perm.desc}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4 border-t border-indigo-100">
+                                <button 
+                                    type="button" 
+                                    onClick={() => setShowCreateModal(false)}
+                                    className="px-4 py-2 text-indigo-600 font-bold hover:bg-indigo-50 rounded-lg"
+                                >
+                                    Cancelar
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-md"
+                                >
+                                    Criar Cargo
+                                </button>
+                            </div>
+                        </form>
+                    </GlassCard>
+                </div>
+            )}
         </div>
     );
 };

@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabaseClient';
-import { UserInvite, RoleDefinition } from '../types';
+import { UserInvite, RoleDefinition, UserPermissions } from '../types';
 
 export const adminService = {
     async getInvites() {
@@ -90,8 +90,12 @@ export const adminService = {
         return data as RoleDefinition[];
     },
 
-    async createRole(name: string) {
-        const { error } = await supabase.from('roles').insert([{ name, description: 'Novo cargo' }]);
+    async createRole(name: string, description: string = 'Novo cargo', permissions: UserPermissions = {}) {
+        const { error } = await supabase.from('roles').insert([{ 
+            name, 
+            description,
+            permissions 
+        }]);
         if (error) throw error;
     },
 
