@@ -64,7 +64,7 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
     return (
         <div className="h-full flex flex-col animate-in slide-in-from-right duration-300">
             <h2 className="text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-2">
-                <span>🎒</span> Portal Didático {profile.role === UserRole.ADMIN && <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded border border-red-200 uppercase">Modo Admin</span>}
+                <span>🎒</span> Gestor de Recursos {profile.role === UserRole.ADMIN && <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded border border-red-200 uppercase">Modo Admin</span>}
             </h2>
 
             {/* TABS (TURMAS) */}
