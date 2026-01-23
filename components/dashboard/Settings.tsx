@@ -489,7 +489,19 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                     placeholder="Olá,\n\nFoste convidado para a plataforma.\nEntra aqui: {link}"
                                     className="w-full h-32 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"
                                  />
-                                 <p className="text-xs text-indigo-600 mt-1 italic">
+                                 
+                                 {/* Variable Reference Legend */}
+                                 <div className="mt-3 bg-indigo-50 border border-indigo-100 rounded-lg p-3">
+                                     <span className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Variáveis Disponíveis</span>
+                                     <div className="grid gap-2">
+                                         <div className="flex items-center gap-2 text-xs">
+                                             <code className="bg-white border border-indigo-200 px-2 py-1 rounded text-indigo-600 font-mono font-bold">{'{link}'}</code>
+                                             <span className="text-indigo-800">Inserir automaticamente o link da plataforma.</span>
+                                         </div>
+                                     </div>
+                                 </div>
+
+                                 <p className="text-xs text-indigo-600 mt-2 italic">
                                      Nota: Este texto é usado em links "mailto". Formatação HTML não é suportada. Use quebras de linha.
                                  </p>
                              </div>
