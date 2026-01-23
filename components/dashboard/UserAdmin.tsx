@@ -111,7 +111,20 @@ export const UserAdmin: React.FC<UserAdminProps> = ({ onEditUser, currentUserRol
 
             await adminService.createBulkInvites(emailList, selectedRole, finalCourseId, finalClassId);
             
-            alert(`${emailList.length} convites enviados com sucesso!`);
+            // --- NOTIFICAÇÃO VIA EMAIL (MAILTO) ---
+            if (window.confirm(`${emailList.length} convites registados na base de dados.\n\nDeseja abrir o seu cliente de email para notificar estes utilizadores agora?`)) {
+                const subject = encodeURIComponent("Convite para EduTech PT");
+                const body = encodeURIComponent(`Olá,\n\nFoste convidado para aceder à plataforma de formação EduTech PT.\n\nPodes entrar aqui: ${window.location.origin}\n\nObrigado.`);
+                const bcc = emailList.join(',');
+                
+                // Proteção básica contra URLs demasiado longos (browsers têm limite de ~2000 chars)
+                if (bcc.length > 1800) {
+                    alert("A lista de emails é demasiado longa para gerar o link automático. Os convites foram guardados na plataforma, mas terá de enviar o email manualmente.");
+                } else {
+                    window.location.href = `mailto:?bcc=${bcc}&subject=${subject}&body=${body}`;
+                }
+            }
+
             closeWizard();
             fetchData();
         } catch (err: any) {
@@ -318,7 +331,7 @@ export const UserAdmin: React.FC<UserAdminProps> = ({ onEditUser, currentUserRol
                     className="px-6 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-md flex items-center gap-2"
                 >
                     {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-                    Enviar Convites
+                    Enviar e Notificar
                 </button>
             </div>
         </div>
