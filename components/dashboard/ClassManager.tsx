@@ -76,6 +76,21 @@ export const ClassManager: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Validar unicidade da Turma (no contexto do curso selecionado)
+        const normalizedName = formData.name.trim().toLowerCase();
+        if (!normalizedName) return;
+
+        const duplicate = classes.find(c => 
+            c.name.trim().toLowerCase() === normalizedName &&
+            c.id !== isEditing
+        );
+
+        if (duplicate) {
+             alert('Erro: Já existe uma turma com este nome neste curso.');
+             return;
+        }
+
         try {
             if (isEditing) {
                 await courseService.updateClass(isEditing, formData.name);

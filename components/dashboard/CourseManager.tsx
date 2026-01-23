@@ -149,6 +149,21 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
+      
+      // Validação de Duplicados (Case Insensitive)
+      const normalizedTitle = formData.title?.trim().toLowerCase();
+      if (!normalizedTitle) return;
+
+      const duplicate = courses.find(c => 
+          c.title.trim().toLowerCase() === normalizedTitle && 
+          c.id !== isEditing
+      );
+
+      if (duplicate) {
+          alert('Erro: Já existe um curso com este nome. Por favor, escolha um título único.');
+          return;
+      }
+
       try {
           if (isEditing) {
               await courseService.update(isEditing, formData);
