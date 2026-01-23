@@ -92,17 +92,29 @@ create table if not exists public.classes (
   id uuid default gen_random_uuid() primary key,
   course_id uuid references public.courses(id) on delete cascade,
   name text not null,
-  instructor_id uuid references public.profiles(id), -- DEPRECADO: Usar tabela class_instructors
+  instructor_id uuid references public.profiles(id), -- DEPRECADO
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
 -- 3.5.1 Tabela de Junção para Múltiplos Formadores (NOVO)
+-- Usamos DROP e CREATE se necessário para garantir que as constraints ficam corretas
 create table if not exists public.class_instructors (
-    class_id uuid references public.classes(id) on delete cascade,
-    profile_id uuid references public.profiles(id) on delete cascade,
+    class_id uuid not null,
+    profile_id uuid not null,
     created_at timestamp with time zone default timezone('utc'::text, now()),
     primary key (class_id, profile_id)
 );
+
+-- Adicionar Constraints Explicitamente (se não existirem)
+do $$
+begin
+    if not exists (select 1 from information_schema.table_constraints where constraint_name = 'class_instructors_class_id_fkey') then
+        alter table public.class_instructors add constraint class_instructors_class_id_fkey foreign key (class_id) references public.classes(id) on delete cascade;
+    end if;
+    if not exists (select 1 from information_schema.table_constraints where constraint_name = 'class_instructors_profile_id_fkey') then
+        alter table public.class_instructors add constraint class_instructors_profile_id_fkey foreign key (profile_id) references public.profiles(id) on delete cascade;
+    end if;
+end $$;
 
 -- MIGRAÇÃO DE DADOS: Mover dados da coluna antiga para a nova tabela
 do $$
@@ -314,5 +326,11 @@ on conflict (name) do update set permissions = excluded.permissions;
 
 insert into public.app_config (key, value) values ('sql_version', '${currentVersion}')
 on conflict (key) do update set value = excluded.value;
+
+-- ==============================================================================
+-- 9. FORÇAR RECARREGAMENTO DO ESQUEMA (CRÍTICO)
+-- ==============================================================================
+-- Isto força o PostgREST a detetar a nova tabela e as chaves estrangeiras imediatamente.
+NOTIFY pgrst, 'reload schema';
 `;
 };

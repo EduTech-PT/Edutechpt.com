@@ -6,6 +6,6 @@
 export const SUPABASE_URL = "https://zeedhuzljsbaoqafpfom.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ZOMCawahrL7OImeWeT6Fug_U_WMN0H1";
 
-export const APP_VERSION = "v2.12.0"; // Major Update: Multi-Trainer Support & Didactic Portal
-export const SQL_VERSION = "v1.8.0"; // Schema Update: Many-to-Many Class Instructors
+export const APP_VERSION = "v2.12.1"; // Hotfix: Schema Cache Reload
+export const SQL_VERSION = "v1.8.1"; // Schema Update: Explicit FKs & Cache Reload
 export const APP_NAME = "EduTech PT";
