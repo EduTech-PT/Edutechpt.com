@@ -370,7 +370,11 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                  </div>
                                  <div className="flex flex-col items-start justify-center py-4 pl-4 pr-[25px] bg-transparent rounded-lg border border-indigo-200 border-dashed h-32">
                                      {config.logoUrl ? (
-                                         <img src={config.logoUrl} alt="Logo Preview" className="h-24 object-contain" />
+                                         <img 
+                                            src={config.logoUrl} 
+                                            alt="Logo Preview" 
+                                            className="h-24 object-contain drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] transform hover:scale-110 transition-transform duration-500" 
+                                         />
                                      ) : (
                                          <span className="text-indigo-900 font-bold opacity-30 text-xs">Sem Logótipo</span>
                                      )}

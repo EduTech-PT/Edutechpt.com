@@ -57,7 +57,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       <nav className="w-full p-4 md:p-6 flex justify-between items-center z-10">
         <div className="text-xl md:text-2xl font-bold text-indigo-900">
             {logoUrl ? (
-                <img src={logoUrl} alt="EduTech PT" className="h-14 md:h-20 object-contain" />
+                <img 
+                  src={logoUrl} 
+                  alt="EduTech PT" 
+                  className="h-14 md:h-20 object-contain drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] transform hover:scale-110 transition-transform duration-500" 
+                />
             ) : (
                 "EduTech PT"
             )}

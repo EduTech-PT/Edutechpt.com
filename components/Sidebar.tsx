@@ -225,7 +225,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       {/* Top Section */}
       <div className="p-6 pb-4 flex-shrink-0 flex justify-between items-center bg-white/10 backdrop-blur-sm md:bg-transparent">
         {logoUrl ? (
-            <img src={logoUrl} alt="Logo" className="h-12 md:h-16 object-contain max-w-[200px]" />
+            <img 
+              src={logoUrl} 
+              alt="Logo" 
+              className="h-12 md:h-16 object-contain max-w-[200px] drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] transform hover:scale-110 transition-transform duration-500" 
+            />
         ) : (
             <h2 className="text-2xl font-bold text-indigo-900 tracking-tight">EduTech PT</h2>
         )}
