@@ -325,6 +325,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       return view.replace('_', ' ');
   };
 
+  // Calcular se o sistema precisa de atualizações
+  const systemNeedsUpdate = (profile.role === UserRole.ADMIN) && 
+                            ((dbVersion !== SQL_VERSION) || (gasStatus !== null && !gasStatus.match));
+
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 relative overflow-hidden font-sans">
       {/* Background FX */}
@@ -357,6 +361,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 onLogout={handleLogoutAction}
                 onMobileClose={() => setMobileMenuOpen(false)}
                 logoUrl={logoUrl}
+                hasUpdates={systemNeedsUpdate}
             />
         </div>
         

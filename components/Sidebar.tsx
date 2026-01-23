@@ -12,6 +12,7 @@ interface SidebarProps {
   onLogout: () => void;
   onMobileClose?: () => void;
   logoUrl?: string;
+  hasUpdates?: boolean; // Novo prop para indicar atualizações de sistema
 }
 
 interface MenuItem {
@@ -28,7 +29,7 @@ interface MenuGroup {
   items: MenuItem[];
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appVersion, currentView, setView, onLogout, onMobileClose, logoUrl }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appVersion, currentView, setView, onLogout, onMobileClose, logoUrl, hasUpdates = false }) => {
   const role = profile?.role || UserRole.STUDENT;
   
   // Estado para controlar Mobile Accordion (Desktop usa Hover/CSS)
@@ -262,10 +263,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
                      <span className="font-bold text-indigo-900 truncate text-sm leading-tight">
                         {profile.full_name || 'Utilizador'}
                      </span>
-                     <div className="flex flex-col items-start mt-0.5">
+                     <div className="flex items-center gap-2 mt-0.5">
                          <span className="text-[10px] uppercase font-bold text-indigo-700 tracking-wider">{profile.role}</span>
-                         <span className="text-[9px] text-indigo-900/40 font-mono">{appVersion}</span>
+                         {profile.role === 'admin' && hasUpdates && (
+                             <span className="relative flex h-2 w-2" title="Atualizações de Sistema Pendentes">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                             </span>
+                         )}
                      </div>
+                     <span className="text-[9px] text-indigo-900/40 font-mono mt-0.5">{appVersion}</span>
                 </div>
             </div>
         )}
