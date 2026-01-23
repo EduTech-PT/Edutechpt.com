@@ -35,8 +35,10 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
             let startFolderId: string | null = null;
             let startRootId: string | null = null;
 
+            // Lógica de Isolamento:
+            // ADMIN: Vê a raiz global configurada nas definições.
+            // FORMADOR/EDITOR: Vê apenas a sua pasta pessoal.
             if (profile.role === UserRole.ADMIN) {
-                // Admin vê a raiz configurada
                 const config = await driveService.getConfig();
                 startFolderId = config.driveFolderId;
                 startRootId = config.driveFolderId;
@@ -44,12 +46,14 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                 // Formadores/Outros veem a sua pasta pessoal
                 // Se não existir, é criada automaticamente agora
                 startFolderId = await driveService.getPersonalFolder(profile);
-                startRootId = startFolderId; // Para eles, a raiz é a sua pasta
+                startRootId = startFolderId; // Para eles, a raiz é a sua pasta (Sandbox)
             }
             
             // 2. Definir estado inicial
+            // Importante: rootId define o "chão" da navegação. O utilizador não consegue subir acima disto.
             setRootId(startRootId);
             setCurrentFolderId(startFolderId);
+            setFolderStack([]); // Reset stack
             
             // 3. Carregar ficheiros
             const data = await driveService.listFiles(startFolderId);
@@ -183,12 +187,26 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div className="flex flex-col">
                     <h2 className="text-2xl font-bold text-indigo-900">Materiais (Google Drive)</h2>
-                    {profile?.role !== UserRole.ADMIN && <span className="text-xs text-indigo-600 font-bold uppercase">Pasta Pessoal</span>}
-                    {profile?.role === UserRole.ADMIN && <span className="text-xs text-indigo-600 font-bold uppercase">Acesso Global (Admin)</span>}
+                    <div className="flex items-center gap-2 mt-1">
+                        {profile?.role !== UserRole.ADMIN ? (
+                            <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded border border-indigo-200 font-bold uppercase flex items-center gap-1">
+                                🔒 Pasta Pessoal
+                            </span>
+                        ) : (
+                            <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded border border-red-200 font-bold uppercase flex items-center gap-1">
+                                🌍 Acesso Global (Admin)
+                            </span>
+                        )}
+                        <span className="text-[10px] text-gray-500 hidden sm:inline">
+                            {profile?.role !== UserRole.ADMIN 
+                                ? "O conteúdo aqui é visível apenas para si e para a Administração." 
+                                : "Tem acesso total à raiz do Drive configurada."}
+                        </span>
+                    </div>
                 </div>
                 
                 <div className="flex gap-2">
-                    <button onClick={() => loadFiles(currentFolderId || undefined)} className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg">
+                    <button onClick={() => loadFiles(currentFolderId || undefined)} className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Atualizar">
                         🔄
                     </button>
                     <button onClick={handleCreateFolder} className="px-4 py-2 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-lg font-bold shadow-sm">
@@ -205,9 +223,10 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
              <div className="flex items-center gap-2 text-sm text-indigo-900 bg-white/40 p-3 rounded-lg border border-white/50 overflow-x-auto">
                  <button 
                     onClick={() => navigateToBreadcrumb(-1)} 
-                    className={`font-bold hover:text-indigo-600 ${folderStack.length === 0 ? 'text-indigo-600' : ''}`}
+                    className={`font-bold hover:text-indigo-600 flex items-center gap-1 ${folderStack.length === 0 ? 'text-indigo-600' : ''}`}
                  >
-                    🏠 Início
+                    <span>{profile?.role !== UserRole.ADMIN ? '👤' : '🏠'}</span>
+                    <span>{profile?.role !== UserRole.ADMIN ? 'Minha Pasta' : 'Raiz'}</span>
                  </button>
                  {folderStack.map((folder, index) => (
                      <React.Fragment key={folder.id}>
@@ -223,8 +242,12 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
              </div>
 
              {error && (
-                 <div className="p-4 bg-red-100 border border-red-300 text-red-800 rounded-xl">
-                     {error}
+                 <div className="p-4 bg-red-100 border border-red-300 text-red-800 rounded-xl flex items-center gap-3">
+                     <span className="text-2xl">⚠️</span>
+                     <div>
+                         <p className="font-bold">Erro de Conexão</p>
+                         <p className="text-sm">{error}</p>
+                     </div>
                  </div>
              )}
 
@@ -235,7 +258,11 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                         A sincronizar pastas...
                     </div>
                 ) : files.length === 0 ? (
-                    <p className="text-center p-8 text-indigo-500">Esta pasta está vazia.</p>
+                    <div className="text-center p-12 opacity-60">
+                        <span className="text-4xl block mb-2">📂</span>
+                        <p className="text-indigo-900 font-bold">Esta pasta está vazia.</p>
+                        <p className="text-sm text-indigo-600">Carregue ficheiros ou crie pastas para organizar o seu material.</p>
+                    </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {/* Botão de Voltar se não estiver na raiz */}
