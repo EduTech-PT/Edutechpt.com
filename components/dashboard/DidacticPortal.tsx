@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
-import { Profile, Class, Course } from '../../types';
+import { Profile, Class, Course, UserRole } from '../../types';
 
 interface Props {
     profile: Profile;
@@ -20,7 +20,15 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
     const loadClasses = async () => {
         try {
             setLoading(true);
-            const classes = await courseService.getTrainerClasses(profile.id);
+            let classes;
+            
+            // Se for ADMIN, vê todas as turmas. Se for Formador, vê apenas as suas.
+            if (profile.role === UserRole.ADMIN) {
+                classes = await courseService.getAllClassesWithDetails();
+            } else {
+                classes = await courseService.getTrainerClasses(profile.id);
+            }
+
             setMyClasses(classes);
             if (classes.length > 0) {
                 setActiveTab(classes[0].id);
@@ -41,8 +49,10 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                     <div className="text-4xl mb-4">👨‍🏫</div>
                     <h2 className="text-2xl font-bold text-indigo-900 mb-2">Sem Turmas Alocadas</h2>
                     <p className="text-indigo-700">
-                        Ainda não foste alocado a nenhuma turma como formador. 
-                        Contacta a administração ou vai a "Alocação Formadores" (se tiveres permissão).
+                        {profile.role === UserRole.ADMIN 
+                            ? "Não existem turmas criadas no sistema."
+                            : "Ainda não foste alocado a nenhuma turma como formador. Contacta a administração ou vai a 'Alocação Formadores' (se tiveres permissão)."
+                        }
                     </p>
                  </GlassCard>
             </div>
@@ -54,7 +64,7 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
     return (
         <div className="h-full flex flex-col animate-in slide-in-from-right duration-300">
             <h2 className="text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-2">
-                <span>🎒</span> Portal Didático
+                <span>🎒</span> Portal Didático {profile.role === UserRole.ADMIN && <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded border border-red-200 uppercase">Modo Admin</span>}
             </h2>
 
             {/* TABS (TURMAS) */}
@@ -118,7 +128,10 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                     
                     <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-sm">
                         🚧 <b>Em construção:</b> Este painel permitirá gerir conteúdos específicos para a turma <b>{activeClass.name}</b>.
-                        Como és um dos formadores alocados, tens acesso exclusivo a esta área.
+                        {profile.role === UserRole.ADMIN 
+                            ? " Como Administrador, tens acesso de supervisão a esta turma." 
+                            : " Como és um dos formadores alocados, tens acesso exclusivo a esta área."
+                        }
                     </div>
                 </GlassCard>
             )}

@@ -105,6 +105,20 @@ export const courseService = {
         return data as (Class & { course: Course })[];
     },
 
+    // NOVO: Buscar TODAS as turmas com detalhes do curso (Para Admin)
+    async getAllClassesWithDetails() {
+        const { data, error } = await supabase
+            .from('classes')
+            .select(`
+                *,
+                course:courses(*)
+            `)
+            .order('name');
+
+        if (error) throw error;
+        return data as (Class & { course: Course })[];
+    },
+
     async createClass(courseId: string, name: string) {
         const { data, error } = await supabase
             .from('classes')
