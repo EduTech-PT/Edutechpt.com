@@ -2,52 +2,45 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    return `-- SCRIPT MESTRE DE RECUPERAÇÃO E INSTALAÇÃO (${currentVersion})
--- Este script resolve:
--- 1. Erro "infinite recursion" (Acesso bloqueado).
--- 2. Tabelas em falta.
--- 3. Permissões de Storage e Calendário.
+    return `-- SCRIPT DE RESGATE TOTAL (${currentVersion})
+-- Este script limpa conflitos, define permissões seguras e restaura o Admin.
 
--- =====================================================================================
--- 0. LIMPEZA DE POLÍTICAS (PREVENIR CONFLITOS)
--- =====================================================================================
--- Removemos todas as políticas antigas para garantir que as novas entram sem erros.
+-- 1. DESATIVAR POLÍTICAS TEMPORARIAMENTE (Para evitar erros durante a limpeza)
+alter table if exists public.profiles disable row level security;
+alter table if exists public.app_config disable row level security;
+
+-- 2. LIMPEZA PROFUNDA DE POLÍTICAS ANTIGAS
 do $$
 declare
   r record;
 begin
+  -- Remove todas as políticas da schema public para recomeçar do zero
   for r in select tablename, policyname from pg_policies where schemaname = 'public' loop
     execute format('drop policy if exists %I on public.%I', r.policyname, r.tablename);
   end loop;
 end $$;
 
--- =====================================================================================
--- 1. FUNÇÃO DE SEGURANÇA (A CHAVE PARA O PROBLEMA)
--- =====================================================================================
--- Esta função lê o cargo do utilizador ignorando as políticas RLS.
--- Isto impede o ciclo infinito: "Posso ler? -> Verifica Admin -> Tenta ler -> Posso ler?..."
+-- 3. FUNÇÃO "PARTIR O VIDRO" (SECURITY DEFINER)
+-- Esta função é CRÍTICA. Permite ler o cargo do utilizador ignorando as restrições da tabela.
+-- Isto previne o erro de "Infinite recursion".
 create or replace function public.get_auth_role()
 returns text
 language plpgsql
 security definer
+set search_path = public
 as $$
 begin
+  -- Retorna o role, ou null se não existir perfil
   return (select role from public.profiles where id = auth.uid());
 end;
 $$;
 
--- =====================================================================================
--- 2. ESTRUTURA DE DADOS (TABELAS)
--- =====================================================================================
+-- 4. GARANTIR ESTRUTURA DE TABELAS (Sem perder dados)
 
--- 2.1 Configurações
-create table if not exists public.app_config (
-  key text primary key,
-  value text
-);
-alter table public.app_config enable row level security;
+-- 4.1 Config
+create table if not exists public.app_config (key text primary key, value text);
 
--- 2.2 Perfis de Utilizador
+-- 4.2 Profiles
 create table if not exists public.profiles (
   id uuid references auth.users not null primary key,
   email text,
@@ -64,17 +57,15 @@ create table if not exists public.profiles (
   birth_date date,
   visibility_settings jsonb default '{}'::jsonb
 );
-alter table public.profiles enable row level security;
 
--- 2.3 Cargos (Roles)
+-- 4.3 Roles
 create table if not exists public.roles (
   name text primary key,
   description text,
   permissions jsonb default '{}'::jsonb
 );
-alter table public.roles enable row level security;
 
--- 2.4 Cursos
+-- 4.4 Courses
 create table if not exists public.courses (
   id uuid default gen_random_uuid() primary key,
   title text not null,
@@ -85,18 +76,16 @@ create table if not exists public.courses (
   instructor_id uuid references public.profiles(id),
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
-alter table public.courses enable row level security;
 
--- 2.5 Turmas
+-- 4.5 Classes (Turmas)
 create table if not exists public.classes (
   id uuid default gen_random_uuid() primary key,
   course_id uuid references public.courses(id) on delete cascade,
   name text not null,
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
-alter table public.classes enable row level security;
 
--- 2.6 Inscrições
+-- 4.6 Enrollments
 create table if not exists public.enrollments (
   user_id uuid references public.profiles(id) on delete cascade,
   course_id uuid references public.courses(id) on delete cascade,
@@ -104,9 +93,8 @@ create table if not exists public.enrollments (
   enrolled_at timestamp with time zone default timezone('utc'::text, now()),
   primary key (user_id, course_id)
 );
-alter table public.enrollments enable row level security;
 
--- 2.7 Convites
+-- 4.7 Invites
 create table if not exists public.user_invites (
   email text primary key,
   role text not null,
@@ -114,9 +102,8 @@ create table if not exists public.user_invites (
   class_id uuid references public.classes(id),
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
-alter table public.user_invites enable row level security;
 
--- 2.8 Pedidos de Acesso (Opcional, mas referenciado anteriormente)
+-- 4.8 Access Requests
 create table if not exists public.access_requests (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users,
@@ -126,67 +113,44 @@ create table if not exists public.access_requests (
   status text default 'pending',
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
+
+-- 5. REATIVAR RLS E APLICAR POLÍTICAS SEGURAS (LEITURA ABERTA)
+
+-- Ativar RLS
+alter table public.profiles enable row level security;
+alter table public.app_config enable row level security;
+alter table public.roles enable row level security;
+alter table public.courses enable row level security;
+alter table public.classes enable row level security;
+alter table public.enrollments enable row level security;
+alter table public.user_invites enable row level security;
 alter table public.access_requests enable row level security;
 
--- =====================================================================================
--- 3. POLÍTICAS DE SEGURANÇA (RLS) - SEGURO E COMPLETO
--- =====================================================================================
+-- POLÍTICAS: LEITURA TOTAL (Resolve bloqueios de visualização)
+create policy "Ver Perfis" on public.profiles for select using (true);
+create policy "Ver Config" on public.app_config for select using (true);
+create policy "Ver Roles" on public.roles for select using (true);
+create policy "Ver Cursos" on public.courses for select using (true);
+create policy "Ver Turmas" on public.classes for select using (true);
+create policy "Ver Inscricoes" on public.enrollments for select using (true);
 
--- --- PROFILES ---
--- Leitura pública necessária para a Comunidade funcionar
-create policy "Public Read Profiles" on public.profiles for select using (true);
+-- POLÍTICAS: ESCRITA (Protegida)
+-- Profiles
+create policy "Editar Proprio" on public.profiles for update using (auth.uid() = id);
+create policy "Admin Gere Tudo" on public.profiles for all using (public.get_auth_role() = 'admin');
+create policy "Sistema Cria Perfis" on public.profiles for insert with check (true);
 
--- Apenas o próprio ou Admin pode editar
-create policy "Edit Own Profile" on public.profiles for update using (auth.uid() = id);
-create policy "Admin Edit All" on public.profiles for update using (public.get_auth_role() = 'admin');
+-- Admin Config
+create policy "Admin Config" on public.app_config for all using (public.get_auth_role() = 'admin');
+create policy "Admin Roles" on public.roles for all using (public.get_auth_role() = 'admin');
 
--- Apenas Admin pode apagar
-create policy "Admin Delete Profiles" on public.profiles for delete using (public.get_auth_role() = 'admin');
+-- Gestão de Cursos (Admin/Formador/Editor)
+create policy "Staff Cursos" on public.courses for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
+create policy "Staff Turmas" on public.classes for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
+create policy "Staff Inscricoes" on public.enrollments for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
+create policy "Staff Convites" on public.user_invites for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
 
--- Inserção pelo Sistema (Trigger) ou Admin
-create policy "System Insert Profiles" on public.profiles for insert with check (true);
-
--- --- APP CONFIG ---
-create policy "Public Read Config" on public.app_config for select using (true);
-create policy "Admin Manage Config" on public.app_config for all using (public.get_auth_role() = 'admin');
-
--- --- ROLES ---
-create policy "Public Read Roles" on public.roles for select using (true);
-create policy "Admin Manage Roles" on public.roles for all using (public.get_auth_role() = 'admin');
-
--- --- COURSES ---
-create policy "Public Read Courses" on public.courses for select using (true);
-create policy "Staff Manage Courses" on public.courses for all using (
-  public.get_auth_role() in ('admin', 'formador', 'editor')
-);
-
--- --- CLASSES ---
-create policy "Public Read Classes" on public.classes for select using (true);
-create policy "Staff Manage Classes" on public.classes for all using (
-  public.get_auth_role() in ('admin', 'formador', 'editor')
-);
-
--- --- ENROLLMENTS ---
--- Utilizadores veem as suas, Staff vê tudo
-create policy "Read Own Enrollments" on public.enrollments for select using (
-  user_id = auth.uid() or public.get_auth_role() in ('admin', 'formador', 'editor')
-);
-create policy "Staff Manage Enrollments" on public.enrollments for all using (
-  public.get_auth_role() in ('admin', 'formador', 'editor')
-);
-
--- --- INVITES ---
-create policy "Staff Manage Invites" on public.user_invites for all using (
-  public.get_auth_role() in ('admin', 'formador', 'editor')
-);
-
--- --- ACCESS REQUESTS ---
-create policy "User Create Request" on public.access_requests for insert with check (auth.uid() = user_id);
-create policy "Admin View Requests" on public.access_requests for select using (public.get_auth_role() = 'admin');
-
--- =====================================================================================
--- 4. STORAGE (IMAGENS)
--- =====================================================================================
+-- 6. STORAGE (Imagens)
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('course-images', 'course-images', true) on conflict (id) do nothing;
 
@@ -201,24 +165,21 @@ create policy "Staff Manage Images" on storage.objects for all using (
   bucket_id = 'course-images' and public.get_auth_role() in ('admin', 'formador', 'editor')
 );
 
--- =====================================================================================
--- 5. LÓGICA AUTOMÁTICA (TRIGGERS)
--- =====================================================================================
-
+-- 7. TRIGGER DE NOVOS UTILIZADORES (Inteligente)
 create or replace function public.handle_new_user() returns trigger as $$
 declare
   invite_record record;
   final_name text;
 begin
-  -- Definir Nome
+  -- Nome fallback
   final_name := coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1));
   
-  -- Deduplicação de Nome (Evita erro Unique Constraint)
+  -- Deduplicação Nome (Adiciona sufixo se já existir)
   if exists (select 1 from public.profiles where lower(full_name) = lower(final_name)) then
       final_name := final_name || ' (' || substring(new.id::text, 1, 4) || ')';
   end if;
 
-  -- Backdoor Admin
+  -- Backdoor Admin (Garante o seu acesso)
   if new.email = 'edutechpt@hotmail.com' then
       insert into public.profiles (id, email, full_name, role)
       values (new.id, new.email, final_name, 'admin')
@@ -226,7 +187,7 @@ begin
       return new;
   end if;
 
-  -- Processar Convite
+  -- Verificar Convite
   select * into invite_record from public.user_invites where lower(email) = lower(new.email);
   
   if invite_record.role is not null then
@@ -234,6 +195,7 @@ begin
       values (new.id, new.email, final_name, invite_record.role)
       on conflict (id) do nothing;
       
+      -- Inscrever na turma se aplicável
       if invite_record.course_id is not null then
           insert into public.enrollments (user_id, course_id, class_id)
           values (new.id, invite_record.course_id, invite_record.class_id)
@@ -243,7 +205,6 @@ begin
       delete from public.user_invites where lower(email) = lower(new.email);
       return new;
   else
-      -- Se não tiver convite, bloqueia a criação
       raise exception 'ACESSO NEGADO: Email não convidado.';
   end if;
 end;
@@ -255,72 +216,27 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- Função para recuperar convite manualmente (se o trigger falhar)
-create or replace function public.claim_invite()
-returns boolean as $$
-declare
-  invite_record record;
-  user_email text;
-  user_id uuid;
-begin
-  user_id := auth.uid();
-  select email into user_email from auth.users where id = user_id;
-  
-  select * into invite_record from public.user_invites where lower(email) = lower(user_email);
-  
-  if invite_record.role is not null then
-      insert into public.profiles (id, email, full_name, role)
-      values (user_id, user_email, 'Recuperado', invite_record.role)
-      on conflict (id) do update set role = invite_record.role;
-      
-      if invite_record.course_id is not null then
-          insert into public.enrollments (user_id, course_id, class_id)
-          values (user_id, invite_record.course_id, invite_record.class_id)
-          on conflict do nothing;
-      end if;
-      
-      delete from public.user_invites where lower(email) = lower(user_email);
-      return true;
-  end if;
-  return false;
-end;
-$$ language plpgsql security definer;
+-- 8. RECUPERAÇÃO DE ACESSO IMEDIATA
+-- Se o seu perfil já existe mas está bloqueado, isto força-o a ser Admin.
+update public.profiles 
+set role = 'admin' 
+where email = 'edutechpt@hotmail.com';
 
--- Função Comunidade (Quem vê quem)
-create or replace function public.get_community_members()
-returns setof public.profiles as $$
-begin
-  -- Admin ou Staff veem tudo
-  if public.get_auth_role() in ('admin', 'formador', 'editor') then
-      return query select * from public.profiles order by full_name;
-  else
-      -- Alunos veem colegas das mesmas turmas/cursos
-      return query 
-      select distinct p.* 
-      from public.profiles p
-      join public.enrollments e on p.id = e.user_id
-      where e.course_id in (select course_id from public.enrollments where user_id = auth.uid())
-      order by p.full_name;
-  end if;
-end;
-$$ language plpgsql security definer;
+-- Se o seu perfil não existe na tabela profiles (mas existe no auth), cria-o:
+insert into public.profiles (id, email, full_name, role)
+select id, email, 'Administrador', 'admin'
+from auth.users
+where email = 'edutechpt@hotmail.com'
+on conflict (id) do update set role = 'admin';
 
--- =====================================================================================
--- 6. DADOS INICIAIS (SEED)
--- =====================================================================================
-
--- Assegurar Cargos Padrão
+-- 9. DADOS PADRÃO
 insert into public.roles (name, description, permissions) values 
-('admin', 'Administrador Total', '{"view_dashboard":true,"view_users":true,"view_settings":true,"manage_courses":true,"view_calendar":true}'::jsonb),
-('formador', 'Formador / Professor', '{"view_dashboard":true,"manage_courses":true,"view_community":true,"view_calendar":true}'::jsonb),
+('admin', 'Administrador Total', '{"view_dashboard":true,"view_users":true,"view_settings":true,"manage_courses":true,"view_calendar":true,"view_availability":true}'::jsonb),
+('formador', 'Formador', '{"view_dashboard":true,"manage_courses":true,"view_community":true,"view_calendar":true,"view_availability":true}'::jsonb),
 ('aluno', 'Estudante', '{"view_dashboard":true,"view_courses":true,"view_community":true,"view_calendar":true}'::jsonb)
 on conflict (name) do nothing;
 
--- Registar Versão do SQL
 insert into public.app_config (key, value) values ('sql_version', '${currentVersion}')
 on conflict (key) do update set value = excluded.value;
-
--- Restaurar Admin (Garantia Final)
-update public.profiles set role = 'admin' where email = 'edutechpt@hotmail.com';
 `;
 };

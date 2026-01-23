@@ -6,6 +6,6 @@
 export const SUPABASE_URL = "https://zeedhuzljsbaoqafpfom.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ZOMCawahrL7OImeWeT6Fug_U_WMN0H1";
 
-export const APP_VERSION = "v2.10.3"; // Fix: SQL Recursion Resolved
-export const SQL_VERSION = "v1.4.0"; // Major: Full Stable Release
+export const APP_VERSION = "v2.9.25"; // Restored
+export const SQL_VERSION = "v1.5.0"; // Major: Full Reset & Restore
 export const APP_NAME = "EduTech PT";
