@@ -30,7 +30,14 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [permissions, setPermissions] = useState<UserPermissions | undefined>(undefined);
-  const [currentView, setCurrentView] = useState('dashboard');
+  
+  // URL STATE PERSISTENCE LOGIC
+  // 1. Initialize view from URL or default to 'dashboard'
+  const [currentView, setCurrentView] = useState(() => {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('view') || 'dashboard';
+  });
+  
   const [currentTime, setCurrentTime] = useState(new Date());
   
   // Admin Edit User State
@@ -50,6 +57,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   // Load Initial Data
   useEffect(() => {
     init();
+    
+    // Listen for Browser Back/Forward buttons
+    const handlePopState = () => {
+        const params = new URLSearchParams(window.location.search);
+        const view = params.get('view') || 'dashboard';
+        setCurrentView(view);
+        // Reset specific states when navigating back via browser
+        setSelectedUserToEdit(null); 
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, [session]);
 
   const init = async () => {
@@ -130,13 +149,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
     return () => clearInterval(timer);
   }, []);
 
-  const handleFixDb = () => {
-      setCurrentView('settings_sql');
+  // Navigation Handler (Updates URL)
+  const handleSetView = (newView: string) => {
+      setCurrentView(newView);
+      setSelectedUserToEdit(null);
+      
+      // Update URL without reload
+      const params = new URLSearchParams(window.location.search);
+      params.set('view', newView);
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
   };
 
-  const handleFixGas = () => {
-      setCurrentView('settings_drive');
-  };
+  const handleFixDb = () => handleSetView('settings_sql');
+  const handleFixGas = () => handleSetView('settings_drive');
 
   const handleRefreshProfile = async () => {
       if (selectedUserToEdit) {
@@ -151,12 +177,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   const handleAdminEditUser = (userToEdit: Profile) => {
       setSelectedUserToEdit(userToEdit);
+      // We don't change URL for edit mode to avoid complex state restoration on refresh
+      // But we set internal state
       setCurrentView('admin_edit_profile');
   };
 
   const handleBackToUserList = () => {
       setSelectedUserToEdit(null);
-      setCurrentView('users');
+      setCurrentView('users'); // This doesn't update URL automatically because it's internal state set
+      // Force URL update to reflect 'users'
+      const params = new URLSearchParams(window.location.search);
+      params.set('view', 'users');
+      window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-indigo-600">A carregar EduTech PT...</div>;
@@ -263,10 +295,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 userPermissions={permissions}
                 appVersion={APP_VERSION} 
                 currentView={currentView === 'admin_edit_profile' ? 'users' : currentView}
-                setView={(view) => {
-                    setCurrentView(view);
-                    setSelectedUserToEdit(null);
-                }} 
+                setView={handleSetView} 
                 onLogout={onLogout}
                 onMobileClose={() => setMobileMenuOpen(false)}
                 logoUrl={logoUrl}
