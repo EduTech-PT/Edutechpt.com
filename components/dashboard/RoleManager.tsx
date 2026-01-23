@@ -11,6 +11,7 @@ const PERMISSIONS_CONFIG = [
     { key: 'view_all_community', label: 'Ver Toda a Comunidade', desc: 'Ver todos os registados (ignora filtro de turma)' },
     { key: 'view_courses', label: 'Aceder Cursos', desc: 'Ver área de formação' },
     { key: 'manage_courses', label: 'Gerir Cursos', desc: 'Criar/Editar/Apagar Cursos e Materiais' },
+    { key: 'manage_classes', label: 'Gerir Turmas', desc: 'Criar e editar Turmas associadas a Cursos' }, // NOVO
     { key: 'view_users', label: 'Gerir Utilizadores', desc: 'Aceder menu de Utilizadores' },
     { key: 'view_settings', label: 'Aceder Definições', desc: 'Acesso total à configuração' },
     { key: 'view_calendar', label: 'Ver Agenda Google', desc: 'Aceder ao Calendário' },

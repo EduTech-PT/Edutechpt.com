@@ -12,7 +12,7 @@ import { driveService, GAS_VERSION } from '../services/drive';
 // Views
 import { Overview } from '../components/dashboard/Overview';
 import { CourseManager } from '../components/dashboard/CourseManager';
-import { StudentCourses } from '../components/dashboard/StudentCourses'; // Importado
+import { StudentCourses } from '../components/dashboard/StudentCourses'; 
 import { UserAdmin } from '../components/dashboard/UserAdmin';
 import { Settings } from '../components/dashboard/Settings';
 import { MediaManager } from '../components/dashboard/MediaManager';
@@ -21,6 +21,7 @@ import { MyProfile } from '../components/dashboard/MyProfile';
 import { Community } from '../components/dashboard/Community';
 import { Calendar } from '../components/dashboard/Calendar';
 import { AvailabilityMap } from '../components/dashboard/AvailabilityMap';
+import { ClassManager } from '../components/dashboard/ClassManager'; // Importado
 
 interface DashboardProps {
   session: SupabaseSession;
@@ -241,6 +242,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           // Mapeamento correto das Views de Cursos
           case 'courses': return <StudentCourses profile={profile} />; // Visão do Aluno
           case 'manage_courses': return <CourseManager profile={profile} />; // Visão do Formador/Admin
+          case 'manage_classes': return <ClassManager />; // NOVO: Gestão de Turmas
 
           case 'media': return <MediaManager />;
           case 'drive': return <DriveManager profile={profile} />;
@@ -261,6 +263,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       if (view === 'my_profile') return 'Meu Perfil';
       if (view === 'admin_edit_profile') return 'Gestão / Editar Perfil';
       if (view === 'manage_courses') return 'Gestão de Cursos';
+      if (view === 'manage_classes') return 'Gestão de Turmas';
       if (view === 'courses') return 'Meus Cursos e Oferta';
       if (view === 'calendar') return 'Minha Agenda';
       if (view === 'availability') return 'Mapa de Disponibilidade';

@@ -44,6 +44,7 @@ export interface UserPermissions {
   view_community?: boolean;
   view_courses?: boolean; // Aluno: Ver meus cursos
   manage_courses?: boolean; // Formador/Admin: Gerir cursos
+  manage_classes?: boolean; // NOVO: Gerir Turmas
   view_users?: boolean;
   view_settings?: boolean;
   view_calendar?: boolean; // Agenda Google

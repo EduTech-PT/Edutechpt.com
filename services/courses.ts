@@ -62,12 +62,14 @@ export const courseService = {
 
     // --- CLASSES (TURMAS) METHODS ---
 
-    async getClasses(courseId: string) {
-        const { data, error } = await supabase
-            .from('classes')
-            .select('*')
-            .eq('course_id', courseId)
-            .order('name', { ascending: true });
+    async getClasses(courseId?: string) {
+        let query = supabase.from('classes').select('*').order('name', { ascending: true });
+        
+        if (courseId) {
+            query = query.eq('course_id', courseId);
+        }
+
+        const { data, error } = await query;
         if (error) throw error;
         return data as Class[];
     },
@@ -80,5 +82,21 @@ export const courseService = {
             .single();
         if (error) throw error;
         return data as Class;
+    },
+
+    async updateClass(id: string, name: string) {
+        const { error } = await supabase
+            .from('classes')
+            .update({ name })
+            .eq('id', id);
+        if (error) throw error;
+    },
+
+    async deleteClass(id: string) {
+        const { error } = await supabase
+            .from('classes')
+            .delete()
+            .eq('id', id);
+        if (error) throw error;
     }
 };
