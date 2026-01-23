@@ -76,6 +76,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [session]);
 
+  // Hook para detetar fecho do browser/aba e registar logout
+  useEffect(() => {
+      const handleUnload = () => {
+          if (session.access_token && profile?.id) {
+              // Tenta registar o log de saída de forma síncrona/keepalive
+              adminService.logAccessExit(profile.id, session.access_token);
+          }
+      };
+      
+      window.addEventListener('beforeunload', handleUnload);
+      return () => window.removeEventListener('beforeunload', handleUnload);
+  }, [session, profile]);
+
   const init = async () => {
       try {
           if (!session.user) return;

@@ -1,6 +1,7 @@
 
 import { supabase } from '../lib/supabaseClient';
 import { UserInvite, RoleDefinition, UserPermissions, AccessLog, DashboardStats } from '../types';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../constants';
 
 export const adminService = {
     async getInvites() {
@@ -155,6 +156,28 @@ export const adminService = {
         
         if (error) {
             console.warn("Falha ao registar log de acesso (DB pode estar desatualizada):", error.message);
+        }
+    },
+
+    // Registar Saída no fecho da janela (Beacon/Keepalive)
+    async logAccessExit(userId: string, token: string) {
+        try {
+            await fetch(`${SUPABASE_URL}/rest/v1/access_logs`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${token}`,
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({
+                    user_id: userId,
+                    event_type: 'logout'
+                }),
+                keepalive: true
+            });
+        } catch (e) {
+            console.error("Exit log failed", e);
         }
     },
 

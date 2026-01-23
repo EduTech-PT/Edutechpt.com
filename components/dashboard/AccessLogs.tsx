@@ -109,12 +109,12 @@ export const AccessLogs: React.FC<Props> = ({ onlineUsers }) => {
                                         <td className="py-3 text-center">
                                             <span className={`
                                                 px-2 py-1 rounded text-xs font-bold uppercase
-                                                ${log.event_type === 'login' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}
+                                                ${log.event_type === 'login' ? 'bg-green-100 text-green-700' : 'bg-red-50 text-red-600 border border-red-100'}
                                             `}>
                                                 {log.event_type}
                                             </span>
                                         </td>
-                                        <td className="py-3 text-right pr-2 font-mono text-xs text-indigo-700">
+                                        <td className={`py-3 text-right pr-2 font-mono text-xs ${log.event_type === 'logout' ? 'text-red-600 font-bold' : 'text-indigo-700'}`}>
                                             {formatShortDate(log.created_at)} <span className="opacity-50">|</span> {formatTime(log.created_at)}
                                         </td>
                                     </tr>
