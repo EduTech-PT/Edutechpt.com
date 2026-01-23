@@ -4,6 +4,7 @@ import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
 import { Profile, Course } from '../../types';
 import { formatShortDate } from '../../utils/formatters';
+import { CourseDetailModal } from '../CourseDetailModal';
 
 interface Props {
   profile: Profile;
@@ -13,6 +14,9 @@ export const StudentCourses: React.FC<Props> = ({ profile }) => {
   const [enrollments, setEnrollments] = useState<any[]>([]);
   const [publicCourses, setPublicCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Modal State
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
 
   useEffect(() => {
     // Carregamento independente para evitar que um erro (ex: Enrollments) bloqueie o outro (Catálogo)
@@ -43,6 +47,29 @@ export const StudentCourses: React.FC<Props> = ({ profile }) => {
 
     loadData();
   }, [profile.id]);
+
+  const handleOpenCourse = (course: Course) => {
+      setSelectedCourse(course);
+  };
+
+  const handleAction = () => {
+      // Se já estiver inscrito, fecha (futuramente podia ir para o player do curso)
+      // Se não estiver, podia abrir um mailto ou outra lógica
+      if (!selectedCourse) return;
+
+      const isEnrolled = enrollments.some(e => e.course_id === selectedCourse.id);
+      
+      if (isEnrolled) {
+          alert("Em breve: Acesso direto aos materiais.");
+          setSelectedCourse(null);
+      } else {
+          // Solicitar Inscrição via Email
+          const subject = `Inscrição no Curso: ${selectedCourse.title}`;
+          const body = `Olá,\n\nGostaria de me inscrever no curso "${selectedCourse.title}".\n\nMeus dados:\nNome: ${profile.full_name}\nEmail: ${profile.email}`;
+          window.location.href = `mailto:edutechpt@hotmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+          setSelectedCourse(null);
+      }
+  };
 
   if (loading) return <div className="p-8 text-center text-indigo-600 font-bold">A carregar cursos...</div>;
 
@@ -103,8 +130,11 @@ export const StudentCourses: React.FC<Props> = ({ profile }) => {
                              
                              <div className="mt-auto pt-4 border-t border-indigo-100 flex justify-between items-center">
                                 <span className="text-xs text-indigo-400">Inscrito a {formatShortDate(item.enrolled_at)}</span>
-                                <button className="px-4 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700 transition-colors shadow-sm">
-                                    Aceder à Aula
+                                <button 
+                                    onClick={() => handleOpenCourse(course)}
+                                    className="px-4 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700 transition-colors shadow-sm"
+                                >
+                                    Aceder / Detalhes
                                 </button>
                              </div>
                         </GlassCard>
@@ -158,11 +188,17 @@ export const StudentCourses: React.FC<Props> = ({ profile }) => {
                             </p>
 
                             {isEnrolled ? (
-                                <div className="mt-auto w-full py-2 bg-green-100 text-green-700 text-center text-xs font-bold rounded border border-green-200">
-                                    ✅ Já Inscrito
-                                </div>
+                                <button 
+                                    onClick={() => handleOpenCourse(course)}
+                                    className="mt-auto w-full py-2 bg-green-100 text-green-700 border border-green-200 text-xs font-bold rounded hover:bg-green-200 transition-colors"
+                                >
+                                    ✅ Já Inscrito (Ver)
+                                </button>
                             ) : (
-                                <button className="mt-auto w-full py-2 bg-white border border-indigo-200 text-indigo-600 text-xs font-bold rounded hover:bg-indigo-50 transition-colors">
+                                <button 
+                                    onClick={() => handleOpenCourse(course)}
+                                    className="mt-auto w-full py-2 bg-white border border-indigo-200 text-indigo-600 text-xs font-bold rounded hover:bg-indigo-50 transition-colors"
+                                >
                                     Ver Detalhes
                                 </button>
                             )}
@@ -172,6 +208,17 @@ export const StudentCourses: React.FC<Props> = ({ profile }) => {
             </div>
         )}
       </section>
+
+      {/* MODAL DETALHES */}
+      {selectedCourse && (
+          <CourseDetailModal 
+            course={selectedCourse}
+            onClose={() => setSelectedCourse(null)}
+            onAction={handleAction}
+            actionLabel={enrollments.some(e => e.course_id === selectedCourse.id) ? "Aceder à Aula" : "Solicitar Inscrição"}
+            isEnrolled={enrollments.some(e => e.course_id === selectedCourse.id)}
+          />
+      )}
 
     </div>
   );
