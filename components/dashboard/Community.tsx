@@ -162,7 +162,10 @@ export const Community: React.FC = () => {
             {/* MEMBER DETAIL MODAL */}
             {selectedMember && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setSelectedMember(null)}>
-                    <GlassCard className="w-full max-w-2xl relative max-h-[90vh] flex flex-col overflow-hidden p-0 shadow-2xl" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                    <GlassCard 
+                        className="w-full max-w-2xl relative max-h-[90vh] flex flex-col overflow-hidden p-0 shadow-2xl bg-white/90 backdrop-blur-xl border border-white" 
+                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                    >
                         
                         {/* Header Image Background with Centered Logo */}
                         <div className="h-32 bg-gradient-to-r from-indigo-500 to-purple-500 relative flex items-center justify-center">
@@ -172,7 +175,8 @@ export const Community: React.FC = () => {
 
                             <button 
                                 onClick={() => setSelectedMember(null)} 
-                                className="absolute top-4 right-4 bg-black/20 hover:bg-black/40 text-white rounded-full p-2 backdrop-blur-sm transition-all z-20"
+                                className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full p-2 backdrop-blur-md transition-all z-50 cursor-pointer border border-white/30"
+                                title="Fechar"
                             >
                                 ✕
                             </button>
