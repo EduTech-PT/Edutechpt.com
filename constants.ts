@@ -6,6 +6,6 @@
 export const SUPABASE_URL = "https://zeedhuzljsbaoqafpfom.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ZOMCawahrL7OImeWeT6Fug_U_WMN0H1";
 
-export const APP_VERSION = "v2.10.0"; // Major Update: SQL Integrity Fix
-export const SQL_VERSION = "v1.6.0"; // Critical: Admin Access Restoration
+export const APP_VERSION = "v2.11.0"; // Major Update: SQL Integrity Fix & Admin Restore
+export const SQL_VERSION = "v1.7.0"; // Critical: Admin Access Restoration & Anti-Recursion
 export const APP_NAME = "EduTech PT";
