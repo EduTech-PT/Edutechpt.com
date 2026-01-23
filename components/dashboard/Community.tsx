@@ -182,7 +182,11 @@ export const Community: React.FC = () => {
                             {/* Header Image Background with Centered Logo */}
                             <div className="h-32 bg-gradient-to-r from-indigo-500 to-purple-500 relative flex items-center justify-center shrink-0">
                                 {logoUrl && (
-                                    <img src={logoUrl} alt="Logo" className="h-16 object-contain opacity-90 drop-shadow-md z-10" />
+                                    <img 
+                                        src={logoUrl} 
+                                        alt="Logo" 
+                                        className="h-20 object-contain drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] z-10 transform hover:scale-110 transition-transform duration-500" 
+                                    />
                                 )}
                             </div>
 
