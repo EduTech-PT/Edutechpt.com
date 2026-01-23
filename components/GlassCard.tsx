@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface GlassCardProps {
@@ -6,11 +5,13 @@ interface GlassCardProps {
   className?: string;
   hoverEffect?: boolean;
   onClick?: React.MouseEventHandler<HTMLDivElement>;
+  id?: string;
 }
 
-export const GlassCard: React.FC<GlassCardProps> = ({ children, className = '', hoverEffect = false, onClick }) => {
+export const GlassCard: React.FC<GlassCardProps> = ({ children, className = '', hoverEffect = false, onClick, id }) => {
   return (
     <div 
+      id={id}
       onClick={onClick}
       className={`
         bg-white/30 

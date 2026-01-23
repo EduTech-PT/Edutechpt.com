@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '../GlassCard';
 import { calendarService } from '../../services/calendar';
 import { CalendarEvent, SupabaseSession } from '../../types';
@@ -42,6 +42,20 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
         calculateMonthlyAvailability();
     }
   }, [events, currentDate]);
+
+  // Auto-scroll para o dia de hoje
+  useEffect(() => {
+      if (monthlySlots.length > 0) {
+          // Pequeno timeout para garantir que o DOM foi renderizado
+          const timer = setTimeout(() => {
+              const todayElement = document.getElementById('today-slot');
+              if (todayElement) {
+                  todayElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+              }
+          }, 500);
+          return () => clearTimeout(timer);
+      }
+  }, [monthlySlots]);
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -282,7 +296,7 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
          </div>
 
          {/* Grid View */}
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 overflow-y-auto custom-scrollbar p-2">
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 overflow-y-auto custom-scrollbar p-2 h-full">
             
             {/* Placeholders invisíveis para alinhar o primeiro dia (Só desktop) */}
             {placeholders.map((_, i) => (
@@ -290,7 +304,10 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
             ))}
 
             {workingDays.map(slot => (
-                <GlassCard key={slot.day} className={`flex flex-col items-center justify-between min-h-[160px] border-2 ${
+                <GlassCard 
+                    key={slot.day} 
+                    id={slot.isToday ? 'today-slot' : undefined}
+                    className={`flex flex-col items-center justify-between min-h-[160px] border-2 ${
                     slot.isToday ? 'border-red-500 shadow-md' : slot.isPast ? 'opacity-50 grayscale border-white/50' : 'border-white/50'
                 }`}>
                     <div className="w-full border-b border-indigo-50 pb-2 mb-2 flex justify-between items-center">
