@@ -2,144 +2,52 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    return `-- SCRIPT ${currentVersion} - Name Collision Fix & Auto-Recovery
--- Gerado automaticamente pelo Sistema EduTech PT
+    return `-- SCRIPT MESTRE DE RECUPERAÇÃO E INSTALAÇÃO (${currentVersion})
+-- Este script resolve:
+-- 1. Erro "infinite recursion" (Acesso bloqueado).
+-- 2. Tabelas em falta.
+-- 3. Permissões de Storage e Calendário.
 
--- 0. REMOÇÃO PREVENTIVA DE POLÍTICAS (CLEAN SLATE)
-do $$
-begin
-  -- App Config
-  drop policy if exists "Admins can update config" on public.app_config;
-  drop policy if exists "Read Config" on public.app_config;
-  
-  -- Profiles
-  drop policy if exists "Users can update own profile" on public.profiles;
-  drop policy if exists "Users and Admins can update profile" on public.profiles;
-  drop policy if exists "Admins can delete any profile" on public.profiles;
-  drop policy if exists "Public Profiles Access" on public.profiles;
-  
-  -- Roles & Invites
-  drop policy if exists "Admin Manage Roles" on public.roles;
-  drop policy if exists "Read Roles" on public.roles;
-  drop policy if exists "Admins manage invites" on public.user_invites;
-  
-  -- Courses
-  drop policy if exists "Staff can manage courses" on public.courses;
-  drop policy if exists "Courses are viewable by everyone" on public.courses;
-  
-  -- Access Requests
-  drop policy if exists "Admins view all requests" on public.access_requests;
-  drop policy if exists "Users can insert requests" on public.access_requests;
-  
-  -- Storage
-  drop policy if exists "Users can upload own avatar" on storage.objects;
-  drop policy if exists "Users can update own avatar" on storage.objects;
-  drop policy if exists "Users can delete own avatar" on storage.objects;
-  drop policy if exists "Users and Admins can upload avatar" on storage.objects;
-  drop policy if exists "Users and Admins can update avatar" on storage.objects;
-  drop policy if exists "Users and Admins can delete avatar" on storage.objects;
-  drop policy if exists "Avatar Images are Public" on storage.objects;
-
-  drop policy if exists "Course Images are Public" on storage.objects;
-  drop policy if exists "Staff can upload course images" on storage.objects;
-  drop policy if exists "Staff can update course images" on storage.objects;
-  drop policy if exists "Staff can delete course images" on storage.objects;
-
-  -- Enrollments & Classes
-  if exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'enrollments') then
-      drop policy if exists "Admins manage enrollments" on public.enrollments;
-      drop policy if exists "Users view own enrollments" on public.enrollments;
-  end if;
-  if exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'classes') then
-      drop policy if exists "Read Classes" on public.classes;
-      drop policy if exists "Staff Manage Classes" on public.classes;
-  end if;
-end $$;
-
--- 1. MIGRAÇÃO ESTRUTURAL
+-- =====================================================================================
+-- 0. LIMPEZA DE POLÍTICAS (PREVENIR CONFLITOS)
+-- =====================================================================================
+-- Removemos todas as políticas antigas para garantir que as novas entram sem erros.
 do $$
 declare
   r record;
 begin
-    -- 1.1 Correção de Tipos
-    if exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'role' and data_type = 'USER-DEFINED') then
-        alter table public.profiles alter column role type text using role::text;
-    end if;
-
-    -- 1.2 Colunas em falta (Courses)
-    if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'is_public') then
-        alter table public.courses add column is_public boolean default false;
-    end if;
-    if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'level') then
-        alter table public.courses add column level text check (level in ('iniciante', 'intermedio', 'avancado')) default 'iniciante';
-    end if;
-    if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'image_url') then
-        alter table public.courses add column image_url text;
-    end if;
-    
-    -- 1.3 Personal Folder ID (Profiles)
-    if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'personal_folder_id') then
-        alter table public.profiles add column personal_folder_id text;
-    end if;
-    
-    -- 1.4 Classes & Invites Updates
-    if not exists (select 1 from information_schema.columns where table_name = 'enrollments' and column_name = 'class_id') then
-        alter table public.enrollments add column class_id uuid;
-    end if;
-    if not exists (select 1 from information_schema.columns where table_name = 'user_invites' and column_name = 'course_id') then
-        alter table public.user_invites add column course_id uuid;
-    end if;
-    if not exists (select 1 from information_schema.columns where table_name = 'user_invites' and column_name = 'class_id') then
-        alter table public.user_invites add column class_id uuid;
-    end if;
-
-    -- 1.5 RESTRIÇÃO DE NOME ÚNICO (DEDUPLICAÇÃO PRÉVIA)
-    -- Importante: Deduplica nomes existentes antes de aplicar a constraint
-    for r in (
-      select full_name, count(*)
-      from public.profiles
-      where full_name is not null
-      group by full_name
-      having count(*) > 1
-    ) loop
-      update public.profiles p
-      set full_name = p.full_name || ' (' || substring(p.id::text, 1, 4) || ')'
-      where p.full_name = r.full_name
-      and p.id not in (
-        select id from public.profiles where full_name = r.full_name limit 1
-      );
-    end loop;
-
-    if not exists (select 1 from information_schema.table_constraints where constraint_name = 'profiles_full_name_key') then
-        alter table public.profiles add constraint profiles_full_name_key unique (full_name);
-    end if;
+  for r in select tablename, policyname from pg_policies where schemaname = 'public' loop
+    execute format('drop policy if exists %I on public.%I', r.policyname, r.tablename);
+  end loop;
 end $$;
 
--- 2. CONFIGURAÇÃO BASE
-create table if not exists public.app_config (key text primary key, value text);
+-- =====================================================================================
+-- 1. FUNÇÃO DE SEGURANÇA (A CHAVE PARA O PROBLEMA)
+-- =====================================================================================
+-- Esta função lê o cargo do utilizador ignorando as políticas RLS.
+-- Isto impede o ciclo infinito: "Posso ler? -> Verifica Admin -> Tenta ler -> Posso ler?..."
+create or replace function public.get_auth_role()
+returns text
+language plpgsql
+security definer
+as $$
+begin
+  return (select role from public.profiles where id = auth.uid());
+end;
+$$;
+
+-- =====================================================================================
+-- 2. ESTRUTURA DE DADOS (TABELAS)
+-- =====================================================================================
+
+-- 2.1 Configurações
+create table if not exists public.app_config (
+  key text primary key,
+  value text
+);
 alter table public.app_config enable row level security;
 
-create policy "Read Config" on public.app_config for select using (true);
-create policy "Admins can update config" on public.app_config for all using (
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
-);
-
-insert into public.app_config (key, value) values 
-('sql_version', '${currentVersion}-installing'),
-('avatar_resizer_link', 'https://www.iloveimg.com/resize-image'),
-('avatar_help_text', E'1. Aceda ao link de redimensionamento.\\n2. Carregue a sua foto.\\n3. Defina a largura para 500px.\\n4. Descarregue a imagem otimizada.\\n5. Carregue o ficheiro aqui.'),
-('avatar_max_size_kb', '2048'),
-('avatar_allowed_formats', 'image/jpeg,image/png,image/webp'),
-('google_script_url', ''),
-('google_drive_folder_id', ''),
-('gas_version', 'v0.0.0'),
-('access_denied_email', 'edutechpt@hotmail.com'),
-('access_denied_subject', 'Pedido de Acesso - EduTech PT'),
-('access_denied_body', E'Olá Administrador,\n\nTentei aceder à plataforma mas o meu acesso foi negado.\nGostaria de solicitar a inscrição.\n\nObrigado.')
-on conflict (key) do update set value = excluded.value 
-where app_config.key = 'sql_version';
-
--- 3. TABELAS (Estrutura)
+-- 2.2 Perfis de Utilizador
 create table if not exists public.profiles (
   id uuid references auth.users not null primary key,
   email text,
@@ -147,40 +55,48 @@ create table if not exists public.profiles (
   role text default 'aluno',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   avatar_url text,
-  birth_date date,
+  personal_folder_id text,
+  bio text,
   city text,
-  personal_email text,
   phone text,
   linkedin_url text,
-  bio text,
-  visibility_settings jsonb default '{}'::jsonb,
-  personal_folder_id text
+  personal_email text,
+  birth_date date,
+  visibility_settings jsonb default '{}'::jsonb
 );
+alter table public.profiles enable row level security;
 
+-- 2.3 Cargos (Roles)
 create table if not exists public.roles (
   name text primary key,
   description text,
   permissions jsonb default '{}'::jsonb
 );
+alter table public.roles enable row level security;
 
+-- 2.4 Cursos
 create table if not exists public.courses (
   id uuid default gen_random_uuid() primary key,
   title text not null,
   description text,
-  instructor_id uuid references public.profiles(id),
-  level text check (level in ('iniciante', 'intermedio', 'avancado')),
+  level text default 'iniciante',
   image_url text,
   is_public boolean default false,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  instructor_id uuid references public.profiles(id),
+  created_at timestamp with time zone default timezone('utc'::text, now())
 );
+alter table public.courses enable row level security;
 
+-- 2.5 Turmas
 create table if not exists public.classes (
   id uuid default gen_random_uuid() primary key,
   course_id uuid references public.courses(id) on delete cascade,
   name text not null,
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
+alter table public.classes enable row level security;
 
+-- 2.6 Inscrições
 create table if not exists public.enrollments (
   user_id uuid references public.profiles(id) on delete cascade,
   course_id uuid references public.courses(id) on delete cascade,
@@ -188,7 +104,9 @@ create table if not exists public.enrollments (
   enrolled_at timestamp with time zone default timezone('utc'::text, now()),
   primary key (user_id, course_id)
 );
+alter table public.enrollments enable row level security;
 
+-- 2.7 Convites
 create table if not exists public.user_invites (
   email text primary key,
   role text not null,
@@ -196,7 +114,9 @@ create table if not exists public.user_invites (
   class_id uuid references public.classes(id),
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
+alter table public.user_invites enable row level security;
 
+-- 2.8 Pedidos de Acesso (Opcional, mas referenciado anteriormente)
 create table if not exists public.access_requests (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users,
@@ -206,85 +126,99 @@ create table if not exists public.access_requests (
   status text default 'pending',
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
-
-do $$
-begin
-  if not exists (select 1 from information_schema.table_constraints where constraint_name = 'courses_instructor_id_fkey') then
-      alter table public.courses add constraint courses_instructor_id_fkey foreign key (instructor_id) references public.profiles(id);
-  end if;
-end $$;
-
--- 5. ROLES & PERMISSÕES
-insert into public.roles (name, description, permissions) values 
-('admin', 'Acesso total ao sistema', '{\"view_dashboard\": true, \"view_my_profile\": true, \"view_community\": true, \"view_users\": true, \"view_settings\": true, \"manage_courses\": true, \"view_courses\": true, \"view_all_community\": true}'),
-('editor', 'Gestão de conteúdos', '{\"view_dashboard\": true, \"view_my_profile\": true, \"view_community\": true, \"manage_courses\": true, \"view_courses\": true, \"view_all_community\": true}'),
-('formador', 'Gestão de turmas', '{\"view_dashboard\": true, \"view_my_profile\": true, \"view_community\": true, \"manage_courses\": true, \"view_courses\": true, \"view_all_community\": false}'),
-('aluno', 'Acesso padrão', '{\"view_dashboard\": true, \"view_my_profile\": true, \"view_community\": true, \"view_courses\": true, \"view_all_community\": false}')
-on conflict (name) do update set permissions = excluded.permissions;
-
--- 6. POLÍTICAS DE SEGURANÇA (RLS)
-alter table public.profiles enable row level security;
-create policy "Public Profiles Access" on public.profiles for select using (true);
-create policy "Users and Admins can update profile" on public.profiles for update using (
-    id = auth.uid() 
-    OR exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
-);
-create policy "Admins can delete any profile" on public.profiles for delete using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
-
-alter table public.roles enable row level security;
-create policy "Read Roles" on public.roles for select using (true);
-create policy "Admin Manage Roles" on public.roles for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
-
-alter table public.user_invites enable row level security;
-create policy "Admins manage invites" on public.user_invites for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
-
-alter table public.courses enable row level security;
-create policy "Courses are viewable by everyone" on public.courses for select using (true);
-create policy "Staff can manage courses" on public.courses for all using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
-
-alter table public.classes enable row level security;
-create policy "Read Classes" on public.classes for select using (true);
-create policy "Staff Manage Classes" on public.classes for all using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
-
-alter table public.enrollments enable row level security;
-create policy "Admins manage enrollments" on public.enrollments for all using (exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'formador')));
-create policy "Users view own enrollments" on public.enrollments for select using (user_id = auth.uid());
-
 alter table public.access_requests enable row level security;
-create policy "Users can insert requests" on public.access_requests for insert with check (auth.uid() = user_id);
-create policy "Admins view all requests" on public.access_requests for select using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
--- 7. STORAGE
+-- =====================================================================================
+-- 3. POLÍTICAS DE SEGURANÇA (RLS) - SEGURO E COMPLETO
+-- =====================================================================================
+
+-- --- PROFILES ---
+-- Leitura pública necessária para a Comunidade funcionar
+create policy "Public Read Profiles" on public.profiles for select using (true);
+
+-- Apenas o próprio ou Admin pode editar
+create policy "Edit Own Profile" on public.profiles for update using (auth.uid() = id);
+create policy "Admin Edit All" on public.profiles for update using (public.get_auth_role() = 'admin');
+
+-- Apenas Admin pode apagar
+create policy "Admin Delete Profiles" on public.profiles for delete using (public.get_auth_role() = 'admin');
+
+-- Inserção pelo Sistema (Trigger) ou Admin
+create policy "System Insert Profiles" on public.profiles for insert with check (true);
+
+-- --- APP CONFIG ---
+create policy "Public Read Config" on public.app_config for select using (true);
+create policy "Admin Manage Config" on public.app_config for all using (public.get_auth_role() = 'admin');
+
+-- --- ROLES ---
+create policy "Public Read Roles" on public.roles for select using (true);
+create policy "Admin Manage Roles" on public.roles for all using (public.get_auth_role() = 'admin');
+
+-- --- COURSES ---
+create policy "Public Read Courses" on public.courses for select using (true);
+create policy "Staff Manage Courses" on public.courses for all using (
+  public.get_auth_role() in ('admin', 'formador', 'editor')
+);
+
+-- --- CLASSES ---
+create policy "Public Read Classes" on public.classes for select using (true);
+create policy "Staff Manage Classes" on public.classes for all using (
+  public.get_auth_role() in ('admin', 'formador', 'editor')
+);
+
+-- --- ENROLLMENTS ---
+-- Utilizadores veem as suas, Staff vê tudo
+create policy "Read Own Enrollments" on public.enrollments for select using (
+  user_id = auth.uid() or public.get_auth_role() in ('admin', 'formador', 'editor')
+);
+create policy "Staff Manage Enrollments" on public.enrollments for all using (
+  public.get_auth_role() in ('admin', 'formador', 'editor')
+);
+
+-- --- INVITES ---
+create policy "Staff Manage Invites" on public.user_invites for all using (
+  public.get_auth_role() in ('admin', 'formador', 'editor')
+);
+
+-- --- ACCESS REQUESTS ---
+create policy "User Create Request" on public.access_requests for insert with check (auth.uid() = user_id);
+create policy "Admin View Requests" on public.access_requests for select using (public.get_auth_role() = 'admin');
+
+-- =====================================================================================
+-- 4. STORAGE (IMAGENS)
+-- =====================================================================================
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('course-images', 'course-images', true) on conflict (id) do nothing;
 
-create policy "Avatar Images are Public" on storage.objects for select using ( bucket_id = 'avatars' );
-create policy "Users and Admins can upload avatar" on storage.objects for insert with check ( bucket_id = 'avatars' and (auth.uid() = owner or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')));
-create policy "Users and Admins can update avatar" on storage.objects for update using ( bucket_id = 'avatars' and (auth.uid() = owner or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')));
-create policy "Users and Admins can delete avatar" on storage.objects for delete using ( bucket_id = 'avatars' and (auth.uid() = owner or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')));
+drop policy if exists "Avatars Public" on storage.objects;
+create policy "Avatars Public" on storage.objects for select using (bucket_id = 'avatars');
+create policy "Users Upload Avatars" on storage.objects for insert with check (bucket_id = 'avatars' and auth.uid() = owner);
+create policy "Users Update Avatars" on storage.objects for update using (bucket_id = 'avatars' and auth.uid() = owner);
 
-create policy "Course Images are Public" on storage.objects for select using ( bucket_id = 'course-images' );
-create policy "Staff can upload course images" on storage.objects for insert with check ( bucket_id = 'course-images' and exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
-create policy "Staff can update course images" on storage.objects for update using ( bucket_id = 'course-images' and exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
-create policy "Staff can delete course images" on storage.objects for delete using ( bucket_id = 'course-images' and exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador')));
+drop policy if exists "Courses Public" on storage.objects;
+create policy "Courses Public" on storage.objects for select using (bucket_id = 'course-images');
+create policy "Staff Manage Images" on storage.objects for all using (
+  bucket_id = 'course-images' and public.get_auth_role() in ('admin', 'formador', 'editor')
+);
 
--- 8. FUNÇÕES & TRIGGERS (Lógica de Negócio)
+-- =====================================================================================
+-- 5. LÓGICA AUTOMÁTICA (TRIGGERS)
+-- =====================================================================================
 
--- 8.1 Handle New User (ROBUST EMAIL MATCHING + NAME DEDUPLICATION)
 create or replace function public.handle_new_user() returns trigger as $$
 declare
   invite_record record;
   final_name text;
-  base_name text;
 begin
-  base_name := coalesce(new.raw_user_meta_data->>'full_name', 'Utilizador');
-  final_name := base_name;
+  -- Definir Nome
+  final_name := coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1));
   
-  -- DEDUPLICAÇÃO DE NOME: Se já existe, adiciona ID (ex: João Silva (a1b2))
+  -- Deduplicação de Nome (Evita erro Unique Constraint)
   if exists (select 1 from public.profiles where lower(full_name) = lower(final_name)) then
       final_name := final_name || ' (' || substring(new.id::text, 1, 4) || ')';
   end if;
 
+  -- Backdoor Admin
   if new.email = 'edutechpt@hotmail.com' then
       insert into public.profiles (id, email, full_name, role)
       values (new.id, new.email, final_name, 'admin')
@@ -292,13 +226,13 @@ begin
       return new;
   end if;
 
-  -- Verifica convite ignorando maiúsculas/espaços
-  select * into invite_record from public.user_invites 
-  where lower(trim(email)) = lower(trim(new.email));
-
+  -- Processar Convite
+  select * into invite_record from public.user_invites where lower(email) = lower(new.email);
+  
   if invite_record.role is not null then
       insert into public.profiles (id, email, full_name, role)
-      values (new.id, new.email, final_name, invite_record.role);
+      values (new.id, new.email, final_name, invite_record.role)
+      on conflict (id) do nothing;
       
       if invite_record.course_id is not null then
           insert into public.enrollments (user_id, course_id, class_id)
@@ -306,104 +240,87 @@ begin
           on conflict do nothing;
       end if;
 
-      delete from public.user_invites where lower(trim(email)) = lower(trim(new.email));
-      
+      delete from public.user_invites where lower(email) = lower(new.email);
       return new;
   else
+      -- Se não tiver convite, bloqueia a criação
       raise exception 'ACESSO NEGADO: Email não convidado.';
   end if;
 end;
 $$ language plpgsql security definer;
 
+-- Ligar o Trigger
 drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
 
--- 8.2 Invite Recovery Mechanism (FIX: NAME DEDUPLICATION ADDED)
+-- Função para recuperar convite manualmente (se o trigger falhar)
 create or replace function public.claim_invite()
 returns boolean as $$
 declare
   invite_record record;
-  final_name text;
-  base_name text;
+  user_email text;
+  user_id uuid;
 begin
-  -- Busca convite pendente
-  select * into invite_record from public.user_invites 
-  where lower(trim(email)) = lower(trim(auth.email()));
+  user_id := auth.uid();
+  select email into user_email from auth.users where id = user_id;
   
-  if invite_record.email is null then
-    return false;
+  select * into invite_record from public.user_invites where lower(email) = lower(user_email);
+  
+  if invite_record.role is not null then
+      insert into public.profiles (id, email, full_name, role)
+      values (user_id, user_email, 'Recuperado', invite_record.role)
+      on conflict (id) do update set role = invite_record.role;
+      
+      if invite_record.course_id is not null then
+          insert into public.enrollments (user_id, course_id, class_id)
+          values (user_id, invite_record.course_id, invite_record.class_id)
+          on conflict do nothing;
+      end if;
+      
+      delete from public.user_invites where lower(email) = lower(user_email);
+      return true;
   end if;
-
-  base_name := coalesce((auth.jwt() -> 'user_metadata') ->> 'full_name', auth.email());
-  final_name := base_name;
-
-  -- CRITICAL FIX: DEDUPLICAÇÃO DE NOME EM TEMPO REAL
-  -- Impede erro de "unique violation" se já existir um user com mesmo nome
-  if exists (select 1 from public.profiles where lower(full_name) = lower(final_name)) then
-      final_name := final_name || ' (' || substring(auth.uid()::text, 1, 4) || ')';
-  end if;
-
-  -- Insere perfil de forma segura
-  insert into public.profiles (id, email, full_name, role)
-  values (auth.uid(), auth.email(), final_name, invite_record.role)
-  on conflict (id) do update
-  set role = excluded.role;
-
-  if invite_record.course_id is not null then
-      insert into public.enrollments (user_id, course_id, class_id)
-      values (auth.uid(), invite_record.course_id, invite_record.class_id)
-      on conflict do nothing;
-  end if;
-
-  delete from public.user_invites where lower(trim(email)) = lower(trim(auth.email()));
-
-  return true;
+  return false;
 end;
 $$ language plpgsql security definer;
 
--- 8.3 Get Community Members (Atualizado para view_all_community)
+-- Função Comunidade (Quem vê quem)
 create or replace function public.get_community_members()
 returns setof public.profiles as $$
-declare
-  v_role text;
-  v_perms jsonb;
 begin
-  -- Get user role
-  select role into v_role from public.profiles where id = auth.uid();
-  
-  -- Get permissions for that role
-  select permissions into v_perms from public.roles where name = v_role;
-
-  -- Check if Admin OR has permission view_all_community
-  if v_role = 'admin' OR (v_perms->>'view_all_community')::boolean = true then
+  -- Admin ou Staff veem tudo
+  if public.get_auth_role() in ('admin', 'formador', 'editor') then
       return query select * from public.profiles order by full_name;
   else
-      -- Only same classes
+      -- Alunos veem colegas das mesmas turmas/cursos
       return query 
-      select distinct p.*
+      select distinct p.* 
       from public.profiles p
-      join public.enrollments e_others on p.id = e_others.user_id
-      where e_others.course_id in (
-          select my_e.course_id from public.enrollments my_e where my_e.user_id = auth.uid()
-      )
+      join public.enrollments e on p.id = e.user_id
+      where e.course_id in (select course_id from public.enrollments where user_id = auth.uid())
       order by p.full_name;
   end if;
 end;
 $$ language plpgsql security definer;
 
--- 9. FINALIZAÇÃO & REPARAÇÃO DE ADMIN
-do $$
-declare
-  v_admin_id uuid;
-begin
-  select id into v_admin_id from auth.users where email = 'edutechpt@hotmail.com';
-  if v_admin_id is not null then
-      insert into public.profiles (id, email, full_name, role)
-      values (v_admin_id, 'edutechpt@hotmail.com', 'Administrador', 'admin')
-      on conflict (id) do update set role = 'admin';
-  end if;
-end $$;
+-- =====================================================================================
+-- 6. DADOS INICIAIS (SEED)
+-- =====================================================================================
 
-update public.app_config set value = '${currentVersion}' where key = 'sql_version';
+-- Assegurar Cargos Padrão
+insert into public.roles (name, description, permissions) values 
+('admin', 'Administrador Total', '{"view_dashboard":true,"view_users":true,"view_settings":true,"manage_courses":true,"view_calendar":true}'::jsonb),
+('formador', 'Formador / Professor', '{"view_dashboard":true,"manage_courses":true,"view_community":true,"view_calendar":true}'::jsonb),
+('aluno', 'Estudante', '{"view_dashboard":true,"view_courses":true,"view_community":true,"view_calendar":true}'::jsonb)
+on conflict (name) do nothing;
+
+-- Registar Versão do SQL
+insert into public.app_config (key, value) values ('sql_version', '${currentVersion}')
+on conflict (key) do update set value = excluded.value;
+
+-- Restaurar Admin (Garantia Final)
+update public.profiles set role = 'admin' where email = 'edutechpt@hotmail.com';
 `;
 };
