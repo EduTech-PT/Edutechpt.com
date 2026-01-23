@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Profile, UserRole, SupabaseSession, UserPermissions } from '../types';
+import { Profile, UserRole, SupabaseSession, UserPermissions, OnlineUser } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { GlassCard } from '../components/GlassCard';
 import { userService } from '../services/users';
@@ -8,6 +8,7 @@ import { adminService } from '../services/admin';
 import { SQL_VERSION, APP_VERSION } from '../constants';
 import { formatTime, formatDate } from '../utils/formatters';
 import { driveService, GAS_VERSION } from '../services/drive';
+import { supabase } from '../lib/supabaseClient'; // Necessário para Realtime
 
 // Views
 import { Overview } from '../components/dashboard/Overview';
@@ -22,7 +23,8 @@ import { Community } from '../components/dashboard/Community';
 import { Calendar } from '../components/dashboard/Calendar';
 import { AvailabilityMap } from '../components/dashboard/AvailabilityMap';
 import { ClassManager } from '../components/dashboard/ClassManager'; 
-import { DidacticPortal } from '../components/dashboard/DidacticPortal'; // Importado
+import { DidacticPortal } from '../components/dashboard/DidacticPortal';
+import { AccessLogs } from '../components/dashboard/AccessLogs'; // Novo Componente
 
 interface DashboardProps {
   session: SupabaseSession;
@@ -34,7 +36,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [permissions, setPermissions] = useState<UserPermissions | undefined>(undefined);
   
   // URL STATE PERSISTENCE LOGIC
-  // 1. Initialize view from URL or default to 'dashboard'
   const [currentView, setCurrentView] = useState(() => {
       const params = new URLSearchParams(window.location.search);
       return params.get('view') || 'dashboard';
@@ -56,6 +57,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   // Branding State
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
 
+  // Realtime Presence State
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+
   // Load Initial Data
   useEffect(() => {
     init();
@@ -65,7 +69,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
         const params = new URLSearchParams(window.location.search);
         const view = params.get('view') || 'dashboard';
         setCurrentView(view);
-        // Reset specific states when navigating back via browser
         setSelectedUserToEdit(null); 
     };
     
@@ -96,7 +99,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           if (userProfile) {
               setProfile(userProfile);
               
-              // CRÍTICO: Carregar as permissões dinâmicas da Base de Dados
+              // LOG LOGIN (Uma vez por sessão de memória)
+              if (!sessionStorage.getItem('session_logged')) {
+                  adminService.logAccess(userProfile.id, 'login');
+                  sessionStorage.setItem('session_logged', 'true');
+              }
+
+              // INICIAR PRESENÇA REALTIME
+              initPresence(userProfile);
+
+              // Carregar permissões
               try {
                   const roleDef = await adminService.getRoleByName(userProfile.role);
                   if (roleDef && roleDef.permissions) {
@@ -106,12 +118,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                   console.warn("Failed to load permissions", permErr);
               }
 
-              // Load App Config (incl. Logo)
+              // Load App Config
               try {
                   const config = await adminService.getAppConfig();
                   if (config.logoUrl) setLogoUrl(config.logoUrl);
                   
-                  // Check Versions if Admin
                   if (userProfile.role === UserRole.ADMIN) {
                       setDbVersion(config.sqlVersion || 'Unknown');
                       
@@ -145,18 +156,59 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       }
   };
 
+  const initPresence = (userProfile: Profile) => {
+      const channel = supabase.channel('online-users');
+      
+      channel
+        .on('presence', { event: 'sync' }, () => {
+            const newState = channel.presenceState();
+            const users: OnlineUser[] = [];
+            
+            for (const id in newState) {
+                const presenceList = newState[id] as any[];
+                if (presenceList && presenceList.length > 0) {
+                    users.push(presenceList[0]); // Pega a info mais recente de cada user
+                }
+            }
+            setOnlineUsers(users);
+        })
+        .subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                await channel.track({
+                    user_id: userProfile.id,
+                    email: userProfile.email,
+                    full_name: userProfile.full_name,
+                    role: userProfile.role,
+                    avatar_url: userProfile.avatar_url,
+                    online_at: new Date().toISOString(),
+                });
+            }
+        });
+
+      // Cleanup function to leave channel on unmount
+      return () => {
+          supabase.removeChannel(channel);
+      };
+  };
+
+  const handleLogoutAction = async () => {
+      if (profile) {
+          // Log logout event before clearing session
+          await adminService.logAccess(profile.id, 'logout');
+      }
+      onLogout();
+  };
+
   // Clock
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Navigation Handler (Updates URL)
   const handleSetView = (newView: string) => {
       setCurrentView(newView);
       setSelectedUserToEdit(null);
       
-      // Update URL without reload
       const params = new URLSearchParams(window.location.search);
       params.set('view', newView);
       const newUrl = `${window.location.pathname}?${params.toString()}`;
@@ -179,15 +231,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   const handleAdminEditUser = (userToEdit: Profile) => {
       setSelectedUserToEdit(userToEdit);
-      // We don't change URL for edit mode to avoid complex state restoration on refresh
-      // But we set internal state
       setCurrentView('admin_edit_profile');
   };
 
   const handleBackToUserList = () => {
       setSelectedUserToEdit(null);
-      setCurrentView('users'); // This doesn't update URL automatically because it's internal state set
-      // Force URL update to reflect 'users'
+      setCurrentView('users');
       const params = new URLSearchParams(window.location.search);
       params.set('view', 'users');
       window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
@@ -240,15 +289,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
           case 'community': return <Community />;
           
-          // Mapeamento correto das Views de Cursos
-          case 'courses': return <StudentCourses profile={profile} />; // Visão do Aluno
-          case 'manage_courses': return <CourseManager profile={profile} />; // Visão do Formador/Admin
-          case 'manage_classes': return <ClassManager />; // Gestão de Turmas
-          case 'didactic_portal': return <DidacticPortal profile={profile} />; // NOVA ROTA
+          case 'courses': return <StudentCourses profile={profile} />;
+          case 'manage_courses': return <CourseManager profile={profile} />;
+          case 'manage_classes': return <ClassManager />;
+          case 'didactic_portal': return <DidacticPortal profile={profile} />;
 
           case 'media': return <MediaManager />;
           case 'drive': return <DriveManager profile={profile} />;
           case 'users': return <UserAdmin currentUserRole={profile.role} onEditUser={handleAdminEditUser} />;
+          
+          // SETTINGS
+          case 'settings_logs': return <AccessLogs onlineUsers={onlineUsers} />;
           case 'settings_geral': return <Settings dbVersion={dbVersion} initialTab="geral" />;
           case 'settings_roles': return <Settings dbVersion={dbVersion} initialTab="roles" />;
           case 'settings_sql': return <Settings dbVersion={dbVersion} initialTab="sql" />;
@@ -267,7 +318,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       if (view === 'admin_edit_profile') return 'Gestão / Editar Perfil';
       if (view === 'manage_courses') return 'Gestão de Cursos';
       if (view === 'manage_classes') return 'Gestão de Turmas';
-      if (view === 'didactic_portal') return 'Gestor de Recursos'; // Alterado
+      if (view === 'didactic_portal') return 'Gestor de Recursos';
       if (view === 'courses') return 'Meus Cursos e Oferta';
       if (view === 'calendar') return 'Minha Agenda';
       if (view === 'availability') return 'Mapa de Disponibilidade';
@@ -303,7 +354,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 appVersion={APP_VERSION} 
                 currentView={currentView === 'admin_edit_profile' ? 'users' : currentView}
                 setView={handleSetView} 
-                onLogout={onLogout}
+                onLogout={handleLogoutAction}
                 onMobileClose={() => setMobileMenuOpen(false)}
                 logoUrl={logoUrl}
             />

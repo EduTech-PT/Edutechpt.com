@@ -152,3 +152,21 @@ export interface CalendarResponse {
     message?: string;
     debug?: string[]; // New debug field
 }
+
+// Monitorização e Logs
+export interface AccessLog {
+  id: string;
+  user_id: string;
+  event_type: 'login' | 'logout';
+  created_at: string;
+  user?: Profile; // Join
+}
+
+export interface OnlineUser {
+  user_id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  avatar_url?: string;
+  online_at: string;
+}

@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabaseClient';
-import { UserInvite, RoleDefinition, UserPermissions } from '../types';
+import { UserInvite, RoleDefinition, UserPermissions, AccessLog } from '../types';
 
 export const adminService = {
     async getInvites() {
@@ -144,6 +144,36 @@ export const adminService = {
         const { error } = await supabase.from('roles').delete().eq('name', name);
         if (error) throw error;
     },
+
+    // --- ACCESS LOGS ---
+    
+    // Registar entrada/saída (chamado pelo cliente)
+    async logAccess(userId: string, eventType: 'login' | 'logout') {
+        const { error } = await supabase
+            .from('access_logs')
+            .insert([{ user_id: userId, event_type: eventType }]);
+        
+        if (error) {
+            console.warn("Falha ao registar log de acesso (DB pode estar desatualizada):", error.message);
+        }
+    },
+
+    // Obter histórico (Apenas Admin)
+    async getAccessLogs(limit = 100) {
+        const { data, error } = await supabase
+            .from('access_logs')
+            .select(`
+                *,
+                user:profiles(full_name, email, role)
+            `)
+            .order('created_at', { ascending: false })
+            .limit(limit);
+            
+        if (error) throw error;
+        return data as AccessLog[];
+    },
+
+    // --- CONFIG ---
 
     async getAppConfig() {
         const { data, error } = await supabase.from('app_config').select('*');

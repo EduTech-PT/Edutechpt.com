@@ -105,6 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       icon: '⚙️',
       items: [
         { id: 'users', label: 'Utilizadores', permissionKey: 'view_users', fallbackRoles: [UserRole.ADMIN] },
+        { id: 'settings_logs', label: 'Monitorização', permissionKey: 'view_users', fallbackRoles: [UserRole.ADMIN] }, // NOVO ITEM
         { id: 'settings_roles', label: 'Cargos e Permissões', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
         { id: 'settings_allocation', label: 'Alocação Formadores', permissionKey: 'manage_allocations', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR] }, 
         { id: 'settings_geral', label: 'Sistema', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
