@@ -46,6 +46,7 @@ export interface UserPermissions {
   manage_courses?: boolean; // Formador/Admin: Gerir cursos
   manage_classes?: boolean; // Gerir Turmas (Criar/Apagar)
   manage_allocations?: boolean; // NOVO: Alocar Formadores a Turmas
+  view_didactic_portal?: boolean; // NOVO: Acesso ao Portal Didático
   view_users?: boolean;
   view_settings?: boolean;
   view_calendar?: boolean; // Agenda Google
@@ -69,8 +70,9 @@ export interface Class {
   course_id: string;
   name: string;
   created_at: string;
-  instructor_id?: string; // NOVO: Formador responsável pela turma específica
-  instructor?: Profile; // Join opcional
+  instructor_id?: string; // Mantido para retrocompatibilidade
+  instructors?: Profile[]; // NOVO: Lista de múltiplos formadores
+  instructor?: Profile; // Deprecado, mas mantido para UI antiga se necessário
 }
 
 export interface Enrollment {

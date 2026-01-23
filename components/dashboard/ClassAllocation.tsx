@@ -57,43 +57,30 @@ export const ClassAllocation: React.FC = () => {
         setClasses(data);
     };
 
-    const handleAssign = async (cls: Class) => {
+    const handleToggleAssignment = async (cls: Class) => {
         if (!selectedTrainer) return;
         
-        // Se já for o formador, não faz nada
-        if (cls.instructor_id === selectedTrainer.id) return;
+        setProcessingClassId(cls.id);
+        const alreadyAssigned = cls.instructors?.some(i => i.id === selectedTrainer.id);
 
         try {
-            setProcessingClassId(cls.id);
-            await courseService.updateClassInstructor(cls.id, selectedTrainer.id);
-            
-            // Optimistic Update
-            setClasses(prev => prev.map(c => 
-                c.id === cls.id 
-                ? { ...c, instructor_id: selectedTrainer.id, instructor: selectedTrainer } 
-                : c
-            ));
-
-        } catch (err: any) {
-            alert("Erro: " + err.message);
-        } finally {
-            setProcessingClassId(null);
-        }
-    };
-
-    const handleRemove = async (e: React.MouseEvent, cls: Class) => {
-        e.stopPropagation();
-        if (!window.confirm(`Remover o formador da turma "${cls.name}"?`)) return;
-
-        try {
-            setProcessingClassId(cls.id);
-            await courseService.updateClassInstructor(cls.id, null);
-            
-            setClasses(prev => prev.map(c => 
-                c.id === cls.id 
-                ? { ...c, instructor_id: undefined, instructor: undefined } 
-                : c
-            ));
+            if (alreadyAssigned) {
+                // REMOVER
+                await courseService.removeInstructorFromClass(cls.id, selectedTrainer.id);
+                setClasses(prev => prev.map(c => 
+                    c.id === cls.id 
+                    ? { ...c, instructors: c.instructors?.filter(i => i.id !== selectedTrainer.id) } 
+                    : c
+                ));
+            } else {
+                // ADICIONAR
+                await courseService.addInstructorToClass(cls.id, selectedTrainer.id);
+                setClasses(prev => prev.map(c => 
+                    c.id === cls.id 
+                    ? { ...c, instructors: [...(c.instructors || []), selectedTrainer] } 
+                    : c
+                ));
+            }
         } catch (err: any) {
             alert("Erro: " + err.message);
         } finally {
@@ -108,7 +95,7 @@ export const ClassAllocation: React.FC = () => {
                     <h2 className="text-xl font-bold text-indigo-900">Alocação de Formadores</h2>
                     <p className="text-sm text-indigo-600">
                         {selectedTrainer 
-                            ? <span>Modo Atribuição: Clique nas turmas à direita para definir <b>{selectedTrainer.full_name}</b>.</span> 
+                            ? <span>Modo Atribuição: Clique nas turmas para <b>adicionar/remover</b> {selectedTrainer.full_name}.</span> 
                             : "Selecione um formador na lista à esquerda para começar."}
                     </p>
                 </div>
@@ -178,7 +165,7 @@ export const ClassAllocation: React.FC = () => {
                              </h3>
                              {selectedTrainer && (
                                  <span className="text-xs font-bold text-indigo-600 animate-in fade-in bg-indigo-50 px-2 py-1 rounded border border-indigo-100">
-                                     A aplicar: {selectedTrainer.full_name}
+                                     A gerir: {selectedTrainer.full_name}
                                  </span>
                              )}
                         </div>
@@ -192,13 +179,14 @@ export const ClassAllocation: React.FC = () => {
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {classes.map(cls => {
-                                        const isAssignedToSelected = selectedTrainer && cls.instructor_id === selectedTrainer.id;
+                                        const isAssignedToSelected = selectedTrainer ? cls.instructors?.some(i => i.id === selectedTrainer.id) : false;
                                         const isProcessing = processingClassId === cls.id;
+                                        const instructorCount = cls.instructors?.length || 0;
 
                                         return (
                                             <div 
                                                 key={cls.id}
-                                                onClick={() => !isProcessing && handleAssign(cls)}
+                                                onClick={() => !isProcessing && handleToggleAssignment(cls)}
                                                 className={`
                                                     relative p-4 rounded-xl border-2 transition-all flex flex-col gap-3 group
                                                     ${isProcessing ? 'opacity-50 cursor-wait' : ''}
@@ -220,9 +208,13 @@ export const ClassAllocation: React.FC = () => {
                                                     </div>
                                                     
                                                     {/* Status Badge */}
-                                                    {cls.instructor_id ? (
+                                                    {isAssignedToSelected ? (
                                                         <span className="text-[10px] bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-bold border border-green-200 flex items-center gap-1">
-                                                            ✓ Alocado
+                                                            ✓ Atribuído
+                                                        </span>
+                                                    ) : instructorCount > 0 ? (
+                                                        <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-bold border border-indigo-200">
+                                                            {instructorCount} Formadores
                                                         </span>
                                                     ) : (
                                                         <span className="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full font-bold border border-yellow-200">
@@ -231,41 +223,31 @@ export const ClassAllocation: React.FC = () => {
                                                     )}
                                                 </div>
 
-                                                {/* Formador Atual */}
-                                                <div className="flex items-center gap-3 mt-1 bg-white/50 p-2 rounded-lg border border-white/60">
-                                                    {cls.instructor ? (
-                                                        <>
-                                                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700 overflow-hidden border border-white shadow-sm">
-                                                                {cls.instructor.avatar_url ? <img src={cls.instructor.avatar_url} className="w-full h-full object-cover"/> : cls.instructor.full_name?.[0]}
+                                                {/* Formadores Lista Visual */}
+                                                <div className="mt-2 flex flex-wrap gap-2">
+                                                    {cls.instructors && cls.instructors.length > 0 ? cls.instructors.map(inst => (
+                                                        <div key={inst.id} className="flex items-center gap-2 bg-white/70 p-1.5 rounded-lg border border-white shadow-sm" title={inst.full_name || ''}>
+                                                             <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-[9px] font-bold text-indigo-700 overflow-hidden shrink-0 border border-indigo-200">
+                                                                {inst.avatar_url ? <img src={inst.avatar_url} className="w-full h-full object-cover"/> : inst.full_name?.[0]}
                                                             </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className="text-xs font-bold text-indigo-900 truncate">{cls.instructor.full_name}</div>
-                                                                <div className="text-[9px] text-indigo-500 truncate">{cls.instructor.email}</div>
-                                                            </div>
-                                                            <button 
-                                                                onClick={(e) => handleRemove(e, cls)}
-                                                                className="text-red-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-full transition-colors"
-                                                                title="Remover Formador"
-                                                            >
-                                                                ✕
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <div className="flex items-center gap-2 text-gray-400 text-xs italic w-full justify-center py-1">
-                                                            <span>👤</span> Sem formador
+                                                            <span className="text-xs font-bold text-indigo-900 truncate max-w-[100px]">{inst.full_name?.split(' ')[0]}</span>
                                                         </div>
+                                                    )) : (
+                                                        <div className="text-xs italic text-gray-400 py-2">Sem formadores alocados.</div>
                                                     )}
                                                 </div>
 
                                                 {/* Action Overlay Hint */}
-                                                {selectedTrainer && !isAssignedToSelected && (
-                                                    <div className="absolute inset-0 bg-indigo-600/90 rounded-xl flex items-center justify-center text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
-                                                        <span>👆 Atribuir a {selectedTrainer.full_name.split(' ')[0]}</span>
+                                                {selectedTrainer && !isProcessing && (
+                                                    <div className="absolute inset-0 bg-indigo-600/90 rounded-xl flex items-center justify-center text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm z-10">
+                                                        <span>
+                                                            {isAssignedToSelected ? `⛔ Remover ${selectedTrainer.full_name.split(' ')[0]}` : `✅ Adicionar ${selectedTrainer.full_name.split(' ')[0]}`}
+                                                        </span>
                                                     </div>
                                                 )}
                                                 
                                                 {isAssignedToSelected && selectedTrainer && (
-                                                     <div className="absolute inset-0 bg-green-600/10 rounded-xl border-2 border-green-500 pointer-events-none"></div>
+                                                     <div className="absolute inset-0 bg-green-600/5 rounded-xl border-2 border-green-500 pointer-events-none"></div>
                                                 )}
                                             </div>
                                         );

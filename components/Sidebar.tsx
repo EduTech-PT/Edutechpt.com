@@ -32,7 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
   const role = profile?.role || UserRole.STUDENT;
   
   // Estado para controlar Mobile Accordion (Desktop usa Hover/CSS)
-  const [openGroups, setOpenGroups] = useState<string[]>(['perfil', 'agenda']);
+  const [openGroups, setOpenGroups] = useState<string[]>(['perfil', 'agenda', 'cursos']);
 
   const toggleGroup = (groupId: string) => {
     setOpenGroups(prev => 
@@ -91,8 +91,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       icon: '🎓',
       items: [
         { id: 'courses', label: 'Meus Cursos', permissionKey: 'view_courses', fallbackRoles: [UserRole.STUDENT] },
-        { id: 'manage_courses', label: 'Gerir Cursos', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
-        { id: 'manage_classes', label: 'Gestão de Turmas', permissionKey: 'manage_classes', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] }, // NOVO ITEM
+        { id: 'didactic_portal', label: 'Portal Didático', permissionKey: 'view_didactic_portal', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] }, // NOVO
+        { id: 'manage_courses', label: 'Gestão de Cursos', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
+        { id: 'manage_classes', label: 'Gestão de Turmas', permissionKey: 'manage_classes', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] }, 
       ]
     },
     {
@@ -111,7 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       items: [
         { id: 'users', label: 'Utilizadores', permissionKey: 'view_users', fallbackRoles: [UserRole.ADMIN] },
         { id: 'settings_roles', label: 'Cargos e Permissões', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
-        { id: 'settings_allocation', label: 'Alocação Formadores', permissionKey: 'manage_allocations', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR] }, // NOVO ITEM
+        { id: 'settings_allocation', label: 'Alocação Formadores', permissionKey: 'manage_allocations', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR] }, 
         { id: 'settings_geral', label: 'Sistema', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
         { id: 'settings_sql', label: 'Base de Dados', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
         { id: 'settings_drive', label: 'Integração Drive', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },

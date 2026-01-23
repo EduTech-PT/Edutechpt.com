@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- SCRIPT DE RESGATE DEFINITIVO (${currentVersion})
 -- Autor: EduTech PT Architect
--- Objetivo: Corrigir Loop Infinito RLS, Estrutura de Tabelas e Acesso Admin
+-- Objetivo: Suporte a Múltiplos Formadores (Many-to-Many), Corrigir Loop Infinito RLS
 
 -- ==============================================================================
 -- 1. LIMPEZA DE SEGURANÇA (PREPARAÇÃO)
@@ -15,6 +15,7 @@ alter table if exists public.profiles disable row level security;
 alter table if exists public.courses disable row level security;
 alter table if exists public.enrollments disable row level security;
 alter table if exists public.classes disable row level security;
+alter table if exists public.class_instructors disable row level security;
 
 -- Remover TODAS as políticas antigas para garantir um "começo limpo" e evitar conflitos
 do $$
@@ -31,7 +32,6 @@ end $$;
 -- ==============================================================================
 
 -- Função SECURITY DEFINER: Permite ler o cargo do utilizador ignorando RLS.
--- Esta é a peça chave para evitar o erro "Infinite recursion" nas políticas.
 create or replace function public.get_auth_role()
 returns text
 language plpgsql
@@ -39,7 +39,6 @@ security definer
 set search_path = public
 as $$
 begin
-  -- Retorna o role do perfil, ou null se não existir
   return (select role from public.profiles where id = auth.uid());
 end;
 $$;
@@ -93,17 +92,29 @@ create table if not exists public.classes (
   id uuid default gen_random_uuid() primary key,
   course_id uuid references public.courses(id) on delete cascade,
   name text not null,
-  instructor_id uuid references public.profiles(id), -- Formador Alocado
+  instructor_id uuid references public.profiles(id), -- DEPRECADO: Usar tabela class_instructors
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- GARANTIA ESTRUTURAL: Se a tabela classes já existia sem instructor_id, adiciona agora
+-- 3.5.1 Tabela de Junção para Múltiplos Formadores (NOVO)
+create table if not exists public.class_instructors (
+    class_id uuid references public.classes(id) on delete cascade,
+    profile_id uuid references public.profiles(id) on delete cascade,
+    created_at timestamp with time zone default timezone('utc'::text, now()),
+    primary key (class_id, profile_id)
+);
+
+-- MIGRAÇÃO DE DADOS: Mover dados da coluna antiga para a nova tabela
 do $$
 begin
-    if not exists (select 1 from information_schema.columns where table_name = 'classes' and column_name = 'instructor_id') then
-        alter table public.classes add column instructor_id uuid references public.profiles(id);
-    end if;
+    -- Inserir dados existentes da coluna instructor_id para a nova tabela
+    insert into public.class_instructors (class_id, profile_id)
+    select id, instructor_id
+    from public.classes
+    where instructor_id is not null
+    on conflict (class_id, profile_id) do nothing;
 end $$;
+
 
 -- 3.6 Inscrições (Enrollments)
 create table if not exists public.enrollments (
@@ -135,6 +146,7 @@ alter table public.courses enable row level security;
 alter table public.classes enable row level security;
 alter table public.enrollments enable row level security;
 alter table public.user_invites enable row level security;
+alter table public.class_instructors enable row level security;
 
 -- --- LEITURA (SELECT) ---
 create policy "Ver Perfis" on public.profiles for select using (true);
@@ -143,6 +155,7 @@ create policy "Ver Roles" on public.roles for select using (true);
 create policy "Ver Cursos" on public.courses for select using (true);
 create policy "Ver Turmas" on public.classes for select using (true);
 create policy "Ver Inscricoes" on public.enrollments for select using (true);
+create policy "Ver Class Instructors" on public.class_instructors for select using (true);
 create policy "Ver Convites" on public.user_invites for select using (public.get_auth_role() in ('admin', 'formador', 'editor'));
 
 -- --- ESCRITA (INSERT/UPDATE/DELETE) ---
@@ -159,6 +172,7 @@ create policy "Admin Roles" on public.roles for all using (public.get_auth_role(
 -- Gestão Pedagógica (Cursos/Turmas/Inscrições): Admin, Formador, Editor
 create policy "Staff Gere Cursos" on public.courses for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
 create policy "Staff Gere Turmas" on public.classes for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
+create policy "Staff Gere Class Instructors" on public.class_instructors for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
 create policy "Staff Gere Inscricoes" on public.enrollments for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
 create policy "Staff Gere Convites" on public.user_invites for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
 
@@ -290,11 +304,11 @@ from auth.users
 where email = 'edutechpt@hotmail.com'
 on conflict (id) do update set role = 'admin';
 
--- Atualização das Roles com a nova permissão manage_allocations
+-- Atualização das Roles com nova permissão view_didactic_portal
 insert into public.roles (name, description, permissions) values 
-('admin', 'Administrador Total', '{"view_dashboard":true,"view_users":true,"view_settings":true,"manage_courses":true,"manage_classes":true,"manage_allocations":true,"view_calendar":true,"view_availability":true,"view_my_profile":true,"view_community":true}'::jsonb),
-('editor', 'Editor', '{"view_dashboard":true,"view_users":false,"view_settings":false,"manage_courses":true,"manage_classes":true,"manage_allocations":true,"view_calendar":true,"view_my_profile":true,"view_community":true}'::jsonb),
-('formador', 'Formador', '{"view_dashboard":true,"manage_courses":true,"view_community":true,"view_calendar":true,"view_availability":true,"view_my_profile":true}'::jsonb),
+('admin', 'Administrador Total', '{"view_dashboard":true,"view_users":true,"view_settings":true,"manage_courses":true,"manage_classes":true,"manage_allocations":true,"view_didactic_portal":true,"view_calendar":true,"view_availability":true,"view_my_profile":true,"view_community":true}'::jsonb),
+('editor', 'Editor', '{"view_dashboard":true,"view_users":false,"view_settings":false,"manage_courses":true,"manage_classes":true,"manage_allocations":true,"view_didactic_portal":true,"view_calendar":true,"view_my_profile":true,"view_community":true}'::jsonb),
+('formador', 'Formador', '{"view_dashboard":true,"manage_courses":true,"view_didactic_portal":true,"view_community":true,"view_calendar":true,"view_availability":true,"view_my_profile":true}'::jsonb),
 ('aluno', 'Estudante', '{"view_dashboard":true,"view_courses":true,"view_community":true,"view_calendar":true,"view_my_profile":true}'::jsonb)
 on conflict (name) do update set permissions = excluded.permissions;
 

@@ -21,7 +21,8 @@ import { MyProfile } from '../components/dashboard/MyProfile';
 import { Community } from '../components/dashboard/Community';
 import { Calendar } from '../components/dashboard/Calendar';
 import { AvailabilityMap } from '../components/dashboard/AvailabilityMap';
-import { ClassManager } from '../components/dashboard/ClassManager'; // Importado
+import { ClassManager } from '../components/dashboard/ClassManager'; 
+import { DidacticPortal } from '../components/dashboard/DidacticPortal'; // Importado
 
 interface DashboardProps {
   session: SupabaseSession;
@@ -243,6 +244,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           case 'courses': return <StudentCourses profile={profile} />; // Visão do Aluno
           case 'manage_courses': return <CourseManager profile={profile} />; // Visão do Formador/Admin
           case 'manage_classes': return <ClassManager />; // Gestão de Turmas
+          case 'didactic_portal': return <DidacticPortal profile={profile} />; // NOVA ROTA
 
           case 'media': return <MediaManager />;
           case 'drive': return <DriveManager profile={profile} />;
@@ -253,7 +255,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           case 'settings_drive': return <Settings dbVersion={dbVersion} initialTab="drive" />;
           case 'settings_avatars': return <Settings dbVersion={dbVersion} initialTab="avatars" />;
           case 'settings_access': return <Settings dbVersion={dbVersion} initialTab="access" />;
-          case 'settings_allocation': return <Settings dbVersion={dbVersion} initialTab="allocation" />; // NOVA ROTA
+          case 'settings_allocation': return <Settings dbVersion={dbVersion} initialTab="allocation" />; 
           case 'settings': return <Settings dbVersion={dbVersion} initialTab="geral" />;
           default: return <GlassCard><h2>Em Construção: {currentView}</h2></GlassCard>;
       }
@@ -265,6 +267,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       if (view === 'admin_edit_profile') return 'Gestão / Editar Perfil';
       if (view === 'manage_courses') return 'Gestão de Cursos';
       if (view === 'manage_classes') return 'Gestão de Turmas';
+      if (view === 'didactic_portal') return 'Portal Didático';
       if (view === 'courses') return 'Meus Cursos e Oferta';
       if (view === 'calendar') return 'Minha Agenda';
       if (view === 'availability') return 'Mapa de Disponibilidade';

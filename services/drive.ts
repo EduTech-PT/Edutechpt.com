@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.5.0";
+export const GAS_VERSION = "v1.5.1";
 
 export interface DriveFile {
   id: string;
