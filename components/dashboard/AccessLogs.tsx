@@ -38,6 +38,7 @@ export const AccessLogs: React.FC<Props> = ({ onlineUsers }) => {
 
         try {
             await adminService.deleteAccessLogs(selectedLogIds);
+            alert('Registos eliminados com sucesso.'); // Feedback visual
             loadLogs();
         } catch (err: any) {
             alert("Erro ao eliminar: " + err.message);

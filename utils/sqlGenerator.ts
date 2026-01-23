@@ -2,8 +2,8 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    // Incrementando versão interna para v2.2.1 (Admin Access Fix)
-    const scriptVersion = "v2.2.1"; 
+    // Incrementando versão interna para v2.2.2 (Logs Fix)
+    const scriptVersion = "v2.2.2"; 
     
     return `-- SCRIPT DE RESGATE DEFINITIVO (${scriptVersion})
 -- Autor: EduTech PT Architect
@@ -168,6 +168,10 @@ create policy "Insert Own Logs" on public.access_logs for insert with check (aut
 
 drop policy if exists "Admin View Logs" on public.access_logs;
 create policy "Admin View Logs" on public.access_logs for select using (public.get_auth_role() = 'admin');
+
+-- FIX v2.2.2: Permitir Admin Eliminar Logs
+drop policy if exists "Admin Delete Logs" on public.access_logs;
+create policy "Admin Delete Logs" on public.access_logs for delete using (public.get_auth_role() = 'admin');
 
 -- (Reaplicar políticas essenciais para garantir integridade)
 drop policy if exists "Ver Perfis" on public.profiles;
