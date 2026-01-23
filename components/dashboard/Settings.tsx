@@ -136,10 +136,14 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                 alert('Configuração de Avatars guardada!');
             }
             if (tab === 'access') {
+                // Acesso Negado
                 await adminService.updateAppConfig('access_denied_email', config.accessDeniedEmail?.trim());
                 await adminService.updateAppConfig('access_denied_subject', config.accessDeniedSubject);
                 await adminService.updateAppConfig('access_denied_body', config.accessDeniedBody);
-                alert('Configuração de Acesso guardada!');
+                // Convites
+                await adminService.updateAppConfig('invite_email_subject', config.inviteSubject);
+                await adminService.updateAppConfig('invite_email_body', config.inviteBody);
+                alert('Configuração de Acesso e Convites guardada!');
             }
             if (tab === 'drive') {
                 const rawId = config.driveFolderId || '';
@@ -429,33 +433,75 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
             )}
 
             {tab === 'access' && (
-                 <GlassCard>
-                     <h3 className="font-bold text-xl text-indigo-900 mb-4">Configuração de Acesso Negado</h3>
-                     <p className="text-sm text-indigo-700 mb-4">
-                        Defina a mensagem de email que será pré-preenchida quando um utilizador não autorizado tentar entrar e solicitar contacto.
-                     </p>
-                     <div className="space-y-4">
-                         <div>
-                             <label className="block text-sm text-indigo-800 font-bold mb-1">Email de Destino (Admin)</label>
-                             <input type="email" value={config.accessDeniedEmail || ''} onChange={e => setConfig({...config, accessDeniedEmail: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60"/>
+                 <div className="space-y-6">
+                     {/* SECÇÃO 1: ACESSO NEGADO */}
+                     <GlassCard>
+                         <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
+                             <span>⛔</span> Configuração de Acesso Negado
+                         </h3>
+                         <p className="text-sm text-indigo-700 mb-4 opacity-80">
+                            Defina a mensagem de email que será pré-preenchida quando um utilizador não autorizado tentar entrar e solicitar contacto.
+                         </p>
+                         <div className="space-y-4">
+                             <div>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Email de Destino (Admin)</label>
+                                 <input type="email" value={config.accessDeniedEmail || ''} onChange={e => setConfig({...config, accessDeniedEmail: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"/>
+                             </div>
+                             <div>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Assunto do Email</label>
+                                 <input type="text" value={config.accessDeniedSubject || ''} onChange={e => setConfig({...config, accessDeniedSubject: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"/>
+                             </div>
+                             <div>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Corpo da Mensagem (Texto Simples)</label>
+                                 <textarea 
+                                    value={config.accessDeniedBody || ''} 
+                                    onChange={e => setConfig({...config, accessDeniedBody: e.target.value})} 
+                                    className="w-full h-32 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"
+                                 />
+                             </div>
                          </div>
-                         <div>
-                             <label className="block text-sm text-indigo-800 font-bold mb-1">Assunto do Email</label>
-                             <input type="text" value={config.accessDeniedSubject || ''} onChange={e => setConfig({...config, accessDeniedSubject: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60"/>
+                     </GlassCard>
+
+                     {/* SECÇÃO 2: CONVITES */}
+                     <GlassCard>
+                         <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
+                             <span>✉️</span> Configuração de Convites (Email)
+                         </h3>
+                         <p className="text-sm text-indigo-700 mb-4 opacity-80">
+                            Personalize o email automático enviado quando convida novos utilizadores. Use <b>{'{link}'}</b> onde quiser que apareça o endereço do site.
+                         </p>
+                         <div className="space-y-4">
+                             <div>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Assunto do Convite</label>
+                                 <input 
+                                    type="text" 
+                                    value={config.inviteSubject || ''} 
+                                    onChange={e => setConfig({...config, inviteSubject: e.target.value})} 
+                                    placeholder="Convite para EduTech PT"
+                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
+                                 />
+                             </div>
+                             <div>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Corpo do Email (Texto Simples)</label>
+                                 <textarea 
+                                    value={config.inviteBody || ''} 
+                                    onChange={e => setConfig({...config, inviteBody: e.target.value})} 
+                                    placeholder="Olá,\n\nFoste convidado para a plataforma.\nEntra aqui: {link}"
+                                    className="w-full h-32 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"
+                                 />
+                                 <p className="text-xs text-indigo-600 mt-1 italic">
+                                     Nota: Este texto é usado em links "mailto". Formatação HTML não é suportada. Use quebras de linha.
+                                 </p>
+                             </div>
                          </div>
-                         <div>
-                             <label className="block text-sm text-indigo-800 font-bold mb-1">Corpo da Mensagem</label>
-                             <textarea 
-                                value={config.accessDeniedBody || ''} 
-                                onChange={e => setConfig({...config, accessDeniedBody: e.target.value})} 
-                                className="w-full h-32 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans"
-                             />
-                         </div>
-                         <button onClick={handleSaveConfig} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700 shadow-md">
-                            Guardar Definições
+                     </GlassCard>
+
+                     <div className="flex justify-end pt-2">
+                         <button onClick={handleSaveConfig} className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 shadow-lg transform active:scale-95 transition-all">
+                            Guardar Definições de Acesso
                          </button>
                      </div>
-                 </GlassCard>
+                 </div>
             )}
 
             {tab === 'drive' && (

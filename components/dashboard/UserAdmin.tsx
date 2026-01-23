@@ -113,8 +113,17 @@ export const UserAdmin: React.FC<UserAdminProps> = ({ onEditUser, currentUserRol
             
             // --- NOTIFICAÇÃO VIA EMAIL (MAILTO) ---
             if (window.confirm(`${emailList.length} convites registados na base de dados.\n\nDeseja abrir o seu cliente de email para notificar estes utilizadores agora?`)) {
-                const subject = encodeURIComponent("Convite para EduTech PT");
-                const body = encodeURIComponent(`Olá,\n\nFoste convidado para aceder à plataforma de formação EduTech PT.\n\nPodes entrar aqui: ${window.location.origin}\n\nObrigado.`);
+                
+                // Fetch config para personalizar mensagem
+                const config = await adminService.getAppConfig();
+                const subjectTemplate = config.inviteSubject || "Convite para EduTech PT";
+                const bodyTemplate = config.inviteBody || "Olá,\n\nFoste convidado para aceder à plataforma de formação EduTech PT.\n\nPodes entrar aqui: {link}\n\nObrigado.";
+                
+                const currentUrl = window.location.origin;
+                const finalBody = bodyTemplate.replace('{link}', currentUrl);
+
+                const subject = encodeURIComponent(subjectTemplate);
+                const body = encodeURIComponent(finalBody);
                 const bcc = emailList.join(',');
                 
                 // Proteção básica contra URLs demasiado longos (browsers têm limite de ~2000 chars)

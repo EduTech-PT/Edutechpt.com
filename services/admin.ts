@@ -238,6 +238,10 @@ export const adminService = {
                 if (item.key === 'access_denied_email') config.accessDeniedEmail = item.value;
                 if (item.key === 'access_denied_subject') config.accessDeniedSubject = item.value;
                 if (item.key === 'access_denied_body') config.accessDeniedBody = item.value;
+
+                // Invite Settings (NEW)
+                if (item.key === 'invite_email_subject') config.inviteSubject = item.value;
+                if (item.key === 'invite_email_body') config.inviteBody = item.value;
             });
         }
         return config;
