@@ -15,23 +15,34 @@ export const StudentCourses: React.FC<Props> = ({ profile }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    // Carregamento independente para evitar que um erro (ex: Enrollments) bloqueie o outro (Catálogo)
+    const loadData = async () => {
+        setLoading(true);
+        
+        // 1. Carregar Inscrições
+        try {
+            const myCourses = await courseService.getStudentEnrollments(profile.id);
+            setEnrollments(myCourses || []);
+        } catch (err) {
+            console.error("Erro ao carregar inscrições (Verifique se a tabela 'classes' existe na BD):", err);
+            // Não bloqueia o fluxo, apenas define vazio
+            setEnrollments([]); 
+        }
 
-  const fetchData = async () => {
-    try {
-      const [myCourses, allPublic] = await Promise.all([
-        courseService.getStudentEnrollments(profile.id),
-        courseService.getPublicCourses()
-      ]);
-      setEnrollments(myCourses || []);
-      setPublicCourses(allPublic || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+        // 2. Carregar Catálogo Público
+        try {
+            const allPublic = await courseService.getPublicCourses();
+            setPublicCourses(allPublic || []);
+        } catch (err) {
+            console.error("Erro ao carregar catálogo:", err);
+            setPublicCourses([]);
+        }
+
+        setLoading(false);
+    };
+
+    loadData();
+  }, [profile.id]);
 
   if (loading) return <div className="p-8 text-center text-indigo-600 font-bold">A carregar cursos...</div>;
 
