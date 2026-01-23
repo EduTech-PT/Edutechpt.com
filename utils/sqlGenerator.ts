@@ -2,12 +2,12 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    // Incrementando versão interna para v2.0.0 (Monitorização)
-    const scriptVersion = "v2.0.0"; 
+    // Incrementando versão interna para v2.1.0 (Marketing Data)
+    const scriptVersion = "v2.1.0"; 
     
     return `-- SCRIPT DE RESGATE DEFINITIVO (${scriptVersion})
 -- Autor: EduTech PT Architect
--- Objetivo: Monitorização de Acessos e Logs
+-- Objetivo: Monitorização de Acessos e Logs + Marketing Data
 
 -- ==============================================================================
 -- 1. LIMPEZA DE SEGURANÇA (PREPARAÇÃO)
@@ -80,6 +80,14 @@ create table if not exists public.courses (
   instructor_id uuid references public.profiles(id),
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
+
+-- ATUALIZAÇÃO v2.1.0: Adicionar coluna de marketing
+do $$
+begin
+    if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'marketing_data') then
+        alter table public.courses add column marketing_data jsonb default '{}'::jsonb;
+    end if;
+end $$;
 
 create table if not exists public.classes (
   id uuid default gen_random_uuid() primary key,

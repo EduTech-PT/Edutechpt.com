@@ -55,6 +55,19 @@ export interface UserPermissions {
   [key: string]: boolean | undefined;
 }
 
+export interface MarketingData {
+    headline: string;
+    promise: string;
+    target: string;
+    curriculum: string;
+    benefits: string;
+    social: string;
+    authority: string;
+    guarantee: string;
+    bonuses: string;
+    cta: string;
+}
+
 export interface Course {
   id: string;
   title: string;
@@ -64,6 +77,7 @@ export interface Course {
   image_url?: string;
   level: 'iniciante' | 'intermedio' | 'avancado';
   is_public?: boolean;
+  marketing_data?: MarketingData;
 }
 
 export interface Class {

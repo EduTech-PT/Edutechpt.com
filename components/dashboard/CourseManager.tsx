@@ -1,29 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
-import { Course, Profile } from '../../types';
+import { Course, Profile, MarketingData } from '../../types';
 import { GlassCard } from '../GlassCard';
 import { RichTextEditor } from '../RichTextEditor';
 import { courseService } from '../../services/courses';
 import { storageService } from '../../services/storage';
-import { sanitizeHTML } from '../../utils/security';
 import { formatShortDate } from '../../utils/formatters';
 
 interface Props {
   profile: Profile;
-}
-
-// Interface para o Assistente de Marketing
-interface MarketingData {
-    headline: string;
-    promise: string;
-    target: string;
-    curriculum: string;
-    benefits: string;
-    social: string;
-    authority: string;
-    guarantee: string;
-    bonuses: string;
-    cta: string;
 }
 
 export const CourseManager: React.FC<Props> = ({ profile }) => {
@@ -37,8 +22,7 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
       title: '', description: '', level: 'iniciante', image_url: '', is_public: false
   });
 
-  // Marketing Wizard State
-  const [showMarketingWizard, setShowMarketingWizard] = useState(false);
+  // Marketing Data (Agora sempre visível)
   const [marketingData, setMarketingData] = useState<MarketingData>({
       headline: '', promise: '', target: '', curriculum: '', benefits: '', 
       social: '', authority: '', guarantee: '', bonuses: '', cta: ''
@@ -76,81 +60,35 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
       }
   };
 
-  const handleGenerateDescription = () => {
-      // Compilação do HTML de Alta Conversão
-      const html = `
+  // Função auxiliar para gerar descrição HTML legado (para retrocompatibilidade)
+  const generateLegacyHtml = (data: MarketingData, title: string) => {
+      return `
         <div class="marketing-content space-y-8 font-sans">
-            <!-- HEADLINE & PROMISE -->
             <div class="text-center mb-8 p-6 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-                <h1 class="text-3xl md:text-4xl font-extrabold text-indigo-900 mb-4 leading-tight">${marketingData.headline || formData.title}</h1>
-                <p class="text-xl text-indigo-600 font-medium italic">"${marketingData.promise}"</p>
+                <h1 class="text-3xl md:text-4xl font-extrabold text-indigo-900 mb-4 leading-tight">${data.headline || title}</h1>
+                <p class="text-xl text-indigo-600 font-medium italic">"${data.promise}"</p>
             </div>
-
-            <!-- TARGET & BENEFITS GRID -->
             <div class="grid md:grid-cols-2 gap-6">
                 <div class="bg-white/60 p-6 rounded-xl border-l-4 border-indigo-500 shadow-sm">
-                    <h3 class="font-bold text-lg text-indigo-900 flex items-center gap-2 mb-3">🎯 Público-Alvo Ideal</h3>
-                    <div class="text-indigo-800 text-sm leading-relaxed">${marketingData.target.replace(/\n/g, '<br/>')}</div>
+                    <h3 class="font-bold text-lg text-indigo-900 flex items-center gap-2 mb-3">🎯 Público-Alvo</h3>
+                    <div class="text-indigo-800 text-sm leading-relaxed">${data.target.replace(/\n/g, '<br/>')}</div>
                 </div>
                 <div class="bg-white/60 p-6 rounded-xl border-l-4 border-green-500 shadow-sm">
-                    <h3 class="font-bold text-lg text-green-900 flex items-center gap-2 mb-3">🚀 Resultados e Benefícios</h3>
-                    <div class="text-indigo-800 text-sm leading-relaxed">${marketingData.benefits.replace(/\n/g, '<br/>')}</div>
+                    <h3 class="font-bold text-lg text-green-900 flex items-center gap-2 mb-3">🚀 Benefícios</h3>
+                    <div class="text-indigo-800 text-sm leading-relaxed">${data.benefits.replace(/\n/g, '<br/>')}</div>
                 </div>
             </div>
-
-            <!-- CURRICULUM -->
             <div class="bg-white/40 p-6 rounded-xl border border-indigo-100">
-                 <h3 class="font-bold text-xl text-indigo-900 mb-4 border-b border-indigo-100 pb-2 flex items-center gap-2">📚 Currículo e Estrutura</h3>
-                 <div class="prose prose-indigo prose-sm max-w-none text-indigo-800">
-                    ${marketingData.curriculum.replace(/\n/g, '<br/>')}
-                 </div>
-            </div>
-
-            <!-- SOCIAL PROOF & AUTHORITY -->
-            <div class="grid md:grid-cols-2 gap-6">
-                <div class="bg-indigo-900 text-white p-6 rounded-xl shadow-lg relative overflow-hidden">
-                    <div class="relative z-10">
-                        <h3 class="font-bold text-lg text-indigo-200 mb-2">⭐ O que dizem os alunos</h3>
-                        <p class="italic text-indigo-100 text-sm">"${marketingData.social}"</p>
-                    </div>
-                    <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-                </div>
-                <div class="bg-white/60 p-6 rounded-xl border border-indigo-100 flex flex-col justify-center">
-                    <h3 class="font-bold text-lg text-indigo-900 mb-2">🎓 Instrutor Especialista</h3>
-                    <p class="text-sm text-indigo-700">${marketingData.authority}</p>
-                </div>
-            </div>
-
-            <!-- BONUSES & GUARANTEE -->
-            <div class="bg-yellow-50/50 p-6 rounded-xl border border-yellow-200 shadow-sm">
-                <h3 class="font-bold text-lg text-yellow-800 mb-3 flex items-center gap-2">🎁 Bónus Exclusivos</h3>
-                <p class="text-yellow-900 text-sm font-medium">${marketingData.bonuses}</p>
-            </div>
-            
-            <div class="flex items-center gap-4 p-4 border border-indigo-100 rounded-lg bg-white/30">
-                <span class="text-3xl">🛡️</span>
-                <div>
-                    <h4 class="font-bold text-indigo-900 text-sm">Garantia de Risco Zero</h4>
-                    <p class="text-xs text-indigo-600">${marketingData.guarantee}</p>
-                </div>
-            </div>
-
-            <!-- CTA -->
-            <div class="text-center py-6">
-                <div class="inline-block bg-indigo-600 text-white text-lg font-bold px-8 py-4 rounded-full shadow-xl hover:bg-indigo-700 transition-transform hover:scale-105 cursor-pointer">
-                    ${marketingData.cta} ➔
-                </div>
+                 <h3 class="font-bold text-xl text-indigo-900 mb-4 border-b border-indigo-100 pb-2">📚 Estrutura</h3>
+                 <div class="prose prose-indigo prose-sm max-w-none text-indigo-800">${data.curriculum.replace(/\n/g, '<br/>')}</div>
             </div>
         </div>
       `;
-      setFormData(prev => ({ ...prev, description: html }));
-      setShowMarketingWizard(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       
-      // Validação de Duplicados (Case Insensitive)
       const normalizedTitle = formData.title?.trim().toLowerCase();
       if (!normalizedTitle) return;
 
@@ -160,16 +98,30 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
       );
 
       if (duplicate) {
-          alert('Erro: Já existe um curso com este nome. Por favor, escolha um título único.');
+          alert('Erro: Já existe um curso com este nome.');
           return;
       }
 
+      // Gera HTML automático se não houver descrição manual ou se estivermos a usar os campos de marketing
+      // Se o campo description estiver vazio ou contiver tags antigas de marketing, regeneramos
+      let finalDescription = formData.description;
+      if (!finalDescription || finalDescription.includes('marketing-content') || (marketingData.headline && marketingData.target)) {
+          finalDescription = generateLegacyHtml(marketingData, formData.title || '');
+      }
+
+      const payload = {
+          ...formData,
+          description: finalDescription,
+          marketing_data: marketingData, // SALVA OS DADOS ESTRUTURADOS
+          instructor_id: profile.id
+      };
+
       try {
           if (isEditing) {
-              await courseService.update(isEditing, formData);
+              await courseService.update(isEditing, payload);
               alert('Curso atualizado!');
           } else {
-              await courseService.create({ ...formData, instructor_id: profile.id });
+              await courseService.create(payload);
               alert('Curso criado!');
           }
           resetForm();
@@ -183,7 +135,6 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
       setFormData({ title: '', description: '', level: 'iniciante', image_url: '', is_public: false });
       setMarketingData({ headline: '', promise: '', target: '', curriculum: '', benefits: '', social: '', authority: '', guarantee: '', bonuses: '', cta: '' });
       setIsEditing(null);
-      setShowMarketingWizard(false);
   };
 
   const handleEdit = (c: Course) => {
@@ -195,8 +146,13 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
           image_url: c.image_url || '', 
           is_public: c.is_public || false 
       });
-      // Nota: Não populamos o marketingData no edit porque o description já é HTML compilado.
-      // O utilizador edita o HTML ou re-gera o template.
+      // Carregar dados de marketing se existirem
+      if (c.marketing_data) {
+          setMarketingData(c.marketing_data);
+      } else {
+          // Reset se não existirem
+          setMarketingData({ headline: '', promise: '', target: '', curriculum: '', benefits: '', social: '', authority: '', guarantee: '', bonuses: '', cta: '' });
+      }
   };
 
   const handleDelete = async (id: string) => {
@@ -246,108 +202,100 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
                      </div>
                  </div>
                  
-                 {/* MARKETING WIZARD TOGGLE */}
-                 <div className="flex items-center justify-between border-b border-indigo-100 pb-2 mt-4">
-                     <label className="block text-sm text-indigo-900 font-bold">Descrição do Curso</label>
-                     <button 
-                        type="button" 
-                        onClick={() => setShowMarketingWizard(!showMarketingWizard)}
-                        className={`text-xs px-3 py-1 rounded-full font-bold transition-all flex items-center gap-1 ${showMarketingWizard ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50'}`}
-                     >
-                        <span>⚡</span> {showMarketingWizard ? 'Modo Estruturado Ativo' : 'Ativar Assistente Marketing 2026'}
-                     </button>
+                 {/* CAMPOS DE MARKETING - SEMPRE VISÍVEIS */}
+                 <div className="bg-indigo-50/50 p-6 rounded-xl border border-indigo-200 space-y-6 mt-6">
+                     <div className="flex items-center gap-2 mb-2">
+                         <span className="text-xl">⚡</span>
+                         <h4 className="font-bold text-indigo-900">Detalhes de Apresentação (Marketing)</h4>
+                     </div>
+                     <p className="text-xs text-indigo-600 -mt-4 mb-4">Preencha estes campos para gerar automaticamente a página de detalhes do curso.</p>
+
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <MarketingInput 
+                            label="1. Título Magnético (Headline)" 
+                            desc="O título principal que agarra a atenção imediata."
+                            value={marketingData.headline} 
+                            onChange={v => setMarketingData({...marketingData, headline: v})}
+                            placeholder={formData.title || "Ex: Masterclass de React..."}
+                         />
+                         <MarketingInput 
+                            label="2. Promessa Única" 
+                            desc="Em uma frase, qual a grande transformação?"
+                            value={marketingData.promise} 
+                            onChange={v => setMarketingData({...marketingData, promise: v})}
+                            placeholder="Ex: Domine o TypeScript em 30 dias."
+                         />
+                         <MarketingInput 
+                            label="3. Público-Alvo" 
+                            desc="Para quem é este curso?"
+                            value={marketingData.target} 
+                            onChange={v => setMarketingData({...marketingData, target: v})}
+                            multiline
+                         />
+                         <MarketingInput 
+                            label="4. Benefícios" 
+                            desc="Ganhos tangíveis (Lista)."
+                            value={marketingData.benefits} 
+                            onChange={v => setMarketingData({...marketingData, benefits: v})}
+                            multiline
+                         />
+                         <MarketingInput 
+                            label="5. Currículo" 
+                            desc="Resumo dos módulos e estrutura."
+                            value={marketingData.curriculum} 
+                            onChange={v => setMarketingData({...marketingData, curriculum: v})}
+                            multiline
+                         />
+                         <MarketingInput 
+                            label="6. Prova Social" 
+                            desc="Testemunhos ou métricas."
+                            value={marketingData.social} 
+                            onChange={v => setMarketingData({...marketingData, social: v})}
+                            multiline
+                         />
+                         <MarketingInput 
+                            label="7. Autoridade" 
+                            desc="Sobre o instrutor."
+                            value={marketingData.authority} 
+                            onChange={v => setMarketingData({...marketingData, authority: v})}
+                         />
+                         <MarketingInput 
+                            label="8. Garantia" 
+                            desc="Política de satisfação."
+                            value={marketingData.guarantee} 
+                            onChange={v => setMarketingData({...marketingData, guarantee: v})}
+                         />
+                         <MarketingInput 
+                            label="9. Bónus" 
+                            desc="Extras incluídos."
+                            value={marketingData.bonuses} 
+                            onChange={v => setMarketingData({...marketingData, bonuses: v})}
+                         />
+                         <MarketingInput 
+                            label="10. Call to Action (CTA)" 
+                            desc="Frase do botão."
+                            value={marketingData.cta} 
+                            onChange={v => setMarketingData({...marketingData, cta: v})}
+                            placeholder="Inscrever Agora"
+                         />
+                     </div>
                  </div>
 
-                 {showMarketingWizard ? (
-                     <div className="bg-indigo-50/50 p-6 rounded-xl border border-indigo-200 space-y-6 animate-in fade-in zoom-in-95 duration-200">
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                             <MarketingInput 
-                                label="1. Título Magnético" 
-                                desc="O título principal (H1) que agarra a atenção imediata."
-                                value={marketingData.headline} 
-                                onChange={v => setMarketingData({...marketingData, headline: v})}
-                                placeholder={formData.title || "Ex: Masterclass de React..."}
-                             />
-                             <MarketingInput 
-                                label="2. Proposta Única de Valor (Promessa)" 
-                                desc="Em uma frase, qual a grande transformação deste curso?"
-                                value={marketingData.promise} 
-                                onChange={v => setMarketingData({...marketingData, promise: v})}
-                                placeholder="Ex: Domine o TypeScript em 30 dias e duplique o seu salário."
-                             />
-                             <MarketingInput 
-                                label="3. Público-Alvo Ideal" 
-                                desc="Para quem é (e para quem não é) este curso?"
-                                value={marketingData.target} 
-                                onChange={v => setMarketingData({...marketingData, target: v})}
-                                multiline
-                             />
-                             <MarketingInput 
-                                label="4. Resultados e Benefícios Práticos" 
-                                desc="Lista de 3-5 ganhos tangíveis (Bullet points)."
-                                value={marketingData.benefits} 
-                                onChange={v => setMarketingData({...marketingData, benefits: v})}
-                                multiline
-                             />
-                             <MarketingInput 
-                                label="5. Currículo e Estrutura" 
-                                desc="Resumo dos módulos, aulas e estrutura pedagógica."
-                                value={marketingData.curriculum} 
-                                onChange={v => setMarketingData({...marketingData, curriculum: v})}
-                                multiline
-                             />
-                             <MarketingInput 
-                                label="6. Prova Social e Depoimentos" 
-                                desc="O que dizem os antigos alunos (métricas ou citações)."
-                                value={marketingData.social} 
-                                onChange={v => setMarketingData({...marketingData, social: v})}
-                                multiline
-                             />
-                             <MarketingInput 
-                                label="7. Autoridade do Instrutor" 
-                                desc="Quem é o instrutor e por que confiar nele (Mini-bio)?"
-                                value={marketingData.authority} 
-                                onChange={v => setMarketingData({...marketingData, authority: v})}
-                             />
-                             <MarketingInput 
-                                label="8. Garantia de Risco Zero" 
-                                desc="Política de satisfação (ex: 7 dias de devolução)."
-                                value={marketingData.guarantee} 
-                                onChange={v => setMarketingData({...marketingData, guarantee: v})}
-                             />
-                             <MarketingInput 
-                                label="9. Bónus Exclusivos" 
-                                desc="Materiais, comunidades ou ferramentas extra incluídas."
-                                value={marketingData.bonuses} 
-                                onChange={v => setMarketingData({...marketingData, bonuses: v})}
-                             />
-                             <MarketingInput 
-                                label="10. Call to Action (CTA)" 
-                                desc="A frase imperativa final para levar à inscrição."
-                                value={marketingData.cta} 
-                                onChange={v => setMarketingData({...marketingData, cta: v})}
-                                placeholder="Ex: Garanta a sua vaga agora!"
-                             />
+                 {/* EDITOR HTML MANUAL (COLLAPSED BY DEFAULT OR LESS PROMINENT) */}
+                 <div className="pt-4 border-t border-indigo-100">
+                     <details className="group">
+                         <summary className="cursor-pointer text-indigo-600 font-bold text-sm flex items-center gap-2 hover:text-indigo-800">
+                             <span>📝</span> Edição Avançada / HTML Manual (Opcional)
+                         </summary>
+                         <div className="mt-4">
+                            <RichTextEditor 
+                                value={formData.description || ''}
+                                onChange={(val) => setFormData({...formData, description: val})}
+                                placeholder="Se preencher os campos acima, este texto será gerado automaticamente."
+                            />
                          </div>
-                         <div className="flex justify-center pt-4 border-t border-indigo-200">
-                             <button 
-                                type="button" 
-                                onClick={handleGenerateDescription}
-                                className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center gap-2"
-                             >
-                                 <span>✨</span> Gerar Página de Vendas
-                             </button>
-                         </div>
-                         <p className="text-center text-xs text-indigo-500">
-                             Isto irá substituir o conteúdo atual do editor de texto abaixo.
-                         </p>
-                     </div>
-                 ) : (
-                    <RichTextEditor 
-                        value={formData.description || ''}
-                        onChange={(val) => setFormData({...formData, description: val})}
-                    />
-                 )}
+                     </details>
+                 </div>
 
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                     <div>
