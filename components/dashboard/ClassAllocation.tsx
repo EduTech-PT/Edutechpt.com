@@ -10,10 +10,11 @@ export const ClassAllocation: React.FC = () => {
     const [classes, setClasses] = useState<Class[]>([]);
     const [trainers, setTrainers] = useState<Profile[]>([]);
     const [loading, setLoading] = useState(true);
-    const [processingId, setProcessingId] = useState<string | null>(null);
     
-    // Filter State
+    // Selection State
     const [selectedCourseId, setSelectedCourseId] = useState<string>('');
+    const [selectedTrainer, setSelectedTrainer] = useState<Profile | null>(null);
+    const [processingClassId, setProcessingClassId] = useState<string | null>(null);
 
     useEffect(() => {
         loadInitialData();
@@ -21,7 +22,7 @@ export const ClassAllocation: React.FC = () => {
 
     useEffect(() => {
         if (selectedCourseId) {
-            courseService.getClasses(selectedCourseId).then(setClasses);
+            loadClasses(selectedCourseId);
         } else if (courses.length > 0) {
             setClasses([]);
         }
@@ -37,7 +38,7 @@ export const ClassAllocation: React.FC = () => {
             
             setCourses(coursesData);
             
-            // Filtrar apenas Formadores e Admins que podem ser alocados
+            // Filtrar apenas Formadores e Admins
             const eligibleTrainers = profilesData.filter(p => ['formador', 'admin', 'editor'].includes(p.role));
             setTrainers(eligibleTrainers);
 
@@ -51,159 +52,224 @@ export const ClassAllocation: React.FC = () => {
         }
     };
 
-    const handleAssignInstructor = async (classId: string, instructorId: string) => {
+    const loadClasses = async (courseId: string) => {
+        const data = await courseService.getClasses(courseId);
+        setClasses(data);
+    };
+
+    const handleAssign = async (cls: Class) => {
+        if (!selectedTrainer) return;
+        
+        // Se já for o formador, não faz nada
+        if (cls.instructor_id === selectedTrainer.id) return;
+
         try {
-            setProcessingId(classId);
-            const finalId = instructorId === "null" ? null : instructorId;
-            await courseService.updateClassInstructor(classId, finalId);
+            setProcessingClassId(cls.id);
+            await courseService.updateClassInstructor(cls.id, selectedTrainer.id);
             
-            // Update local state to reflect change immediately
-            setClasses(prev => prev.map(c => {
-                if (c.id === classId) {
-                    const assignedTrainer = trainers.find(t => t.id === finalId);
-                    return { ...c, instructor_id: finalId || undefined, instructor: assignedTrainer };
-                }
-                return c;
-            }));
+            // Optimistic Update
+            setClasses(prev => prev.map(c => 
+                c.id === cls.id 
+                ? { ...c, instructor_id: selectedTrainer.id, instructor: selectedTrainer } 
+                : c
+            ));
 
         } catch (err: any) {
-            alert("Erro ao alocar formador: " + err.message);
+            alert("Erro: " + err.message);
         } finally {
-            setProcessingId(null);
+            setProcessingClassId(null);
+        }
+    };
+
+    const handleRemove = async (e: React.MouseEvent, cls: Class) => {
+        e.stopPropagation();
+        if (!window.confirm(`Remover o formador da turma "${cls.name}"?`)) return;
+
+        try {
+            setProcessingClassId(cls.id);
+            await courseService.updateClassInstructor(cls.id, null);
+            
+            setClasses(prev => prev.map(c => 
+                c.id === cls.id 
+                ? { ...c, instructor_id: undefined, instructor: undefined } 
+                : c
+            ));
+        } catch (err: any) {
+            alert("Erro: " + err.message);
+        } finally {
+            setProcessingClassId(null);
         }
     };
 
     return (
-        <div className="space-y-6">
-             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="space-y-6 h-[calc(100vh-140px)] flex flex-col">
+             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
                 <div>
                     <h2 className="text-xl font-bold text-indigo-900">Alocação de Formadores</h2>
-                    <p className="text-sm text-indigo-600">Defina quem é o responsável pedagógico por cada turma.</p>
+                    <p className="text-sm text-indigo-600">
+                        {selectedTrainer 
+                            ? <span>Modo Atribuição: Clique nas turmas à direita para definir <b>{selectedTrainer.full_name}</b>.</span> 
+                            : "Selecione um formador na lista à esquerda para começar."}
+                    </p>
+                </div>
+                
+                {/* Curso Filter */}
+                <div className="w-full md:w-auto">
+                    <select 
+                        value={selectedCourseId} 
+                        onChange={(e) => setSelectedCourseId(e.target.value)}
+                        className="w-full md:w-64 p-2 rounded-lg bg-white/60 border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none font-bold text-indigo-800 shadow-sm"
+                    >
+                        {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                    </select>
                 </div>
              </div>
 
-             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                 {/* COLUNA 1: EQUIPA PEDAGÓGICA (VISUALIZAÇÃO) */}
-                 <div className="lg:col-span-1">
-                     <GlassCard className="h-full max-h-[600px] overflow-y-auto custom-scrollbar">
-                         <h3 className="font-bold text-indigo-900 mb-4 border-b border-indigo-100 pb-2 flex items-center justify-between">
-                             <span>Equipa Disponível</span>
-                             <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full">{trainers.length}</span>
-                         </h3>
+             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
+                 
+                 {/* COLUNA 1: EQUIPA PEDAGÓGICA (SELETOR) */}
+                 <div className="lg:col-span-4 flex flex-col min-h-0">
+                     <GlassCard className="h-full flex flex-col p-0 overflow-hidden border-2 border-indigo-50/50">
+                         <div className="p-4 bg-indigo-50/80 border-b border-indigo-100 shrink-0">
+                             <h3 className="font-bold text-indigo-900 flex justify-between items-center">
+                                 <span>1. Selecione o Formador</span>
+                                 <span className="text-xs bg-white text-indigo-600 px-2 py-1 rounded-full font-mono">{trainers.length}</span>
+                             </h3>
+                         </div>
                          
-                         {trainers.length === 0 ? (
-                             <div className="text-center py-8 opacity-60">
-                                 <div className="text-2xl mb-2">👨‍🏫</div>
-                                 <p className="text-sm text-indigo-800 font-bold">Sem Formadores</p>
-                                 <p className="text-xs text-indigo-600">Adicione utilizadores com cargo 'formador' ou 'admin'.</p>
-                             </div>
-                         ) : (
-                             <div className="space-y-3">
-                                 {trainers.map(t => (
-                                     <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/40 border border-indigo-50 hover:bg-white/60 transition-colors group">
-                                         <div className="w-10 h-10 rounded-full bg-indigo-200 flex items-center justify-center text-xs font-bold text-indigo-700 overflow-hidden shrink-0 border-2 border-white shadow-sm">
+                         <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
+                             {trainers.map(t => {
+                                 const isSelected = selectedTrainer?.id === t.id;
+                                 return (
+                                     <button 
+                                        key={t.id} 
+                                        onClick={() => setSelectedTrainer(isSelected ? null : t)}
+                                        className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left group relative ${
+                                            isSelected 
+                                                ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg ring-2 ring-offset-2 ring-indigo-300' 
+                                                : 'bg-white/40 border-white/60 hover:bg-white hover:border-indigo-200 text-indigo-900'
+                                        }`}
+                                     >
+                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden shrink-0 border-2 ${isSelected ? 'border-white bg-indigo-500' : 'border-white bg-indigo-100 text-indigo-700'}`}>
                                              {t.avatar_url ? <img src={t.avatar_url} alt="" className="w-full h-full object-cover"/> : t.full_name?.[0]?.toUpperCase()}
                                          </div>
-                                         <div className="min-w-0">
-                                             <div className="text-sm font-bold text-indigo-900 truncate" title={t.full_name || ''}>{t.full_name}</div>
-                                             <div className="text-[10px] uppercase text-indigo-500 font-bold tracking-wide flex items-center gap-1">
+                                         <div className="min-w-0 flex-1">
+                                             <div className="text-sm font-bold truncate">{t.full_name}</div>
+                                             <div className={`text-[10px] uppercase font-bold tracking-wide ${isSelected ? 'text-indigo-200' : 'text-indigo-400'}`}>
                                                  {t.role}
-                                                 {t.role === 'admin' && '👑'}
                                              </div>
                                          </div>
-                                     </div>
-                                 ))}
-                             </div>
-                         )}
-                         <div className="mt-4 p-3 bg-indigo-50/50 rounded-lg text-[10px] text-indigo-600 leading-relaxed border border-indigo-100">
-                             💡 <b>Nota:</b> Apenas utilizadores com permissões de gestão (Admin, Editor, Formador) aparecem nesta lista para serem alocados.
+                                         {isSelected && (
+                                             <div className="absolute right-3 w-3 h-3 bg-green-400 rounded-full shadow-sm animate-pulse"></div>
+                                         )}
+                                     </button>
+                                 );
+                             })}
                          </div>
                      </GlassCard>
                  </div>
 
-                 {/* COLUNA 2: ALOCAÇÃO (AÇÃO) */}
-                 <div className="lg:col-span-2">
-                     <GlassCard className="min-h-[400px] flex flex-col">
-                        {/* Filter Bar */}
-                        <div className="flex flex-col sm:flex-row items-center gap-4 mb-6 pb-6 border-b border-indigo-100">
-                            <label className="font-bold text-indigo-900 whitespace-nowrap">Selecionar Curso:</label>
-                            <select 
-                                value={selectedCourseId} 
-                                onChange={(e) => setSelectedCourseId(e.target.value)}
-                                className="w-full sm:w-auto flex-1 p-2 rounded-lg bg-indigo-50/50 border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none font-medium text-indigo-800"
-                            >
-                                {courses.length === 0 && <option>A carregar cursos...</option>}
-                                {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                            </select>
+                 {/* COLUNA 2: TURMAS (ALVO) */}
+                 <div className="lg:col-span-8 flex flex-col min-h-0">
+                     <GlassCard className="h-full flex flex-col p-0 overflow-hidden bg-white/20">
+                        <div className="p-4 bg-white/40 border-b border-white/50 shrink-0 flex justify-between items-center">
+                             <h3 className="font-bold text-indigo-900">
+                                 2. Atribuir às Turmas
+                             </h3>
+                             {selectedTrainer && (
+                                 <span className="text-xs font-bold text-indigo-600 animate-in fade-in bg-indigo-50 px-2 py-1 rounded border border-indigo-100">
+                                     A aplicar: {selectedTrainer.full_name}
+                                 </span>
+                             )}
                         </div>
 
-                        {/* List */}
-                        <div className="flex-1">
-                            {loading ? (
-                                <div className="text-center py-10 opacity-50">A carregar...</div>
-                            ) : classes.length === 0 ? (
-                                <div className="text-center py-12 flex flex-col items-center opacity-60">
-                                    <span className="text-4xl mb-2">📭</span>
-                                    <p className="text-indigo-900 font-bold">Sem turmas para este curso.</p>
-                                    <p className="text-sm text-indigo-600">Crie turmas no menu "Gestão de Turmas" primeiro.</p>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
+                            {classes.length === 0 ? (
+                                <div className="text-center py-20 opacity-50">
+                                    <div className="text-4xl mb-2">📭</div>
+                                    <p className="font-bold">Sem turmas neste curso.</p>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm text-left">
-                                        <thead className="text-xs text-indigo-500 uppercase bg-indigo-50/50">
-                                            <tr>
-                                                <th className="px-4 py-3 rounded-l-lg">Turma</th>
-                                                <th className="px-4 py-3">Formador Responsável</th>
-                                                <th className="px-4 py-3 rounded-r-lg text-right">Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {classes.map(cls => (
-                                                <tr key={cls.id} className="border-b border-indigo-50 hover:bg-white/40 transition-colors">
-                                                    <td className="px-4 py-3 font-bold text-indigo-900">
-                                                        {cls.name}
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <div className="relative max-w-xs">
-                                                            {processingId === cls.id && (
-                                                                <div className="absolute right-2 top-2 z-10">
-                                                                    <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                                                                </div>
-                                                            )}
-                                                            <select 
-                                                                value={cls.instructor_id || "null"} 
-                                                                onChange={(e) => handleAssignInstructor(cls.id, e.target.value)}
-                                                                disabled={processingId === cls.id}
-                                                                className={`w-full p-2 pr-8 rounded border outline-none cursor-pointer transition-colors shadow-sm ${
-                                                                    cls.instructor_id 
-                                                                        ? 'bg-white border-indigo-200 text-indigo-900' 
-                                                                        : 'bg-yellow-50 border-yellow-200 text-yellow-800 font-medium'
-                                                                }`}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {classes.map(cls => {
+                                        const isAssignedToSelected = selectedTrainer && cls.instructor_id === selectedTrainer.id;
+                                        const isProcessing = processingClassId === cls.id;
+
+                                        return (
+                                            <div 
+                                                key={cls.id}
+                                                onClick={() => !isProcessing && handleAssign(cls)}
+                                                className={`
+                                                    relative p-4 rounded-xl border-2 transition-all flex flex-col gap-3 group
+                                                    ${isProcessing ? 'opacity-50 cursor-wait' : ''}
+                                                    ${selectedTrainer 
+                                                        ? 'cursor-pointer hover:shadow-md active:scale-[0.98]' 
+                                                        : 'cursor-default opacity-90'}
+                                                    ${isAssignedToSelected 
+                                                        ? 'bg-green-50 border-green-300 ring-1 ring-green-200' 
+                                                        : selectedTrainer 
+                                                            ? 'bg-white/60 border-indigo-100 hover:border-indigo-400 hover:bg-white' 
+                                                            : 'bg-white/40 border-white/50'}
+                                                `}
+                                            >
+                                                {/* Header Turma */}
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h4 className="font-bold text-indigo-900 text-lg">{cls.name}</h4>
+                                                        <span className="text-[10px] text-indigo-400 uppercase font-bold">Turma</span>
+                                                    </div>
+                                                    
+                                                    {/* Status Badge */}
+                                                    {cls.instructor_id ? (
+                                                        <span className="text-[10px] bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-bold border border-green-200 flex items-center gap-1">
+                                                            ✓ Alocado
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full font-bold border border-yellow-200">
+                                                            Pendente
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Formador Atual */}
+                                                <div className="flex items-center gap-3 mt-1 bg-white/50 p-2 rounded-lg border border-white/60">
+                                                    {cls.instructor ? (
+                                                        <>
+                                                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700 overflow-hidden border border-white shadow-sm">
+                                                                {cls.instructor.avatar_url ? <img src={cls.instructor.avatar_url} className="w-full h-full object-cover"/> : cls.instructor.full_name?.[0]}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="text-xs font-bold text-indigo-900 truncate">{cls.instructor.full_name}</div>
+                                                                <div className="text-[9px] text-indigo-500 truncate">{cls.instructor.email}</div>
+                                                            </div>
+                                                            <button 
+                                                                onClick={(e) => handleRemove(e, cls)}
+                                                                className="text-red-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-full transition-colors"
+                                                                title="Remover Formador"
                                                             >
-                                                                <option value="null">-- Por Alocar --</option>
-                                                                {trainers.map(t => (
-                                                                    <option key={t.id} value={t.id}>
-                                                                        {t.full_name} ({t.role})
-                                                                    </option>
-                                                                ))}
-                                                            </select>
+                                                                ✕
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2 text-gray-400 text-xs italic w-full justify-center py-1">
+                                                            <span>👤</span> Sem formador
                                                         </div>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right">
-                                                        {cls.instructor_id ? (
-                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                                                                Alocado
-                                                            </span>
-                                                        ) : (
-                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
-                                                                Pendente
-                                                            </span>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                                    )}
+                                                </div>
+
+                                                {/* Action Overlay Hint */}
+                                                {selectedTrainer && !isAssignedToSelected && (
+                                                    <div className="absolute inset-0 bg-indigo-600/90 rounded-xl flex items-center justify-center text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
+                                                        <span>👆 Atribuir a {selectedTrainer.full_name.split(' ')[0]}</span>
+                                                    </div>
+                                                )}
+                                                
+                                                {isAssignedToSelected && selectedTrainer && (
+                                                     <div className="absolute inset-0 bg-green-600/10 rounded-xl border-2 border-green-500 pointer-events-none"></div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
