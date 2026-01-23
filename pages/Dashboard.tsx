@@ -12,7 +12,7 @@ import { driveService, GAS_VERSION } from '../services/drive';
 // Views
 import { Overview } from '../components/dashboard/Overview';
 import { CourseManager } from '../components/dashboard/CourseManager';
-import { StudentCourses } from '../components/dashboard/StudentCourses'; // Importado
+import { StudentCourses } from '../components/dashboard/StudentCourses'; 
 import { UserAdmin } from '../components/dashboard/UserAdmin';
 import { Settings } from '../components/dashboard/Settings';
 import { MediaManager } from '../components/dashboard/MediaManager';
@@ -21,6 +21,7 @@ import { MyProfile } from '../components/dashboard/MyProfile';
 import { Community } from '../components/dashboard/Community';
 import { Calendar } from '../components/dashboard/Calendar';
 import { AvailabilityMap } from '../components/dashboard/AvailabilityMap';
+import { CourseBuilder } from '../components/dashboard/CourseBuilder'; // New Import
 
 interface DashboardProps {
   session: SupabaseSession;
@@ -32,7 +33,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [permissions, setPermissions] = useState<UserPermissions | undefined>(undefined);
   
   // URL STATE PERSISTENCE LOGIC
-  // 1. Initialize view from URL or default to 'dashboard'
   const [currentView, setCurrentView] = useState(() => {
       const params = new URLSearchParams(window.location.search);
       return params.get('view') || 'dashboard';
@@ -40,8 +40,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   
   const [currentTime, setCurrentTime] = useState(new Date());
   
-  // Admin Edit User State
+  // Transient States (Not in URL usually, or reset on nav)
   const [selectedUserToEdit, setSelectedUserToEdit] = useState<Profile | null>(null);
+  const [selectedCourseForBuilder, setSelectedCourseForBuilder] = useState<string | null>(null);
 
   // Responsive State
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -58,13 +59,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   useEffect(() => {
     init();
     
-    // Listen for Browser Back/Forward buttons
     const handlePopState = () => {
         const params = new URLSearchParams(window.location.search);
         const view = params.get('view') || 'dashboard';
         setCurrentView(view);
-        // Reset specific states when navigating back via browser
-        setSelectedUserToEdit(null); 
+        
+        // Reset specific states
+        setSelectedUserToEdit(null);
+        if (view !== 'course_builder') {
+             setSelectedCourseForBuilder(null);
+        }
     };
     
     window.addEventListener('popstate', handlePopState);
@@ -94,7 +98,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           if (userProfile) {
               setProfile(userProfile);
               
-              // CRÍTICO: Carregar as permissões dinâmicas da Base de Dados
+              // Load Permissions
               try {
                   const roleDef = await adminService.getRoleByName(userProfile.role);
                   if (roleDef && roleDef.permissions) {
@@ -104,15 +108,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                   console.warn("Failed to load permissions", permErr);
               }
 
-              // Load App Config (incl. Logo)
+              // Load App Config
               try {
                   const config = await adminService.getAppConfig();
                   if (config.logoUrl) setLogoUrl(config.logoUrl);
                   
-                  // Check Versions if Admin
                   if (userProfile.role === UserRole.ADMIN) {
                       setDbVersion(config.sqlVersion || 'Unknown');
-                      
                       if (config.googleScriptUrl) {
                           driveService.checkScriptVersion(config.googleScriptUrl).then(remoteVer => {
                               setGasStatus({
@@ -129,7 +131,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                   console.error("Config load failed", cfgErr);
               }
 
-              // AUTO-CREATE DRIVE FOLDER FOR TRAINERS
               if (userProfile.role === UserRole.TRAINER && !userProfile.personal_folder_id) {
                   driveService.getPersonalFolder(userProfile).then((id) => {
                       setProfile(prev => prev ? {...prev, personal_folder_id: id} : null);
@@ -143,18 +144,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       }
   };
 
-  // Clock
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Navigation Handler (Updates URL)
   const handleSetView = (newView: string) => {
       setCurrentView(newView);
       setSelectedUserToEdit(null);
+      // Only clear builder state if leaving the builder
+      if (newView !== 'course_builder') {
+         setSelectedCourseForBuilder(null);
+      }
       
-      // Update URL without reload
       const params = new URLSearchParams(window.location.search);
       params.set('view', newView);
       const newUrl = `${window.location.pathname}?${params.toString()}`;
@@ -177,18 +179,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   const handleAdminEditUser = (userToEdit: Profile) => {
       setSelectedUserToEdit(userToEdit);
-      // We don't change URL for edit mode to avoid complex state restoration on refresh
-      // But we set internal state
       setCurrentView('admin_edit_profile');
   };
 
   const handleBackToUserList = () => {
       setSelectedUserToEdit(null);
-      setCurrentView('users'); // This doesn't update URL automatically because it's internal state set
-      // Force URL update to reflect 'users'
-      const params = new URLSearchParams(window.location.search);
-      params.set('view', 'users');
-      window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
+      handleSetView('users'); 
+  };
+  
+  // HANDLER: Go to Course Builder
+  const handleOpenCourseBuilder = (courseId: string) => {
+      setSelectedCourseForBuilder(courseId);
+      handleSetView('course_builder');
+  };
+
+  const handleBackToCourseManager = () => {
+      setSelectedCourseForBuilder(null);
+      handleSetView('manage_courses');
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-indigo-600">A carregar EduTech PT...</div>;
@@ -238,9 +245,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
           case 'community': return <Community />;
           
-          // Mapeamento correto das Views de Cursos
-          case 'courses': return <StudentCourses profile={profile} />; // Visão do Aluno
-          case 'manage_courses': return <CourseManager profile={profile} />; // Visão do Formador/Admin
+          case 'courses': return <StudentCourses profile={profile} />; 
+          case 'manage_courses': return <CourseManager profile={profile} onManageCurriculum={handleOpenCourseBuilder} />;
+          
+          case 'course_builder': 
+             return selectedCourseForBuilder ? (
+                 <CourseBuilder courseId={selectedCourseForBuilder} onBack={handleBackToCourseManager} />
+             ) : (
+                 <GlassCard className="text-center p-8">
+                     <p>Selecione um curso primeiro em "Gerir Cursos".</p>
+                     <button onClick={handleBackToCourseManager} className="mt-4 text-indigo-600 underline">Voltar</button>
+                 </GlassCard>
+             );
 
           case 'media': return <MediaManager />;
           case 'drive': return <DriveManager profile={profile} />;
@@ -261,6 +277,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       if (view === 'my_profile') return 'Meu Perfil';
       if (view === 'admin_edit_profile') return 'Gestão / Editar Perfil';
       if (view === 'manage_courses') return 'Gestão de Cursos';
+      if (view === 'course_builder') return 'Estúdio de Criação';
       if (view === 'courses') return 'Meus Cursos e Oferta';
       if (view === 'calendar') return 'Minha Agenda';
       if (view === 'availability') return 'Mapa de Disponibilidade';
@@ -269,7 +286,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 relative overflow-hidden font-sans">
-      {/* Background FX */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
           <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
           <div className="absolute top-[20%] right-[-10%] w-96 h-96 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
@@ -277,7 +293,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       </div>
 
       <div className="relative z-10 flex w-full max-w-[1600px] mx-auto p-0 md:p-6 md:gap-6 h-screen">
-        
         {mobileMenuOpen && (
             <div 
                 className="fixed inset-0 z-40 bg-indigo-900/30 backdrop-blur-sm md:hidden animate-in fade-in duration-200"
@@ -294,7 +309,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 profile={profile} 
                 userPermissions={permissions}
                 appVersion={APP_VERSION} 
-                currentView={currentView === 'admin_edit_profile' ? 'users' : currentView}
+                currentView={currentView === 'admin_edit_profile' ? 'users' : (currentView === 'course_builder' ? 'manage_courses' : currentView)}
                 setView={handleSetView} 
                 onLogout={onLogout}
                 onMobileClose={() => setMobileMenuOpen(false)}

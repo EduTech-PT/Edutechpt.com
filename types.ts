@@ -62,6 +62,28 @@ export interface Course {
   is_public?: boolean;
 }
 
+// --- CURRICULUM TYPES ---
+export interface CourseModule {
+  id: string;
+  course_id: string;
+  title: string;
+  position: number;
+  created_at: string;
+  lessons?: CourseLesson[]; // Virtual field for UI tree
+}
+
+export interface CourseLesson {
+  id: string;
+  module_id: string;
+  title: string;
+  content: string; // HTML Rich Text
+  video_url?: string; // Optional Embed
+  duration_min?: number;
+  is_published: boolean;
+  position: number;
+  created_at: string;
+}
+
 export interface Class {
   id: string;
   course_id: string;
