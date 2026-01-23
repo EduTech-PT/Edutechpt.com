@@ -116,40 +116,50 @@ export const StudentCourses: React.FC<Props> = ({ profile }) => {
             </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {publicCourses.map(course => {
-                // Verificar se já está inscrito para mudar o botão
-                const isEnrolled = enrollments.some(e => e.course_id === course.id);
+        {publicCourses.length === 0 ? (
+             <GlassCard className="text-center py-12 opacity-80 border border-indigo-100">
+                 <div className="text-4xl mb-3">🔭</div>
+                 <h3 className="text-lg font-bold text-indigo-900">Sem ofertas públicas no momento</h3>
+                 <p className="text-indigo-600 text-sm">
+                    De momento não existem cursos abertos para inscrição geral.
+                 </p>
+             </GlassCard>
+        ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {publicCourses.map(course => {
+                    // Verificar se já está inscrito para mudar o botão
+                    const isEnrolled = enrollments.some(e => e.course_id === course.id);
 
-                return (
-                    <GlassCard key={course.id} className="flex flex-col h-full bg-white/40 opacity-90 hover:opacity-100 transition-all">
-                        <div className="h-24 bg-gray-100 rounded-lg mb-3 overflow-hidden relative grayscale group-hover:grayscale-0 transition-all">
-                            {course.image_url ? (
-                                <img src={course.image_url} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-2xl">✨</div>
-                            )}
-                        </div>
-                        <h4 className="font-bold text-indigo-900 text-sm mb-2 line-clamp-2">{course.title}</h4>
-                        
-                        {/* Descrição Curta (retirando HTML) */}
-                        <p className="text-xs text-indigo-700 opacity-70 line-clamp-3 mb-4 flex-grow">
-                             {course.description?.replace(/<[^>]*>?/gm, '') || 'Sem descrição.'}
-                        </p>
-
-                        {isEnrolled ? (
-                            <div className="mt-auto w-full py-2 bg-green-100 text-green-700 text-center text-xs font-bold rounded border border-green-200">
-                                ✅ Já Inscrito
+                    return (
+                        <GlassCard key={course.id} className="flex flex-col h-full bg-white/40 opacity-90 hover:opacity-100 transition-all">
+                            <div className="h-24 bg-gray-100 rounded-lg mb-3 overflow-hidden relative grayscale group-hover:grayscale-0 transition-all">
+                                {course.image_url ? (
+                                    <img src={course.image_url} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-2xl">✨</div>
+                                )}
                             </div>
-                        ) : (
-                            <button className="mt-auto w-full py-2 bg-white border border-indigo-200 text-indigo-600 text-xs font-bold rounded hover:bg-indigo-50 transition-colors">
-                                Ver Detalhes
-                            </button>
-                        )}
-                    </GlassCard>
-                );
-            })}
-        </div>
+                            <h4 className="font-bold text-indigo-900 text-sm mb-2 line-clamp-2">{course.title}</h4>
+                            
+                            {/* Descrição Curta (retirando HTML) */}
+                            <p className="text-xs text-indigo-700 opacity-70 line-clamp-3 mb-4 flex-grow">
+                                {course.description?.replace(/<[^>]*>?/gm, '') || 'Sem descrição.'}
+                            </p>
+
+                            {isEnrolled ? (
+                                <div className="mt-auto w-full py-2 bg-green-100 text-green-700 text-center text-xs font-bold rounded border border-green-200">
+                                    ✅ Já Inscrito
+                                </div>
+                            ) : (
+                                <button className="mt-auto w-full py-2 bg-white border border-indigo-200 text-indigo-600 text-xs font-bold rounded hover:bg-indigo-50 transition-colors">
+                                    Ver Detalhes
+                                </button>
+                            )}
+                        </GlassCard>
+                    );
+                })}
+            </div>
+        )}
       </section>
 
     </div>
