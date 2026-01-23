@@ -2,12 +2,12 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    // Incrementando versão interna para v2.2.0 (Stats Counters)
-    const scriptVersion = "v2.2.0"; 
+    // Incrementando versão interna para v2.2.1 (Admin Access Fix)
+    const scriptVersion = "v2.2.1"; 
     
     return `-- SCRIPT DE RESGATE DEFINITIVO (${scriptVersion})
 -- Autor: EduTech PT Architect
--- Objetivo: Monitorização de Acessos e Logs + Marketing Data + Estatísticas Históricas
+-- Objetivo: Monitorização, Marketing, Stats e Garantia de Acesso Admin
 
 -- ==============================================================================
 -- 1. LIMPEZA DE SEGURANÇA (PREPARAÇÃO)
@@ -48,7 +48,6 @@ create table if not exists public.access_logs (
 create table if not exists public.app_config (key text primary key, value text);
 
 -- INICIALIZAÇÃO DE CONTADORES HISTÓRICOS (Se não existirem)
--- Inicializa com o valor atual da tabela. O histórico começa a contar a partir de agora se for a primeira vez.
 INSERT INTO public.app_config (key, value) VALUES 
 ('stat_total_users', (SELECT count(*) FROM auth.users)::text),
 ('stat_total_trainers', (SELECT count(*) FROM public.profiles WHERE role = 'formador')::text),
@@ -252,6 +251,20 @@ begin
   end if;
 end;
 $$ language plpgsql security definer;
+
+-- ==============================================================================
+-- 6. GARANTIA DE ACESSO ADMIN (HOTFIX)
+-- ==============================================================================
+
+-- Se o utilizador já existir com outro cargo, força o update para Admin
+UPDATE public.profiles 
+SET role = 'admin' 
+WHERE email = 'edutechpt@hotmail.com';
+
+-- Se o utilizador não existir, cria um convite pré-aprovado de Admin como redundância
+INSERT INTO public.user_invites (email, role)
+VALUES ('edutechpt@hotmail.com', 'admin')
+ON CONFLICT (email) DO UPDATE SET role = 'admin';
 
 -- ==============================================================================
 -- 7. UPDATE VERSION
