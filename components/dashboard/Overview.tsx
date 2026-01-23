@@ -25,6 +25,9 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
   const [expandedCourses, setExpandedCourses] = useState<string[]>([]);
   const [expandedClasses, setExpandedClasses] = useState<string[]>([]);
 
+  // Navigation State for Quick View
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+
   const isStaff = ([UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] as string[]).includes(profile.role);
   const canViewStats = ([UserRole.ADMIN, UserRole.EDITOR] as string[]).includes(profile.role);
 
@@ -86,6 +89,23 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
   const toggleClass = (id: string) => {
       setExpandedClasses(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
   };
+
+  // Derived Data for Quick View
+  const uniqueCourses = React.useMemo(() => {
+      const map = new Map<string, Course>();
+      classes.forEach(cls => {
+          if (cls.course) {
+              map.set(cls.course.id, cls.course);
+          }
+      });
+      return Array.from(map.values());
+  }, [classes]);
+
+  const filteredClasses = selectedCourseId 
+      ? classes.filter(c => c.course_id === selectedCourseId)
+      : [];
+
+  const selectedCourseTitle = uniqueCourses.find(c => c.id === selectedCourseId)?.title;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -299,17 +319,35 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
           </GlassCard>
       )}
 
-      {/* REGULAR DASHBOARD CONTENT (MY CLASSES) - Mantém visível para todos para acesso rápido aos cards */}
+      {/* REGULAR DASHBOARD CONTENT (MY CLASSES) - VISÃO RÁPIDA */}
       <div className="grid grid-cols-1 gap-6">
           <GlassCard>
               <div className="flex items-center justify-between mb-4 border-b border-indigo-100 pb-2">
-                  <h3 className="font-bold text-lg text-indigo-900 flex items-center gap-2">
-                      <span>🎒</span> 
-                      {isAdmin || profile.role === 'editor' ? 'Visão Rápida (Cartões de Turma)' : 'As Minhas Turmas'}
-                  </h3>
-                  <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-bold">
-                      {classes.length} Ativas
-                  </span>
+                  <div className="flex items-center gap-3">
+                      <h3 className="font-bold text-lg text-indigo-900 flex items-center gap-2">
+                          <span>🎒</span> 
+                          {isAdmin || profile.role === 'editor' ? 'Visão Rápida (Cartões de Turma)' : 'As Minhas Turmas'}
+                      </h3>
+                      {selectedCourseId && (
+                          <span className="text-sm font-bold text-indigo-600 animate-in fade-in">
+                              &gt; {selectedCourseTitle}
+                          </span>
+                      )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                      {selectedCourseId ? (
+                          <button 
+                              onClick={() => setSelectedCourseId(null)}
+                              className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full font-bold hover:bg-indigo-200 transition-colors"
+                          >
+                              ⬅ Voltar aos Cursos
+                          </button>
+                      ) : (
+                          <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-bold">
+                              {classes.length} Turmas / {uniqueCourses.length} Cursos
+                          </span>
+                      )}
+                  </div>
               </div>
 
               {loadingClasses ? (
@@ -322,39 +360,80 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
                           {isAdmin ? "Crie turmas na gestão de cursos." : "Aguarde que o administrador lhe atribua uma turma."}
                       </p>
                   </div>
-              ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {classes.map(cls => (
-                          <div key={cls.id} className="bg-white/40 border border-indigo-100 p-4 rounded-xl hover:shadow-md transition-all group relative">
-                              <div className="flex justify-between items-start mb-2">
-                                  <div>
-                                      <h4 className="font-bold text-indigo-900 text-lg">{cls.name}</h4>
-                                      {cls.course && (
-                                          <span className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded shadow-sm">
-                                              {cls.course.title}
+              ) : !selectedCourseId ? (
+                  // PASSO 1: MOSTRAR CURSOS
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in zoom-in-95">
+                      {uniqueCourses.map(course => {
+                          const classCount = classes.filter(c => c.course_id === course.id).length;
+                          return (
+                              <div 
+                                  key={course.id} 
+                                  onClick={() => setSelectedCourseId(course.id)}
+                                  className="bg-white/40 border border-indigo-100 p-4 rounded-xl hover:shadow-md hover:bg-white/60 transition-all cursor-pointer group flex flex-col h-full"
+                              >
+                                  <div className="flex items-center gap-3 mb-3">
+                                      <div className="w-12 h-12 rounded-lg bg-indigo-100 overflow-hidden flex items-center justify-center shrink-0">
+                                          {course.image_url ? (
+                                              <img src={course.image_url} alt="" className="w-full h-full object-cover" />
+                                          ) : (
+                                              <span className="text-2xl">🎓</span>
+                                          )}
+                                      </div>
+                                      <div>
+                                          <h4 className="font-bold text-indigo-900 leading-tight line-clamp-2">{course.title}</h4>
+                                          <span className="text-[10px] uppercase font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">
+                                              {course.level}
                                           </span>
-                                      )}
-                                  </div>
-                                  <span className="text-xs text-indigo-400 font-mono">
-                                      {formatShortDate(cls.created_at)}
-                                  </span>
-                              </div>
-                              
-                              {/* Instructor List (Only for Admin/Editor view mostly, but good for context) */}
-                              {(isAdmin || profile.role === 'editor') && cls.instructors && cls.instructors.length > 0 && (
-                                  <div className="mt-3 pt-3 border-t border-indigo-50">
-                                      <p className="text-[10px] text-indigo-400 uppercase font-bold mb-1">Equipa Pedagógica</p>
-                                      <div className="flex -space-x-2 overflow-hidden">
-                                          {cls.instructors.map(inst => (
-                                              <div key={inst.id} title={inst.full_name || ''} className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-indigo-200 flex items-center justify-center text-[9px] font-bold text-indigo-700">
-                                                  {inst.avatar_url ? <img src={inst.avatar_url} className="w-full h-full rounded-full object-cover"/> : inst.full_name?.[0]}
-                                              </div>
-                                          ))}
                                       </div>
                                   </div>
-                              )}
+                                  <div className="mt-auto pt-2 border-t border-indigo-50 flex justify-between items-center text-xs">
+                                      <span className="font-bold text-indigo-700">{classCount} Turma{classCount !== 1 ? 's' : ''}</span>
+                                      <span className="text-indigo-400 group-hover:translate-x-1 transition-transform">Ver Turmas ➡</span>
+                                  </div>
+                              </div>
+                          );
+                      })}
+                  </div>
+              ) : (
+                  // PASSO 2: MOSTRAR TURMAS DO CURSO SELECIONADO
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in slide-in-from-right-4">
+                      {filteredClasses.length === 0 ? (
+                          <div className="col-span-full text-center py-8 text-indigo-400 italic">
+                              Sem turmas ativas neste curso.
                           </div>
-                      ))}
+                      ) : (
+                          filteredClasses.map(cls => (
+                              <div key={cls.id} className="bg-white/40 border border-indigo-100 p-4 rounded-xl hover:shadow-md transition-all group relative">
+                                  <div className="flex justify-between items-start mb-2">
+                                      <div>
+                                          <h4 className="font-bold text-indigo-900 text-lg">{cls.name}</h4>
+                                          {cls.course && (
+                                              <span className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded shadow-sm opacity-60">
+                                                  {cls.course.title}
+                                              </span>
+                                          )}
+                                      </div>
+                                      <span className="text-xs text-indigo-400 font-mono">
+                                          {formatShortDate(cls.created_at)}
+                                      </span>
+                                  </div>
+                                  
+                                  {/* Instructor List (Only for Admin/Editor view mostly, but good for context) */}
+                                  {(isAdmin || profile.role === 'editor') && cls.instructors && cls.instructors.length > 0 && (
+                                      <div className="mt-3 pt-3 border-t border-indigo-50">
+                                          <p className="text-[10px] text-indigo-400 uppercase font-bold mb-1">Equipa Pedagógica</p>
+                                          <div className="flex -space-x-2 overflow-hidden">
+                                              {cls.instructors.map(inst => (
+                                                  <div key={inst.id} title={inst.full_name || ''} className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-indigo-200 flex items-center justify-center text-[9px] font-bold text-indigo-700">
+                                                      {inst.avatar_url ? <img src={inst.avatar_url} className="w-full h-full rounded-full object-cover"/> : inst.full_name?.[0]}
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      </div>
+                                  )}
+                              </div>
+                          ))
+                      )}
                   </div>
               )}
           </GlassCard>
