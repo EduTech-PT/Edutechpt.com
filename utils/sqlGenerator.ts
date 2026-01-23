@@ -2,8 +2,8 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    // Incrementando versão interna para v2.2.2 (Logs Fix)
-    const scriptVersion = "v2.2.2"; 
+    // Incrementando versão interna para v2.2.3 (Login Fix)
+    const scriptVersion = "v2.2.3"; 
     
     return `-- SCRIPT DE RESGATE DEFINITIVO (${scriptVersion})
 -- Autor: EduTech PT Architect
@@ -255,6 +255,60 @@ begin
   end if;
 end;
 $$ language plpgsql security definer;
+
+-- FIX v2.2.3: RPC para recuperação de convites (Auto-Healing)
+create or replace function public.claim_invite()
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_email text;
+  invite_record record;
+  user_full_name text;
+begin
+  -- Obter email e metadados do utilizador autenticado
+  select email, raw_user_meta_data->>'full_name' into current_email, user_full_name
+  from auth.users
+  where id = auth.uid();
+
+  if current_email is null then
+    return false;
+  end if;
+
+  -- Verificar se já tem perfil (não faz nada se já tiver)
+  if exists (select 1 from public.profiles where id = auth.uid()) then
+    return true;
+  end if;
+
+  -- Verificar se existe convite pendente
+  select * into invite_record from public.user_invites where lower(email) = lower(current_email);
+
+  if invite_record.role is not null then
+      -- 1. Cria Perfil
+      insert into public.profiles (id, email, full_name, role)
+      values (auth.uid(), current_email, coalesce(user_full_name, 'Utilizador'), invite_record.role);
+
+      -- 2. Inscreve na Turma (se aplicável)
+      if invite_record.course_id is not null then
+          insert into public.enrollments (user_id, course_id, class_id)
+          values (auth.uid(), invite_record.course_id, invite_record.class_id)
+          on conflict do nothing;
+      end if;
+
+      -- 3. Stats
+      update public.app_config set value = (value::int + 1)::text where key = 'stat_total_users';
+
+      -- 4. Limpa Convite
+      delete from public.user_invites where lower(email) = lower(current_email);
+
+      return true;
+  else
+      return false;
+  end if;
+end;
+$$;
 
 -- ==============================================================================
 -- 6. GARANTIA DE ACESSO ADMIN (HOTFIX)
