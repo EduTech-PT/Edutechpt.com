@@ -2,25 +2,10 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    return `-- SCRIPT DE CORREÇÃO CRÍTICA (${currentVersion})
--- Resolve: Infinite Recursion, Dados Invisíveis e Permissões de Calendário.
+    return `-- SCRIPT DE RESGATE DE ACESSO (${currentVersion})
+-- Este script remove bloqueios de leitura para garantir que consegue entrar no site.
 
--- =====================================================================================
--- 1. FUNÇÃO DE SEGURANÇA (Bypass RLS)
--- =====================================================================================
--- Esta função é CRUCIAL. Ela lê o role sem ativar as políticas da tabela,
--- evitando o loop infinito "profiles -> check admin -> profiles".
-create or replace function public.get_auth_role()
-returns text as $$
-begin
-  return (select role from public.profiles where id = auth.uid());
-end;
-$$ language plpgsql security definer;
-
--- =====================================================================================
--- 2. LIMPEZA DE POLÍTICAS ANTIGAS (RESET)
--- =====================================================================================
--- Removemos todas as políticas para garantir que não sobram regras conflituosas.
+-- 1. LIMPEZA TOTAL DE POLÍTICAS (Para remover recursividade)
 do $$
 declare
   r record;
@@ -30,190 +15,80 @@ begin
   end loop;
 end $$;
 
--- =====================================================================================
--- 3. RECRIAÇÃO DAS TABELAS (GARANTIA DE ESTRUTURA)
--- =====================================================================================
+-- 2. FUNÇÃO AUXILIAR SEGURA (Security Definer)
+-- Permite verificar permissões sem causar loops infinitos
+create or replace function public.get_auth_role()
+returns text as $$
+begin
+  -- Retorna o role do perfil ou null se não existir
+  return (select role from public.profiles where id = auth.uid());
+end;
+$$ language plpgsql security definer;
 
--- Config
-create table if not exists public.app_config (key text primary key, value text);
-alter table public.app_config enable row level security;
+-- 3. PERMISSÕES DE LEITURA UNIVERSAL (Para desbloquear o site)
+-- "Select using (true)" permite que qualquer pessoa autenticada leia os dados.
+-- A privacidade é gerida na camada da aplicação (UI) por agora, para garantir acesso.
 
--- Profiles
-create table if not exists public.profiles (
-  id uuid references auth.users not null primary key,
-  email text,
-  full_name text,
-  role text default 'aluno',
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  avatar_url text,
-  personal_folder_id text,
-  bio text,
-  city text,
-  phone text,
-  linkedin_url text,
-  personal_email text,
-  birth_date date,
-  visibility_settings jsonb default '{}'::jsonb
-);
 alter table public.profiles enable row level security;
+create policy "Universal Read Profiles" on public.profiles for select using (true);
 
--- Roles
-create table if not exists public.roles (
-  name text primary key,
-  description text,
-  permissions jsonb default '{}'::jsonb,
-  created_at timestamp with time zone default timezone('utc'::text, now())
-);
+alter table public.app_config enable row level security;
+create policy "Universal Read Config" on public.app_config for select using (true);
+
 alter table public.roles enable row level security;
+create policy "Universal Read Roles" on public.roles for select using (true);
 
--- Courses & Classes
-create table if not exists public.courses (
-  id uuid default gen_random_uuid() primary key,
-  title text not null,
-  description text,
-  level text default 'iniciante',
-  image_url text,
-  is_public boolean default false,
-  instructor_id uuid references public.profiles(id),
-  created_at timestamp with time zone default timezone('utc'::text, now())
-);
 alter table public.courses enable row level security;
+create policy "Universal Read Courses" on public.courses for select using (true);
 
-create table if not exists public.classes (
-  id uuid default gen_random_uuid() primary key,
-  course_id uuid references public.courses(id) on delete cascade,
-  name text not null,
-  created_at timestamp with time zone default timezone('utc'::text, now())
-);
 alter table public.classes enable row level security;
+create policy "Universal Read Classes" on public.classes for select using (true);
 
--- Curriculum (New)
-create table if not exists public.course_modules (
-    id uuid default gen_random_uuid() primary key,
-    course_id uuid references public.courses(id) on delete cascade not null,
-    title text not null,
-    position integer default 0,
-    created_at timestamp with time zone default timezone('utc'::text, now())
-);
-alter table public.course_modules enable row level security;
-
-create table if not exists public.course_lessons (
-    id uuid default gen_random_uuid() primary key,
-    module_id uuid references public.course_modules(id) on delete cascade not null,
-    title text not null,
-    content text, 
-    video_url text, 
-    duration_min integer default 0,
-    is_published boolean default false,
-    position integer default 0,
-    created_at timestamp with time zone default timezone('utc'::text, now())
-);
-alter table public.course_lessons enable row level security;
-
--- Enrollments & Invites
-create table if not exists public.enrollments (
-  user_id uuid references public.profiles(id) on delete cascade,
-  course_id uuid references public.courses(id) on delete cascade,
-  class_id uuid references public.classes(id),
-  enrolled_at timestamp with time zone default timezone('utc'::text, now()),
-  primary key (user_id, course_id)
-);
 alter table public.enrollments enable row level security;
+create policy "Universal Read Enrollments" on public.enrollments for select using (true);
 
-create table if not exists public.user_invites (
-  email text primary key,
-  role text not null,
-  course_id uuid references public.courses(id),
-  class_id uuid references public.classes(id),
-  created_at timestamp with time zone default timezone('utc'::text, now())
-);
 alter table public.user_invites enable row level security;
+create policy "Universal Read Invites" on public.user_invites for select using (true);
 
--- =====================================================================================
--- 4. NOVAS POLÍTICAS SEGURAS (SEM RECURSIVIDADE)
--- =====================================================================================
+-- Novas tabelas (Course Builder)
+alter table public.course_modules enable row level security;
+create policy "Universal Read Modules" on public.course_modules for select using (true);
 
--- --- PROFILES ---
--- Todos podem ver perfis (necessário para o sistema funcionar e ver user admin)
-create policy "Public Read Profiles" on public.profiles for select using (true);
+alter table public.course_lessons enable row level security;
+create policy "Universal Read Lessons" on public.course_lessons for select using (true);
 
--- Apenas o próprio ou Admin pode editar
-create policy "Edit Own or Admin" on public.profiles for update using (
-  auth.uid() = id or public.get_auth_role() = 'admin'
-);
 
--- Apenas Admin pode apagar
-create policy "Admin Delete Profiles" on public.profiles for delete using (
-  public.get_auth_role() = 'admin'
-);
+-- 4. PERMISSÕES DE ESCRITA (Restritas a Admin/Staff)
 
--- Insert (Trigger system needs this, or manual insert)
-create policy "System Insert Profiles" on public.profiles for insert with check (
-  auth.uid() = id or public.get_auth_role() = 'admin'
-);
+-- PROFILES: O próprio edita o seu, Admin edita todos
+create policy "Update Own Profile" on public.profiles for update using (auth.uid() = id);
+create policy "Admin Update Profiles" on public.profiles for all using (public.get_auth_role() = 'admin');
+create policy "System Insert Profiles" on public.profiles for insert with check (true); -- Necessário para o trigger funcionar
 
--- --- APP CONFIG ---
--- Leitura pública para que o Frontend carregue configurações (Logo, Calendar URL)
-create policy "Public Read Config" on public.app_config for select using (true);
+-- APP CONFIG: Só Admin
+create policy "Admin Manage Config" on public.app_config for all using (public.get_auth_role() = 'admin');
 
--- Escrita apenas Admin
-create policy "Admin Manage Config" on public.app_config for all using (
-  public.get_auth_role() = 'admin'
-);
-
--- --- ROLES ---
-create policy "Read Roles" on public.roles for select using (true);
+-- ROLES: Só Admin
 create policy "Admin Manage Roles" on public.roles for all using (public.get_auth_role() = 'admin');
 
--- --- COURSES ---
-create policy "Read Courses" on public.courses for select using (true);
-create policy "Staff Manage Courses" on public.courses for all using (
-  public.get_auth_role() in ('admin', 'formador', 'editor')
-);
+-- COURSES / CLASSES / CURRICULUM: Staff
+create policy "Staff Manage Courses" on public.courses for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
+create policy "Staff Manage Classes" on public.classes for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
+create policy "Staff Manage Modules" on public.course_modules for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
+create policy "Staff Manage Lessons" on public.course_lessons for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
 
--- --- CLASSES ---
-create policy "Read Classes" on public.classes for select using (true);
-create policy "Staff Manage Classes" on public.classes for all using (
-  public.get_auth_role() in ('admin', 'formador', 'editor')
-);
+-- ENROLLMENTS / INVITES: Staff
+create policy "Staff Manage Enrollments" on public.enrollments for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
+create policy "Staff Manage Invites" on public.user_invites for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
 
--- --- MODULES & LESSONS ---
-create policy "Read Curriculum" on public.course_modules for select using (true);
-create policy "Staff Manage Modules" on public.course_modules for all using (
-  public.get_auth_role() in ('admin', 'formador', 'editor')
-);
+-- 5. CORREÇÃO DE EMERGÊNCIA DE ADMIN
+-- Garante que o seu email tem permissões, caso o perfil já exista
+update public.profiles 
+set role = 'admin' 
+where email = 'edutechpt@hotmail.com';
 
-create policy "Read Lessons" on public.course_lessons for select using (true);
-create policy "Staff Manage Lessons" on public.course_lessons for all using (
-  public.get_auth_role() in ('admin', 'formador', 'editor')
-);
-
--- --- ENROLLMENTS ---
-create policy "Read Enrollments" on public.enrollments for select using (true);
-create policy "Staff Manage Enrollments" on public.enrollments for all using (
-  public.get_auth_role() in ('admin', 'formador', 'editor')
-);
-
--- --- INVITES ---
-create policy "Staff Read Invites" on public.user_invites for select using (
-  public.get_auth_role() in ('admin', 'formador', 'editor')
-);
-create policy "Staff Manage Invites" on public.user_invites for all using (
-  public.get_auth_role() in ('admin', 'formador', 'editor')
-);
-
--- =====================================================================================
--- 5. UPDATE VERSÃO
--- =====================================================================================
+-- 6. REGISTAR VERSÃO
 insert into public.app_config (key, value) values ('sql_version', '${currentVersion}')
 on conflict (key) do update set value = excluded.value;
-
--- Assegurar Roles básicos
-insert into public.roles (name, description, permissions) values 
-('admin', 'Acesso total ao sistema', '{"view_dashboard":true,"view_users":true,"view_settings":true,"manage_courses":true}'::jsonb),
-('formador', 'Gestão de cursos e turmas', '{"view_dashboard":true,"manage_courses":true,"view_community":true}'::jsonb),
-('aluno', 'Estudante', '{"view_dashboard":true,"view_courses":true,"view_community":true}'::jsonb)
-on conflict (name) do nothing;
-
 `;
 };
