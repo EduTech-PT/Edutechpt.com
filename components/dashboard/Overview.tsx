@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
-import { Profile, Class, Course, UserRole, DashboardStats } from '../../types';
+import { Profile, Class, Course, UserRole, DashboardStats, CourseHierarchy } from '../../types';
 import { courseService } from '../../services/courses';
 import { adminService } from '../../services/admin';
 import { formatShortDate } from '../../utils/formatters';
@@ -19,6 +19,11 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
   const [classes, setClasses] = useState<(Class & { course?: Course })[]>([]);
   const [loadingClasses, setLoadingClasses] = useState(true);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  
+  // Hierarchy Data
+  const [hierarchy, setHierarchy] = useState<CourseHierarchy[]>([]);
+  const [expandedCourses, setExpandedCourses] = useState<string[]>([]);
+  const [expandedClasses, setExpandedClasses] = useState<string[]>([]);
 
   const isStaff = ([UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] as string[]).includes(profile.role);
   const canViewStats = ([UserRole.ADMIN, UserRole.EDITOR] as string[]).includes(profile.role);
@@ -32,13 +37,14 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
 
       if (canViewStats) {
           loadStats();
+          loadHierarchy();
       }
   }, [profile]);
 
   const loadClasses = async () => {
       try {
           let data;
-          // Admin e Editor veem TUDO
+          // Admin e Editor veem TUDO na visão geral de turmas (ou podem usar a hierarquia)
           if (([UserRole.ADMIN, UserRole.EDITOR] as string[]).includes(profile.role)) {
               data = await courseService.getAllClassesWithDetails();
           } 
@@ -62,6 +68,23 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
       } catch (err) {
           console.error("Erro ao carregar estatísticas:", err);
       }
+  };
+
+  const loadHierarchy = async () => {
+      try {
+          const data = await courseService.getCourseHierarchy();
+          setHierarchy(data || []);
+      } catch (err) {
+          console.error("Erro ao carregar hierarquia:", err);
+      }
+  };
+
+  const toggleCourse = (id: string) => {
+      setExpandedCourses(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
+  };
+
+  const toggleClass = (id: string) => {
+      setExpandedClasses(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
   };
 
   return (
@@ -177,74 +200,165 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
           </div>
       )}
 
-      {/* DASHBOARD CONTENT */}
-      {isStaff ? (
-          <div className="grid grid-cols-1 gap-6">
-              <GlassCard>
-                  <div className="flex items-center justify-between mb-4 border-b border-indigo-100 pb-2">
-                      <h3 className="font-bold text-lg text-indigo-900 flex items-center gap-2">
-                          <span>🏫</span> 
-                          {isAdmin || profile.role === 'editor' ? 'Todas as Turmas (Visão Global)' : 'As Minhas Turmas'}
-                      </h3>
-                      <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-bold">
-                          {classes.length} Ativas
-                      </span>
-                  </div>
-
-                  {loadingClasses ? (
-                      <div className="py-8 text-center text-indigo-400 animate-pulse">A carregar turmas...</div>
-                  ) : classes.length === 0 ? (
-                      <div className="text-center py-10 opacity-60">
-                          <span className="text-4xl block mb-2">📭</span>
-                          <p className="text-indigo-900 font-bold">Sem turmas alocadas.</p>
-                          <p className="text-sm text-indigo-600">
-                              {isAdmin ? "Crie turmas na gestão de cursos." : "Aguarde que o administrador lhe atribua uma turma."}
-                          </p>
-                      </div>
-                  ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {classes.map(cls => (
-                              <div key={cls.id} className="bg-white/40 border border-indigo-100 p-4 rounded-xl hover:shadow-md transition-all group relative">
-                                  <div className="flex justify-between items-start mb-2">
+      {/* HIERARQUIA ESTRUTURAL (Cursos > Turmas > Alunos) - Apenas Admin/Editor */}
+      {canViewStats && hierarchy.length > 0 && (
+          <GlassCard className="overflow-hidden">
+              <h3 className="font-bold text-lg text-indigo-900 mb-4 border-b border-indigo-100 pb-2 flex items-center gap-2">
+                  <span>🏛️</span> Estrutura Pedagógica (Visão Hierárquica)
+              </h3>
+              
+              <div className="space-y-3">
+                  {hierarchy.map(course => {
+                      const isExpanded = expandedCourses.includes(course.id);
+                      return (
+                          <div key={course.id} className="border border-indigo-100 rounded-xl bg-white/40 overflow-hidden transition-all">
+                              {/* COURSE HEADER */}
+                              <div 
+                                  onClick={() => toggleCourse(course.id)}
+                                  className={`p-4 flex items-center justify-between cursor-pointer hover:bg-indigo-50/50 transition-colors ${isExpanded ? 'bg-indigo-50 border-b border-indigo-100' : ''}`}
+                              >
+                                  <div className="flex items-center gap-3">
+                                      <span className="text-xl">{isExpanded ? '📂' : '📁'}</span>
                                       <div>
-                                          <h4 className="font-bold text-indigo-900 text-lg">{cls.name}</h4>
-                                          {cls.course && (
-                                              <span className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded shadow-sm">
-                                                  {cls.course.title}
-                                              </span>
-                                          )}
+                                          <h4 className="font-bold text-indigo-900">{course.title}</h4>
+                                          <p className="text-xs text-indigo-500 uppercase font-bold">{course.level}</p>
                                       </div>
-                                      <span className="text-xs text-indigo-400 font-mono">
-                                          {formatShortDate(cls.created_at)}
-                                      </span>
                                   </div>
-                                  
-                                  {/* Instructor List (Only for Admin/Editor view mostly, but good for context) */}
-                                  {(isAdmin || profile.role === 'editor') && cls.instructors && cls.instructors.length > 0 && (
-                                      <div className="mt-3 pt-3 border-t border-indigo-50">
-                                          <p className="text-[10px] text-indigo-400 uppercase font-bold mb-1">Equipa Pedagógica</p>
-                                          <div className="flex -space-x-2 overflow-hidden">
-                                              {cls.instructors.map(inst => (
-                                                  <div key={inst.id} title={inst.full_name || ''} className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-indigo-200 flex items-center justify-center text-[9px] font-bold text-indigo-700">
-                                                      {inst.avatar_url ? <img src={inst.avatar_url} className="w-full h-full rounded-full object-cover"/> : inst.full_name?.[0]}
-                                                  </div>
-                                              ))}
-                                          </div>
-                                      </div>
-                                  )}
+                                  <div className="flex items-center gap-4">
+                                      <span className="text-xs bg-white border border-indigo-100 px-2 py-1 rounded-lg text-indigo-700">
+                                          {course.classes.length} Turmas
+                                      </span>
+                                      <span className="text-indigo-400 text-xs">{isExpanded ? '▼' : '▶'}</span>
+                                  </div>
                               </div>
-                          ))}
-                      </div>
-                  )}
-              </GlassCard>
-          </div>
-      ) : (
-          /* Student View (Placeholder or different content) */
-          <GlassCard>
-              <h3 className="font-bold text-indigo-900 mb-2">Painel do Aluno</h3>
-              <p className="text-indigo-600">Aceda ao menu "Meus Cursos" para ver o seu progresso.</p>
+
+                              {/* CLASSES LIST (Level 2) */}
+                              {isExpanded && (
+                                  <div className="bg-indigo-50/20 p-2 space-y-2">
+                                      {course.classes.length === 0 && (
+                                          <div className="text-center p-4 text-xs text-indigo-400 italic">Sem turmas criadas.</div>
+                                      )}
+                                      
+                                      {course.classes.map(cls => {
+                                          const isClassExpanded = expandedClasses.includes(cls.id);
+                                          const studentCount = cls.enrollments.length;
+
+                                          return (
+                                              <div key={cls.id} className="ml-4 border-l-2 border-indigo-200 pl-2">
+                                                  <div 
+                                                      onClick={() => toggleClass(cls.id)}
+                                                      className="p-3 bg-white/60 rounded-lg flex items-center justify-between cursor-pointer hover:bg-white hover:shadow-sm transition-all border border-transparent hover:border-indigo-100"
+                                                  >
+                                                      <div className="flex items-center gap-2">
+                                                          <span className="text-lg">🏫</span>
+                                                          <span className="font-bold text-sm text-indigo-800">{cls.name}</span>
+                                                      </div>
+                                                      <div className="flex items-center gap-2">
+                                                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${studentCount > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                              {studentCount} Alunos
+                                                          </span>
+                                                          <span className="text-[10px] text-indigo-300">{isClassExpanded ? '▼' : '▶'}</span>
+                                                      </div>
+                                                  </div>
+
+                                                  {/* STUDENTS LIST (Level 3) */}
+                                                  {isClassExpanded && (
+                                                      <div className="mt-2 ml-4 space-y-1">
+                                                          {studentCount === 0 && (
+                                                              <div className="text-xs text-gray-400 p-2">Nenhum aluno inscrito nesta turma.</div>
+                                                          )}
+                                                          {cls.enrollments.map((enrollment, idx) => (
+                                                              <div key={idx} className="flex items-center gap-3 p-2 bg-white/40 rounded-lg hover:bg-white transition-colors border border-white/50">
+                                                                  <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700 overflow-hidden shrink-0">
+                                                                      {enrollment.user?.avatar_url ? (
+                                                                          <img src={enrollment.user.avatar_url} alt="" className="w-full h-full object-cover" />
+                                                                      ) : (
+                                                                          enrollment.user?.full_name?.[0] || '?'
+                                                                      )}
+                                                                  </div>
+                                                                  <div className="flex-1 min-w-0">
+                                                                      <div className="text-xs font-bold text-indigo-900 truncate">{enrollment.user?.full_name || 'Utilizador Desconhecido'}</div>
+                                                                      <div className="text-[10px] text-indigo-500 truncate">{enrollment.user?.email}</div>
+                                                                  </div>
+                                                                  <div className="text-[9px] text-gray-400 whitespace-nowrap">
+                                                                      {formatShortDate(enrollment.enrolled_at)}
+                                                                  </div>
+                                                              </div>
+                                                          ))}
+                                                      </div>
+                                                  )}
+                                              </div>
+                                          );
+                                      })}
+                                  </div>
+                              )}
+                          </div>
+                      );
+                  })}
+              </div>
           </GlassCard>
       )}
+
+      {/* REGULAR DASHBOARD CONTENT (MY CLASSES) - Mantém visível para todos para acesso rápido aos cards */}
+      <div className="grid grid-cols-1 gap-6">
+          <GlassCard>
+              <div className="flex items-center justify-between mb-4 border-b border-indigo-100 pb-2">
+                  <h3 className="font-bold text-lg text-indigo-900 flex items-center gap-2">
+                      <span>🎒</span> 
+                      {isAdmin || profile.role === 'editor' ? 'Visão Rápida (Cartões de Turma)' : 'As Minhas Turmas'}
+                  </h3>
+                  <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-bold">
+                      {classes.length} Ativas
+                  </span>
+              </div>
+
+              {loadingClasses ? (
+                  <div className="py-8 text-center text-indigo-400 animate-pulse">A carregar turmas...</div>
+              ) : classes.length === 0 ? (
+                  <div className="text-center py-10 opacity-60">
+                      <span className="text-4xl block mb-2">📭</span>
+                      <p className="text-indigo-900 font-bold">Sem turmas alocadas.</p>
+                      <p className="text-sm text-indigo-600">
+                          {isAdmin ? "Crie turmas na gestão de cursos." : "Aguarde que o administrador lhe atribua uma turma."}
+                      </p>
+                  </div>
+              ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {classes.map(cls => (
+                          <div key={cls.id} className="bg-white/40 border border-indigo-100 p-4 rounded-xl hover:shadow-md transition-all group relative">
+                              <div className="flex justify-between items-start mb-2">
+                                  <div>
+                                      <h4 className="font-bold text-indigo-900 text-lg">{cls.name}</h4>
+                                      {cls.course && (
+                                          <span className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded shadow-sm">
+                                              {cls.course.title}
+                                          </span>
+                                      )}
+                                  </div>
+                                  <span className="text-xs text-indigo-400 font-mono">
+                                      {formatShortDate(cls.created_at)}
+                                  </span>
+                              </div>
+                              
+                              {/* Instructor List (Only for Admin/Editor view mostly, but good for context) */}
+                              {(isAdmin || profile.role === 'editor') && cls.instructors && cls.instructors.length > 0 && (
+                                  <div className="mt-3 pt-3 border-t border-indigo-50">
+                                      <p className="text-[10px] text-indigo-400 uppercase font-bold mb-1">Equipa Pedagógica</p>
+                                      <div className="flex -space-x-2 overflow-hidden">
+                                          {cls.instructors.map(inst => (
+                                              <div key={inst.id} title={inst.full_name || ''} className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-indigo-200 flex items-center justify-center text-[9px] font-bold text-indigo-700">
+                                                  {inst.avatar_url ? <img src={inst.avatar_url} className="w-full h-full rounded-full object-cover"/> : inst.full_name?.[0]}
+                                              </div>
+                                          ))}
+                                      </div>
+                                  </div>
+                              )}
+                          </div>
+                      ))}
+                  </div>
+              )}
+          </GlassCard>
+      </div>
     </div>
   );
 };

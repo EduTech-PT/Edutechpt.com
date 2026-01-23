@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabaseClient';
-import { Course, Class, Profile, ClassMaterial, ClassAnnouncement, ClassAssessment } from '../types';
+import { Course, Class, Profile, ClassMaterial, ClassAnnouncement, ClassAssessment, CourseHierarchy } from '../types';
 
 export const courseService = {
     async getAll() {
@@ -125,6 +125,26 @@ export const courseService = {
             ...item,
             instructors: item.instructors?.map((i: any) => i.profile) || []
         })) as (Class & { course: Course })[];
+    },
+
+    // NOVO: Buscar Hierarquia Completa (Curso -> Turma -> Alunos) para Dashboard
+    async getCourseHierarchy() {
+        const { data, error } = await supabase
+            .from('courses')
+            .select(`
+                *,
+                classes (
+                    *,
+                    enrollments (
+                        enrolled_at,
+                        user:profiles (id, full_name, email, avatar_url, role)
+                    )
+                )
+            `)
+            .order('title');
+
+        if (error) throw error;
+        return data as CourseHierarchy[];
     },
 
     async createClass(courseId: string, name: string) {

@@ -200,3 +200,13 @@ export interface DashboardStats {
         total_history: number;
     };
 }
+
+// Hierarquia para Visualização (Dashboard)
+export interface CourseHierarchy extends Course {
+    classes: (Class & {
+        enrollments: {
+            enrolled_at: string;
+            user: Profile;
+        }[];
+    })[];
+}
