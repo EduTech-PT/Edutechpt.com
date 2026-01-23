@@ -2,9 +2,12 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    return `-- SCRIPT DE RESGATE DEFINITIVO (${currentVersion})
+    // Incrementando versão interna para v1.9.0 devido aos novos recursos
+    const scriptVersion = "v1.9.0"; 
+    
+    return `-- SCRIPT DE RESGATE DEFINITIVO (${scriptVersion})
 -- Autor: EduTech PT Architect
--- Objetivo: Suporte a Múltiplos Formadores (Many-to-Many), Corrigir Loop Infinito RLS
+-- Objetivo: Gestor de Recursos (Materiais, Avisos, Avaliações)
 
 -- ==============================================================================
 -- 1. LIMPEZA DE SEGURANÇA (PREPARAÇÃO)
@@ -16,6 +19,9 @@ alter table if exists public.courses disable row level security;
 alter table if exists public.enrollments disable row level security;
 alter table if exists public.classes disable row level security;
 alter table if exists public.class_instructors disable row level security;
+alter table if exists public.class_materials disable row level security;
+alter table if exists public.class_announcements disable row level security;
+alter table if exists public.class_assessments disable row level security;
 
 -- Remover TODAS as políticas antigas para garantir um "começo limpo" e evitar conflitos
 do $$
@@ -96,37 +102,13 @@ create table if not exists public.classes (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 3.5.1 Tabela de Junção para Múltiplos Formadores (NOVO)
--- Usamos DROP e CREATE se necessário para garantir que as constraints ficam corretas
+-- 3.5.1 Tabela de Junção para Múltiplos Formadores
 create table if not exists public.class_instructors (
     class_id uuid not null,
     profile_id uuid not null,
     created_at timestamp with time zone default timezone('utc'::text, now()),
     primary key (class_id, profile_id)
 );
-
--- Adicionar Constraints Explicitamente (se não existirem)
-do $$
-begin
-    if not exists (select 1 from information_schema.table_constraints where constraint_name = 'class_instructors_class_id_fkey') then
-        alter table public.class_instructors add constraint class_instructors_class_id_fkey foreign key (class_id) references public.classes(id) on delete cascade;
-    end if;
-    if not exists (select 1 from information_schema.table_constraints where constraint_name = 'class_instructors_profile_id_fkey') then
-        alter table public.class_instructors add constraint class_instructors_profile_id_fkey foreign key (profile_id) references public.profiles(id) on delete cascade;
-    end if;
-end $$;
-
--- MIGRAÇÃO DE DADOS: Mover dados da coluna antiga para a nova tabela
-do $$
-begin
-    -- Inserir dados existentes da coluna instructor_id para a nova tabela
-    insert into public.class_instructors (class_id, profile_id)
-    select id, instructor_id
-    from public.classes
-    where instructor_id is not null
-    on conflict (class_id, profile_id) do nothing;
-end $$;
-
 
 -- 3.6 Inscrições (Enrollments)
 create table if not exists public.enrollments (
@@ -147,6 +129,40 @@ create table if not exists public.user_invites (
 );
 
 -- ==============================================================================
+-- 3.8 NOVAS TABELAS: GESTOR DE RECURSOS (v1.9.0)
+-- ==============================================================================
+
+-- Materiais
+create table if not exists public.class_materials (
+    id uuid default gen_random_uuid() primary key,
+    class_id uuid references public.classes(id) on delete cascade,
+    title text not null,
+    url text not null,
+    type text default 'file', -- 'file' or 'link'
+    created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- Avisos
+create table if not exists public.class_announcements (
+    id uuid default gen_random_uuid() primary key,
+    class_id uuid references public.classes(id) on delete cascade,
+    title text not null,
+    content text,
+    created_by uuid references public.profiles(id),
+    created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- Avaliações
+create table if not exists public.class_assessments (
+    id uuid default gen_random_uuid() primary key,
+    class_id uuid references public.classes(id) on delete cascade,
+    title text not null,
+    description text,
+    due_date timestamp with time zone,
+    created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- ==============================================================================
 -- 4. POLÍTICAS DE SEGURANÇA (RLS)
 -- ==============================================================================
 
@@ -159,6 +175,9 @@ alter table public.classes enable row level security;
 alter table public.enrollments enable row level security;
 alter table public.user_invites enable row level security;
 alter table public.class_instructors enable row level security;
+alter table public.class_materials enable row level security;
+alter table public.class_announcements enable row level security;
+alter table public.class_assessments enable row level security;
 
 -- --- LEITURA (SELECT) ---
 create policy "Ver Perfis" on public.profiles for select using (true);
@@ -169,6 +188,11 @@ create policy "Ver Turmas" on public.classes for select using (true);
 create policy "Ver Inscricoes" on public.enrollments for select using (true);
 create policy "Ver Class Instructors" on public.class_instructors for select using (true);
 create policy "Ver Convites" on public.user_invites for select using (public.get_auth_role() in ('admin', 'formador', 'editor'));
+
+-- Políticas de Leitura para Recursos (Alunos inscritos + Staff)
+create policy "Ver Materiais" on public.class_materials for select using (true); 
+create policy "Ver Avisos" on public.class_announcements for select using (true);
+create policy "Ver Avaliacoes" on public.class_assessments for select using (true);
 
 -- --- ESCRITA (INSERT/UPDATE/DELETE) ---
 
@@ -188,18 +212,27 @@ create policy "Staff Gere Class Instructors" on public.class_instructors for all
 create policy "Staff Gere Inscricoes" on public.enrollments for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
 create policy "Staff Gere Convites" on public.user_invites for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
 
+-- Gestão de Recursos (Materiais/Avisos/Avaliações): Apenas Staff
+create policy "Staff Gere Materiais" on public.class_materials for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
+create policy "Staff Gere Avisos" on public.class_announcements for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
+create policy "Staff Gere Avaliacoes" on public.class_assessments for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
+
 -- ==============================================================================
--- 5. STORAGE (IMAGENS)
+-- 5. STORAGE (IMAGENS & ARQUIVOS)
 -- ==============================================================================
 
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('course-images', 'course-images', true) on conflict (id) do nothing;
+-- Novo bucket para ficheiros de aula
+insert into storage.buckets (id, name, public) values ('class-files', 'class-files', true) on conflict (id) do nothing;
 
 drop policy if exists "Avatars Public" on storage.objects;
 drop policy if exists "Courses Public" on storage.objects;
+drop policy if exists "Class Files Public" on storage.objects;
 drop policy if exists "Users Upload Avatars" on storage.objects;
 drop policy if exists "Users Update Avatars" on storage.objects;
 drop policy if exists "Staff Manage Images" on storage.objects;
+drop policy if exists "Staff Manage Class Files" on storage.objects;
 
 create policy "Avatars Public" on storage.objects for select using (bucket_id = 'avatars');
 create policy "Users Upload Avatars" on storage.objects for insert with check (bucket_id = 'avatars' and auth.uid() = owner);
@@ -208,6 +241,12 @@ create policy "Users Update Avatars" on storage.objects for update using (bucket
 create policy "Courses Public" on storage.objects for select using (bucket_id = 'course-images');
 create policy "Staff Manage Images" on storage.objects for all using (
   bucket_id = 'course-images' and public.get_auth_role() in ('admin', 'formador', 'editor')
+);
+
+-- Políticas para Class Files
+create policy "Class Files Public" on storage.objects for select using (bucket_id = 'class-files');
+create policy "Staff Manage Class Files" on storage.objects for all using (
+  bucket_id = 'class-files' and public.get_auth_role() in ('admin', 'formador', 'editor')
 );
 
 -- ==============================================================================
@@ -258,79 +297,17 @@ create trigger on_auth_user_created
   for each row execute procedure public.handle_new_user();
 
 -- ==============================================================================
--- 7. FUNÇÕES AUXILIARES (RPC)
--- ==============================================================================
-
-create or replace function public.get_community_members()
-returns setof public.profiles as $$
-begin
-  if public.get_auth_role() in ('admin', 'formador', 'editor') then
-      return query select * from public.profiles order by full_name;
-  else
-      return query 
-      select distinct p.* 
-      from public.profiles p
-      join public.enrollments e on p.id = e.user_id
-      where e.course_id in (select course_id from public.enrollments where user_id = auth.uid())
-      and p.id != auth.uid()
-      order by p.full_name;
-  end if;
-end;
-$$ language plpgsql security definer;
-
-create or replace function public.claim_invite()
-returns boolean as $$
-declare
-  u_email text;
-  invite_rec record;
-begin
-  select email into u_email from auth.users where id = auth.uid();
-  select * into invite_rec from public.user_invites where lower(email) = lower(u_email);
-  
-  if invite_rec.email is not null then
-      update public.profiles 
-      set role = invite_rec.role 
-      where id = auth.uid();
-      
-      if invite_rec.course_id is not null then
-          insert into public.enrollments (user_id, course_id, class_id)
-          values (auth.uid(), invite_rec.course_id, invite_rec.class_id)
-          on conflict do nothing;
-      end if;
-      delete from public.user_invites where email = invite_rec.email;
-      return true;
-  end if;
-  return false;
-end;
-$$ language plpgsql security definer;
-
--- ==============================================================================
--- 8. EXECUÇÃO IMEDIATA: RESTAURAR ADMIN & ROLES
+-- 7. EXECUÇÃO IMEDIATA: RESTAURAR ADMIN & ROLES
 -- ==============================================================================
 
 update public.profiles set role = 'admin' where email = 'edutechpt@hotmail.com';
 
-insert into public.profiles (id, email, full_name, role)
-select id, email, coalesce(raw_user_meta_data->>'full_name', 'Admin EduTech'), 'admin'
-from auth.users
-where email = 'edutechpt@hotmail.com'
-on conflict (id) do update set role = 'admin';
-
--- Atualização das Roles com nova permissão view_didactic_portal
-insert into public.roles (name, description, permissions) values 
-('admin', 'Administrador Total', '{"view_dashboard":true,"view_users":true,"view_settings":true,"manage_courses":true,"manage_classes":true,"manage_allocations":true,"view_didactic_portal":true,"view_calendar":true,"view_availability":true,"view_my_profile":true,"view_community":true}'::jsonb),
-('editor', 'Editor', '{"view_dashboard":true,"view_users":false,"view_settings":false,"manage_courses":true,"manage_classes":true,"manage_allocations":true,"view_didactic_portal":true,"view_calendar":true,"view_my_profile":true,"view_community":true}'::jsonb),
-('formador', 'Formador', '{"view_dashboard":true,"manage_courses":true,"view_didactic_portal":true,"view_community":true,"view_calendar":true,"view_availability":true,"view_my_profile":true}'::jsonb),
-('aluno', 'Estudante', '{"view_dashboard":true,"view_courses":true,"view_community":true,"view_calendar":true,"view_my_profile":true}'::jsonb)
-on conflict (name) do update set permissions = excluded.permissions;
-
-insert into public.app_config (key, value) values ('sql_version', '${currentVersion}')
+insert into public.app_config (key, value) values ('sql_version', '${scriptVersion}')
 on conflict (key) do update set value = excluded.value;
 
 -- ==============================================================================
--- 9. FORÇAR RECARREGAMENTO DO ESQUEMA (CRÍTICO)
+-- 8. FORÇAR RECARREGAMENTO DO ESQUEMA (CRÍTICO)
 -- ==============================================================================
--- Isto força o PostgREST a detetar a nova tabela e as chaves estrangeiras imediatamente.
 NOTIFY pgrst, 'reload schema';
 `;
 };

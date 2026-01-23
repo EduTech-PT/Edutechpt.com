@@ -75,6 +75,35 @@ export interface Class {
   instructor?: Profile; // Deprecado, mas mantido para UI antiga se necessário
 }
 
+// Novos Tipos para Gestor de Recursos
+export interface ClassMaterial {
+  id: string;
+  class_id: string;
+  title: string;
+  url: string;
+  type: 'file' | 'link';
+  created_at: string;
+}
+
+export interface ClassAnnouncement {
+  id: string;
+  class_id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  created_by?: string; // ID do perfil
+  author?: Profile; // Join
+}
+
+export interface ClassAssessment {
+  id: string;
+  class_id: string;
+  title: string;
+  description?: string;
+  due_date?: string;
+  created_at: string;
+}
+
 export interface Enrollment {
   user_id: string;
   course_id: string;

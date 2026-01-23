@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabaseClient';
-import { Course, Class, Profile } from '../types';
+import { Course, Class, Profile, ClassMaterial, ClassAnnouncement, ClassAssessment } from '../types';
 
 export const courseService = {
     async getAll() {
@@ -168,6 +168,85 @@ export const courseService = {
             .from('classes')
             .delete()
             .eq('id', id);
+        if (error) throw error;
+    },
+
+    // --- RECURSOS DA TURMA (MATERIAIS, AVISOS, AVALIAÇÕES) ---
+
+    // 1. MATERIAIS
+    async getClassMaterials(classId: string) {
+        const { data, error } = await supabase
+            .from('class_materials')
+            .select('*')
+            .eq('class_id', classId)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data as ClassMaterial[];
+    },
+
+    async createClassMaterial(material: Partial<ClassMaterial>) {
+        const { error } = await supabase.from('class_materials').insert([material]);
+        if (error) throw error;
+    },
+
+    async deleteClassMaterial(id: string) {
+        const { error } = await supabase.from('class_materials').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    async uploadClassFile(file: File) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `resource-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        
+        const { error } = await supabase.storage.from('class-files').upload(fileName, file);
+        if (error) throw error;
+
+        const { data } = supabase.storage.from('class-files').getPublicUrl(fileName);
+        return data.publicUrl;
+    },
+
+    // 2. AVISOS
+    async getClassAnnouncements(classId: string) {
+        const { data, error } = await supabase
+            .from('class_announcements')
+            .select(`
+                *,
+                author:profiles(*)
+            `)
+            .eq('class_id', classId)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data as ClassAnnouncement[];
+    },
+
+    async createClassAnnouncement(announcement: Partial<ClassAnnouncement>) {
+        const { error } = await supabase.from('class_announcements').insert([announcement]);
+        if (error) throw error;
+    },
+
+    async deleteClassAnnouncement(id: string) {
+        const { error } = await supabase.from('class_announcements').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    // 3. AVALIAÇÕES
+    async getClassAssessments(classId: string) {
+        const { data, error } = await supabase
+            .from('class_assessments')
+            .select('*')
+            .eq('class_id', classId)
+            .order('due_date', { ascending: true });
+        if (error) throw error;
+        return data as ClassAssessment[];
+    },
+
+    async createClassAssessment(assessment: Partial<ClassAssessment>) {
+        const { error } = await supabase.from('class_assessments').insert([assessment]);
+        if (error) throw error;
+    },
+
+    async deleteClassAssessment(id: string) {
+        const { error } = await supabase.from('class_assessments').delete().eq('id', id);
         if (error) throw error;
     }
 };

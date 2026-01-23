@@ -2,43 +2,171 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
-import { Profile, Class, Course, UserRole } from '../../types';
+import { Profile, Class, Course, UserRole, ClassMaterial, ClassAnnouncement, ClassAssessment } from '../../types';
+import { formatShortDate, formatTime } from '../../utils/formatters';
+import { RichTextEditor } from '../RichTextEditor';
 
 interface Props {
     profile: Profile;
 }
 
+type ModuleType = 'home' | 'materials' | 'announcements' | 'assessments';
+
 export const DidacticPortal: React.FC<Props> = ({ profile }) => {
     const [myClasses, setMyClasses] = useState<(Class & { course: Course })[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<string | null>(null);
+    const [activeModule, setActiveModule] = useState<ModuleType>('home');
+
+    // State for Resources
+    const [materials, setMaterials] = useState<ClassMaterial[]>([]);
+    const [announcements, setAnnouncements] = useState<ClassAnnouncement[]>([]);
+    const [assessments, setAssessments] = useState<ClassAssessment[]>([]);
+    const [loadingResources, setLoadingResources] = useState(false);
+
+    // Form States
+    const [showForm, setShowForm] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    
+    // Generic form data holder
+    const [formData, setFormData] = useState<any>({});
+
+    const isStaff = ([UserRole.ADMIN, UserRole.TRAINER, UserRole.EDITOR] as string[]).includes(profile.role);
 
     useEffect(() => {
         loadClasses();
     }, [profile.id]);
 
+    useEffect(() => {
+        if (activeTab) {
+            setActiveModule('home'); // Reset to home when switching class
+            setMaterials([]);
+            setAnnouncements([]);
+            setAssessments([]);
+            setShowForm(false);
+        }
+    }, [activeTab]);
+
     const loadClasses = async () => {
         try {
             setLoading(true);
             let classes;
-            
-            // Se for ADMIN, vê todas as turmas. Se for Formador, vê apenas as suas.
             if (profile.role === UserRole.ADMIN) {
                 classes = await courseService.getAllClassesWithDetails();
             } else {
                 classes = await courseService.getTrainerClasses(profile.id);
             }
-
             setMyClasses(classes);
-            if (classes.length > 0) {
-                setActiveTab(classes[0].id);
-            }
+            if (classes.length > 0) setActiveTab(classes[0].id);
         } catch (err) {
             console.error("Erro portal didatico:", err);
         } finally {
             setLoading(false);
         }
     };
+
+    const loadModuleData = async (module: ModuleType) => {
+        if (!activeTab) return;
+        setLoadingResources(true);
+        try {
+            if (module === 'materials') {
+                const data = await courseService.getClassMaterials(activeTab);
+                setMaterials(data);
+            } else if (module === 'announcements') {
+                const data = await courseService.getClassAnnouncements(activeTab);
+                setAnnouncements(data);
+            } else if (module === 'assessments') {
+                const data = await courseService.getClassAssessments(activeTab);
+                setAssessments(data);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoadingResources(false);
+        }
+    };
+
+    const handleModuleSwitch = (module: ModuleType) => {
+        setActiveModule(module);
+        setShowForm(false);
+        if (module !== 'home') {
+            loadModuleData(module);
+        }
+    };
+
+    // --- HANDLERS FOR MATERIALS ---
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        setUploading(true);
+        try {
+            const file = e.target.files[0];
+            const url = await courseService.uploadClassFile(file);
+            // Auto-fill form
+            setFormData({ ...formData, url: url, title: file.name, type: 'file' });
+        } catch (err: any) {
+            alert("Erro upload: " + err.message);
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const submitMaterial = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!activeTab) return;
+        try {
+            await courseService.createClassMaterial({ ...formData, class_id: activeTab });
+            setShowForm(false);
+            setFormData({});
+            loadModuleData('materials');
+        } catch (err: any) { alert(err.message); }
+    };
+
+    const deleteMaterial = async (id: string) => {
+        if(!window.confirm("Apagar material?")) return;
+        await courseService.deleteClassMaterial(id);
+        loadModuleData('materials');
+    };
+
+    // --- HANDLERS FOR ANNOUNCEMENTS ---
+    const submitAnnouncement = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!activeTab) return;
+        try {
+            await courseService.createClassAnnouncement({ 
+                ...formData, 
+                class_id: activeTab,
+                created_by: profile.id
+            });
+            setShowForm(false);
+            setFormData({});
+            loadModuleData('announcements');
+        } catch (err: any) { alert(err.message); }
+    };
+
+    const deleteAnnouncement = async (id: string) => {
+        if(!window.confirm("Apagar aviso?")) return;
+        await courseService.deleteClassAnnouncement(id);
+        loadModuleData('announcements');
+    };
+
+    // --- HANDLERS FOR ASSESSMENTS ---
+    const submitAssessment = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!activeTab) return;
+        try {
+            await courseService.createClassAssessment({ ...formData, class_id: activeTab });
+            setShowForm(false);
+            setFormData({});
+            loadModuleData('assessments');
+        } catch (err: any) { alert(err.message); }
+    };
+
+    const deleteAssessment = async (id: string) => {
+        if(!window.confirm("Apagar avaliação?")) return;
+        await courseService.deleteClassAssessment(id);
+        loadModuleData('assessments');
+    };
+
 
     if (loading) return <div className="p-10 text-center text-indigo-600 font-bold">A carregar turmas...</div>;
 
@@ -51,7 +179,7 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                     <p className="text-indigo-700">
                         {profile.role === UserRole.ADMIN 
                             ? "Não existem turmas criadas no sistema."
-                            : "Ainda não foste alocado a nenhuma turma como formador. Contacta a administração ou vai a 'Alocação Formadores' (se tiveres permissão)."
+                            : "Ainda não foste alocado a nenhuma turma como formador."
                         }
                     </p>
                  </GlassCard>
@@ -68,7 +196,7 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
             </h2>
 
             {/* TABS (TURMAS) */}
-            <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide shrink-0">
                 {myClasses.map(cls => {
                     const isActive = activeTab === cls.id;
                     return (
@@ -90,49 +218,252 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                 })}
             </div>
 
-            {/* CONTEÚDO DA TURMA ATIVA */}
+            {/* CONTEÚDO PRINCIPAL */}
             {activeClass && (
-                <GlassCard className="flex-1 rounded-tl-none border-t-0 shadow-xl min-h-[400px]">
-                    <div className="flex justify-between items-start border-b border-indigo-100 pb-4 mb-6">
+                <GlassCard className="flex-1 rounded-tl-none border-t-0 shadow-xl min-h-[400px] flex flex-col">
+                    
+                    {/* Header da Turma e Navegação de Módulos */}
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-indigo-100 pb-4 mb-6 gap-4">
                         <div>
                              <h3 className="text-3xl font-bold text-indigo-900 mb-1">{activeClass.name}</h3>
                              <p className="text-indigo-600 font-medium">{activeClass.course?.title}</p>
                         </div>
-                        <div className="bg-indigo-50 px-4 py-2 rounded-lg text-center">
-                            <span className="block text-xs font-bold text-indigo-400 uppercase">Alunos</span>
-                            <span className="text-2xl font-bold text-indigo-900">--</span> 
-                            {/* Futuramente: Contagem de alunos reais */}
-                        </div>
+                        
+                        {/* Botão de Voltar ao Home do Gestor */}
+                        {activeModule !== 'home' && (
+                            <button 
+                                onClick={() => setActiveModule('home')}
+                                className="px-4 py-2 bg-indigo-100 text-indigo-800 rounded-lg font-bold hover:bg-indigo-200 transition-colors flex items-center gap-2"
+                            >
+                                ⬅️ Voltar ao Painel
+                            </button>
+                        )}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Placeholder para funcionalidades futuras */}
-                        <div className="p-6 rounded-xl bg-indigo-50 border border-indigo-100 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer group">
-                             <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">📤</span>
-                             <h4 className="font-bold text-indigo-900">Partilhar Materiais</h4>
-                             <p className="text-xs text-indigo-500 mt-1">Enviar ficheiros para esta turma</p>
-                        </div>
+                    {/* MÓDULO HOME (DASHBOARD DA TURMA) */}
+                    {activeModule === 'home' && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in zoom-in-95 duration-200">
+                            <button 
+                                onClick={() => handleModuleSwitch('materials')}
+                                className="p-6 rounded-xl bg-indigo-50 border border-indigo-100 flex flex-col items-center justify-center text-center hover:shadow-md transition-all hover:scale-105 group"
+                            >
+                                 <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">📤</span>
+                                 <h4 className="font-bold text-indigo-900">Partilhar Materiais</h4>
+                                 <p className="text-xs text-indigo-500 mt-1">Enviar ficheiros para esta turma</p>
+                            </button>
 
-                        <div className="p-6 rounded-xl bg-indigo-50 border border-indigo-100 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer group">
-                             <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">📢</span>
-                             <h4 className="font-bold text-indigo-900">Avisos</h4>
-                             <p className="text-xs text-indigo-500 mt-1">Enviar notificação aos alunos</p>
-                        </div>
+                            <button 
+                                onClick={() => handleModuleSwitch('announcements')}
+                                className="p-6 rounded-xl bg-indigo-50 border border-indigo-100 flex flex-col items-center justify-center text-center hover:shadow-md transition-all hover:scale-105 group"
+                            >
+                                 <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">📢</span>
+                                 <h4 className="font-bold text-indigo-900">Avisos</h4>
+                                 <p className="text-xs text-indigo-500 mt-1">Enviar notificação aos alunos</p>
+                            </button>
 
-                        <div className="p-6 rounded-xl bg-indigo-50 border border-indigo-100 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer group">
-                             <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">📝</span>
-                             <h4 className="font-bold text-indigo-900">Avaliações</h4>
-                             <p className="text-xs text-indigo-500 mt-1">Lançar notas ou testes</p>
+                            <button 
+                                onClick={() => handleModuleSwitch('assessments')}
+                                className="p-6 rounded-xl bg-indigo-50 border border-indigo-100 flex flex-col items-center justify-center text-center hover:shadow-md transition-all hover:scale-105 group"
+                            >
+                                 <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">📝</span>
+                                 <h4 className="font-bold text-indigo-900">Avaliações</h4>
+                                 <p className="text-xs text-indigo-500 mt-1">Lançar notas ou testes</p>
+                            </button>
                         </div>
-                    </div>
-                    
-                    <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-sm">
-                        🚧 <b>Em construção:</b> Este painel permitirá gerir conteúdos específicos para a turma <b>{activeClass.name}</b>.
-                        {profile.role === UserRole.ADMIN 
-                            ? " Como Administrador, tens acesso de supervisão a esta turma." 
-                            : " Como és um dos formadores alocados, tens acesso exclusivo a esta área."
-                        }
-                    </div>
+                    )}
+
+                    {/* MÓDULO MATERIAIS */}
+                    {activeModule === 'materials' && (
+                        <div className="flex-1 flex flex-col animate-in fade-in">
+                            <div className="flex justify-between items-center mb-4">
+                                <h4 className="font-bold text-lg text-indigo-900">Materiais da Turma</h4>
+                                {isStaff && !showForm && (
+                                    <button onClick={() => setShowForm(true)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow hover:bg-indigo-700">
+                                        + Novo Material
+                                    </button>
+                                )}
+                            </div>
+
+                            {showForm && (
+                                <form onSubmit={submitMaterial} className="bg-indigo-50 p-4 rounded-xl border border-indigo-200 mb-6 space-y-4">
+                                    <div className="flex gap-4">
+                                        <div className="flex-1">
+                                            <label className="block text-xs font-bold text-indigo-900 mb-1">Título do Material</label>
+                                            <input type="text" required value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full p-2 rounded bg-white border border-indigo-200" placeholder="Ex: Slide Aula 1"/>
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="block text-xs font-bold text-indigo-900 mb-1">Tipo</label>
+                                            <select value={formData.type || 'file'} onChange={e => setFormData({...formData, type: e.target.value})} className="w-full p-2 rounded bg-white border border-indigo-200">
+                                                <option value="file">Ficheiro (Upload)</option>
+                                                <option value="link">Link Externo</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    {formData.type === 'link' ? (
+                                        <div>
+                                            <label className="block text-xs font-bold text-indigo-900 mb-1">URL do Link</label>
+                                            <input type="url" required value={formData.url || ''} onChange={e => setFormData({...formData, url: e.target.value})} className="w-full p-2 rounded bg-white border border-indigo-200" placeholder="https://..."/>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <label className="block text-xs font-bold text-indigo-900 mb-1">Ficheiro</label>
+                                            <input type="file" onChange={handleFileUpload} className="block w-full text-sm text-indigo-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200"/>
+                                            {uploading && <span className="text-xs text-indigo-500 animate-pulse">A carregar...</span>}
+                                            {formData.url && <span className="text-xs text-green-600 font-bold ml-2">Upload Concluído!</span>}
+                                        </div>
+                                    )}
+
+                                    <div className="flex justify-end gap-2">
+                                        <button type="button" onClick={() => setShowForm(false)} className="px-3 py-1 text-gray-500 font-bold">Cancelar</button>
+                                        <button type="submit" disabled={uploading || !formData.title || !formData.url} className="px-4 py-1 bg-green-600 text-white rounded font-bold shadow disabled:opacity-50">Publicar</button>
+                                    </div>
+                                </form>
+                            )}
+
+                            {loadingResources ? <p className="text-center opacity-50">A carregar...</p> : (
+                                <div className="space-y-2">
+                                    {materials.length === 0 && <p className="text-center text-indigo-400 italic py-10">Nenhum material partilhado ainda.</p>}
+                                    {materials.map(m => (
+                                        <div key={m.id} className="flex items-center justify-between p-3 bg-white/50 border border-indigo-100 rounded-lg hover:shadow-sm">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-2xl">{m.type === 'file' ? '📄' : '🔗'}</span>
+                                                <div>
+                                                    <a href={m.url} target="_blank" rel="noreferrer" className="font-bold text-indigo-900 hover:underline">{m.title}</a>
+                                                    <p className="text-xs text-indigo-500">{formatShortDate(m.created_at)}</p>
+                                                </div>
+                                            </div>
+                                            {isStaff && (
+                                                <button onClick={() => deleteMaterial(m.id)} className="text-red-400 hover:text-red-600 p-2">🗑️</button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* MÓDULO AVISOS */}
+                    {activeModule === 'announcements' && (
+                        <div className="flex-1 flex flex-col animate-in fade-in">
+                            <div className="flex justify-between items-center mb-4">
+                                <h4 className="font-bold text-lg text-indigo-900">Quadro de Avisos</h4>
+                                {isStaff && !showForm && (
+                                    <button onClick={() => setShowForm(true)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow hover:bg-indigo-700">
+                                        + Novo Aviso
+                                    </button>
+                                )}
+                            </div>
+
+                            {showForm && (
+                                <form onSubmit={submitAnnouncement} className="bg-indigo-50 p-4 rounded-xl border border-indigo-200 mb-6 space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-indigo-900 mb-1">Título / Assunto</label>
+                                        <input type="text" required value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full p-2 rounded bg-white border border-indigo-200" placeholder="Ex: Alteração de Horário"/>
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-xs font-bold text-indigo-900 mb-1">Mensagem</label>
+                                        <RichTextEditor value={formData.content || ''} onChange={val => setFormData({...formData, content: val})} />
+                                    </div>
+
+                                    <div className="flex justify-end gap-2">
+                                        <button type="button" onClick={() => setShowForm(false)} className="px-3 py-1 text-gray-500 font-bold">Cancelar</button>
+                                        <button type="submit" disabled={!formData.title} className="px-4 py-1 bg-green-600 text-white rounded font-bold shadow disabled:opacity-50">Publicar</button>
+                                    </div>
+                                </form>
+                            )}
+
+                            {loadingResources ? <p className="text-center opacity-50">A carregar...</p> : (
+                                <div className="space-y-4">
+                                    {announcements.length === 0 && <p className="text-center text-indigo-400 italic py-10">Sem avisos recentes.</p>}
+                                    {announcements.map(a => (
+                                        <div key={a.id} className="bg-white/60 border-l-4 border-l-indigo-500 p-4 rounded shadow-sm relative group">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h5 className="font-bold text-indigo-900 text-lg">{a.title}</h5>
+                                                <span className="text-xs text-indigo-500">{formatShortDate(a.created_at)}</span>
+                                            </div>
+                                            <div className="prose prose-sm prose-indigo text-indigo-800" dangerouslySetInnerHTML={{__html: a.content || ''}} />
+                                            <div className="mt-2 text-xs text-indigo-400 font-bold">Por: {a.author?.full_name || 'Staff'}</div>
+                                            
+                                            {isStaff && (
+                                                <button onClick={() => deleteAnnouncement(a.id)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity">🗑️</button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* MÓDULO AVALIAÇÕES */}
+                    {activeModule === 'assessments' && (
+                        <div className="flex-1 flex flex-col animate-in fade-in">
+                            <div className="flex justify-between items-center mb-4">
+                                <h4 className="font-bold text-lg text-indigo-900">Momentos de Avaliação</h4>
+                                {isStaff && !showForm && (
+                                    <button onClick={() => setShowForm(true)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow hover:bg-indigo-700">
+                                        + Agendar Teste/Projeto
+                                    </button>
+                                )}
+                            </div>
+
+                            {showForm && (
+                                <form onSubmit={submitAssessment} className="bg-indigo-50 p-4 rounded-xl border border-indigo-200 mb-6 space-y-4">
+                                    <div className="flex gap-4">
+                                        <div className="flex-1">
+                                            <label className="block text-xs font-bold text-indigo-900 mb-1">Título</label>
+                                            <input type="text" required value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full p-2 rounded bg-white border border-indigo-200" placeholder="Ex: Teste Módulo 1"/>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-indigo-900 mb-1">Data / Prazo</label>
+                                            <input type="datetime-local" required value={formData.due_date || ''} onChange={e => setFormData({...formData, due_date: e.target.value})} className="w-full p-2 rounded bg-white border border-indigo-200"/>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-xs font-bold text-indigo-900 mb-1">Instruções / Descrição</label>
+                                        <textarea value={formData.description || ''} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-2 rounded bg-white border border-indigo-200 min-h-[80px]" />
+                                    </div>
+
+                                    <div className="flex justify-end gap-2">
+                                        <button type="button" onClick={() => setShowForm(false)} className="px-3 py-1 text-gray-500 font-bold">Cancelar</button>
+                                        <button type="submit" className="px-4 py-1 bg-green-600 text-white rounded font-bold shadow">Agendar</button>
+                                    </div>
+                                </form>
+                            )}
+
+                            {loadingResources ? <p className="text-center opacity-50">A carregar...</p> : (
+                                <div className="space-y-4">
+                                    {assessments.length === 0 && <p className="text-center text-indigo-400 italic py-10">Sem avaliações agendadas.</p>}
+                                    {assessments.map(a => (
+                                        <div key={a.id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-white/60 border border-indigo-100 rounded-lg hover:shadow-md transition-shadow group">
+                                            <div>
+                                                <h5 className="font-bold text-indigo-900 text-lg flex items-center gap-2">
+                                                    {a.title}
+                                                </h5>
+                                                {a.description && <p className="text-sm text-indigo-700 mt-1">{a.description}</p>}
+                                            </div>
+                                            <div className="flex items-center gap-4 mt-2 md:mt-0">
+                                                {a.due_date && (
+                                                    <div className="text-right">
+                                                        <div className="text-xs uppercase font-bold text-indigo-400">Data / Entrega</div>
+                                                        <div className="font-mono font-bold text-indigo-800">
+                                                            {formatShortDate(a.due_date)} às {formatTime(a.due_date)}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {isStaff && (
+                                                     <button onClick={() => deleteAssessment(a.id)} className="text-red-400 hover:text-red-600 p-2 opacity-0 group-hover:opacity-100 transition-opacity">🗑️</button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                 </GlassCard>
             )}
         </div>
