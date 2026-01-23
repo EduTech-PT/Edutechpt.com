@@ -16,6 +16,7 @@ interface DayAvailability {
     afternoonEvents: string[]; // ex: ["14:00 - 15:30"]
     isPast: boolean;
     isWeekend: boolean;
+    isToday: boolean;
 }
 
 export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
@@ -70,10 +71,11 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
           const currentDay = new Date(year, month, d);
           const isWeekend = currentDay.getDay() === 0 || currentDay.getDay() === 6;
           const isPast = currentDay < today;
+          const isToday = currentDay.toDateString() === today.toDateString();
 
           // Se for fim de semana ou passado
           if (isWeekend || isPast) {
-              availabilityMap.push({ day: d, date: currentDay, morningEvents: [], afternoonEvents: [], isPast, isWeekend });
+              availabilityMap.push({ day: d, date: currentDay, morningEvents: [], afternoonEvents: [], isPast, isWeekend, isToday });
               continue;
           }
 
@@ -133,7 +135,8 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
               morningEvents: mEvents, 
               afternoonEvents: aEvents, 
               isPast, 
-              isWeekend 
+              isWeekend,
+              isToday
           });
       }
 
@@ -251,8 +254,8 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
     <div className="h-full flex flex-col animate-in slide-in-from-right duration-300 relative">
          <GlassCard className="flex flex-col md:flex-row items-center justify-between mb-6 py-4 gap-4">
              <div className="flex gap-2">
-                <button onClick={prevMonth} className="p-2 hover:bg-indigo-50 rounded-full text-indigo-600">◀</button>
-                <button onClick={nextMonth} className="p-2 hover:bg-indigo-50 rounded-full text-indigo-600">▶</button>
+                <button onClick={prevMonth} className="p-2 hover:bg-indigo-50 rounded-full text-indigo-600 font-bold" title="Mês Anterior">◀</button>
+                <button onClick={nextMonth} className="p-2 hover:bg-indigo-50 rounded-full text-indigo-600 font-bold" title="Próximo Mês">▶</button>
              </div>
              <h2 className="text-xl md:text-2xl font-bold text-indigo-900 capitalize text-center">
                 Disponibilidade - {currentDate.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' })}
@@ -287,9 +290,11 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
             ))}
 
             {workingDays.map(slot => (
-                <GlassCard key={slot.day} className={`flex flex-col items-center justify-between min-h-[160px] border-2 ${slot.isPast ? 'opacity-50 grayscale' : 'border-white/50'}`}>
+                <GlassCard key={slot.day} className={`flex flex-col items-center justify-between min-h-[160px] border-2 ${
+                    slot.isToday ? 'border-red-500 shadow-md' : slot.isPast ? 'opacity-50 grayscale border-white/50' : 'border-white/50'
+                }`}>
                     <div className="w-full border-b border-indigo-50 pb-2 mb-2 flex justify-between items-center">
-                        <span className="font-bold text-indigo-900 text-lg">{slot.day}</span>
+                        <span className={`font-bold text-lg ${slot.isToday ? 'text-red-600' : 'text-indigo-900'}`}>{slot.day}</span>
                         <span className="text-xs uppercase text-indigo-400 font-bold">{slot.date.toLocaleDateString('pt-PT', { weekday: 'short' })}</span>
                     </div>
 

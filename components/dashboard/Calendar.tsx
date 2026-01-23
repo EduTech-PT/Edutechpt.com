@@ -65,7 +65,7 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
         const isCurrentMonth = dayNum > 0 && dayNum <= daysInMonth;
         
         if (!isCurrentMonth) {
-            grid.push(<div key={`empty-${i}`} className="min-h-[100px] bg-white/10 border border-white/20 opacity-50"></div>);
+            grid.push(<div key={`empty-${i}`} className="min-h-[70px] bg-white/10 border border-white/20 opacity-50"></div>);
             continue;
         }
 
@@ -83,14 +83,16 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
                 key={dayNum} 
                 onClick={() => setSelectedDay(dateObj)}
                 className={`
-                    min-h-[100px] p-2 border border-white/30 transition-all cursor-pointer relative group flex flex-col justify-between
-                    ${isToday ? 'bg-indigo-50/40 font-bold' : 'bg-white/20 hover:bg-white/40'}
-                    ${isSelected ? 'ring-2 ring-indigo-500 z-10 shadow-lg bg-white/50' : ''}
+                    min-h-[70px] p-2 transition-all cursor-pointer relative group flex flex-col justify-between
+                    ${isToday 
+                        ? 'bg-indigo-50/40 font-bold border-2 border-red-500' 
+                        : 'bg-white/20 hover:bg-white/40 border border-white/30'}
+                    ${isSelected && !isToday ? 'ring-2 ring-indigo-500 z-10 shadow-lg bg-white/50' : ''}
                 `}
             >
-                <div className={`text-sm ${isToday ? 'text-indigo-600' : 'text-indigo-900'}`}>{dayNum}</div>
+                <div className={`text-sm ${isToday ? 'text-red-600' : 'text-indigo-900'}`}>{dayNum}</div>
                 
-                <div className="flex flex-wrap gap-1 content-end mt-2">
+                <div className="flex flex-wrap gap-1 content-end mt-1">
                     {dayEvents.slice(0, 3).map((evt, idx) => (
                          <div key={evt.id} className="w-full h-1.5 rounded-full bg-indigo-400 opacity-60" title={evt.summary}></div>
                     ))}
@@ -116,8 +118,8 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
             {/* Calendar Controls */}
             <GlassCard className="flex items-center justify-between mb-4 py-3 shrink-0">
                  <div className="flex gap-2">
-                    <button onClick={prevMonth} className="p-2 hover:bg-indigo-50 rounded-full text-indigo-600">◀</button>
-                    <button onClick={nextMonth} className="p-2 hover:bg-indigo-50 rounded-full text-indigo-600">▶</button>
+                    <button onClick={prevMonth} className="p-2 hover:bg-indigo-50 rounded-full text-indigo-600 font-bold text-lg" title="Mês Anterior">◀</button>
+                    <button onClick={nextMonth} className="p-2 hover:bg-indigo-50 rounded-full text-indigo-600 font-bold text-lg" title="Próximo Mês">▶</button>
                  </div>
                  <h2 className="text-xl font-bold text-indigo-900 capitalize">
                     {currentDate.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' })}
