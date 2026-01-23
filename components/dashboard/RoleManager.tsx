@@ -31,6 +31,7 @@ export const RoleManager: React.FC = () => {
     // Create/Edit Modal State
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [originalName, setOriginalName] = useState<string | null>(null);
     const [modalData, setModalData] = useState({
         name: '',
         description: '',
@@ -74,12 +75,14 @@ export const RoleManager: React.FC = () => {
 
     const openCreateModal = () => {
         setIsEditing(false);
+        setOriginalName(null);
         setModalData({ name: '', description: '', permissions: {} });
         setShowModal(true);
     };
 
     const openEditModal = (role: RoleDefinition) => {
         setIsEditing(true);
+        setOriginalName(role.name);
         setModalData({
             name: role.name,
             description: role.description || '',
@@ -91,17 +94,41 @@ export const RoleManager: React.FC = () => {
     const handleModalSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const { name, description, permissions } = modalData;
+        const normalizedName = name.trim().toLowerCase().replace(/\s+/g, '_');
         
-        if (!name.trim()) return;
+        if (!normalizedName) return;
 
         try {
-            if (isEditing) {
-                // Em edição, o nome é chave, não muda (apenas descrição e permissões)
-                await adminService.updateRole(name, { description, permissions });
-                alert("Cargo atualizado!");
+            if (isEditing && originalName) {
+                // Caso 1: Nome mudou (Renomear)
+                if (originalName !== normalizedName) {
+                    if (SYSTEM_ROLES.includes(originalName)) {
+                        alert("Não é permitido renomear cargos de sistema (Admin, Editor, Formador, Aluno).");
+                        return;
+                    }
+                    if (roles.some(r => r.name === normalizedName)) {
+                        alert("Já existe outro cargo com este nome.");
+                        return;
+                    }
+
+                    // 1. Atualizar na tabela de roles (o ID muda)
+                    await adminService.updateRole(originalName, { 
+                        name: normalizedName,
+                        description, 
+                        permissions 
+                    });
+                    
+                    // 2. Migrar utilizadores para o novo nome
+                    await adminService.migrateUsersRole(originalName, normalizedName);
+                    
+                    alert(`Cargo renomeado de "${originalName}" para "${normalizedName}". Utilizadores migrados.`);
+                } else {
+                    // Caso 2: Apenas descrição ou permissões mudaram
+                    await adminService.updateRole(originalName, { description, permissions });
+                    alert("Cargo atualizado!");
+                }
             } else {
                 // Criação
-                const normalizedName = name.trim().toLowerCase().replace(/\s+/g, '_');
                 if (roles.some(r => r.name === normalizedName)) {
                     alert("Este cargo já existe.");
                     return;
@@ -248,7 +275,7 @@ export const RoleManager: React.FC = () => {
                     </div>
                 )}
                 <div className="mt-4 p-3 bg-indigo-50 rounded-lg text-xs text-indigo-800 border border-indigo-100">
-                    ℹ️ <b>Dica:</b> Clique no nome de um cargo para editar a descrição. Use o botão vermelho que aparece ao passar o rato para eliminar cargos personalizados.
+                    ℹ️ <b>Dica:</b> Clique no nome de um cargo para editar a descrição ou o nome (apenas cargos personalizados).
                 </div>
             </GlassCard>
 
@@ -259,7 +286,7 @@ export const RoleManager: React.FC = () => {
                         <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-indigo-400 hover:text-indigo-800">✕</button>
                         
                         <h3 className="font-bold text-xl text-indigo-900 mb-6">
-                            {isEditing ? `Editar Cargo: ${modalData.name}` : 'Criar Novo Cargo'}
+                            {isEditing ? `Editar Cargo: ${originalName}` : 'Criar Novo Cargo'}
                         </h3>
                         
                         <form onSubmit={handleModalSubmit} className="flex-1 overflow-y-auto custom-scrollbar pr-2">
@@ -271,11 +298,14 @@ export const RoleManager: React.FC = () => {
                                         placeholder="ex: coordenador" 
                                         value={modalData.name}
                                         onChange={(e) => setModalData({...modalData, name: e.target.value})}
-                                        className={`w-full p-2 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none ${isEditing ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
-                                        disabled={isEditing}
+                                        className={`w-full p-2 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none ${isEditing && SYSTEM_ROLES.includes(originalName || '') ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
+                                        disabled={isEditing && SYSTEM_ROLES.includes(originalName || '')}
                                         required
                                     />
-                                    {!isEditing && <p className="text-xs text-indigo-500 mt-1">Será guardado como ID (sem espaços, minúsculas).</p>}
+                                    {isEditing && SYSTEM_ROLES.includes(originalName || '') 
+                                        ? <p className="text-xs text-red-500 mt-1">Cargos de sistema não podem ser renomeados.</p>
+                                        : <p className="text-xs text-indigo-500 mt-1">Será guardado como ID (sem espaços, minúsculas).</p>
+                                    }
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-indigo-900 mb-1">Descrição</label>

@@ -114,6 +114,16 @@ export const adminService = {
         if (error) throw error;
     },
 
+    // NOVO: Migrar utilizadores de um cargo antigo para um novo (após rename)
+    async migrateUsersRole(oldRole: string, newRole: string) {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ role: newRole })
+            .eq('role', oldRole);
+        
+        if (error) throw error;
+    },
+
     async deleteRole(name: string) {
         const SYSTEM_ROLES = ['admin', 'editor', 'formador', 'aluno'];
         if (SYSTEM_ROLES.includes(name)) {
