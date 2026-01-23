@@ -6,6 +6,6 @@
 export const SUPABASE_URL = "https://zeedhuzljsbaoqafpfom.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ZOMCawahrL7OImeWeT6Fug_U_WMN0H1";
 
-export const APP_VERSION = "v2.10.0"; // Feature: Course Builder (Curriculum Management)
-export const SQL_VERSION = "v1.3.0"; // Major: Added Modules & Lessons Tables
+export const APP_VERSION = "v2.10.1"; // Hotfix: SQL Recursion & Visibility
+export const SQL_VERSION = "v1.3.1"; // Hotfix: Security Definer for RLS
 export const APP_NAME = "EduTech PT";
