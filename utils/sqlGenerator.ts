@@ -88,7 +88,7 @@ create table if not exists public.courses (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 3.5 Turmas (Classes) - Atualizado com instructor_id
+-- 3.5 Turmas (Classes)
 create table if not exists public.classes (
   id uuid default gen_random_uuid() primary key,
   course_id uuid references public.courses(id) on delete cascade,
@@ -96,6 +96,14 @@ create table if not exists public.classes (
   instructor_id uuid references public.profiles(id), -- Formador Alocado
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
+
+-- GARANTIA ESTRUTURAL: Se a tabela classes já existia sem instructor_id, adiciona agora
+do $$
+begin
+    if not exists (select 1 from information_schema.columns where table_name = 'classes' and column_name = 'instructor_id') then
+        alter table public.classes add column instructor_id uuid references public.profiles(id);
+    end if;
+end $$;
 
 -- 3.6 Inscrições (Enrollments)
 create table if not exists public.enrollments (
