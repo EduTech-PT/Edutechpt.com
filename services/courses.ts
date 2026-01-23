@@ -63,7 +63,14 @@ export const courseService = {
     // --- CLASSES (TURMAS) METHODS ---
 
     async getClasses(courseId?: string) {
-        let query = supabase.from('classes').select('*').order('name', { ascending: true });
+        // Agora faz join com instructor (profiles) para obter o nome
+        let query = supabase
+            .from('classes')
+            .select(`
+                *,
+                instructor:profiles!instructor_id ( id, full_name, email, avatar_url )
+            `)
+            .order('name', { ascending: true });
         
         if (courseId) {
             query = query.eq('course_id', courseId);
@@ -89,6 +96,15 @@ export const courseService = {
             .from('classes')
             .update({ name })
             .eq('id', id);
+        if (error) throw error;
+    },
+
+    // Novo Método: Alocar Formador
+    async updateClassInstructor(classId: string, instructorId: string | null) {
+        const { error } = await supabase
+            .from('classes')
+            .update({ instructor_id: instructorId })
+            .eq('id', classId);
         if (error) throw error;
     },
 

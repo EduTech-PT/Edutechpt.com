@@ -242,7 +242,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           // Mapeamento correto das Views de Cursos
           case 'courses': return <StudentCourses profile={profile} />; // Visão do Aluno
           case 'manage_courses': return <CourseManager profile={profile} />; // Visão do Formador/Admin
-          case 'manage_classes': return <ClassManager />; // NOVO: Gestão de Turmas
+          case 'manage_classes': return <ClassManager />; // Gestão de Turmas
 
           case 'media': return <MediaManager />;
           case 'drive': return <DriveManager profile={profile} />;
@@ -253,6 +253,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           case 'settings_drive': return <Settings dbVersion={dbVersion} initialTab="drive" />;
           case 'settings_avatars': return <Settings dbVersion={dbVersion} initialTab="avatars" />;
           case 'settings_access': return <Settings dbVersion={dbVersion} initialTab="access" />;
+          case 'settings_allocation': return <Settings dbVersion={dbVersion} initialTab="allocation" />; // NOVA ROTA
           case 'settings': return <Settings dbVersion={dbVersion} initialTab="geral" />;
           default: return <GlassCard><h2>Em Construção: {currentView}</h2></GlassCard>;
       }

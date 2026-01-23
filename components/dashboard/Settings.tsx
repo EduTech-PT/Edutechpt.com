@@ -7,15 +7,16 @@ import { adminService } from '../../services/admin';
 import { RichTextEditor } from '../RichTextEditor';
 import { GAS_TEMPLATE_CODE, GAS_VERSION, driveService } from '../../services/drive';
 import { RoleManager } from './RoleManager';
+import { ClassAllocation } from './ClassAllocation';
 import { storageService } from '../../services/storage';
 
 interface Props {
   dbVersion: string;
-  initialTab?: 'geral' | 'sql' | 'drive' | 'avatars' | 'access' | 'roles';
+  initialTab?: 'geral' | 'sql' | 'drive' | 'avatars' | 'access' | 'roles' | 'allocation';
 }
 
 export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) => {
-    const [tab, setTab] = useState<'geral' | 'sql' | 'drive' | 'avatars' | 'access' | 'roles'>(initialTab);
+    const [tab, setTab] = useState<'geral' | 'sql' | 'drive' | 'avatars' | 'access' | 'roles' | 'allocation'>(initialTab);
     const [sqlScript, setSqlScript] = useState('');
     const [config, setConfig] = useState<any>({});
     const [copyFeedback, setCopyFeedback] = useState('');
@@ -417,6 +418,10 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
 
             {tab === 'roles' && (
                 <RoleManager />
+            )}
+
+            {tab === 'allocation' && (
+                <ClassAllocation />
             )}
 
             {tab === 'access' && (

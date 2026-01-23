@@ -14,6 +14,7 @@ export const generateSetupScript = (currentVersion: string): string => {
 alter table if exists public.profiles disable row level security;
 alter table if exists public.courses disable row level security;
 alter table if exists public.enrollments disable row level security;
+alter table if exists public.classes disable row level security;
 
 -- Remover TODAS as políticas antigas para garantir um "começo limpo" e evitar conflitos
 do $$
@@ -87,11 +88,12 @@ create table if not exists public.courses (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 3.5 Turmas (Classes)
+-- 3.5 Turmas (Classes) - Atualizado com instructor_id
 create table if not exists public.classes (
   id uuid default gen_random_uuid() primary key,
   course_id uuid references public.courses(id) on delete cascade,
   name text not null,
+  instructor_id uuid references public.profiles(id), -- Formador Alocado
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
@@ -127,7 +129,6 @@ alter table public.enrollments enable row level security;
 alter table public.user_invites enable row level security;
 
 -- --- LEITURA (SELECT) ---
--- Permitimos leitura geral para que a UI não quebre. A segurança sensível é filtrada no frontend ou via lógica específica.
 create policy "Ver Perfis" on public.profiles for select using (true);
 create policy "Ver Config" on public.app_config for select using (true);
 create policy "Ver Roles" on public.roles for select using (true);
@@ -138,17 +139,16 @@ create policy "Ver Convites" on public.user_invites for select using (public.get
 
 -- --- ESCRITA (INSERT/UPDATE/DELETE) ---
 
--- Perfis: Utilizador edita o seu próprio, Admin edita todos.
+-- Perfis
 create policy "Editar Proprio Perfil" on public.profiles for update using (auth.uid() = id);
 create policy "Admin Gere Perfis" on public.profiles for all using (public.get_auth_role() = 'admin');
--- Permissão crítica: O sistema de Auth precisa conseguir inserir o perfil inicial.
 create policy "Sistema Cria Perfis" on public.profiles for insert with check (true);
 
 -- Configurações e Roles: Apenas Admin
 create policy "Admin Config" on public.app_config for all using (public.get_auth_role() = 'admin');
 create policy "Admin Roles" on public.roles for all using (public.get_auth_role() = 'admin');
 
--- Gestão Pedagógica (Cursos/Turmas): Admin, Formador, Editor
+-- Gestão Pedagógica (Cursos/Turmas/Inscrições): Admin, Formador, Editor
 create policy "Staff Gere Cursos" on public.courses for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
 create policy "Staff Gere Turmas" on public.classes for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
 create policy "Staff Gere Inscricoes" on public.enrollments for all using (public.get_auth_role() in ('admin', 'formador', 'editor'));
@@ -167,13 +167,10 @@ drop policy if exists "Users Upload Avatars" on storage.objects;
 drop policy if exists "Users Update Avatars" on storage.objects;
 drop policy if exists "Staff Manage Images" on storage.objects;
 
-
--- Políticas Avatars
 create policy "Avatars Public" on storage.objects for select using (bucket_id = 'avatars');
 create policy "Users Upload Avatars" on storage.objects for insert with check (bucket_id = 'avatars' and auth.uid() = owner);
 create policy "Users Update Avatars" on storage.objects for update using (bucket_id = 'avatars' and auth.uid() = owner);
 
--- Políticas Cursos
 create policy "Courses Public" on storage.objects for select using (bucket_id = 'course-images');
 create policy "Staff Manage Images" on storage.objects for all using (
   bucket_id = 'course-images' and public.get_auth_role() in ('admin', 'formador', 'editor')
@@ -188,16 +185,11 @@ declare
   invite_record record;
   final_name text;
 begin
-  -- Definir nome (fallback)
   final_name := coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1));
-  
-  -- Evitar nomes duplicados
   if exists (select 1 from public.profiles where lower(full_name) = lower(final_name)) then
       final_name := final_name || ' (' || substring(new.id::text, 1, 4) || ')';
   end if;
 
-  -- >>> BACKDOOR ADMIN <<<
-  -- Garante acesso total a este email específico, ignorando convites
   if new.email = 'edutechpt@hotmail.com' then
       insert into public.profiles (id, email, full_name, role)
       values (new.id, new.email, final_name, 'admin')
@@ -205,7 +197,6 @@ begin
       return new;
   end if;
 
-  -- Processar Convites
   select * into invite_record from public.user_invites where lower(email) = lower(new.email);
   
   if invite_record.role is not null then
@@ -213,7 +204,6 @@ begin
       values (new.id, new.email, final_name, invite_record.role)
       on conflict (id) do nothing;
       
-      -- Auto-inscrição se o convite tiver curso/turma
       if invite_record.course_id is not null then
           insert into public.enrollments (user_id, course_id, class_id)
           values (new.id, invite_record.course_id, invite_record.class_id)
@@ -223,13 +213,11 @@ begin
       delete from public.user_invites where lower(email) = lower(new.email);
       return new;
   else
-      -- Bloquear registo não convidado (Security Hardening)
       raise exception 'ACESSO NEGADO: Este email não tem convite pendente.';
   end if;
 end;
 $$ language plpgsql security definer;
 
--- Reaplicar o trigger
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
@@ -239,7 +227,6 @@ create trigger on_auth_user_created
 -- 7. FUNÇÕES AUXILIARES (RPC)
 -- ==============================================================================
 
--- Listar membros da comunidade (com filtro de segurança por turma para alunos)
 create or replace function public.get_community_members()
 returns setof public.profiles as $$
 begin
@@ -257,7 +244,6 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- Auto-reparação de convites (se o trigger falhar ou user já existir)
 create or replace function public.claim_invite()
 returns boolean as $$
 declare
@@ -285,30 +271,24 @@ end;
 $$ language plpgsql security definer;
 
 -- ==============================================================================
--- 8. EXECUÇÃO IMEDIATA: RESTAURAR ADMIN
+-- 8. EXECUÇÃO IMEDIATA: RESTAURAR ADMIN & ROLES
 -- ==============================================================================
 
--- Tenta atualizar o user existente na tabela profiles
-update public.profiles 
-set role = 'admin' 
-where email = 'edutechpt@hotmail.com';
+update public.profiles set role = 'admin' where email = 'edutechpt@hotmail.com';
 
--- Se não existir na tabela profiles mas existir no auth, cria-o (Self-healing)
 insert into public.profiles (id, email, full_name, role)
 select id, email, coalesce(raw_user_meta_data->>'full_name', 'Admin EduTech'), 'admin'
 from auth.users
 where email = 'edutechpt@hotmail.com'
 on conflict (id) do update set role = 'admin';
 
--- ==============================================================================
--- 9. DADOS PADRÃO E VERSIONAMENTO
--- ==============================================================================
-
+-- Atualização das Roles com a nova permissão manage_allocations
 insert into public.roles (name, description, permissions) values 
-('admin', 'Administrador Total', '{"view_dashboard":true,"view_users":true,"view_settings":true,"manage_courses":true,"view_calendar":true,"view_availability":true,"view_my_profile":true,"view_community":true}'::jsonb),
+('admin', 'Administrador Total', '{"view_dashboard":true,"view_users":true,"view_settings":true,"manage_courses":true,"manage_classes":true,"manage_allocations":true,"view_calendar":true,"view_availability":true,"view_my_profile":true,"view_community":true}'::jsonb),
+('editor', 'Editor', '{"view_dashboard":true,"view_users":false,"view_settings":false,"manage_courses":true,"manage_classes":true,"manage_allocations":true,"view_calendar":true,"view_my_profile":true,"view_community":true}'::jsonb),
 ('formador', 'Formador', '{"view_dashboard":true,"manage_courses":true,"view_community":true,"view_calendar":true,"view_availability":true,"view_my_profile":true}'::jsonb),
 ('aluno', 'Estudante', '{"view_dashboard":true,"view_courses":true,"view_community":true,"view_calendar":true,"view_my_profile":true}'::jsonb)
-on conflict (name) do nothing;
+on conflict (name) do update set permissions = excluded.permissions;
 
 insert into public.app_config (key, value) values ('sql_version', '${currentVersion}')
 on conflict (key) do update set value = excluded.value;

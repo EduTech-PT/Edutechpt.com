@@ -44,7 +44,8 @@ export interface UserPermissions {
   view_community?: boolean;
   view_courses?: boolean; // Aluno: Ver meus cursos
   manage_courses?: boolean; // Formador/Admin: Gerir cursos
-  manage_classes?: boolean; // NOVO: Gerir Turmas
+  manage_classes?: boolean; // Gerir Turmas (Criar/Apagar)
+  manage_allocations?: boolean; // NOVO: Alocar Formadores a Turmas
   view_users?: boolean;
   view_settings?: boolean;
   view_calendar?: boolean; // Agenda Google
@@ -68,6 +69,8 @@ export interface Class {
   course_id: string;
   name: string;
   created_at: string;
+  instructor_id?: string; // NOVO: Formador responsável pela turma específica
+  instructor?: Profile; // Join opcional
 }
 
 export interface Enrollment {
