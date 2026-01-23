@@ -184,3 +184,19 @@ export interface OnlineUser {
   avatar_url?: string;
   online_at: string;
 }
+
+// Estatísticas Dashboard
+export interface DashboardStats {
+    users: {
+        active: number;
+        total_history: number;
+    };
+    trainers: {
+        active: number;
+        total_history: number;
+    };
+    courses: {
+        active: number;
+        total_history: number;
+    };
+}

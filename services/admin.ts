@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabaseClient';
-import { UserInvite, RoleDefinition, UserPermissions, AccessLog } from '../types';
+import { UserInvite, RoleDefinition, UserPermissions, AccessLog, DashboardStats } from '../types';
 
 export const adminService = {
     async getInvites() {
@@ -213,5 +213,42 @@ export const adminService = {
     async updateAppConfig(key: string, value: string) {
         const { error } = await supabase.from('app_config').upsert([{ key, value }]);
         if (error) throw error;
+    },
+
+    // --- DASHBOARD STATS ---
+    async getDashboardStats(): Promise<DashboardStats> {
+        // 1. Contagens Ativas (Tempo Real)
+        const activeUsersCount = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+        const activeTrainersCount = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'formador');
+        const activeCoursesCount = await supabase.from('courses').select('*', { count: 'exact', head: true });
+
+        // 2. Contagens Históricas (Config)
+        const { data: configStats } = await supabase.from('app_config')
+            .select('*')
+            .in('key', ['stat_total_users', 'stat_total_trainers', 'stat_total_courses']);
+
+        const stats: DashboardStats = {
+            users: { active: 0, total_history: 0 },
+            trainers: { active: 0, total_history: 0 },
+            courses: { active: 0, total_history: 0 }
+        };
+
+        if (activeUsersCount.count !== null) stats.users.active = activeUsersCount.count;
+        if (activeTrainersCount.count !== null) stats.trainers.active = activeTrainersCount.count;
+        if (activeCoursesCount.count !== null) stats.courses.active = activeCoursesCount.count;
+
+        // Parse Histórico
+        configStats?.forEach(item => {
+            if (item.key === 'stat_total_users') stats.users.total_history = parseInt(item.value);
+            if (item.key === 'stat_total_trainers') stats.trainers.total_history = parseInt(item.value);
+            if (item.key === 'stat_total_courses') stats.courses.total_history = parseInt(item.value);
+        });
+
+        // Fallback para consistência (Histórico nunca pode ser menor que ativo)
+        if (stats.users.total_history < stats.users.active) stats.users.total_history = stats.users.active;
+        if (stats.trainers.total_history < stats.trainers.active) stats.trainers.total_history = stats.trainers.active;
+        if (stats.courses.total_history < stats.courses.active) stats.courses.total_history = stats.courses.active;
+
+        return stats;
     }
 };

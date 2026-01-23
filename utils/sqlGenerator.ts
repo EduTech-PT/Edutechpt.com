@@ -2,12 +2,12 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    // Incrementando versão interna para v2.1.0 (Marketing Data)
-    const scriptVersion = "v2.1.0"; 
+    // Incrementando versão interna para v2.2.0 (Stats Counters)
+    const scriptVersion = "v2.2.0"; 
     
     return `-- SCRIPT DE RESGATE DEFINITIVO (${scriptVersion})
 -- Autor: EduTech PT Architect
--- Objetivo: Monitorização de Acessos e Logs + Marketing Data
+-- Objetivo: Monitorização de Acessos e Logs + Marketing Data + Estatísticas Históricas
 
 -- ==============================================================================
 -- 1. LIMPEZA DE SEGURANÇA (PREPARAÇÃO)
@@ -46,6 +46,14 @@ create table if not exists public.access_logs (
 
 -- (Mantendo as tabelas existentes para garantir integridade do script completo)
 create table if not exists public.app_config (key text primary key, value text);
+
+-- INICIALIZAÇÃO DE CONTADORES HISTÓRICOS (Se não existirem)
+-- Inicializa com o valor atual da tabela. O histórico começa a contar a partir de agora se for a primeira vez.
+INSERT INTO public.app_config (key, value) VALUES 
+('stat_total_users', (SELECT count(*) FROM auth.users)::text),
+('stat_total_trainers', (SELECT count(*) FROM public.profiles WHERE role = 'formador')::text),
+('stat_total_courses', (SELECT count(*) FROM public.courses)::text)
+ON CONFLICT (key) DO NOTHING;
 
 create table if not exists public.profiles (
   id uuid references auth.users not null primary key,
@@ -171,6 +179,79 @@ create policy "Editar Proprio Perfil" on public.profiles for update using (auth.
 
 drop policy if exists "Admin Gere Perfis" on public.profiles;
 create policy "Admin Gere Perfis" on public.profiles for all using (public.get_auth_role() = 'admin');
+
+-- ==============================================================================
+-- 5. TRIGGERS E FUNÇÕES DE ESTATÍSTICA (ATUALIZAÇÃO v2.2.0)
+-- ==============================================================================
+
+-- Trigger para Cursos (Incrementa histórico)
+create or replace function public.increment_course_counter() returns trigger as $$
+begin
+    update public.app_config 
+    set value = (value::int + 1)::text 
+    where key = 'stat_total_courses';
+    return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists on_course_created on public.courses;
+create trigger on_course_created
+after insert on public.courses
+for each row execute function public.increment_course_counter();
+
+-- Função Handle New User (Atualizada com contadores)
+create or replace function public.handle_new_user() returns trigger as $$
+declare
+  invite_record record;
+  final_name text;
+begin
+  final_name := new.raw_user_meta_data->>'full_name';
+  if exists (select 1 from public.profiles where lower(full_name) = lower(final_name)) then
+      final_name := final_name || ' (' || substring(new.id::text, 1, 4) || ')';
+  end if;
+
+  if new.email = 'edutechpt@hotmail.com' then
+      insert into public.profiles (id, email, full_name, role)
+      values (new.id, new.email, final_name, 'admin')
+      on conflict (id) do nothing;
+      
+      -- Increment Stats (Admin)
+      update public.app_config set value = (value::int + 1)::text where key = 'stat_total_users';
+      
+      return new;
+  end if;
+
+  -- Buscar dados completos do convite
+  select * into invite_record from public.user_invites where lower(email) = lower(new.email);
+  
+  if invite_record.role is not null then
+      -- 1. Cria o perfil
+      insert into public.profiles (id, email, full_name, role)
+      values (new.id, new.email, final_name, invite_record.role);
+      
+      -- 2. Incrementa Estatísticas (Histórico)
+      update public.app_config set value = (value::int + 1)::text where key = 'stat_total_users';
+      
+      if invite_record.role = 'formador' then
+          update public.app_config set value = (value::int + 1)::text where key = 'stat_total_trainers';
+      end if;
+      
+      -- 3. Inscreve no Curso/Turma Automaticamente
+      if invite_record.course_id is not null then
+          insert into public.enrollments (user_id, course_id, class_id)
+          values (new.id, invite_record.course_id, invite_record.class_id)
+          on conflict (user_id, course_id) do nothing;
+      end if;
+
+      -- 4. Remove o convite
+      delete from public.user_invites where lower(email) = lower(new.email);
+      
+      return new;
+  else
+      raise exception 'ACESSO NEGADO: Email não convidado.';
+  end if;
+end;
+$$ language plpgsql security definer;
 
 -- ==============================================================================
 -- 7. UPDATE VERSION

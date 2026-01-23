@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
-import { Profile, Class, Course, UserRole } from '../../types';
+import { Profile, Class, Course, UserRole, DashboardStats } from '../../types';
 import { courseService } from '../../services/courses';
+import { adminService } from '../../services/admin';
 import { formatShortDate } from '../../utils/formatters';
 
 interface Props {
@@ -17,14 +18,20 @@ interface Props {
 export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixDb, onFixGas, isAdmin }) => {
   const [classes, setClasses] = useState<(Class & { course?: Course })[]>([]);
   const [loadingClasses, setLoadingClasses] = useState(true);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
 
   const isStaff = ([UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] as string[]).includes(profile.role);
+  const canViewStats = ([UserRole.ADMIN, UserRole.EDITOR] as string[]).includes(profile.role);
 
   useEffect(() => {
       if (isStaff) {
           loadClasses();
       } else {
           setLoadingClasses(false);
+      }
+
+      if (canViewStats) {
+          loadStats();
       }
   }, [profile]);
 
@@ -45,6 +52,15 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
           console.error("Erro ao carregar turmas na dashboard:", err);
       } finally {
           setLoadingClasses(false);
+      }
+  };
+
+  const loadStats = async () => {
+      try {
+          const data = await adminService.getDashboardStats();
+          setStats(data);
+      } catch (err) {
+          console.error("Erro ao carregar estatísticas:", err);
       }
   };
 
@@ -105,6 +121,61 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
           </div>
           <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-400/20 to-purple-400/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
       </GlassCard>
+
+      {/* STATS SECTION (Admin & Editor Only) */}
+      {canViewStats && stats && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              
+              {/* Users Stats */}
+              <GlassCard className="flex flex-col justify-between border-l-4 border-l-indigo-500">
+                  <div className="flex justify-between items-start mb-2">
+                      <div>
+                          <span className="text-xs font-bold text-indigo-400 uppercase">Utilizadores</span>
+                          <h3 className="text-2xl font-bold text-indigo-900">{stats.users.active}</h3>
+                          <span className="text-xs text-green-600 font-bold">● Ativos na Plataforma</span>
+                      </div>
+                      <span className="text-3xl">👥</span>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-indigo-100 text-xs flex justify-between items-center text-indigo-800">
+                      <span>Total Histórico (incl. eliminados):</span>
+                      <span className="font-bold bg-indigo-100 px-2 py-0.5 rounded">{stats.users.total_history}</span>
+                  </div>
+              </GlassCard>
+
+              {/* Courses Stats */}
+              <GlassCard className="flex flex-col justify-between border-l-4 border-l-purple-500">
+                  <div className="flex justify-between items-start mb-2">
+                      <div>
+                          <span className="text-xs font-bold text-purple-400 uppercase">Cursos</span>
+                          <h3 className="text-2xl font-bold text-purple-900">{stats.courses.active}</h3>
+                          <span className="text-xs text-green-600 font-bold">● Disponíveis / Ativos</span>
+                      </div>
+                      <span className="text-3xl">🎓</span>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-purple-100 text-xs flex justify-between items-center text-purple-800">
+                      <span>Total Criados (Histórico):</span>
+                      <span className="font-bold bg-purple-100 px-2 py-0.5 rounded">{stats.courses.total_history}</span>
+                  </div>
+              </GlassCard>
+
+              {/* Trainers Stats */}
+              <GlassCard className="flex flex-col justify-between border-l-4 border-l-pink-500">
+                  <div className="flex justify-between items-start mb-2">
+                      <div>
+                          <span className="text-xs font-bold text-pink-400 uppercase">Formadores</span>
+                          <h3 className="text-2xl font-bold text-pink-900">{stats.trainers.active}</h3>
+                          <span className="text-xs text-green-600 font-bold">● Equipa Atual</span>
+                      </div>
+                      <span className="text-3xl">👨‍🏫</span>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-pink-100 text-xs flex justify-between items-center text-pink-800">
+                      <span>Total Registados (Histórico):</span>
+                      <span className="font-bold bg-pink-100 px-2 py-0.5 rounded">{stats.trainers.total_history}</span>
+                  </div>
+              </GlassCard>
+
+          </div>
+      )}
 
       {/* DASHBOARD CONTENT */}
       {isStaff ? (
