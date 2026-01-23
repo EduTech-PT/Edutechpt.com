@@ -96,7 +96,7 @@ export interface ClassMaterial {
   class_id: string;
   title: string;
   url: string;
-  type: 'file' | 'link';
+  type: 'file' | 'link' | 'drive'; // ADICIONADO 'drive'
   created_at: string;
 }
 

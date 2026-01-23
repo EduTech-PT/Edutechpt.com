@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
+import { driveService, DriveFile } from '../../services/drive';
 import { Profile, Class, Course, UserRole, ClassMaterial, ClassAnnouncement, ClassAssessment } from '../../types';
 import { formatShortDate, formatTime } from '../../utils/formatters';
 import { RichTextEditor } from '../RichTextEditor';
@@ -30,6 +31,12 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
     
     // Generic form data holder
     const [formData, setFormData] = useState<any>({});
+
+    // Drive Picker State
+    const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
+    const [loadingDrive, setLoadingDrive] = useState(false);
+    const [driveCurrentFolder, setDriveCurrentFolder] = useState<string | null>(null);
+    const [driveFolderStack, setDriveFolderStack] = useState<{id: string, name: string}[]>([]);
 
     const isStaff = ([UserRole.ADMIN, UserRole.TRAINER, UserRole.EDITOR] as string[]).includes(profile.role);
 
@@ -89,6 +96,7 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
     const handleModuleSwitch = (module: ModuleType) => {
         setActiveModule(module);
         setShowForm(false);
+        setFormData({});
         if (module !== 'home') {
             loadModuleData(module);
         }
@@ -108,6 +116,73 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
         } finally {
             setUploading(false);
         }
+    };
+
+    // DRIVE PICKER LOGIC
+    const initializeDrivePicker = async () => {
+        if (loadingDrive) return;
+        setLoadingDrive(true);
+        try {
+            let startFolderId: string | null = null;
+            if (profile.role === UserRole.ADMIN) {
+                const config = await driveService.getConfig();
+                startFolderId = config.driveFolderId;
+            } else {
+                startFolderId = await driveService.getPersonalFolder(profile);
+            }
+            setDriveCurrentFolder(startFolderId);
+            setDriveFolderStack([]);
+            
+            const data = await driveService.listFiles(startFolderId);
+            setDriveFiles(data.files);
+        } catch (err: any) {
+            console.error("Drive Error", err);
+            alert("Erro ao aceder ao Drive: " + err.message);
+        } finally {
+            setLoadingDrive(false);
+        }
+    };
+
+    const handleDriveNavigate = async (folder: DriveFile) => {
+        setLoadingDrive(true);
+        try {
+            setDriveFolderStack([...driveFolderStack, { id: folder.id, name: folder.name }]);
+            setDriveCurrentFolder(folder.id);
+            const data = await driveService.listFiles(folder.id);
+            setDriveFiles(data.files);
+        } catch (e) { console.error(e); }
+        finally { setLoadingDrive(false); }
+    };
+
+    const handleDriveBack = async () => {
+        if (driveFolderStack.length === 0) return;
+        setLoadingDrive(true);
+        try {
+            const newStack = [...driveFolderStack];
+            newStack.pop();
+            setDriveFolderStack(newStack);
+            // Se stack vazia, temos de reinicializar root ou guardar rootId algures.
+            // Simplificação: Recarrega root se vazio, ou parent folder.
+            // Para robustez, se stack vazia, chama initializeDrivePicker.
+            if (newStack.length === 0) {
+                await initializeDrivePicker(); // Reset to root logic
+            } else {
+                const parentId = newStack[newStack.length - 1].id;
+                setDriveCurrentFolder(parentId);
+                const data = await driveService.listFiles(parentId);
+                setDriveFiles(data.files);
+            }
+        } catch (e) { console.error(e); }
+        finally { setLoadingDrive(false); }
+    };
+
+    const handleDriveFileSelect = (file: DriveFile) => {
+        setFormData({
+            ...formData,
+            url: file.url,
+            title: file.name,
+            type: 'drive' // Garante que fica como drive
+        });
     };
 
     const submitMaterial = async (e: React.FormEvent) => {
@@ -249,7 +324,7 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                             >
                                  <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">📤</span>
                                  <h4 className="font-bold text-indigo-900">Partilhar Materiais</h4>
-                                 <p className="text-xs text-indigo-500 mt-1">Enviar ficheiros para esta turma</p>
+                                 <p className="text-xs text-indigo-500 mt-1">Enviar ficheiros ou Drive</p>
                             </button>
 
                             <button 
@@ -293,24 +368,89 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                         </div>
                                         <div className="flex-1">
                                             <label className="block text-xs font-bold text-indigo-900 mb-1">Tipo</label>
-                                            <select value={formData.type || 'file'} onChange={e => setFormData({...formData, type: e.target.value})} className="w-full p-2 rounded bg-white border border-indigo-200">
-                                                <option value="file">Ficheiro (Upload)</option>
+                                            <select 
+                                                value={formData.type || 'file'} 
+                                                onChange={e => {
+                                                    const newType = e.target.value;
+                                                    setFormData({...formData, type: newType});
+                                                    if (newType === 'drive') {
+                                                        initializeDrivePicker();
+                                                    }
+                                                }} 
+                                                className="w-full p-2 rounded bg-white border border-indigo-200"
+                                            >
+                                                <option value="file">Ficheiro (Upload Direto)</option>
                                                 <option value="link">Link Externo</option>
+                                                <option value="drive">Google Drive</option>
                                             </select>
                                         </div>
                                     </div>
                                     
-                                    {formData.type === 'link' ? (
+                                    {formData.type === 'link' && (
                                         <div>
                                             <label className="block text-xs font-bold text-indigo-900 mb-1">URL do Link</label>
                                             <input type="url" required value={formData.url || ''} onChange={e => setFormData({...formData, url: e.target.value})} className="w-full p-2 rounded bg-white border border-indigo-200" placeholder="https://..."/>
                                         </div>
-                                    ) : (
+                                    )}
+
+                                    {formData.type === 'file' && (
                                         <div>
                                             <label className="block text-xs font-bold text-indigo-900 mb-1">Ficheiro</label>
                                             <input type="file" onChange={handleFileUpload} className="block w-full text-sm text-indigo-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200"/>
                                             {uploading && <span className="text-xs text-indigo-500 animate-pulse">A carregar...</span>}
                                             {formData.url && <span className="text-xs text-green-600 font-bold ml-2">Upload Concluído!</span>}
+                                        </div>
+                                    )}
+
+                                    {formData.type === 'drive' && (
+                                        <div className="border border-indigo-200 rounded-lg p-3 bg-white/50">
+                                            <label className="block text-xs font-bold text-indigo-900 mb-2">Selecione do seu Drive</label>
+                                            
+                                            {loadingDrive ? (
+                                                <div className="text-center py-4 text-indigo-500">
+                                                    <div className="animate-spin h-5 w-5 border-2 border-indigo-600 border-t-transparent rounded-full mx-auto mb-1"></div>
+                                                    A carregar Drive...
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {/* Drive Breadcrumbs */}
+                                                    <div className="flex items-center gap-1 text-xs text-indigo-600 mb-2 font-bold">
+                                                        {driveFolderStack.length > 0 && (
+                                                            <button type="button" onClick={handleDriveBack} className="hover:underline mr-2">⬅ Voltar</button>
+                                                        )}
+                                                        <span>{profile.role === UserRole.ADMIN ? 'Raiz' : 'Pasta Pessoal'}</span>
+                                                        {driveFolderStack.map(f => (
+                                                            <span key={f.id}> / {f.name}</span>
+                                                        ))}
+                                                    </div>
+
+                                                    {/* Drive File List */}
+                                                    <div className="max-h-40 overflow-y-auto custom-scrollbar border border-gray-200 rounded bg-white">
+                                                        {driveFiles.length === 0 && <div className="p-3 text-xs text-gray-400 text-center">Pasta vazia.</div>}
+                                                        {driveFiles.map(file => {
+                                                            const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
+                                                            const isSelected = formData.url === file.url;
+                                                            return (
+                                                                <div 
+                                                                    key={file.id}
+                                                                    onClick={() => isFolder ? handleDriveNavigate(file) : handleDriveFileSelect(file)}
+                                                                    className={`flex items-center gap-2 p-2 cursor-pointer text-xs hover:bg-indigo-50 ${isSelected ? 'bg-indigo-100 font-bold text-indigo-900' : 'text-gray-700'}`}
+                                                                >
+                                                                    <span>{isFolder ? '📁' : (file.mimeType.includes('pdf') ? '📕' : '📄')}</span>
+                                                                    <span className="truncate flex-1">{file.name}</span>
+                                                                    {!isFolder && isSelected && <span>✅</span>}
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                    
+                                                    {formData.url && (
+                                                        <div className="text-xs text-green-600 font-bold mt-1">
+                                                            Selecionado: {formData.title}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
@@ -327,10 +467,15 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                     {materials.map(m => (
                                         <div key={m.id} className="flex items-center justify-between p-3 bg-white/50 border border-indigo-100 rounded-lg hover:shadow-sm">
                                             <div className="flex items-center gap-3">
-                                                <span className="text-2xl">{m.type === 'file' ? '📄' : '🔗'}</span>
+                                                <span className="text-2xl">
+                                                    {m.type === 'drive' ? '☁️' : (m.type === 'file' ? '📄' : '🔗')}
+                                                </span>
                                                 <div>
                                                     <a href={m.url} target="_blank" rel="noreferrer" className="font-bold text-indigo-900 hover:underline">{m.title}</a>
-                                                    <p className="text-xs text-indigo-500">{formatShortDate(m.created_at)}</p>
+                                                    <div className="flex gap-2 text-xs text-indigo-500">
+                                                        <span>{formatShortDate(m.created_at)}</span>
+                                                        {m.type === 'drive' && <span className="bg-blue-100 text-blue-700 px-1 rounded text-[9px] font-bold">DRIVE</span>}
+                                                    </div>
                                                 </div>
                                             </div>
                                             {isStaff && (
