@@ -4,6 +4,7 @@ import { GlassCard } from '../GlassCard';
 import { adminService } from '../../services/admin';
 import { AccessLog, OnlineUser } from '../../types';
 import { formatShortDate, formatTime } from '../../utils/formatters';
+import { supabase } from '../../lib/supabaseClient';
 
 interface Props {
     onlineUsers: OnlineUser[]; // Recebido do Dashboard (Supabase Presence)
@@ -12,6 +13,7 @@ interface Props {
 export const AccessLogs: React.FC<Props> = ({ onlineUsers }) => {
     const [logs, setLogs] = useState<AccessLog[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedLogIds, setSelectedLogIds] = useState<string[]>([]);
 
     useEffect(() => {
         loadLogs();
@@ -22,11 +24,42 @@ export const AccessLogs: React.FC<Props> = ({ onlineUsers }) => {
         try {
             const data = await adminService.getAccessLogs(150); // Últimos 150 registos
             setLogs(data);
+            setSelectedLogIds([]); // Reset selection
         } catch (err) {
             console.error(err);
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleDeleteLogs = async () => {
+        if (selectedLogIds.length === 0) return;
+        if (!window.confirm(`Tem a certeza que deseja eliminar ${selectedLogIds.length} registos?`)) return;
+
+        try {
+            await adminService.deleteAccessLogs(selectedLogIds);
+            loadLogs();
+        } catch (err: any) {
+            alert("Erro ao eliminar: " + err.message);
+        }
+    };
+
+    const handleForceLogout = async (userId: string, userName: string) => {
+        if (!window.confirm(`ATENÇÃO: Deseja forçar o logout de "${userName}"?\nO utilizador será desconectado imediatamente.`)) return;
+
+        // Enviar sinal via Broadcast (Realtime)
+        const channel = supabase.channel('online-users');
+        await channel.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                await channel.send({
+                    type: 'broadcast',
+                    event: 'force_logout',
+                    payload: { userId: userId },
+                });
+                alert("Sinal de logout enviado.");
+                // Opcional: supabase.removeChannel(channel);
+            }
+        });
     };
 
     return (
@@ -68,9 +101,15 @@ export const AccessLogs: React.FC<Props> = ({ onlineUsers }) => {
                                     <p className="font-bold text-indigo-900 text-xs truncate" title={user.full_name}>{user.full_name}</p>
                                     <span className="text-[10px] uppercase font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">{user.role}</span>
                                 </div>
-                                <div className="absolute inset-0 bg-black/80 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs p-2 pointer-events-none">
+                                <div className="absolute inset-0 bg-black/80 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs p-2">
                                     <p>{user.email}</p>
-                                    <p className="mt-1 opacity-70">Entrou às {formatTime(user.online_at)}</p>
+                                    <p className="mt-1 opacity-70 text-[10px] mb-2">Entrou às {formatTime(user.online_at)}</p>
+                                    <button 
+                                        onClick={() => handleForceLogout(user.user_id, user.full_name)}
+                                        className="bg-red-600 text-white px-3 py-1 rounded-full text-[10px] font-bold hover:bg-red-700 shadow-md border border-red-500"
+                                    >
+                                        Forçar Logout
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -81,7 +120,17 @@ export const AccessLogs: React.FC<Props> = ({ onlineUsers }) => {
             {/* LOGS HISTORY TABLE */}
             <GlassCard>
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-indigo-900">Histórico de Sessões</h3>
+                    <div className="flex items-center gap-3">
+                        <h3 className="font-bold text-indigo-900">Histórico de Sessões</h3>
+                        {selectedLogIds.length > 0 && (
+                            <button 
+                                onClick={handleDeleteLogs} 
+                                className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded-lg font-bold hover:bg-red-200 transition-colors flex items-center gap-1 animate-in fade-in"
+                            >
+                                <span>🗑️</span> Eliminar ({selectedLogIds.length})
+                            </button>
+                        )}
+                    </div>
                     <button onClick={loadLogs} className="p-2 hover:bg-indigo-50 rounded-full text-indigo-600" title="Atualizar">🔄</button>
                 </div>
 
@@ -89,6 +138,14 @@ export const AccessLogs: React.FC<Props> = ({ onlineUsers }) => {
                     <table className="w-full text-sm text-left">
                         <thead className="text-indigo-500 font-medium sticky top-0 bg-white/80 backdrop-blur-md z-10 shadow-sm">
                             <tr>
+                                <th className="pb-3 pl-2 w-10 text-center">
+                                    <input 
+                                        type="checkbox" 
+                                        onChange={(e) => setSelectedLogIds(e.target.checked ? logs.map(l => l.id) : [])}
+                                        checked={logs.length > 0 && selectedLogIds.length === logs.length}
+                                        className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                    />
+                                </th>
                                 <th className="pb-3 pl-2">Utilizador</th>
                                 <th className="pb-3 text-center">Evento</th>
                                 <th className="pb-3 text-right pr-2">Data / Hora</th>
@@ -96,12 +153,20 @@ export const AccessLogs: React.FC<Props> = ({ onlineUsers }) => {
                         </thead>
                         <tbody className="text-indigo-900">
                             {loading ? (
-                                <tr><td colSpan={3} className="text-center py-8">A carregar registos...</td></tr>
+                                <tr><td colSpan={4} className="text-center py-8">A carregar registos...</td></tr>
                             ) : logs.length === 0 ? (
-                                <tr><td colSpan={3} className="text-center py-8 text-gray-400">Sem registos recentes.</td></tr>
+                                <tr><td colSpan={4} className="text-center py-8 text-gray-400">Sem registos recentes.</td></tr>
                             ) : (
                                 logs.map(log => (
                                     <tr key={log.id} className="border-b border-indigo-50 hover:bg-indigo-50/30 transition-colors">
+                                        <td className="py-3 pl-2 text-center">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={selectedLogIds.includes(log.id)}
+                                                onChange={(e) => setSelectedLogIds(prev => e.target.checked ? [...prev, log.id] : prev.filter(id => id !== log.id))}
+                                                className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                            />
+                                        </td>
                                         <td className="py-3 pl-2">
                                             <div className="font-bold">{log.user?.full_name || 'Desconhecido'}</div>
                                             <div className="text-xs text-indigo-500 opacity-80">{log.user?.email}</div>

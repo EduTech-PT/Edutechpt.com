@@ -196,6 +196,16 @@ export const adminService = {
         return data as AccessLog[];
     },
 
+    // NOVO: Eliminar Logs (Apenas Admin)
+    async deleteAccessLogs(ids: string[]) {
+        const { error } = await supabase
+            .from('access_logs')
+            .delete()
+            .in('id', ids);
+        
+        if (error) throw error;
+    },
+
     // --- CONFIG ---
 
     async getAppConfig() {

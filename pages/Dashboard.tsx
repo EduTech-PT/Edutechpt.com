@@ -76,19 +76,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [session]);
 
-  // Hook para detetar fecho do browser/aba e registar logout
-  useEffect(() => {
-      const handleUnload = () => {
-          if (session.access_token && profile?.id) {
-              // Tenta registar o log de saída de forma síncrona/keepalive
-              adminService.logAccessExit(profile.id, session.access_token);
-          }
-      };
-      
-      window.addEventListener('beforeunload', handleUnload);
-      return () => window.removeEventListener('beforeunload', handleUnload);
-  }, [session, profile]);
-
   const init = async () => {
       try {
           if (!session.user) return;
@@ -118,7 +105,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                   sessionStorage.setItem('session_logged', 'true');
               }
 
-              // INICIAR PRESENÇA REALTIME
+              // INICIAR PRESENÇA REALTIME E ESCUTA DE EVENTOS (FORCE LOGOUT)
               initPresence(userProfile);
 
               // Carregar permissões
@@ -172,6 +159,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const initPresence = (userProfile: Profile) => {
       const channel = supabase.channel('online-users');
       
+      // 1. Monitorizar Quem está Online (Presence)
       channel
         .on('presence', { event: 'sync' }, () => {
             const newState = channel.presenceState();
@@ -184,6 +172,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 }
             }
             setOnlineUsers(users);
+        })
+        // 2. Escutar Comandos de Admin (Force Logout)
+        .on('broadcast', { event: 'force_logout' }, (payload) => {
+            // Se o ID recebido no evento for o meu ID, faço logout
+            if (payload.payload?.userId === userProfile.id) {
+                alert("A sua sessão foi terminada pelo Administrador.");
+                handleLogoutAction(); // Usa a função que limpa e sai
+            }
         })
         .subscribe(async (status) => {
             if (status === 'SUBSCRIBED') {
