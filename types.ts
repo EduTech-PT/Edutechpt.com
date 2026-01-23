@@ -47,6 +47,7 @@ export interface UserPermissions {
   manage_classes?: boolean; // Gerir Turmas (Criar/Apagar)
   manage_allocations?: boolean; // NOVO: Alocar Formadores a Turmas
   view_didactic_portal?: boolean; // NOVO: Acesso ao Portal Didático
+  view_drive?: boolean; // NOVO: Acesso aos Arquivos Drive
   view_users?: boolean;
   view_settings?: boolean;
   view_calendar?: boolean; // Agenda Google

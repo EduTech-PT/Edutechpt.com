@@ -91,12 +91,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       icon: '🎓',
       items: [
         { id: 'courses', label: 'Meus Cursos', permissionKey: 'view_courses', fallbackRoles: [UserRole.STUDENT] },
-        { id: 'didactic_portal', label: 'Gestor de Recursos', permissionKey: 'view_didactic_portal', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] }, // Renomeado
+        { id: 'didactic_portal', label: 'Gestor de Recursos', permissionKey: 'view_didactic_portal', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
         { id: 'manage_courses', label: 'Gestão de Cursos', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
         { id: 'manage_classes', label: 'Gestão de Turmas', permissionKey: 'manage_classes', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] }, 
         // Itens movidos de Material Didático para aqui
         { id: 'media', label: 'Galeria', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
-        { id: 'drive', label: 'Arquivos Drive', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
+        { id: 'drive', label: 'Arquivos Drive', permissionKey: 'view_drive', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
       ]
     },
     {

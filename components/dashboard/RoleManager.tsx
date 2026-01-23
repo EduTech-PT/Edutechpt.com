@@ -12,7 +12,9 @@ const PERMISSIONS_CONFIG = [
     { key: 'view_courses', label: 'Aceder Cursos', desc: 'Ver área de formação' },
     { key: 'manage_courses', label: 'Gerir Cursos', desc: 'Criar/Editar/Apagar Cursos e Materiais' },
     { key: 'manage_classes', label: 'Gerir Turmas', desc: 'Criar e editar Turmas associadas a Cursos' },
-    { key: 'manage_allocations', label: 'Alocar Formadores', desc: 'Atribuir Formadores a Turmas Específicas' }, // NOVO
+    { key: 'manage_allocations', label: 'Alocar Formadores', desc: 'Atribuir Formadores a Turmas Específicas' },
+    { key: 'view_didactic_portal', label: 'Gestor de Recursos', desc: 'Acesso à gestão de materiais da turma' },
+    { key: 'view_drive', label: 'Aceder Arquivos Drive', desc: 'Ver pasta pessoal (Formadores) ou Raiz (Admin)' }, // NOVO
     { key: 'view_users', label: 'Gerir Utilizadores', desc: 'Aceder menu de Utilizadores' },
     { key: 'view_settings', label: 'Aceder Definições', desc: 'Acesso total à configuração' },
     { key: 'view_calendar', label: 'Ver Agenda Google', desc: 'Aceder ao Calendário' },
