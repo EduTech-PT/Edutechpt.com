@@ -105,18 +105,26 @@ export const courseService = {
         return data as (Class & { course: Course })[];
     },
 
-    // NOVO: Buscar TODAS as turmas com detalhes do curso (Para Admin)
+    // NOVO: Buscar TODAS as turmas com detalhes do curso E instrutores (Para Admin Dashboard)
     async getAllClassesWithDetails() {
         const { data, error } = await supabase
             .from('classes')
             .select(`
                 *,
-                course:courses(*)
+                course:courses(*),
+                instructors:class_instructors(
+                    profile:profiles(*)
+                )
             `)
             .order('name');
 
         if (error) throw error;
-        return data as (Class & { course: Course })[];
+        
+        // Mapear para incluir a lista limpa de instructors
+        return data.map((item: any) => ({
+            ...item,
+            instructors: item.instructors?.map((i: any) => i.profile) || []
+        })) as (Class & { course: Course })[];
     },
 
     async createClass(courseId: string, name: string) {

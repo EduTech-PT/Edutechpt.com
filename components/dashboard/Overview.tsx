@@ -1,7 +1,9 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
-import { Profile } from '../../types';
+import { Profile, Class, Course, UserRole } from '../../types';
+import { courseService } from '../../services/courses';
+import { formatShortDate } from '../../utils/formatters';
 
 interface Props {
   profile: Profile;
@@ -13,6 +15,39 @@ interface Props {
 }
 
 export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixDb, onFixGas, isAdmin }) => {
+  const [classes, setClasses] = useState<(Class & { course?: Course })[]>([]);
+  const [loadingClasses, setLoadingClasses] = useState(true);
+
+  const isStaff = ([UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] as string[]).includes(profile.role);
+
+  useEffect(() => {
+      if (isStaff) {
+          loadClasses();
+      } else {
+          setLoadingClasses(false);
+      }
+  }, [profile]);
+
+  const loadClasses = async () => {
+      try {
+          let data;
+          // Admin e Editor veem TUDO
+          if (([UserRole.ADMIN, UserRole.EDITOR] as string[]).includes(profile.role)) {
+              data = await courseService.getAllClassesWithDetails();
+          } 
+          // Formador vê apenas as SUAS turmas
+          else if (profile.role === UserRole.TRAINER) {
+              data = await courseService.getTrainerClasses(profile.id);
+          }
+          
+          setClasses(data || []);
+      } catch (err) {
+          console.error("Erro ao carregar turmas na dashboard:", err);
+      } finally {
+          setLoadingClasses(false);
+      }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       
@@ -54,14 +89,91 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
           </div>
       )}
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <GlassCard className="col-span-full">
-              <h2 className="text-2xl font-bold text-indigo-900">Olá, {profile.full_name || profile.email}</h2>
-              <p className="text-indigo-700">Painel de Controlo - {profile.role.toUpperCase()}</p>
+      {/* Header Card */}
+      <GlassCard className="relative overflow-hidden">
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                  <h2 className="text-2xl font-bold text-indigo-900">Olá, {profile.full_name || profile.email?.split('@')[0]}</h2>
+                  <p className="text-indigo-700">
+                      Bem-vindo ao teu Painel de Controlo • <span className="font-bold uppercase bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-xs">{profile.role}</span>
+                  </p>
+              </div>
+              <div className="text-right hidden md:block">
+                  <p className="text-xs text-indigo-500 font-bold uppercase">Acesso</p>
+                  <p className="text-indigo-900 font-mono">{new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+              </div>
+          </div>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-400/20 to-purple-400/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+      </GlassCard>
+
+      {/* DASHBOARD CONTENT */}
+      {isStaff ? (
+          <div className="grid grid-cols-1 gap-6">
+              <GlassCard>
+                  <div className="flex items-center justify-between mb-4 border-b border-indigo-100 pb-2">
+                      <h3 className="font-bold text-lg text-indigo-900 flex items-center gap-2">
+                          <span>🏫</span> 
+                          {isAdmin || profile.role === 'editor' ? 'Todas as Turmas (Visão Global)' : 'As Minhas Turmas'}
+                      </h3>
+                      <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-bold">
+                          {classes.length} Ativas
+                      </span>
+                  </div>
+
+                  {loadingClasses ? (
+                      <div className="py-8 text-center text-indigo-400 animate-pulse">A carregar turmas...</div>
+                  ) : classes.length === 0 ? (
+                      <div className="text-center py-10 opacity-60">
+                          <span className="text-4xl block mb-2">📭</span>
+                          <p className="text-indigo-900 font-bold">Sem turmas alocadas.</p>
+                          <p className="text-sm text-indigo-600">
+                              {isAdmin ? "Crie turmas na gestão de cursos." : "Aguarde que o administrador lhe atribua uma turma."}
+                          </p>
+                      </div>
+                  ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {classes.map(cls => (
+                              <div key={cls.id} className="bg-white/40 border border-indigo-100 p-4 rounded-xl hover:shadow-md transition-all group relative">
+                                  <div className="flex justify-between items-start mb-2">
+                                      <div>
+                                          <h4 className="font-bold text-indigo-900 text-lg">{cls.name}</h4>
+                                          {cls.course && (
+                                              <span className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded shadow-sm">
+                                                  {cls.course.title}
+                                              </span>
+                                          )}
+                                      </div>
+                                      <span className="text-xs text-indigo-400 font-mono">
+                                          {formatShortDate(cls.created_at)}
+                                      </span>
+                                  </div>
+                                  
+                                  {/* Instructor List (Only for Admin/Editor view mostly, but good for context) */}
+                                  {(isAdmin || profile.role === 'editor') && cls.instructors && cls.instructors.length > 0 && (
+                                      <div className="mt-3 pt-3 border-t border-indigo-50">
+                                          <p className="text-[10px] text-indigo-400 uppercase font-bold mb-1">Equipa Pedagógica</p>
+                                          <div className="flex -space-x-2 overflow-hidden">
+                                              {cls.instructors.map(inst => (
+                                                  <div key={inst.id} title={inst.full_name || ''} className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-indigo-200 flex items-center justify-center text-[9px] font-bold text-indigo-700">
+                                                      {inst.avatar_url ? <img src={inst.avatar_url} className="w-full h-full rounded-full object-cover"/> : inst.full_name?.[0]}
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      </div>
+                                  )}
+                              </div>
+                          ))}
+                      </div>
+                  )}
+              </GlassCard>
+          </div>
+      ) : (
+          /* Student View (Placeholder or different content) */
+          <GlassCard>
+              <h3 className="font-bold text-indigo-900 mb-2">Painel do Aluno</h3>
+              <p className="text-indigo-600">Aceda ao menu "Meus Cursos" para ver o seu progresso.</p>
           </GlassCard>
-          <GlassCard><h3 className="font-bold text-indigo-900">Meus Cursos</h3><p>0 Cursos ativos</p></GlassCard>
-          <GlassCard><h3 className="font-bold text-indigo-900">Notificações</h3><p>Nenhuma pendente</p></GlassCard>
-      </div>
+      )}
     </div>
   );
 };
