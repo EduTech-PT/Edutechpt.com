@@ -161,28 +161,28 @@ export const Community: React.FC = () => {
 
             {/* MEMBER DETAIL MODAL */}
             {selectedMember && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setSelectedMember(null)}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setSelectedMember(null)}>
                     <GlassCard 
-                        className="w-full max-w-2xl relative max-h-[90vh] flex flex-col overflow-hidden p-0 shadow-2xl bg-white/90 backdrop-blur-xl border border-white" 
+                        className="w-full max-w-2xl relative max-h-[90vh] flex flex-col overflow-hidden p-0 shadow-2xl bg-white/90 backdrop-blur-xl border border-white/60" 
                         onClick={(e: React.MouseEvent) => e.stopPropagation()}
                     >
                         
-                        {/* Header Image Background with Centered Logo */}
-                        <div className="h-32 bg-gradient-to-r from-indigo-500 to-purple-500 relative flex items-center justify-center">
+                        {/* Header Image Background with Centered Logo - FIXED (shrink-0) */}
+                        <div className="h-32 bg-gradient-to-r from-indigo-500 to-purple-500 relative flex items-center justify-center shrink-0 z-30">
                             {logoUrl && (
                                 <img src={logoUrl} alt="Logo" className="h-16 object-contain opacity-90 drop-shadow-md z-10" />
                             )}
 
                             <button 
                                 onClick={() => setSelectedMember(null)} 
-                                className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full p-2 backdrop-blur-md transition-all z-50 cursor-pointer border border-white/30"
+                                className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full w-8 h-8 flex items-center justify-center backdrop-blur-md transition-all z-50 cursor-pointer border border-white/30 shadow-sm"
                                 title="Fechar"
                             >
                                 ✕
                             </button>
                         </div>
 
-                        {/* Profile Info - Added relative and z-index to fix overlapping issues */}
+                        {/* Profile Info - Scrollable Area */}
                         <div className="px-8 pb-8 -mt-16 flex flex-col flex-1 overflow-y-auto custom-scrollbar relative z-20">
                             
                             <div className="flex flex-col md:flex-row items-end md:items-end gap-6 mb-6">
