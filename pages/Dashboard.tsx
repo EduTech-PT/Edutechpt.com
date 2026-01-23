@@ -12,6 +12,7 @@ import { driveService, GAS_VERSION } from '../services/drive';
 // Views
 import { Overview } from '../components/dashboard/Overview';
 import { CourseManager } from '../components/dashboard/CourseManager';
+import { StudentCourses } from '../components/dashboard/StudentCourses'; // Importado
 import { UserAdmin } from '../components/dashboard/UserAdmin';
 import { Settings } from '../components/dashboard/Settings';
 import { MediaManager } from '../components/dashboard/MediaManager';
@@ -204,7 +205,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
             ) : <UserAdmin currentUserRole={profile.role} onEditUser={handleAdminEditUser} />;
 
           case 'community': return <Community />;
-          case 'manage_courses': return <CourseManager profile={profile} />;
+          
+          // Mapeamento correto das Views de Cursos
+          case 'courses': return <StudentCourses profile={profile} />; // Visão do Aluno
+          case 'manage_courses': return <CourseManager profile={profile} />; // Visão do Formador/Admin
+
           case 'media': return <MediaManager />;
           case 'drive': return <DriveManager profile={profile} />;
           case 'users': return <UserAdmin currentUserRole={profile.role} onEditUser={handleAdminEditUser} />;
@@ -224,6 +229,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       if (view === 'my_profile') return 'Meu Perfil';
       if (view === 'admin_edit_profile') return 'Gestão / Editar Perfil';
       if (view === 'manage_courses') return 'Gestão de Cursos';
+      if (view === 'courses') return 'Meus Cursos e Oferta';
       if (view === 'calendar') return 'Minha Agenda';
       if (view === 'availability') return 'Mapa de Disponibilidade';
       return view.replace('_', ' ');

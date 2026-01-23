@@ -12,6 +12,33 @@ export const courseService = {
         return data as Course[];
     },
 
+    // Buscar cursos onde o aluno está inscrito
+    async getStudentEnrollments(userId: string) {
+        // Utilizamos a notação de objectos aninhados do Supabase
+        const { data, error } = await supabase
+            .from('enrollments')
+            .select(`
+                *,
+                course:courses (*),
+                class:classes (*)
+            `)
+            .eq('user_id', userId);
+            
+        if (error) throw error;
+        return data;
+    },
+
+    // Buscar apenas cursos públicos (vitrine)
+    async getPublicCourses() {
+        const { data, error } = await supabase
+            .from('courses')
+            .select('*')
+            .eq('is_public', true)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data as Course[];
+    },
+
     async create(course: Partial<Course>) {
         const { error } = await supabase.from('courses').insert([course]);
         if (error) throw error;
