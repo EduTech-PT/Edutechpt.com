@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { GlassCard } from './GlassCard';
-// import { Provider } from '@supabase/supabase-js'; // Removed: v1 compatibility
+import { Provider } from '@supabase/supabase-js'; // Restored for v2
 import { adminService } from '../services/admin';
 
 interface AuthFormProps {
@@ -35,7 +35,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick }) 
     }).catch(e => console.log('Config load error (Auth)', e));
   }, []);
 
-  const handleOAuthLogin = async (provider: string) => {
+  const handleOAuthLogin = async (provider: Provider) => {
     try {
       setLoading(true);
       setMessage(`A iniciar sessão com ${provider}...`);
@@ -62,10 +62,10 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick }) 
         };
       }
 
-      // v1 Compatibility: signIn instead of signInWithOAuth
-      const { error } = await supabase.auth.signIn({
-        provider: provider as any,
-      }, options);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: provider,
+        options: options,
+      });
       
       if (error) throw error;
     } catch (error: any) {

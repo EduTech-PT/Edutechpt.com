@@ -111,23 +111,22 @@ function App() {
 
     checkForAccessError();
 
-    // 2. Check active session (v1 Compatibility)
-    // NOTE: Using v1 'session()' method instead of v2 'getSession()' promise
-    const currentSession = supabase.auth.session();
-    if (currentSession) {
-      setSession({
-        user: currentSession.user,
-        access_token: currentSession.access_token,
-        provider_token: currentSession.provider_token
-      });
-    } else {
-      setSession(null);
-    }
-    setLoading(false);
+    // 2. Check active session (Supabase v2)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setSession({
+          user: session.user,
+          access_token: session.access_token,
+          provider_token: session.provider_token
+        });
+      } else {
+        setSession(null);
+      }
+      setLoading(false);
+    });
 
-    // 3. Listen for auth changes (v1 Compatibility)
-    // NOTE: v1 onAuthStateChange returns { data: { unsubscribe: Function } } or similar structure that we destructure to get listener
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+    // 3. Listen for auth changes (Supabase v2)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         setSession({
           user: session.user,
@@ -141,14 +140,12 @@ function App() {
     });
 
     return () => {
-      // v1 unsubscribe
-      authListener?.unsubscribe();
+      subscription.unsubscribe();
     };
   }, []);
 
   const handleLogout = async () => {
-    // Cast to any to avoid type errors if local types are conflicting with v1 methods
-    await (supabase.auth as any).signOut();
+    await supabase.auth.signOut();
     handleNavigate('landing'); // Reset view on logout
   };
 
