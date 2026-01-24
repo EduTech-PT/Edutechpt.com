@@ -85,10 +85,12 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                 }
             } catch (studentErr: any) {
                 console.warn("Erro ao carregar inscrições de aluno:", studentErr);
-                // Se o erro for de tabela inexistente, passamos para o UI
-                if (studentErr.message?.includes('relation') || studentErr.code === '42P01') {
-                    throw new Error("Tabelas de Turmas não encontradas. Por favor atualize a Base de Dados (SQL).");
+                // Se o erro for de tabela inexistente, passamos para o UI com detalhe
+                if (studentErr.code === '42P01') {
+                    throw new Error(`Erro SQL: ${studentErr.message} (Tabelas em falta). Por favor atualize a Base de Dados.`);
                 }
+                // Se for outro erro, lançamos também
+                if (studentErr.message) throw new Error(studentErr.message);
             }
 
             setPendingCourses(pendingList);
@@ -120,8 +122,8 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                     });
                 } catch (staffErr: any) {
                     console.warn("Erro ao carregar turmas de staff:", staffErr);
-                     if (staffErr.message?.includes('relation') || staffErr.code === '42P01') {
-                        throw new Error("Tabelas de Turmas não encontradas. Por favor atualize a Base de Dados (SQL).");
+                     if (staffErr.code === '42P01') {
+                        throw new Error(`Erro SQL: ${staffErr.message} (Tabelas em falta). Por favor atualize a Base de Dados.`);
                     }
                 }
             }
@@ -228,7 +230,7 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                  <GlassCard className="text-center max-w-lg border-red-200 bg-red-50/50">
                     <div className="text-4xl mb-4">⚠️</div>
                     <h2 className="text-2xl font-bold text-red-900 mb-2">Erro de Sistema</h2>
-                    <p className="text-red-700 mb-4">{errorMsg}</p>
+                    <p className="text-red-700 mb-4 font-mono text-xs text-left bg-white/50 p-2 rounded">{errorMsg}</p>
                     <div className="flex gap-2 justify-center">
                         <button onClick={onBack} className="px-4 py-2 bg-white text-red-700 border border-red-200 rounded-lg font-bold">
                             Voltar

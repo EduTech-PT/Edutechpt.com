@@ -61,6 +61,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   
   // NEW: Critical Error State (Missing Tables)
   const [criticalDbError, setCriticalDbError] = useState(false);
+  const [dbErrorDetail, setDbErrorDetail] = useState<string>("");
   
   // Branding State
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
@@ -89,13 +90,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       try {
           if (!session.user) return;
           
-          // 0. HEALTH CHECK (Critical DB Tables)
-          // Verificamos 'class_instructors' especificamente porque é a última tabela a ser criada
-          // Se faltar, o script SQL não correu todo.
-          const { error: healthError } = await supabase.from('class_instructors').select('class_id').limit(1);
-          if (healthError && healthError.code === '42P01') { // 42P01 = undefined_table
-              setCriticalDbError(true);
-              console.error("CRITICAL: Tables missing from DB.");
+          // 0. HEALTH CHECK (Critical DB Tables) - CHECK ESPECÍFICO
+          const tablesToCheck = ['classes', 'class_instructors', 'enrollments', 'class_materials'];
+          
+          for (const table of tablesToCheck) {
+              // Tentamos selecionar 1 linha. Se der erro 42P01, a tabela falta.
+              // Usamos 'count' para ser leve.
+              const { error } = await supabase.from(table).select('count', { count: 'exact', head: true });
+              
+              if (error && error.code === '42P01') { // undefined_table
+                  setCriticalDbError(true);
+                  setDbErrorDetail(`Tabela em falta: public.${table}`);
+                  console.error(`CRITICAL DB ERROR: Missing table ${table}`);
+                  break; // Para no primeiro erro encontrado
+              }
           }
 
           let userProfile: Profile | null = null;
@@ -384,7 +392,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                   <span className="text-3xl">🛑</span>
                   <div>
                       <h3 className="font-bold text-lg">Ação Crítica Necessária: Tabelas em Falta</h3>
-                      <p className="text-sm opacity-90">A Base de Dados está incompleta. Funcionalidades como turmas e cursos não funcionarão.</p>
+                      <p className="text-sm opacity-90">{dbErrorDetail || "A Base de Dados está incompleta."}</p>
                   </div>
               </div>
               <button 
