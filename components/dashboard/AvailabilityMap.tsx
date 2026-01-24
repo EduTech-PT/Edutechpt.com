@@ -43,7 +43,7 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
     }
   }, [events, currentDate]);
 
-  // Auto-scroll para o dia de hoje
+  // Auto-scroll para o dia de hoje com destaque visual
   useEffect(() => {
       if (monthlySlots.length > 0) {
           // Pequeno timeout para garantir que o DOM foi renderizado
@@ -52,7 +52,7 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
               if (todayElement) {
                   todayElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
               }
-          }, 500);
+          }, 600);
           return () => clearTimeout(timer);
       }
   }, [monthlySlots]);
@@ -307,12 +307,19 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
                 <GlassCard 
                     key={slot.day} 
                     id={slot.isToday ? 'today-slot' : undefined}
-                    className={`flex flex-col items-center justify-between min-h-[160px] border-2 ${
-                    slot.isToday ? 'border-red-500 shadow-md' : slot.isPast ? 'opacity-50 grayscale border-white/50' : 'border-white/50'
+                    className={`flex flex-col items-center justify-between min-h-[160px] border-2 transition-all ${
+                    slot.isToday 
+                        ? 'border-red-600 shadow-xl ring-4 ring-red-200 bg-red-50/30 scale-[1.02]' 
+                        : slot.isPast 
+                            ? 'opacity-50 grayscale border-white/50' 
+                            : 'border-white/50'
                 }`}>
                     <div className="w-full border-b border-indigo-50 pb-2 mb-2 flex justify-between items-center">
                         <span className={`font-bold text-lg ${slot.isToday ? 'text-red-600' : 'text-indigo-900'}`}>{slot.day}</span>
-                        <span className="text-xs uppercase text-indigo-400 font-bold">{slot.date.toLocaleDateString('pt-PT', { weekday: 'short' })}</span>
+                        <div className="flex items-center gap-2">
+                            {slot.isToday && <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded font-bold uppercase animate-pulse">Hoje</span>}
+                            <span className="text-xs uppercase text-indigo-400 font-bold">{slot.date.toLocaleDateString('pt-PT', { weekday: 'short' })}</span>
+                        </div>
                     </div>
 
                     <div className="w-full flex gap-2 h-full">
