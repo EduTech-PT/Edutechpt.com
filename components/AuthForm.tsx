@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { GlassCard } from './GlassCard';
-import { Provider } from '@supabase/supabase-js';
+// import { Provider } from '@supabase/supabase-js'; // Removed: v1 compatibility
 import { adminService } from '../services/admin';
 
 interface AuthFormProps {
@@ -14,14 +14,28 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick }) 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+  
+  // Warning Text State (with Defaults)
+  const [warningIntro, setWarningIntro] = useState("Como esta é uma aplicação interna, a Google poderá exibir um alerta de segurança na primeira utilização. É seguro continuar.");
+  const [warningSummary, setWarningSummary] = useState("Como ultrapassar este aviso?");
+  const [warningSteps, setWarningSteps] = useState(`
+    <ol style="list-style-type: decimal; margin-left: 1.25rem; margin-top: 0.5rem; opacity: 0.9;">
+        <li>No ecrã de aviso, clique na ligação <b>"Avançadas"</b> (canto inferior esquerdo).</li>
+        <li>No texto que se expande, clique em <span style="text-decoration: underline;"><b>"Aceder a zeedhuzljs... (não seguro)"</b></span>.</li>
+        <li>Na janela seguinte, clique em <b>"Continuar"</b> ou <b>"Permitir"</b>.</li>
+    </ol>
+  `);
 
   useEffect(() => {
     adminService.getAppConfig().then(c => {
         if (c.logoUrl) setLogoUrl(c.logoUrl);
+        if (c.authWarningIntro) setWarningIntro(c.authWarningIntro);
+        if (c.authWarningSummary) setWarningSummary(c.authWarningSummary);
+        if (c.authWarningSteps) setWarningSteps(c.authWarningSteps);
     }).catch(e => console.log('Config load error (Auth)', e));
   }, []);
 
-  const handleOAuthLogin = async (provider: Provider) => {
+  const handleOAuthLogin = async (provider: string) => {
     try {
       setLoading(true);
       setMessage(`A iniciar sessão com ${provider}...`);
@@ -48,10 +62,10 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick }) 
         };
       }
 
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: provider,
-        options: options,
-      });
+      // v1 Compatibility: signIn instead of signInWithOAuth
+      const { error } = await supabase.auth.signIn({
+        provider: provider as any,
+      }, options);
       
       if (error) throw error;
     } catch (error: any) {
@@ -94,18 +108,18 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick }) 
                 <span>Aviso: "A Google não validou esta app"</span>
              </div>
              <p className="opacity-90 leading-relaxed mb-2">
-                Como esta é uma aplicação interna, a Google poderá exibir um alerta de segurança na primeira utilização. <strong>É seguro continuar.</strong>
+                {warningIntro}
              </p>
              <details className="group bg-white/40 p-2 rounded border border-amber-100 transition-all">
                 <summary className="cursor-pointer font-bold text-amber-700 hover:text-amber-900 flex justify-between items-center select-none">
-                    <span>Como ultrapassar este aviso?</span>
+                    <span>{warningSummary}</span>
                     <span className="text-[10px] transform group-open:rotate-180 transition-transform">▼</span>
                 </summary>
-                <ol className="list-decimal ml-4 mt-2 space-y-1.5 opacity-90 text-[11px] leading-snug">
-                    <li>No ecrã de aviso, clique na ligação <span className="font-bold">"Avançadas"</span> (canto inferior esquerdo).</li>
-                    <li>No texto que se expande, clique em <span className="font-bold underline">"Aceder a zeedhuzljs... (não seguro)"</span>.</li>
-                    <li>Na janela seguinte, clique em <span className="font-bold">"Continuar"</span> ou <span className="font-bold">"Permitir"</span>.</li>
-                </ol>
+                {/* HTML Renderizado para permitir passos formatados da DB */}
+                <div 
+                    className="mt-2 text-[11px] leading-snug"
+                    dangerouslySetInnerHTML={{ __html: warningSteps }} 
+                />
              </details>
           </div>
         </div>

@@ -143,6 +143,10 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                 // Convites
                 await adminService.updateAppConfig('invite_email_subject', config.inviteSubject);
                 await adminService.updateAppConfig('invite_email_body', config.inviteBody);
+                // Aviso Google (NOVO)
+                await adminService.updateAppConfig('auth_warning_intro', config.authWarningIntro);
+                await adminService.updateAppConfig('auth_warning_summary', config.authWarningSummary);
+                await adminService.updateAppConfig('auth_warning_steps', config.authWarningSteps);
                 alert('Configuração de Acesso e Convites guardada!');
             }
             if (tab === 'drive') {
@@ -504,6 +508,48 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                  <p className="text-xs text-indigo-600 mt-2 italic">
                                      Nota: Este texto é usado em links "mailto". Formatação HTML não é suportada. Use quebras de linha.
                                  </p>
+                             </div>
+                         </div>
+                     </GlassCard>
+
+                     {/* SECÇÃO 3: AVISO GOOGLE (NOVO) */}
+                     <GlassCard>
+                         <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
+                             <span>⚠️</span> Configuração do Aviso Google (Login)
+                         </h3>
+                         <p className="text-sm text-indigo-700 mb-4 opacity-80">
+                            Edite o texto de ajuda que aparece na janela de login para ajudar os utilizadores a ultrapassar o aviso "App não validada".
+                         </p>
+                         <div className="space-y-4">
+                             <div>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Texto Introdutório</label>
+                                 <input 
+                                    type="text" 
+                                    value={config.authWarningIntro || ''} 
+                                    onChange={e => setConfig({...config, authWarningIntro: e.target.value})} 
+                                    placeholder="Como esta é uma aplicação interna, a Google..."
+                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
+                                 />
+                             </div>
+                             <div>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Título do Acordeão</label>
+                                 <input 
+                                    type="text" 
+                                    value={config.authWarningSummary || ''} 
+                                    onChange={e => setConfig({...config, authWarningSummary: e.target.value})} 
+                                    placeholder="Como ultrapassar este aviso?"
+                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
+                                 />
+                             </div>
+                             <div>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Passo a Passo (HTML)</label>
+                                 <RichTextEditor 
+                                    value={config.authWarningSteps || ''} 
+                                    onChange={val => setConfig({...config, authWarningSteps: val})}
+                                    label=""
+                                    placeholder="Escreva os passos aqui (ex: Lista numerada)"
+                                 />
+                                 <p className="text-xs text-indigo-500 mt-1">Este conteúdo será exibido dentro do acordeão.</p>
                              </div>
                          </div>
                      </GlassCard>
