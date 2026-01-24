@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
-import { adminService } from '../../services/admin'; // Need config
-import { Profile, Class, Course, ClassMaterial, ClassAnnouncement, ClassAssessment } from '../../types';
+import { adminService } from '../../services/admin';
+import { Profile, Course, ClassMaterial, ClassAnnouncement, ClassAssessment } from '../../types';
 import { formatShortDate, formatTime } from '../../utils/formatters';
 
 interface Props {
@@ -17,7 +17,12 @@ type ModuleType = 'home' | 'materials' | 'announcements' | 'assessments';
 export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, onBack }) => {
     // Estado para as turmas (agora unificado: inscrições ou docência)
     const [enrolledClasses, setEnrolledClasses] = useState<{ id: string, name: string, course: Course, instructors?: Profile[], isTeacher?: boolean }[]>([]);
+    
+    // Estado para cursos onde o aluno está inscrito mas SEM TURMA (Pendentes)
+    const [pendingCourses, setPendingCourses] = useState<string[]>([]);
+    
     const [loading, setLoading] = useState(true);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [config, setConfig] = useState<any>({});
     
     // Navegação Interna
@@ -54,50 +59,71 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
     const loadClasses = async () => {
         try {
             setLoading(true);
+            setErrorMsg(null);
             const classesMap = new Map<string, any>();
+            const pendingList: string[] = [];
 
             // 1. Carregar turmas como ALUNO (Inscrições)
-            const enrollments = await courseService.getStudentEnrollments(profile.id);
-            if (enrollments) {
-                enrollments.forEach((e: any) => {
-                    if (e.class && e.course) {
-                        classesMap.set(e.class.id, {
-                            id: e.class.id,
-                            name: e.class.name,
-                            course: e.course,
-                            instructors: e.class.instructors?.map((i: any) => i.profile) || [],
-                            isTeacher: false
-                        });
-                    }
-                });
+            try {
+                const enrollments = await courseService.getStudentEnrollments(profile.id);
+                if (enrollments) {
+                    enrollments.forEach((e: any) => {
+                        // Verifica se tem turma atribuída
+                        if (e.class && e.course) {
+                            classesMap.set(e.class.id, {
+                                id: e.class.id,
+                                name: e.class.name,
+                                course: e.course,
+                                instructors: e.class.instructors?.map((i: any) => i.profile) || [],
+                                isTeacher: false
+                            });
+                        } else if (e.course && !e.class) {
+                            // Caso esteja inscrito no curso, mas sem turma (Legacy ou Aguardando Alocação)
+                            pendingList.push(e.course.title);
+                        }
+                    });
+                }
+            } catch (studentErr: any) {
+                console.warn("Erro ao carregar inscrições de aluno:", studentErr);
+                // Se o erro for de tabela inexistente, passamos para o UI
+                if (studentErr.message?.includes('relation') || studentErr.code === '42P01') {
+                    throw new Error("Tabelas de Turmas não encontradas. Por favor atualize a Base de Dados (SQL).");
+                }
             }
+
+            setPendingCourses(pendingList);
 
             // 2. Carregar turmas como STAFF (Se for Formador/Admin/Editor)
             // Isto permite que eles vejam a "Sala de Aula" como se fossem alunos (Preview)
             if (['admin', 'formador', 'editor'].includes(profile.role)) {
                 let staffClasses = [];
-                if (profile.role === 'admin' || profile.role === 'editor') {
-                    staffClasses = await courseService.getAllClassesWithDetails();
-                } else {
-                    staffClasses = await courseService.getTrainerClasses(profile.id);
-                }
-
-                staffClasses?.forEach((c: any) => {
-                    // Só adiciona se ainda não estiver na lista (prioridade para inscrição real se existir)
-                    if (!classesMap.has(c.id)) {
-                        classesMap.set(c.id, {
-                            id: c.id,
-                            name: c.name,
-                            course: c.course,
-                            instructors: c.instructors || [], // Assumindo que o método retorna instrutores
-                            isTeacher: true
-                        });
+                try {
+                    if (profile.role === 'admin' || profile.role === 'editor') {
+                        staffClasses = await courseService.getAllClassesWithDetails();
                     } else {
-                        // Se já existe, marca como isTeacher também
-                        const existing = classesMap.get(c.id);
-                        classesMap.set(c.id, { ...existing, isTeacher: true });
+                        staffClasses = await courseService.getTrainerClasses(profile.id);
                     }
-                });
+
+                    staffClasses?.forEach((c: any) => {
+                        if (!classesMap.has(c.id)) {
+                            classesMap.set(c.id, {
+                                id: c.id,
+                                name: c.name,
+                                course: c.course,
+                                instructors: c.instructors || [],
+                                isTeacher: true
+                            });
+                        } else {
+                            const existing = classesMap.get(c.id);
+                            classesMap.set(c.id, { ...existing, isTeacher: true });
+                        }
+                    });
+                } catch (staffErr: any) {
+                    console.warn("Erro ao carregar turmas de staff:", staffErr);
+                     if (staffErr.message?.includes('relation') || staffErr.code === '42P01') {
+                        throw new Error("Tabelas de Turmas não encontradas. Por favor atualize a Base de Dados (SQL).");
+                    }
+                }
             }
 
             const finalList = Array.from(classesMap.values());
@@ -112,8 +138,9 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                     setActiveClassId(finalList[0].id);
                 }
             }
-        } catch (err) {
-            console.error("Erro ao carregar sala de aula:", err);
+        } catch (err: any) {
+            console.error("Erro crítico Classroom:", err);
+            setErrorMsg(err.message || "Erro desconhecido ao carregar turmas.");
         } finally {
             setLoading(false);
         }
@@ -184,21 +211,74 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
         window.location.href = `mailto:${trainerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     };
 
-    if (loading) return <div className="p-10 text-center text-indigo-600 font-bold">A entrar na sala de aula...</div>;
+    const handleGoToManagement = () => {
+        // Redireciona para gestão de turmas
+        const url = new URL(window.location.href);
+        url.searchParams.set('view', 'manage_classes');
+        window.history.pushState({}, '', url.toString());
+        // Força recarregamento da view no componente pai (Dashboard) se necessário, ou emite evento
+        // Como o Dashboard ouve popstate, podemos despachar um evento
+        window.dispatchEvent(new PopStateEvent('popstate'));
+    };
+
+    if (loading) return <div className="p-10 text-center text-indigo-600 font-bold animate-pulse">A carregar sala de aula...</div>;
+
+    if (errorMsg) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full p-8">
+                 <GlassCard className="text-center max-w-lg border-red-200 bg-red-50/50">
+                    <div className="text-4xl mb-4">⚠️</div>
+                    <h2 className="text-2xl font-bold text-red-900 mb-2">Erro de Sistema</h2>
+                    <p className="text-red-700 mb-4">{errorMsg}</p>
+                    <button onClick={onBack} className="px-4 py-2 bg-white text-red-700 border border-red-200 rounded-lg font-bold">
+                        Voltar
+                    </button>
+                 </GlassCard>
+            </div>
+        );
+    }
 
     if (enrolledClasses.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-8">
                  <GlassCard className="text-center max-w-lg">
                     <div className="text-4xl mb-4">📭</div>
-                    <h2 className="text-2xl font-bold text-indigo-900 mb-2">Sem Acesso a Turmas</h2>
-                    <p className="text-indigo-700 mb-4">
-                        {profile.role === 'aluno' 
-                            ? "Ainda não estás alocado a nenhuma turma específica. Contacta o formador ou aguarda a alocação."
-                            : "Não tens turmas atribuídas ou inscrições ativas."}
-                    </p>
-                    <button onClick={onBack} className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg font-bold">
-                        Voltar aos Cursos
+                    <h2 className="text-2xl font-bold text-indigo-900 mb-4">Sem Acesso a Turmas</h2>
+                    
+                    {profile.role === 'admin' ? (
+                        <div className="mb-4">
+                            <p className="text-indigo-700 mb-4">Não existem turmas criadas no sistema para visualizar.</p>
+                            <button 
+                                onClick={handleGoToManagement}
+                                className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-lg"
+                            >
+                                Criar Primeira Turma
+                            </button>
+                        </div>
+                    ) : profile.role === 'formador' ? (
+                        <p className="text-indigo-700 mb-4">
+                            Ainda não lhe foram atribuídas turmas. Contacte o administrador para ser alocado.
+                        </p>
+                    ) : (
+                        <div className="text-left bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                            <p className="text-indigo-800 mb-3 text-sm">
+                                Não estás colocado em nenhuma turma ativa neste momento.
+                            </p>
+                            
+                            {pendingCourses.length > 0 && (
+                                <div className="mb-2">
+                                    <p className="font-bold text-xs text-indigo-500 uppercase mb-2">Aguardando colocação em:</p>
+                                    <ul className="list-disc list-inside text-sm text-indigo-900 font-medium">
+                                        {pendingCourses.map(c => <li key={c}>{c}</li>)}
+                                    </ul>
+                                    <p className="text-xs text-indigo-400 mt-2 italic">Contacta a secretaria para agilizar a alocação.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <button onClick={onBack} className="mt-6 px-4 py-2 bg-white border border-indigo-200 text-indigo-600 rounded-lg font-bold hover:bg-indigo-50">
+                        Voltar
                     </button>
                  </GlassCard>
             </div>
@@ -217,7 +297,12 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                     {/* Atalho para o Portal Didático (Gestão) se for staff */}
                     {activeClassData?.isTeacher && (
                         <button 
-                            onClick={() => window.history.pushState(null, '', '?view=didactic_portal')} 
+                            onClick={() => {
+                                const url = new URL(window.location.href);
+                                url.searchParams.set('view', 'didactic_portal');
+                                window.history.pushState({}, '', url.toString());
+                                window.dispatchEvent(new PopStateEvent('popstate'));
+                            }} 
                             className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold hover:bg-purple-200 transition-colors flex items-center gap-1"
                         >
                             🛠️ Gerir esta Turma
