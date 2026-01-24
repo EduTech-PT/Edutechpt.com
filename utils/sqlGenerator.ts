@@ -2,18 +2,18 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    // Incrementando versão interna para v2.2.3 (Login Fix)
-    const scriptVersion = "v2.2.3"; 
+    // Incrementando versão interna para v2.2.4 (RLS Security Fix)
+    const scriptVersion = "v2.2.4"; 
     
     return `-- SCRIPT DE RESGATE DEFINITIVO (${scriptVersion})
 -- Autor: EduTech PT Architect
--- Objetivo: Monitorização, Marketing, Stats e Garantia de Acesso Admin
+-- Objetivo: Monitorização, Marketing, Stats e Segurança RLS
 
 -- ==============================================================================
 -- 1. LIMPEZA DE SEGURANÇA (PREPARAÇÃO)
 -- ==============================================================================
 
--- Desativar RLS temporariamente
+-- Desativar RLS temporariamente para evitar bloqueios durante a migração
 alter table if exists public.profiles disable row level security;
 alter table if exists public.access_logs disable row level security;
 
@@ -162,6 +162,11 @@ create table if not exists public.class_assessments (
 alter table public.profiles enable row level security;
 alter table public.access_logs enable row level security;
 
+-- FIX v2.2.4: Enable RLS on Resource Tables
+alter table public.class_materials enable row level security;
+alter table public.class_announcements enable row level security;
+alter table public.class_assessments enable row level security;
+
 -- LOGS POLICIES
 drop policy if exists "Insert Own Logs" on public.access_logs;
 create policy "Insert Own Logs" on public.access_logs for insert with check (auth.uid() = user_id);
@@ -169,11 +174,10 @@ create policy "Insert Own Logs" on public.access_logs for insert with check (aut
 drop policy if exists "Admin View Logs" on public.access_logs;
 create policy "Admin View Logs" on public.access_logs for select using (public.get_auth_role() = 'admin');
 
--- FIX v2.2.2: Permitir Admin Eliminar Logs
 drop policy if exists "Admin Delete Logs" on public.access_logs;
 create policy "Admin Delete Logs" on public.access_logs for delete using (public.get_auth_role() = 'admin');
 
--- (Reaplicar políticas essenciais para garantir integridade)
+-- PROFILES POLICIES
 drop policy if exists "Ver Perfis" on public.profiles;
 create policy "Ver Perfis" on public.profiles for select using (true);
 
@@ -183,8 +187,36 @@ create policy "Editar Proprio Perfil" on public.profiles for update using (auth.
 drop policy if exists "Admin Gere Perfis" on public.profiles;
 create policy "Admin Gere Perfis" on public.profiles for all using (public.get_auth_role() = 'admin');
 
+-- RESOURCES POLICIES (Fix v2.2.4)
+-- MATERIALS
+drop policy if exists "Read Materials" on public.class_materials;
+create policy "Read Materials" on public.class_materials for select using (auth.role() = 'authenticated');
+
+drop policy if exists "Manage Materials" on public.class_materials;
+create policy "Manage Materials" on public.class_materials for all using (
+  exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador'))
+);
+
+-- ANNOUNCEMENTS
+drop policy if exists "Read Announcements" on public.class_announcements;
+create policy "Read Announcements" on public.class_announcements for select using (auth.role() = 'authenticated');
+
+drop policy if exists "Manage Announcements" on public.class_announcements;
+create policy "Manage Announcements" on public.class_announcements for all using (
+  exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador'))
+);
+
+-- ASSESSMENTS
+drop policy if exists "Read Assessments" on public.class_assessments;
+create policy "Read Assessments" on public.class_assessments for select using (auth.role() = 'authenticated');
+
+drop policy if exists "Manage Assessments" on public.class_assessments;
+create policy "Manage Assessments" on public.class_assessments for all using (
+  exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador'))
+);
+
 -- ==============================================================================
--- 5. TRIGGERS E FUNÇÕES DE ESTATÍSTICA (ATUALIZAÇÃO v2.2.0)
+-- 5. TRIGGERS E FUNÇÕES DE ESTATÍSTICA
 -- ==============================================================================
 
 -- Trigger para Cursos (Incrementa histórico)
@@ -314,12 +346,10 @@ $$;
 -- 6. GARANTIA DE ACESSO ADMIN (HOTFIX)
 -- ==============================================================================
 
--- Se o utilizador já existir com outro cargo, força o update para Admin
 UPDATE public.profiles 
 SET role = 'admin' 
 WHERE email = 'edutechpt@hotmail.com';
 
--- Se o utilizador não existir, cria um convite pré-aprovado de Admin como redundância
 INSERT INTO public.user_invites (email, role)
 VALUES ('edutechpt@hotmail.com', 'admin')
 ON CONFLICT (email) DO UPDATE SET role = 'admin';
