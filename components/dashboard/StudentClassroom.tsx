@@ -217,7 +217,6 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
         url.searchParams.set('view', 'manage_classes');
         window.history.pushState({}, '', url.toString());
         // Força recarregamento da view no componente pai (Dashboard) se necessário, ou emite evento
-        // Como o Dashboard ouve popstate, podemos despachar um evento
         window.dispatchEvent(new PopStateEvent('popstate'));
     };
 
@@ -230,9 +229,25 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                     <div className="text-4xl mb-4">⚠️</div>
                     <h2 className="text-2xl font-bold text-red-900 mb-2">Erro de Sistema</h2>
                     <p className="text-red-700 mb-4">{errorMsg}</p>
-                    <button onClick={onBack} className="px-4 py-2 bg-white text-red-700 border border-red-200 rounded-lg font-bold">
-                        Voltar
-                    </button>
+                    <div className="flex gap-2 justify-center">
+                        <button onClick={onBack} className="px-4 py-2 bg-white text-red-700 border border-red-200 rounded-lg font-bold">
+                            Voltar
+                        </button>
+                        {profile.role === 'admin' && (
+                             <button 
+                                onClick={() => {
+                                    // Hack manual para forçar navegação
+                                    const url = new URL(window.location.href);
+                                    url.searchParams.set('view', 'settings_sql');
+                                    window.history.pushState({}, '', url.toString());
+                                    window.dispatchEvent(new PopStateEvent('popstate'));
+                                }} 
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 shadow-md"
+                            >
+                                Reparar Base de Dados
+                            </button>
+                        )}
+                    </div>
                  </GlassCard>
             </div>
         );
