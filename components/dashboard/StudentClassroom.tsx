@@ -14,6 +14,14 @@ interface Props {
 
 type ModuleType = 'home' | 'materials' | 'announcements' | 'assessments';
 
+// Helper para extrair ID do Drive
+const getDriveId = (url: string) => {
+    try {
+        const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+        return match ? match[1] : null;
+    } catch (e) { return null; }
+};
+
 export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, onBack }) => {
     // Estado para as turmas (agora unificado: inscrições ou docência)
     const [enrolledClasses, setEnrolledClasses] = useState<{ id: string, name: string, course: Course, instructors?: Profile[], isTeacher?: boolean }[]>([]);
@@ -442,14 +450,33 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                                                     </div>
                                                 </div>
                                             </div>
-                                            <a 
-                                                href={m.url} 
-                                                target="_blank" 
-                                                rel="noreferrer" 
-                                                className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 shadow-sm transition-colors"
-                                            >
-                                                Abrir ↗
-                                            </a>
+                                            
+                                            <div className="flex gap-2">
+                                                {m.type === 'drive' && (
+                                                    (() => {
+                                                        const driveId = getDriveId(m.url);
+                                                        if(driveId) {
+                                                            return (
+                                                                 <a 
+                                                                    href={`https://drive.google.com/uc?export=download&id=${driveId}`}
+                                                                    className="px-4 py-2 bg-white border border-indigo-200 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-50 shadow-sm transition-colors flex items-center gap-2"
+                                                                    title="Download Direto"
+                                                                 >
+                                                                    Download ⬇️
+                                                                 </a>
+                                                            )
+                                                        }
+                                                    })()
+                                                )}
+                                                <a 
+                                                    href={m.url} 
+                                                    target="_blank" 
+                                                    rel="noreferrer" 
+                                                    className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 shadow-sm transition-colors"
+                                                >
+                                                    Abrir ↗
+                                                </a>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

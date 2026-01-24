@@ -293,15 +293,25 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                                             {isFolder ? 'Pasta' : `${(file.size / 1024 / 1024).toFixed(2)} MB`}
                                         </p>
                                         {!isFolder && (
-                                            <a 
-                                                href={file.url} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer" 
-                                                className="text-xs text-indigo-600 font-bold hover:underline mt-1 inline-block"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                Abrir
-                                            </a>
+                                            <div className="flex gap-3 mt-1">
+                                                <a 
+                                                    href={file.url} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer" 
+                                                    className="text-xs text-indigo-600 font-bold hover:underline"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    Abrir
+                                                </a>
+                                                <a 
+                                                    href={`https://drive.google.com/uc?export=download&id=${file.id}`}
+                                                    className="text-xs text-green-600 font-bold hover:underline flex items-center gap-1"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    title="Download"
+                                                >
+                                                    Download ⬇️
+                                                </a>
+                                            </div>
                                         )}
                                     </div>
                                     <button 
