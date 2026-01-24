@@ -143,11 +143,15 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                 // Convites
                 await adminService.updateAppConfig('invite_email_subject', config.inviteSubject);
                 await adminService.updateAppConfig('invite_email_body', config.inviteBody);
-                // Aviso Google (NOVO)
+                // Aviso Google
                 await adminService.updateAppConfig('auth_warning_intro', config.authWarningIntro);
                 await adminService.updateAppConfig('auth_warning_summary', config.authWarningSummary);
                 await adminService.updateAppConfig('auth_warning_steps', config.authWarningSteps);
-                alert('Configuração de Acesso e Convites guardada!');
+                // Submissões de Trabalho (NOVO)
+                await adminService.updateAppConfig('submission_email_subject', config.submissionSubject);
+                await adminService.updateAppConfig('submission_email_body', config.submissionBody);
+                
+                alert('Configuração de Acesso, Convites e Submissões guardada!');
             }
             if (tab === 'drive') {
                 const rawId = config.driveFolderId || '';
@@ -438,13 +442,57 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
 
             {tab === 'access' && (
                  <div className="space-y-6">
-                     {/* SECÇÃO 1: ACESSO NEGADO */}
+                     
+                     {/* SECÇÃO: CONFIGURAÇÃO DE ENTREGA DE TRABALHOS (NOVO) */}
+                     <GlassCard>
+                         <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
+                             <span>📤</span> Configuração de Entrega de Trabalhos
+                         </h3>
+                         <p className="text-sm text-indigo-700 mb-4 opacity-80">
+                            Configure o template do email que será gerado quando um aluno clica em "Entregar Trabalho".
+                            O destinatário será sempre o <b>Formador</b> da turma.
+                         </p>
+                         <div className="space-y-4">
+                             <div>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Assunto do Email</label>
+                                 <input 
+                                    type="text" 
+                                    value={config.submissionSubject || ''} 
+                                    onChange={e => setConfig({...config, submissionSubject: e.target.value})} 
+                                    placeholder="Entrega: {trabalho} - {aluno}"
+                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
+                                 />
+                             </div>
+                             <div>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Corpo do Email</label>
+                                 <textarea 
+                                    value={config.submissionBody || ''} 
+                                    onChange={e => setConfig({...config, submissionBody: e.target.value})} 
+                                    placeholder="Olá Formador, segue em anexo o meu trabalho sobre {trabalho}."
+                                    className="w-full h-32 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"
+                                 />
+                                 <div className="mt-3 bg-indigo-50 border border-indigo-100 rounded-lg p-3 grid grid-cols-2 gap-2 text-xs">
+                                     <div className="font-bold text-indigo-900 col-span-2 mb-1">Variáveis Disponíveis:</div>
+                                     <code className="bg-white px-2 py-1 rounded border text-indigo-600 font-bold">{'{aluno}'}</code>
+                                     <span className="text-indigo-800">Nome do Aluno</span>
+                                     <code className="bg-white px-2 py-1 rounded border text-indigo-600 font-bold">{'{trabalho}'}</code>
+                                     <span className="text-indigo-800">Título da Avaliação</span>
+                                     <code className="bg-white px-2 py-1 rounded border text-indigo-600 font-bold">{'{curso}'}</code>
+                                     <span className="text-indigo-800">Nome do Curso</span>
+                                     <code className="bg-white px-2 py-1 rounded border text-indigo-600 font-bold">{'{turma}'}</code>
+                                     <span className="text-indigo-800">Nome da Turma</span>
+                                 </div>
+                             </div>
+                         </div>
+                     </GlassCard>
+
+                     {/* SECÇÃO: ACESSO NEGADO */}
                      <GlassCard>
                          <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
                              <span>⛔</span> Configuração de Acesso Negado
                          </h3>
                          <p className="text-sm text-indigo-700 mb-4 opacity-80">
-                            Defina a mensagem de email que será pré-preenchida quando um utilizador não autorizado tentar entrar e solicitar contacto.
+                            Defina a mensagem de email que será pré-preenchida quando um utilizador não autorizado tentar entrar.
                          </p>
                          <div className="space-y-4">
                              <div>
@@ -456,24 +504,21 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                  <input type="text" value={config.accessDeniedSubject || ''} onChange={e => setConfig({...config, accessDeniedSubject: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"/>
                              </div>
                              <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Corpo da Mensagem (Texto Simples)</label>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Corpo da Mensagem</label>
                                  <textarea 
                                     value={config.accessDeniedBody || ''} 
                                     onChange={e => setConfig({...config, accessDeniedBody: e.target.value})} 
-                                    className="w-full h-32 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"
+                                    className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"
                                  />
                              </div>
                          </div>
                      </GlassCard>
 
-                     {/* SECÇÃO 2: CONVITES */}
+                     {/* SECÇÃO: CONVITES */}
                      <GlassCard>
                          <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
-                             <span>✉️</span> Configuração de Convites (Email)
+                             <span>✉️</span> Configuração de Convites
                          </h3>
-                         <p className="text-sm text-indigo-700 mb-4 opacity-80">
-                            Personalize o email automático enviado quando convida novos utilizadores. Use <b>{'{link}'}</b> onde quiser que apareça o endereço do site.
-                         </p>
                          <div className="space-y-4">
                              <div>
                                  <label className="block text-sm text-indigo-800 font-bold mb-1">Assunto do Convite</label>
@@ -486,40 +531,23 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                  />
                              </div>
                              <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Corpo do Email (Texto Simples)</label>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Corpo do Email</label>
                                  <textarea 
                                     value={config.inviteBody || ''} 
                                     onChange={e => setConfig({...config, inviteBody: e.target.value})} 
                                     placeholder="Olá,\n\nFoste convidado para a plataforma.\nEntra aqui: {link}"
-                                    className="w-full h-32 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"
+                                    className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"
                                  />
-                                 
-                                 {/* Variable Reference Legend */}
-                                 <div className="mt-3 bg-indigo-50 border border-indigo-100 rounded-lg p-3">
-                                     <span className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Variáveis Disponíveis</span>
-                                     <div className="grid gap-2">
-                                         <div className="flex items-center gap-2 text-xs">
-                                             <code className="bg-white border border-indigo-200 px-2 py-1 rounded text-indigo-600 font-mono font-bold">{'{link}'}</code>
-                                             <span className="text-indigo-800">Inserir automaticamente o link da plataforma.</span>
-                                         </div>
-                                     </div>
-                                 </div>
-
-                                 <p className="text-xs text-indigo-600 mt-2 italic">
-                                     Nota: Este texto é usado em links "mailto". Formatação HTML não é suportada. Use quebras de linha.
-                                 </p>
+                                 <div className="text-xs mt-1 text-indigo-600">Use <b>{'{link}'}</b> para inserir o endereço do site.</div>
                              </div>
                          </div>
                      </GlassCard>
 
-                     {/* SECÇÃO 3: AVISO GOOGLE (NOVO) */}
+                     {/* SECÇÃO: AVISO GOOGLE */}
                      <GlassCard>
                          <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
                              <span>⚠️</span> Configuração do Aviso Google (Login)
                          </h3>
-                         <p className="text-sm text-indigo-700 mb-4 opacity-80">
-                            Edite o texto de ajuda que aparece na janela de login para ajudar os utilizadores a ultrapassar o aviso "App não validada".
-                         </p>
                          <div className="space-y-4">
                              <div>
                                  <label className="block text-sm text-indigo-800 font-bold mb-1">Texto Introdutório</label>
@@ -527,7 +555,6 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                     type="text" 
                                     value={config.authWarningIntro || ''} 
                                     onChange={e => setConfig({...config, authWarningIntro: e.target.value})} 
-                                    placeholder="Como esta é uma aplicação interna, a Google..."
                                     className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
                                  />
                              </div>
@@ -537,7 +564,6 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                     type="text" 
                                     value={config.authWarningSummary || ''} 
                                     onChange={e => setConfig({...config, authWarningSummary: e.target.value})} 
-                                    placeholder="Como ultrapassar este aviso?"
                                     className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
                                  />
                              </div>
@@ -547,9 +573,7 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                     value={config.authWarningSteps || ''} 
                                     onChange={val => setConfig({...config, authWarningSteps: val})}
                                     label=""
-                                    placeholder="Escreva os passos aqui (ex: Lista numerada)"
                                  />
-                                 <p className="text-xs text-indigo-500 mt-1">Este conteúdo será exibido dentro do acordeão.</p>
                              </div>
                          </div>
                      </GlassCard>
@@ -663,78 +687,6 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                          </div>
                      </GlassCard>
                 </div>
-            )}
-
-            {tab === 'sql' && (
-                <GlassCard className="flex-1 flex flex-col min-h-0">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="font-bold text-xl text-indigo-900">Script de Reparação</h3>
-                        <button 
-                            onClick={() => handleCopyText(sqlScript)}
-                            className={`px-4 py-2 rounded-lg font-bold shadow-md transition-all active:scale-95 ${copyFeedback ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
-                        >
-                            {copyFeedback || "Copiar Código SQL"}
-                        </button>
-                    </div>
-                    <textarea readOnly value={sqlScript} className="w-full flex-1 p-4 rounded-xl bg-slate-900 text-slate-200 font-mono text-xs overflow-auto resize-none border border-slate-700 shadow-inner"/>
-                </GlassCard>
-            )}
-
-            {tab === 'avatars' && (
-                <GlassCard>
-                    <h3 className="font-bold text-xl text-indigo-900 mb-4">Configuração Avatars</h3>
-                    <div className="space-y-4">
-                        <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 mb-4">
-                            <h4 className="font-bold text-indigo-900 mb-2">Limites de Upload</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-indigo-800 uppercase mb-1">Max Tamanho (KB)</label>
-                                    <input 
-                                        type="number" 
-                                        value={config.maxSizeKb || ''} 
-                                        onChange={e => setConfig({...config, maxSizeKb: parseInt(e.target.value)})} 
-                                        className="w-full p-2 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none"
-                                        placeholder="ex: 100"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-indigo-800 uppercase mb-1">Largura Max (px)</label>
-                                    <input 
-                                        type="number" 
-                                        value={config.maxWidth || ''} 
-                                        onChange={e => setConfig({...config, maxWidth: parseInt(e.target.value)})} 
-                                        className="w-full p-2 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none"
-                                        placeholder="ex: 100"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-indigo-800 uppercase mb-1">Altura Max (px)</label>
-                                    <input 
-                                        type="number" 
-                                        value={config.maxHeight || ''} 
-                                        onChange={e => setConfig({...config, maxHeight: parseInt(e.target.value)})} 
-                                        className="w-full p-2 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none"
-                                        placeholder="ex: 100"
-                                    />
-                                </div>
-                            </div>
-                            <p className="text-[10px] text-indigo-600 mt-2">
-                                ℹ️ A plataforma irá validar rigorosamente estas dimensões antes de aceitar o ficheiro.
-                            </p>
-                        </div>
-                        
-                        <div>
-                            <label className="block text-sm font-medium text-indigo-900 mb-1">Link Redimensionador (Ferramenta Sugerida)</label>
-                            <input type="text" value={config.resizerLink || ''} onChange={e => setConfig({...config, resizerLink: e.target.value})} placeholder="Link Redimensionador" className="w-full p-2 rounded bg-white/50 border border-white/60"/>
-                        </div>
-                        
-                        <RichTextEditor value={config.helpText || ''} onChange={val => setConfig({...config, helpText: val})} label="Texto de Ajuda (Instruções)"/>
-                        
-                        <button onClick={handleSaveConfig} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700 shadow-md">
-                            Guardar Configuração
-                        </button>
-                    </div>
-                </GlassCard>
             )}
         </div>
     );

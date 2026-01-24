@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
+import { adminService } from '../../services/admin'; // Need config
 import { Profile, Class, Course, ClassMaterial, ClassAnnouncement, ClassAssessment } from '../../types';
 import { formatShortDate, formatTime } from '../../utils/formatters';
 
@@ -14,9 +15,10 @@ interface Props {
 type ModuleType = 'home' | 'materials' | 'announcements' | 'assessments';
 
 export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, onBack }) => {
-    // Estado para as turmas onde o aluno está inscrito
-    const [enrolledClasses, setEnrolledClasses] = useState<{ id: string, name: string, course: Course }[]>([]);
+    // Estado para as turmas onde o aluno está inscrito (agora inclui instrutores)
+    const [enrolledClasses, setEnrolledClasses] = useState<{ id: string, name: string, course: Course, instructors?: Profile[] }[]>([]);
     const [loading, setLoading] = useState(true);
+    const [config, setConfig] = useState<any>({});
     
     // Navegação Interna
     const [activeClassId, setActiveClassId] = useState<string | null>(null);
@@ -30,6 +32,7 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
 
     useEffect(() => {
         loadEnrollments();
+        loadConfig();
     }, [profile.id]);
 
     useEffect(() => {
@@ -40,6 +43,13 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
             setAssessments([]);
         }
     }, [activeClassId]);
+
+    const loadConfig = async () => {
+        try {
+            const c = await adminService.getAppConfig();
+            setConfig(c);
+        } catch (e) { console.error("Config load error", e); }
+    };
 
     const loadEnrollments = async () => {
         try {
@@ -52,7 +62,8 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                 .map((e: any) => ({
                     id: e.class.id,
                     name: e.class.name,
-                    course: e.course
+                    course: e.course,
+                    instructors: e.class.instructors?.map((i:any) => i.profile) || [] // Extract instructors
                 })) || [];
 
             setEnrolledClasses(classesList);
@@ -99,6 +110,43 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
         if (module !== 'home') {
             loadModuleData(module);
         }
+    };
+
+    const handleSubmission = (assessment: ClassAssessment) => {
+        const activeClassData = enrolledClasses.find(c => c.id === activeClassId);
+        if (!activeClassData) return;
+
+        // 1. Obter Email do Formador
+        // Se houver múltiplos formadores, usa o primeiro ou junta todos. Vamos usar o primeiro para simplificar o mailto.
+        const trainerEmail = activeClassData.instructors?.[0]?.email;
+
+        if (!trainerEmail) {
+            alert("Erro: Não foi possível identificar o email do formador desta turma. Contacte a secretaria.");
+            return;
+        }
+
+        // 2. Preparar Templates
+        const subjectTemplate = config.submissionSubject || "Entrega: {trabalho} - {aluno}";
+        const bodyTemplate = config.submissionBody || "Olá Formador,\n\nSegue em anexo o meu trabalho sobre {trabalho}.\n\nCumprimentos,\n{aluno}";
+
+        // 3. Substituir Variáveis
+        const replacements: any = {
+            '{aluno}': profile.full_name || 'Aluno',
+            '{trabalho}': assessment.title,
+            '{curso}': activeClassData.course.title,
+            '{turma}': activeClassData.name
+        };
+
+        let subject = subjectTemplate;
+        let body = bodyTemplate;
+
+        for (const key in replacements) {
+            subject = subject.replace(new RegExp(key, 'g'), replacements[key]);
+            body = body.replace(new RegExp(key, 'g'), replacements[key]);
+        }
+
+        // 4. Abrir Mailto
+        window.location.href = `mailto:${trainerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     };
 
     if (loading) return <div className="p-10 text-center text-indigo-600 font-bold">A entrar na sala de aula...</div>;
@@ -165,6 +213,13 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                         <div>
                              <h3 className="text-3xl font-bold text-indigo-900 mb-1">{activeClassData.name}</h3>
                              <p className="text-indigo-600 font-medium">Curso: {activeClassData.course.title}</p>
+                             
+                             {/* Mostra o Formador Responsável (se houver) para o aluno saber a quem envia */}
+                             {activeClassData.instructors && activeClassData.instructors.length > 0 && (
+                                 <p className="text-xs text-indigo-400 mt-1">
+                                     Formador: <span className="font-bold">{activeClassData.instructors[0].full_name}</span>
+                                 </p>
+                             )}
                         </div>
                         
                         {activeModule !== 'home' && (
@@ -303,17 +358,27 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                                                 {a.description && <p className="text-sm text-indigo-700 mt-1 ml-8">{a.description}</p>}
                                             </div>
                                             
-                                            {a.due_date && (
-                                                <div className="flex flex-col items-end sm:pl-4 sm:border-l sm:border-indigo-100">
-                                                    <span className="text-[10px] uppercase font-bold text-indigo-400">Data de Entrega</span>
-                                                    <div className="font-mono font-bold text-indigo-800 text-lg">
-                                                        {formatShortDate(a.due_date)}
+                                            <div className="flex flex-col items-end sm:items-end gap-2 sm:pl-4 sm:border-l sm:border-indigo-100">
+                                                {a.due_date && (
+                                                    <div className="text-right">
+                                                        <span className="text-[10px] uppercase font-bold text-indigo-400">Data de Entrega</span>
+                                                        <div className="font-mono font-bold text-indigo-800 text-lg">
+                                                            {formatShortDate(a.due_date)}
+                                                        </div>
+                                                        <div className="text-xs text-red-500 font-bold">
+                                                            até às {formatTime(a.due_date)}
+                                                        </div>
                                                     </div>
-                                                    <div className="text-xs text-red-500 font-bold">
-                                                        até às {formatTime(a.due_date)}
-                                                    </div>
-                                                </div>
-                                            )}
+                                                )}
+                                                
+                                                {/* Botão de Entrega */}
+                                                <button 
+                                                    onClick={() => handleSubmission(a)}
+                                                    className="mt-1 px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 shadow-md flex items-center gap-2 transition-transform active:scale-95"
+                                                >
+                                                    <span>📤</span> Entregar Trabalho
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

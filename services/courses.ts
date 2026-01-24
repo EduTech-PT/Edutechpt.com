@@ -15,12 +15,18 @@ export const courseService = {
     // Buscar cursos onde o aluno está inscrito
     async getStudentEnrollments(userId: string) {
         // Utilizamos a notação de objectos aninhados do Supabase
+        // UPDATE: Incluir instrutores para obter o email para submissões
         const { data, error } = await supabase
             .from('enrollments')
             .select(`
                 *,
                 course:courses (*),
-                class:classes (*)
+                class:classes (
+                    *,
+                    instructors:class_instructors (
+                        profile:profiles (id, full_name, email)
+                    )
+                )
             `)
             .eq('user_id', userId);
             
