@@ -2,12 +2,12 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    // Incrementando versão interna para v2.2.4 (RLS Security Fix)
-    const scriptVersion = "v2.2.4"; 
+    // Incrementando versão interna para v2.2.5 (Security Patch)
+    const scriptVersion = "v2.2.5"; 
     
     return `-- SCRIPT DE RESGATE DEFINITIVO (${scriptVersion})
 -- Autor: EduTech PT Architect
--- Objetivo: Monitorização, Marketing, Stats e Segurança RLS
+-- Objetivo: Monitorização, Marketing, Stats e Segurança RLS (Security Hardening)
 
 -- ==============================================================================
 -- 1. LIMPEZA DE SEGURANÇA (PREPARAÇÃO)
@@ -16,6 +16,9 @@ export const generateSetupScript = (currentVersion: string): string => {
 -- Desativar RLS temporariamente para evitar bloqueios durante a migração
 alter table if exists public.profiles disable row level security;
 alter table if exists public.access_logs disable row level security;
+
+-- FIX v2.2.5: Remover política insegura reportada pelo Linter
+drop policy if exists "Sistema Cria Perfis" on public.profiles;
 
 -- ==============================================================================
 -- 2. FUNÇÕES CRÍTICAS DE SISTEMA
@@ -29,6 +32,48 @@ set search_path = public
 as $$
 begin
   return (select role from public.profiles where id = auth.uid());
+end;
+$$;
+
+-- FIX v2.2.5: Correção Security Search Path Mutable
+create or replace function public.increment_course_counter() returns trigger 
+language plpgsql 
+security definer
+set search_path = public
+as $$
+begin
+    update public.app_config 
+    set value = (value::int + 1)::text 
+    where key = 'stat_total_courses';
+    return new;
+end;
+$$;
+
+-- FIX v2.2.5: RPC para Comunidade com Search Path Seguro
+create or replace function public.get_community_members()
+returns setof public.profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  curr_role text;
+begin
+  select role into curr_role from public.profiles where id = auth.uid();
+
+  if curr_role in ('admin', 'editor', 'formador') then
+    -- Staff vê toda a gente
+    return query select * from public.profiles order by created_at desc;
+  else
+    -- Alunos veem apenas colegas das mesmas turmas (Privacy by Design)
+    return query 
+    select distinct p.* 
+    from public.profiles p
+    inner join public.enrollments e_peer on p.id = e_peer.user_id
+    inner join public.enrollments e_me on e_peer.class_id = e_me.class_id
+    where e_me.user_id = auth.uid()
+    and p.id != auth.uid();
+  end if;
 end;
 $$;
 
@@ -219,23 +264,17 @@ create policy "Manage Assessments" on public.class_assessments for all using (
 -- 5. TRIGGERS E FUNÇÕES DE ESTATÍSTICA
 -- ==============================================================================
 
--- Trigger para Cursos (Incrementa histórico)
-create or replace function public.increment_course_counter() returns trigger as $$
-begin
-    update public.app_config 
-    set value = (value::int + 1)::text 
-    where key = 'stat_total_courses';
-    return new;
-end;
-$$ language plpgsql security definer;
-
 drop trigger if exists on_course_created on public.courses;
 create trigger on_course_created
 after insert on public.courses
 for each row execute function public.increment_course_counter();
 
--- Função Handle New User (Atualizada com contadores)
-create or replace function public.handle_new_user() returns trigger as $$
+-- Função Handle New User (Atualizada com Search Path Seguro)
+create or replace function public.handle_new_user() returns trigger 
+language plpgsql 
+security definer
+set search_path = public
+as $$
 declare
   invite_record record;
   final_name text;
@@ -286,7 +325,7 @@ begin
       raise exception 'ACESSO NEGADO: Email não convidado.';
   end if;
 end;
-$$ language plpgsql security definer;
+$$;
 
 -- FIX v2.2.3: RPC para recuperação de convites (Auto-Healing)
 create or replace function public.claim_invite()
@@ -341,6 +380,14 @@ begin
   end if;
 end;
 $$;
+
+-- FIX Legacy Functions if they exist
+do $$
+begin
+    if exists (select 1 from pg_proc where proname = 'make_admin_by_email') then
+        execute 'alter function public.make_admin_by_email(text) set search_path = public';
+    end if;
+end $$;
 
 -- ==============================================================================
 -- 6. GARANTIA DE ACESSO ADMIN (HOTFIX)
