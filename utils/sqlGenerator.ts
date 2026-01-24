@@ -2,12 +2,12 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    // Incrementando versão interna para v2.2.6 (Linter Fixes)
-    const scriptVersion = "v2.2.6"; 
+    // Incrementando versão interna para v2.2.7 (RLS Performance Fixes)
+    const scriptVersion = "v2.2.7"; 
     
-    return `-- SCRIPT DE RESGATE E SEGURANÇA (${scriptVersion})
+    return `-- SCRIPT DE OTIMIZAÇÃO E SEGURANÇA (${scriptVersion})
 -- Autor: EduTech PT Architect
--- Objetivo: Corrigir avisos de segurança (Linter), Search Paths e Políticas RLS
+-- Objetivo: Corrigir warnings de performance (InitPlan) e Search Paths
 
 -- ==============================================================================
 -- 1. LIMPEZA E HARDENING DE SEGURANÇA
@@ -23,6 +23,7 @@ alter table public.class_materials enable row level security;
 alter table public.class_announcements enable row level security;
 alter table public.class_assessments enable row level security;
 alter table public.classes enable row level security;
+alter table public.app_config enable row level security;
 
 -- ==============================================================================
 -- 2. FUNÇÕES DE SISTEMA (COM SEARCH_PATH SEGURO)
@@ -183,7 +184,76 @@ begin
 end $$;
 
 -- ==============================================================================
--- 3. ESTRUTURA E TRIGGERS
+-- 3. POLÍTICAS RLS OTIMIZADAS (PERFORMANCE FIX)
+-- ==============================================================================
+-- Substitui chamadas diretas auth.uid() por (select auth.uid()) para evitar InitPlan overhead
+
+-- LOGS
+drop policy if exists "Insert Own Logs" on public.access_logs;
+create policy "Insert Own Logs" on public.access_logs for insert 
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Admin View Logs" on public.access_logs;
+create policy "Admin View Logs" on public.access_logs for select 
+using (public.get_auth_role() = 'admin');
+
+drop policy if exists "Admin Delete Logs" on public.access_logs;
+create policy "Admin Delete Logs" on public.access_logs for delete 
+using (public.get_auth_role() = 'admin');
+
+-- PROFILES
+drop policy if exists "Ver Perfis" on public.profiles;
+create policy "Ver Perfis" on public.profiles for select using (true);
+
+drop policy if exists "Editar Proprio Perfil" on public.profiles;
+create policy "Editar Proprio Perfil" on public.profiles for update 
+using ((select auth.uid()) = id);
+
+drop policy if exists "Admin Gere Perfis" on public.profiles;
+create policy "Admin Gere Perfis" on public.profiles for all 
+using (public.get_auth_role() = 'admin');
+
+-- MATERIALS
+drop policy if exists "Read Materials" on public.class_materials;
+create policy "Read Materials" on public.class_materials for select 
+using ((select auth.role()) = 'authenticated');
+
+drop policy if exists "Manage Materials" on public.class_materials;
+create policy "Manage Materials" on public.class_materials for all using (
+  exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador'))
+);
+
+-- ANNOUNCEMENTS
+drop policy if exists "Read Announcements" on public.class_announcements;
+create policy "Read Announcements" on public.class_announcements for select 
+using ((select auth.role()) = 'authenticated');
+
+drop policy if exists "Manage Announcements" on public.class_announcements;
+create policy "Manage Announcements" on public.class_announcements for all using (
+  exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador'))
+);
+
+-- ASSESSMENTS
+drop policy if exists "Read Assessments" on public.class_assessments;
+create policy "Read Assessments" on public.class_assessments for select 
+using ((select auth.role()) = 'authenticated');
+
+drop policy if exists "Manage Assessments" on public.class_assessments;
+create policy "Manage Assessments" on public.class_assessments for all using (
+  exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador'))
+);
+
+-- APP CONFIG (Fix Multiple Permissive)
+drop policy if exists "Admin Config" on public.app_config;
+drop policy if exists "Ver Config" on public.app_config;
+
+create policy "Public Read Config" on public.app_config for select using (true);
+create policy "Admin Manage Config" on public.app_config for all using (
+  exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin')
+);
+
+-- ==============================================================================
+-- 4. ESTRUTURA E TRIGGERS
 -- ==============================================================================
 
 -- Garantir trigger de contagem de cursos
@@ -202,7 +272,7 @@ VALUES ('edutechpt@hotmail.com', 'admin')
 ON CONFLICT (email) DO UPDATE SET role = 'admin';
 
 -- ==============================================================================
--- 4. ATUALIZAR VERSÃO
+-- 5. ATUALIZAR VERSÃO
 -- ==============================================================================
 
 insert into public.app_config (key, value) values ('sql_version', '${scriptVersion}')
