@@ -2,11 +2,11 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    const scriptVersion = "v2.2.8"; 
+    const scriptVersion = "v2.2.9"; 
     
     return `-- SCRIPT DE PERFORMANCE RLS (${scriptVersion})
 -- Autor: EduTech PT Architect
--- Objetivo: Separar politicas de Leitura vs Escrita para resolver "Multiple Permissive Policies"
+-- Objetivo: Consolidar politicas de UPDATE em Profiles e restringir scope
 
 -- ==============================================================================
 -- 1. LIMPEZA DE POLÍTICAS ANTIGAS (PREVENÇÃO DE DUPLICADOS)
@@ -17,12 +17,19 @@ drop policy if exists "Admin Config" on public.app_config;
 drop policy if exists "Ver Config" on public.app_config;
 drop policy if exists "Public Read Config" on public.app_config;
 drop policy if exists "Admin Manage Config" on public.app_config;
+drop policy if exists "Admin Write Config" on public.app_config;
+drop policy if exists "Admin Update Config" on public.app_config;
+drop policy if exists "Admin Delete Config" on public.app_config;
 
 -- Profiles
 drop policy if exists "Ver Perfis" on public.profiles;
 drop policy if exists "Editar Proprio Perfil" on public.profiles;
 drop policy if exists "Admin Gere Perfis" on public.profiles;
 drop policy if exists "Sistema Cria Perfis" on public.profiles;
+drop policy if exists "Update Own Profile" on public.profiles;
+drop policy if exists "Admin Insert Profiles" on public.profiles;
+drop policy if exists "Admin Update Profiles" on public.profiles;
+drop policy if exists "Admin Delete Profiles" on public.profiles;
 
 -- Courses & Classes
 drop policy if exists "Staff Gere Cursos" on public.courses;
@@ -53,50 +60,47 @@ drop policy if exists "Admin Roles" on public.roles;
 drop policy if exists "Ver Roles" on public.roles;
 
 -- ==============================================================================
--- 2. NOVAS POLÍTICAS OTIMIZADAS (SPLIT READ/WRITE)
+-- 2. NOVAS POLÍTICAS OTIMIZADAS (SPLIT READ/WRITE & CONSOLIDATED UPDATE)
 -- ==============================================================================
 
 -- >>> APP CONFIG <<<
--- Leitura Pública
 create policy "Read Config" on public.app_config for select using (true);
--- Escrita Admin
 create policy "Admin Write Config" on public.app_config for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
 create policy "Admin Update Config" on public.app_config for update using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
 create policy "Admin Delete Config" on public.app_config for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
 
--- >>> PROFILES <<<
--- Leitura Pública (Necessário para avatares, nomes em comentários, etc)
+-- >>> PROFILES (FIX LINTER: Unified Update) <<<
+-- Leitura Pública
 create policy "Read Profiles" on public.profiles for select using (true);
--- Edição Própria
-create policy "Update Own Profile" on public.profiles for update using ((select auth.uid()) = id);
--- Gestão Admin (Sem Select)
-create policy "Admin Insert Profiles" on public.profiles for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
-create policy "Admin Update Profiles" on public.profiles for update using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
-create policy "Admin Delete Profiles" on public.profiles for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
+
+-- Edição Unificada (Próprio ou Admin) - Restrito a Authenticated
+create policy "Unified Update Profiles" on public.profiles for update to authenticated using (
+    (select auth.uid()) = id 
+    OR 
+    exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin')
+);
+
+-- Gestão Admin (Insert/Delete)
+create policy "Admin Insert Profiles" on public.profiles for insert to authenticated with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
+create policy "Admin Delete Profiles" on public.profiles for delete to authenticated using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
 
 -- >>> COURSES <<<
--- Leitura Pública
 create policy "Read Courses" on public.courses for select using (true);
--- Gestão Staff
 create policy "Staff Insert Courses" on public.courses for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Update Courses" on public.courses for update using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Delete Courses" on public.courses for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
 -- >>> CLASSES <<<
--- Leitura Pública
 create policy "Read Classes" on public.classes for select using (true);
--- Gestão Staff
 create policy "Staff Insert Classes" on public.classes for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Update Classes" on public.classes for update using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Delete Classes" on public.classes for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
 -- >>> ENROLLMENTS <<<
--- Leitura: Staff vê tudo, Aluno vê as suas
 create policy "Read Enrollments" on public.enrollments for select using (
     (select auth.uid()) = user_id OR 
     exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador'))
 );
--- Gestão: Staff e Sistema (Inserção automática via Trigger bypassa RLS se security definer, mas inserção manual precisa disto)
 create policy "Staff Manage Enrollments" on public.enrollments for insert with check (
     exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador'))
 );
@@ -105,17 +109,14 @@ create policy "Staff Delete Enrollments" on public.enrollments for delete using 
 );
 
 -- >>> RESOURCES (MATERIALS, ANNOUNCEMENTS, ASSESSMENTS) <<<
--- Materials
 create policy "Read Materials" on public.class_materials for select using ((select auth.role()) = 'authenticated');
 create policy "Staff Insert Materials" on public.class_materials for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Delete Materials" on public.class_materials for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
--- Announcements
 create policy "Read Announcements" on public.class_announcements for select using ((select auth.role()) = 'authenticated');
 create policy "Staff Insert Announcements" on public.class_announcements for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Delete Announcements" on public.class_announcements for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
--- Assessments
 create policy "Read Assessments" on public.class_assessments for select using ((select auth.role()) = 'authenticated');
 create policy "Staff Insert Assessments" on public.class_assessments for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Delete Assessments" on public.class_assessments for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
