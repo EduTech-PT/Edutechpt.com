@@ -128,19 +128,29 @@ export const courseService = {
 
     // Novo: Buscar turmas onde o formador dá aulas (Para o Portal Didático)
     async getTrainerClasses(trainerId: string) {
-        // Usamos !inner para filtrar apenas turmas que têm este instrutor
+        // TRUQUE SUPABASE:
+        // 1. my_instruction!inner -> Filtra as turmas onde EXISTE este formador (INNER JOIN)
+        // 2. instructors_details -> Busca TODOS os instrutores dessa turma para exibir (incluindo o próprio)
         const { data, error } = await supabase
             .from('classes')
             .select(`
                 *,
                 course:courses(*),
-                class_instructors!inner(profile_id)
+                my_instruction:class_instructors!inner(profile_id),
+                instructors_details:class_instructors(
+                    profile:profiles(*)
+                )
             `)
-            .eq('class_instructors.profile_id', trainerId)
+            .eq('my_instruction.profile_id', trainerId)
             .order('name');
 
         if (error) throw error;
-        return data as (Class & { course: Course })[];
+        
+        // Mapeamento para limpar a estrutura
+        return data.map((item: any) => ({
+            ...item,
+            instructors: item.instructors_details?.map((i: any) => i.profile) || []
+        })) as (Class & { course: Course })[];
     },
 
     // NOVO: Buscar TODAS as turmas com detalhes do curso E instrutores (Para Admin Dashboard)

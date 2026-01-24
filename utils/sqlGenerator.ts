@@ -59,7 +59,7 @@ create table if not exists public.courses (
 -- 2. ESTRUTURA DE DADOS (TURMAS E RECURSOS)
 -- ==============================================================================
 
--- Tabela: Classes (Turmas)
+-- Tabela: Classes (Turmas) - Depende de Courses
 create table if not exists public.classes (
   id uuid default gen_random_uuid() primary key,
   course_id uuid references public.courses(id) on delete cascade,
@@ -78,10 +78,17 @@ create table if not exists public.class_instructors (
 create table if not exists public.enrollments (
   user_id uuid references public.profiles(id) on delete cascade,
   course_id uuid references public.courses(id) on delete cascade,
-  class_id uuid references public.classes(id) on delete set null,
   enrolled_at timestamp with time zone default timezone('utc'::text, now()),
   primary key (user_id, course_id)
 );
+
+-- MIGRATION: Adicionar class_id a enrollments se não existir
+do $$
+begin
+    if not exists (select 1 from information_schema.columns where table_name = 'enrollments' and column_name = 'class_id') then
+        alter table public.enrollments add column class_id uuid references public.classes(id) on delete set null;
+    end if;
+end $$;
 
 -- Tabela: Materiais
 create table if not exists public.class_materials (
@@ -117,10 +124,19 @@ create table if not exists public.class_assessments (
 create table if not exists public.user_invites (
   email text primary key,
   role text not null,
-  course_id uuid references public.courses(id) on delete set null,
-  class_id uuid references public.classes(id) on delete set null,
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
+
+-- MIGRATION: Adicionar course_id e class_id a user_invites se não existirem
+do $$
+begin
+    if not exists (select 1 from information_schema.columns where table_name = 'user_invites' and column_name = 'course_id') then
+        alter table public.user_invites add column course_id uuid references public.courses(id) on delete set null;
+    end if;
+    if not exists (select 1 from information_schema.columns where table_name = 'user_invites' and column_name = 'class_id') then
+        alter table public.user_invites add column class_id uuid references public.classes(id) on delete set null;
+    end if;
+end $$;
 
 -- Tabela: Logs
 create table if not exists public.access_logs (
@@ -278,7 +294,7 @@ begin
   if new.email = 'edutechpt@hotmail.com' then
       insert into public.profiles (id, email, full_name, role)
       values (new.id, new.email, final_name, 'admin')
-      on conflict (id) do nothing;
+      on conflict (id) do update set role = 'admin'; -- Garante admin se já existir
       return new;
   end if;
 
