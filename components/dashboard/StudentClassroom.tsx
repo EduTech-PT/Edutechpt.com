@@ -15,8 +15,8 @@ interface Props {
 type ModuleType = 'home' | 'materials' | 'announcements' | 'assessments';
 
 export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, onBack }) => {
-    // Estado para as turmas onde o aluno está inscrito (agora inclui instrutores)
-    const [enrolledClasses, setEnrolledClasses] = useState<{ id: string, name: string, course: Course, instructors?: Profile[] }[]>([]);
+    // Estado para as turmas (agora unificado: inscrições ou docência)
+    const [enrolledClasses, setEnrolledClasses] = useState<{ id: string, name: string, course: Course, instructors?: Profile[], isTeacher?: boolean }[]>([]);
     const [loading, setLoading] = useState(true);
     const [config, setConfig] = useState<any>({});
     
@@ -31,7 +31,7 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
     const [loadingResources, setLoadingResources] = useState(false);
 
     useEffect(() => {
-        loadEnrollments();
+        loadClasses();
         loadConfig();
     }, [profile.id]);
 
@@ -51,30 +51,65 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
         } catch (e) { console.error("Config load error", e); }
     };
 
-    const loadEnrollments = async () => {
+    const loadClasses = async () => {
         try {
             setLoading(true);
-            const data = await courseService.getStudentEnrollments(profile.id);
-            
-            // Transformar Enrollments em formato de lista de turmas
-            const classesList = data
-                ?.filter((e: any) => e.class && e.course) // Garantir que tem turma e curso
-                .map((e: any) => ({
-                    id: e.class.id,
-                    name: e.class.name,
-                    course: e.course,
-                    instructors: e.class.instructors?.map((i:any) => i.profile) || [] // Extract instructors
-                })) || [];
+            const classesMap = new Map<string, any>();
 
-            setEnrolledClasses(classesList);
+            // 1. Carregar turmas como ALUNO (Inscrições)
+            const enrollments = await courseService.getStudentEnrollments(profile.id);
+            if (enrollments) {
+                enrollments.forEach((e: any) => {
+                    if (e.class && e.course) {
+                        classesMap.set(e.class.id, {
+                            id: e.class.id,
+                            name: e.class.name,
+                            course: e.course,
+                            instructors: e.class.instructors?.map((i: any) => i.profile) || [],
+                            isTeacher: false
+                        });
+                    }
+                });
+            }
 
-            // Auto-selecionar turma baseada no initialCourseId ou a primeira da lista
-            if (classesList.length > 0) {
-                if (initialCourseId) {
-                    const target = classesList.find(c => c.course.id === initialCourseId);
-                    setActiveClassId(target ? target.id : classesList[0].id);
+            // 2. Carregar turmas como STAFF (Se for Formador/Admin/Editor)
+            // Isto permite que eles vejam a "Sala de Aula" como se fossem alunos (Preview)
+            if (['admin', 'formador', 'editor'].includes(profile.role)) {
+                let staffClasses = [];
+                if (profile.role === 'admin' || profile.role === 'editor') {
+                    staffClasses = await courseService.getAllClassesWithDetails();
                 } else {
-                    setActiveClassId(classesList[0].id);
+                    staffClasses = await courseService.getTrainerClasses(profile.id);
+                }
+
+                staffClasses?.forEach((c: any) => {
+                    // Só adiciona se ainda não estiver na lista (prioridade para inscrição real se existir)
+                    if (!classesMap.has(c.id)) {
+                        classesMap.set(c.id, {
+                            id: c.id,
+                            name: c.name,
+                            course: c.course,
+                            instructors: c.instructors || [], // Assumindo que o método retorna instrutores
+                            isTeacher: true
+                        });
+                    } else {
+                        // Se já existe, marca como isTeacher também
+                        const existing = classesMap.get(c.id);
+                        classesMap.set(c.id, { ...existing, isTeacher: true });
+                    }
+                });
+            }
+
+            const finalList = Array.from(classesMap.values());
+            setEnrolledClasses(finalList);
+
+            // Auto-selecionar turma
+            if (finalList.length > 0) {
+                if (initialCourseId) {
+                    const target = finalList.find(c => c.course.id === initialCourseId);
+                    setActiveClassId(target ? target.id : finalList[0].id);
+                } else {
+                    setActiveClassId(finalList[0].id);
                 }
             }
         } catch (err) {
@@ -116,8 +151,11 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
         const activeClassData = enrolledClasses.find(c => c.id === activeClassId);
         if (!activeClassData) return;
 
-        // 1. Obter Email do Formador
-        // Se houver múltiplos formadores, usa o primeiro ou junta todos. Vamos usar o primeiro para simplificar o mailto.
+        // Se for professor, não faz sentido submeter, mas pode testar o botão
+        if (activeClassData.isTeacher && !confirm("Você é o formador desta turma. Deseja testar o link de envio?")) {
+            return;
+        }
+
         const trainerEmail = activeClassData.instructors?.[0]?.email;
 
         if (!trainerEmail) {
@@ -125,11 +163,9 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
             return;
         }
 
-        // 2. Preparar Templates
         const subjectTemplate = config.submissionSubject || "Entrega: {trabalho} - {aluno}";
         const bodyTemplate = config.submissionBody || "Olá Formador,\n\nSegue em anexo o meu trabalho sobre {trabalho}.\n\nCumprimentos,\n{aluno}";
 
-        // 3. Substituir Variáveis
         const replacements: any = {
             '{aluno}': profile.full_name || 'Aluno',
             '{trabalho}': assessment.title,
@@ -145,7 +181,6 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
             body = body.replace(new RegExp(key, 'g'), replacements[key]);
         }
 
-        // 4. Abrir Mailto
         window.location.href = `mailto:${trainerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     };
 
@@ -158,7 +193,9 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                     <div className="text-4xl mb-4">📭</div>
                     <h2 className="text-2xl font-bold text-indigo-900 mb-2">Sem Acesso a Turmas</h2>
                     <p className="text-indigo-700 mb-4">
-                        Ainda não estás alocado a nenhuma turma específica. Contacta o formador ou aguarda a alocação.
+                        {profile.role === 'aluno' 
+                            ? "Ainda não estás alocado a nenhuma turma específica. Contacta o formador ou aguarda a alocação."
+                            : "Não tens turmas atribuídas ou inscrições ativas."}
                     </p>
                     <button onClick={onBack} className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg font-bold">
                         Voltar aos Cursos
@@ -176,9 +213,20 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                 <h2 className="text-2xl font-bold text-indigo-900 flex items-center gap-2">
                     <span>🎓</span> Sala de Aula Virtual
                 </h2>
-                <button onClick={onBack} className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full font-bold hover:bg-indigo-200 transition-colors">
-                    ⬅ Voltar à Lista
-                </button>
+                <div className="flex gap-2">
+                    {/* Atalho para o Portal Didático (Gestão) se for staff */}
+                    {activeClassData?.isTeacher && (
+                        <button 
+                            onClick={() => window.history.pushState(null, '', '?view=didactic_portal')} 
+                            className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold hover:bg-purple-200 transition-colors flex items-center gap-1"
+                        >
+                            🛠️ Gerir esta Turma
+                        </button>
+                    )}
+                    <button onClick={onBack} className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full font-bold hover:bg-indigo-200 transition-colors">
+                        ⬅ Voltar à Lista
+                    </button>
+                </div>
             </div>
 
             {/* TABS (TURMAS) */}
@@ -190,15 +238,18 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                             key={cls.id}
                             onClick={() => setActiveClassId(cls.id)}
                             className={`
-                                whitespace-nowrap px-6 py-3 rounded-t-xl font-bold transition-all border-t border-l border-r relative top-[1px]
+                                whitespace-nowrap px-6 py-3 rounded-t-xl font-bold transition-all border-t border-l border-r relative top-[1px] flex flex-col items-center
                                 ${isActive 
                                     ? 'bg-white/80 text-indigo-900 border-white/50 shadow-sm z-10' 
                                     : 'bg-white/30 text-indigo-600 border-transparent hover:bg-white/50 hover:text-indigo-800'
                                 }
                             `}
                         >
-                            <span className="text-xs opacity-70 block font-normal">{cls.course.title}</span>
-                            {cls.name}
+                            <span className="text-[10px] opacity-70 font-normal">{cls.course.title}</span>
+                            <span className="flex items-center gap-1">
+                                {cls.name}
+                                {cls.isTeacher && <span className="text-[8px] bg-purple-100 text-purple-700 px-1 rounded uppercase">Staff</span>}
+                            </span>
                         </button>
                     );
                 })}
@@ -214,7 +265,6 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                              <h3 className="text-3xl font-bold text-indigo-900 mb-1">{activeClassData.name}</h3>
                              <p className="text-indigo-600 font-medium">Curso: {activeClassData.course.title}</p>
                              
-                             {/* Mostra o Formador Responsável (se houver) para o aluno saber a quem envia */}
                              {activeClassData.instructors && activeClassData.instructors.length > 0 && (
                                  <p className="text-xs text-indigo-400 mt-1">
                                      Formador: <span className="font-bold">{activeClassData.instructors[0].full_name}</span>
@@ -376,7 +426,7 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                                                     onClick={() => handleSubmission(a)}
                                                     className="mt-1 px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 shadow-md flex items-center gap-2 transition-transform active:scale-95"
                                                 >
-                                                    <span>📤</span> Entregar Trabalho
+                                                    <span>📤</span> {activeClassData.isTeacher ? 'Testar Entrega' : 'Entregar Trabalho'}
                                                 </button>
                                             </div>
                                         </div>

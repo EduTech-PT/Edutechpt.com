@@ -91,11 +91,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       label: 'Formação',
       icon: '🎓',
       items: [
-        { id: 'courses', label: 'Meus Cursos', permissionKey: 'view_courses', fallbackRoles: [UserRole.STUDENT] },
+        { id: 'student_classroom', label: 'Sala de Aula', permissionKey: 'view_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
+        { id: 'courses', label: 'Catálogo & Inscrições', permissionKey: 'view_courses', fallbackRoles: [UserRole.STUDENT] },
         { id: 'didactic_portal', label: 'Gestor de Recursos', permissionKey: 'view_didactic_portal', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
         { id: 'manage_courses', label: 'Gestão de Cursos', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
         { id: 'manage_classes', label: 'Gestão de Turmas', permissionKey: 'manage_classes', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] }, 
-        // NEW ITEM
         { id: 'manage_student_allocation', label: 'Alocação Alunos', permissionKey: 'manage_classes', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
         { id: 'media', label: 'Galeria', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
         { id: 'drive', label: 'Arquivos Drive', permissionKey: 'view_drive', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
@@ -134,7 +134,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
           }`}
         >
           <span className="text-lg">
-             {item.id === 'dashboard' ? '📊' : '•'}
+             {item.id === 'dashboard' ? '📊' : (item.id === 'student_classroom' ? '🏫' : '•')}
           </span>
           {item.label}
         </button>
