@@ -5,7 +5,7 @@ export const generateSetupScript = (currentVersion: string): string => {
     // Usamos a constante SQL_VERSION para garantir que o script reflete a versão esperada
     
     return `-- SCRIPT INTEGRAL DE ESTRUTURA E PERMISSÕES (${SQL_VERSION})
--- ATENÇÃO: Execute este script no SQL Editor do Supabase para corrigir o erro "Tabelas não encontradas".
+-- ATENÇÃO: Execute este script no SQL Editor do Supabase para corrigir o erro "Tabelas não encontradas" ou "Policy already exists".
 
 -- ==============================================================================
 -- 1. ESTRUTURA DE DADOS (CRIAÇÃO DE TABELAS EM FALTA)
@@ -81,7 +81,7 @@ alter table public.class_announcements enable row level security;
 alter table public.class_assessments enable row level security;
 
 -- ==============================================================================
--- 2. LIMPEZA DE POLÍTICAS OBSOLETAS
+-- 2. LIMPEZA DE POLÍTICAS (REMOVER ANTIGAS E NOVAS PARA EVITAR CONFLITOS)
 -- ==============================================================================
 
 -- App Config
@@ -93,6 +93,11 @@ drop policy if exists "Read Config" on public.app_config;
 drop policy if exists "Admin Write Config" on public.app_config;
 drop policy if exists "Admin Update Config" on public.app_config;
 drop policy if exists "Admin Delete Config" on public.app_config;
+-- V2 Cleanups
+drop policy if exists "Public Read App Config" on public.app_config;
+drop policy if exists "Admin Write App Config" on public.app_config;
+drop policy if exists "Admin Update App Config" on public.app_config;
+drop policy if exists "Admin Delete App Config" on public.app_config;
 
 -- Profiles
 drop policy if exists "Ver Perfis" on public.profiles;
@@ -105,6 +110,11 @@ drop policy if exists "Unified Update Profiles" on public.profiles;
 drop policy if exists "Admin Insert Profiles" on public.profiles;
 drop policy if exists "Admin Update Profiles" on public.profiles;
 drop policy if exists "Admin Delete Profiles" on public.profiles;
+-- V2 Cleanups
+drop policy if exists "Public Read Profiles" on public.profiles;
+drop policy if exists "Update Profiles Unified V2" on public.profiles;
+drop policy if exists "Admin Insert Profiles V2" on public.profiles;
+drop policy if exists "Admin Delete Profiles V2" on public.profiles;
 
 -- Courses
 drop policy if exists "Staff Gere Cursos" on public.courses;
@@ -113,6 +123,11 @@ drop policy if exists "Read Courses" on public.courses;
 drop policy if exists "Staff Insert Courses" on public.courses;
 drop policy if exists "Staff Update Courses" on public.courses;
 drop policy if exists "Staff Delete Courses" on public.courses;
+-- V2 Cleanups
+drop policy if exists "Public Read Courses" on public.courses;
+drop policy if exists "Staff Insert Courses V2" on public.courses;
+drop policy if exists "Staff Update Courses V2" on public.courses;
+drop policy if exists "Staff Delete Courses V2" on public.courses;
 
 -- Classes
 drop policy if exists "Staff Gere Turmas" on public.classes;
@@ -122,6 +137,11 @@ drop policy if exists "Read Classes" on public.classes;
 drop policy if exists "Staff Insert Classes" on public.classes;
 drop policy if exists "Staff Update Classes" on public.classes;
 drop policy if exists "Staff Delete Classes" on public.classes;
+-- V2 Cleanups
+drop policy if exists "Public Read Classes" on public.classes;
+drop policy if exists "Staff Insert Classes V2" on public.classes;
+drop policy if exists "Staff Update Classes V2" on public.classes;
+drop policy if exists "Staff Delete Classes V2" on public.classes;
 
 -- Enrollments
 drop policy if exists "Staff Gere Inscricoes" on public.enrollments;
@@ -129,20 +149,47 @@ drop policy if exists "Ver Inscricoes" on public.enrollments;
 drop policy if exists "Read Enrollments" on public.enrollments;
 drop policy if exists "Staff Manage Enrollments" on public.enrollments;
 drop policy if exists "Staff Delete Enrollments" on public.enrollments;
+-- V2 Cleanups
+drop policy if exists "Read Enrollments V2" on public.enrollments;
+drop policy if exists "Staff Manage Enrollments V2" on public.enrollments;
+drop policy if exists "Staff Delete Enrollments V2" on public.enrollments;
 
--- Resources (Limpeza Genérica)
+-- Resources (Limpeza Genérica e V2)
 drop policy if exists "Read Materials" on public.class_materials;
 drop policy if exists "Manage Materials" on public.class_materials;
+drop policy if exists "Read Materials V2" on public.class_materials;
+drop policy if exists "Staff Insert Materials V2" on public.class_materials;
+drop policy if exists "Staff Delete Materials V2" on public.class_materials;
+
 drop policy if exists "Read Announcements" on public.class_announcements;
 drop policy if exists "Manage Announcements" on public.class_announcements;
+drop policy if exists "Read Announcements V2" on public.class_announcements;
+drop policy if exists "Staff Insert Announcements V2" on public.class_announcements;
+drop policy if exists "Staff Delete Announcements V2" on public.class_announcements;
+
 drop policy if exists "Read Assessments" on public.class_assessments;
 drop policy if exists "Manage Assessments" on public.class_assessments;
+drop policy if exists "Read Assessments V2" on public.class_assessments;
+drop policy if exists "Staff Insert Assessments V2" on public.class_assessments;
+drop policy if exists "Staff Delete Assessments V2" on public.class_assessments;
+
 drop policy if exists "Read Class Instructors" on public.class_instructors;
+drop policy if exists "Read Class Instructors V2" on public.class_instructors;
+drop policy if exists "Staff Insert Class Instructors V2" on public.class_instructors;
+drop policy if exists "Staff Delete Class Instructors V2" on public.class_instructors;
 
 -- Roles & Invites
 drop policy if exists "Read Roles" on public.roles;
 drop policy if exists "Admin Manage Roles" on public.roles;
+drop policy if exists "Read Roles V2" on public.roles;
+drop policy if exists "Admin Manage Roles V2" on public.roles;
+drop policy if exists "Admin Update Roles V2" on public.roles;
+drop policy if exists "Admin Delete Roles V2" on public.roles;
+
 drop policy if exists "Read Invites" on public.user_invites;
+drop policy if exists "Read Invites V2" on public.user_invites;
+drop policy if exists "Staff Insert Invites V2" on public.user_invites;
+drop policy if exists "Staff Delete Invites V2" on public.user_invites;
 
 -- ==============================================================================
 -- 3. APLICAÇÃO DE NOVAS POLÍTICAS (RLS V2)
