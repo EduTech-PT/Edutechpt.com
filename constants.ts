@@ -6,6 +6,6 @@
 export const SUPABASE_URL = "https://zeedhuzljsbaoqafpfom.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ZOMCawahrL7OImeWeT6Fug_U_WMN0H1";
 
-export const APP_VERSION = "v2.12.12"; // Update: Student Allocation
+export const APP_VERSION = "v2.12.13"; // Update: Student Classroom View
 export const SQL_VERSION = "v2.2.11"; // Fix: Policy Renaming to bypass 42710
 export const APP_NAME = "EduTech PT";

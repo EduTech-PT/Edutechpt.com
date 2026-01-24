@@ -8,9 +8,10 @@ import { CourseDetailModal } from '../CourseDetailModal';
 
 interface Props {
   profile: Profile;
+  onOpenClassroom?: (courseId: string) => void;
 }
 
-export const StudentCourses: React.FC<Props> = ({ profile }) => {
+export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) => {
   const [enrollments, setEnrollments] = useState<any[]>([]);
   const [publicCourses, setPublicCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,14 +54,18 @@ export const StudentCourses: React.FC<Props> = ({ profile }) => {
   };
 
   const handleAction = () => {
-      // Se já estiver inscrito, fecha (futuramente podia ir para o player do curso)
+      // Se já estiver inscrito, abre a sala de aula
       // Se não estiver, podia abrir um mailto ou outra lógica
       if (!selectedCourse) return;
 
       const isEnrolled = enrollments.some(e => e.course_id === selectedCourse.id);
       
       if (isEnrolled) {
-          alert("Em breve: Acesso direto aos materiais.");
+          if (onOpenClassroom) {
+              onOpenClassroom(selectedCourse.id);
+          } else {
+              alert("Erro de navegação: Sala de Aula não disponível.");
+          }
           setSelectedCourse(null);
       } else {
           // Solicitar Inscrição via Email
@@ -134,7 +139,7 @@ export const StudentCourses: React.FC<Props> = ({ profile }) => {
                                     onClick={() => handleOpenCourse(course)}
                                     className="px-4 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700 transition-colors shadow-sm"
                                 >
-                                    Aceder / Detalhes
+                                    Aceder à Aula
                                 </button>
                              </div>
                         </GlassCard>
@@ -192,7 +197,7 @@ export const StudentCourses: React.FC<Props> = ({ profile }) => {
                                     onClick={() => handleOpenCourse(course)}
                                     className="mt-auto w-full py-2 bg-green-100 text-green-700 border border-green-200 text-xs font-bold rounded hover:bg-green-200 transition-colors"
                                 >
-                                    ✅ Já Inscrito (Ver)
+                                    ✅ Já Inscrito (Aceder)
                                 </button>
                             ) : (
                                 <button 

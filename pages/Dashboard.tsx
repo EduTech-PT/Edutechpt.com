@@ -25,7 +25,8 @@ import { AvailabilityMap } from '../components/dashboard/AvailabilityMap';
 import { ClassManager } from '../components/dashboard/ClassManager'; 
 import { DidacticPortal } from '../components/dashboard/DidacticPortal';
 import { AccessLogs } from '../components/dashboard/AccessLogs'; 
-import { StudentAllocation } from '../components/dashboard/StudentAllocation'; // Novo Componente
+import { StudentAllocation } from '../components/dashboard/StudentAllocation';
+import { StudentClassroom } from '../components/dashboard/StudentClassroom'; // NOVO IMPORT
 
 interface DashboardProps {
   session: SupabaseSession;
@@ -46,6 +47,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   
   // Admin Edit User State
   const [selectedUserToEdit, setSelectedUserToEdit] = useState<Profile | null>(null);
+  
+  // Student Classroom State
+  const [selectedCourseForClassroom, setSelectedCourseForClassroom] = useState<string | undefined>(undefined);
 
   // Responsive State
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -71,6 +75,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
         const view = params.get('view') || 'dashboard';
         setCurrentView(view);
         setSelectedUserToEdit(null); 
+        setSelectedCourseForClassroom(undefined);
     };
     
     window.addEventListener('popstate', handlePopState);
@@ -218,6 +223,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const handleSetView = (newView: string) => {
       setCurrentView(newView);
       setSelectedUserToEdit(null);
+      setSelectedCourseForClassroom(undefined);
       
       const params = new URLSearchParams(window.location.search);
       params.set('view', newView);
@@ -250,6 +256,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       const params = new URLSearchParams(window.location.search);
       params.set('view', 'users');
       window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
+  };
+
+  // Função para abrir a sala de aula do aluno
+  const handleOpenClassroom = (courseId: string) => {
+      setSelectedCourseForClassroom(courseId);
+      setCurrentView('student_classroom');
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-indigo-600">A carregar EduTech PT...</div>;
@@ -299,7 +311,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
           case 'community': return <Community />;
           
-          case 'courses': return <StudentCourses profile={profile} />;
+          case 'courses': return <StudentCourses profile={profile} onOpenClassroom={handleOpenClassroom} />;
+          case 'student_classroom': return (
+              <StudentClassroom 
+                  profile={profile} 
+                  initialCourseId={selectedCourseForClassroom} 
+                  onBack={() => handleSetView('courses')}
+              />
+          );
+
           case 'manage_courses': return <CourseManager profile={profile} />;
           case 'manage_classes': return <ClassManager />;
           case 'manage_student_allocation': return <StudentAllocation />;
@@ -331,6 +351,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       if (view === 'manage_classes') return 'Gestão de Turmas';
       if (view === 'manage_student_allocation') return 'Alocação de Alunos';
       if (view === 'didactic_portal') return 'Gestor de Recursos';
+      if (view === 'student_classroom') return 'Sala de Aula';
       if (view === 'courses') return 'Meus Cursos e Oferta';
       if (view === 'calendar') return 'Minha Agenda';
       if (view === 'availability') return 'Mapa de Disponibilidade';
