@@ -3,7 +3,7 @@ import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- SCRIPT INTEGRAL DE ESTRUTURA E PERMISSÕES (${SQL_VERSION})
--- ATENÇÃO: Execute este script no SQL Editor do Supabase para corrigir erros de "Tabela não encontrada".
+-- ATENÇÃO: Execute este script no SQL Editor do Supabase para corrigir erros de "Tabela não encontrada" e "Relações em falta".
 
 -- ==============================================================================
 -- 1. ESTRUTURA DE DADOS (BASE)
@@ -82,11 +82,22 @@ create table if not exists public.enrollments (
   primary key (user_id, course_id)
 );
 
--- MIGRATION: Adicionar class_id a enrollments se não existir
+-- MIGRATION & REPAIR: Garantir coluna class_id e RELAÇÃO (Foreign Key)
 do $$
 begin
+    -- 1. Adicionar coluna se não existir
     if not exists (select 1 from information_schema.columns where table_name = 'enrollments' and column_name = 'class_id') then
         alter table public.enrollments add column class_id uuid references public.classes(id) on delete set null;
+    end if;
+
+    -- 2. REPARAÇÃO CRÍTICA: Garantir que a CONSTRAINT existe (Resolve erro "Could not find relationship")
+    if not exists (
+        select 1 from information_schema.table_constraints 
+        where constraint_name = 'enrollments_class_id_fkey' 
+        and table_name = 'enrollments'
+    ) then
+        -- Se a coluna existe mas a constraint não (pode ter sido dropada ou criada sem FK), adiciona explicitamente
+        alter table public.enrollments add constraint enrollments_class_id_fkey foreign key (class_id) references public.classes(id) on delete set null;
     end if;
 end $$;
 

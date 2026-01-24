@@ -32,17 +32,28 @@ export const courseService = {
                 .eq('user_id', userId);
                 
             if (error) {
-                // Se tabela não existe, retorna vazio para não bloquear a UI, mas loga erro
+                // Se tabela não existe (42P01)
                 if (error.code === '42P01') { 
                     console.warn("Tabelas de turmas em falta.");
                     return []; 
                 }
+                
+                // Tratamento específico para erro de relação (Foreign Key em falta)
+                if (error.message && error.message.includes('Could not find a relationship')) {
+                     console.error("Erro crítico de esquema: Relação Enrollments -> Classes em falta.");
+                     throw new Error("Erro de Base de Dados: A relação entre 'Inscrições' e 'Turmas' não foi encontrada. Por favor vá a Definições > Base de Dados e execute o script SQL mais recente.");
+                }
+
                 throw error;
             }
             return data;
         } catch (e: any) {
-            // Propagar se for erro de conexão ou outro, mas se for tabela em falta, gerir graciosamente
+            // Re-throw se for o erro que acabámos de criar
+            if (e.message && e.message.includes('Erro de Base de Dados')) throw e;
+            
+            // Se for tabela em falta, falha graciosamente
             if (e.code === '42P01') return [];
+            
             throw e;
         }
     },
