@@ -432,12 +432,106 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                 </GlassCard>
             )}
 
+            {tab === 'sql' && (
+                <GlassCard className="h-full flex flex-col">
+                    <div className="flex justify-between items-center mb-4">
+                        <div>
+                            <h3 className="font-bold text-xl text-indigo-900">Manutenção da Base de Dados</h3>
+                            <p className="text-sm text-indigo-600">Script de atualização de estrutura e permissões.</p>
+                        </div>
+                        <button 
+                            onClick={() => handleCopyText(sqlScript)} 
+                            className={`px-4 py-2 rounded-lg font-bold shadow-md transition-all ${copyFeedback ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+                        >
+                            {copyFeedback || 'Copiar Script SQL'}
+                        </button>
+                    </div>
+
+                    <div className="bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner flex-1 overflow-auto custom-scrollbar">
+                        <pre className="text-slate-300 font-mono text-xs whitespace-pre-wrap leading-relaxed">
+                            {sqlScript}
+                        </pre>
+                    </div>
+
+                    <div className="mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg text-sm text-indigo-800">
+                        <strong className="block mb-1">Instruções:</strong>
+                        <ol className="list-decimal ml-5 space-y-1">
+                            <li>Clique no botão <b>Copiar</b> acima.</li>
+                            <li>Aceda ao seu projeto no <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="underline font-bold text-indigo-600">Supabase Dashboard</a>.</li>
+                            <li>Vá ao <b>SQL Editor</b> (Menu lateral).</li>
+                            <li>Cole o código e clique em <b>Run</b>.</li>
+                        </ol>
+                    </div>
+                </GlassCard>
+            )}
+
             {tab === 'roles' && (
                 <RoleManager />
             )}
 
             {tab === 'allocation' && (
                 <ClassAllocation />
+            )}
+
+            {tab === 'avatars' && (
+                <GlassCard>
+                    <h3 className="font-bold text-xl text-indigo-900 mb-6 flex items-center gap-2">
+                        <span>🖼️</span> Configuração de Avatares
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-sm text-indigo-800 font-bold mb-1">Tamanho Máximo (KB)</label>
+                            <input 
+                                type="number" 
+                                value={config.maxSizeKb || 100} 
+                                onChange={e => setConfig({...config, maxSizeKb: parseInt(e.target.value)})} 
+                                className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-indigo-800 font-bold mb-1">Link para Redimensionar (Opcional)</label>
+                            <input 
+                                type="url" 
+                                value={config.resizerLink || ''} 
+                                onChange={e => setConfig({...config, resizerLink: e.target.value})} 
+                                placeholder="https://imageresizer.com"
+                                className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-indigo-800 font-bold mb-1">Largura Máxima (px)</label>
+                            <input 
+                                type="number" 
+                                value={config.maxWidth || 500} 
+                                onChange={e => setConfig({...config, maxWidth: parseInt(e.target.value)})} 
+                                className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-indigo-800 font-bold mb-1">Altura Máxima (px)</label>
+                            <input 
+                                type="number" 
+                                value={config.maxHeight || 500} 
+                                onChange={e => setConfig({...config, maxHeight: parseInt(e.target.value)})} 
+                                className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-sm text-indigo-800 font-bold mb-1">Texto de Ajuda (Exibido no perfil)</label>
+                            <textarea 
+                                value={config.helpText || ''} 
+                                onChange={e => setConfig({...config, helpText: e.target.value})} 
+                                className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300 text-sm"
+                                placeholder="Instruções para o utilizador sobre como redimensionar a imagem..."
+                            />
+                        </div>
+                    </div>
+                    <div className="flex justify-end mt-6">
+                        <button onClick={handleSaveConfig} className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 shadow-lg">
+                            Guardar Configuração
+                        </button>
+                    </div>
+                </GlassCard>
             )}
 
             {tab === 'access' && (
