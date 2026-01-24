@@ -59,6 +59,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [gasStatus, setGasStatus] = useState<{ match: boolean; remote: string; local: string } | null>(null);
   const [loading, setLoading] = useState(true);
   
+  // NEW: Critical Error State (Missing Tables)
+  const [criticalDbError, setCriticalDbError] = useState(false);
+  
   // Branding State
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
 
@@ -86,6 +89,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       try {
           if (!session.user) return;
           
+          // 0. HEALTH CHECK (Critical DB Tables)
+          const { error: healthError } = await supabase.from('classes').select('id').limit(1);
+          if (healthError && healthError.code === '42P01') { // 42P01 = undefined_table
+              setCriticalDbError(true);
+              console.error("CRITICAL: Tables missing from DB.");
+          }
+
           let userProfile: Profile | null = null;
           
           try {
@@ -364,6 +374,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 relative overflow-hidden font-sans">
+      
+      {/* CRITICAL DB ERROR OVERLAY */}
+      {criticalDbError && profile.role === 'admin' && (
+          <div className="fixed top-0 left-0 right-0 z-[100] bg-red-600 text-white p-4 shadow-xl flex flex-col md:flex-row items-center justify-center gap-4 animate-in slide-in-from-top duration-500">
+              <div className="flex items-center gap-3">
+                  <span className="text-3xl">🛑</span>
+                  <div>
+                      <h3 className="font-bold text-lg">Ação Crítica Necessária: Tabelas em Falta</h3>
+                      <p className="text-sm opacity-90">A Base de Dados está incompleta. Funcionalidades como turmas e cursos não funcionarão.</p>
+                  </div>
+              </div>
+              <button 
+                  onClick={handleFixDb}
+                  className="px-6 py-2 bg-white text-red-700 rounded-lg font-bold shadow-lg hover:bg-red-50 transition-colors animate-pulse"
+              >
+                  Corrigir Base de Dados Agora
+              </button>
+          </div>
+      )}
+
       {/* Background FX */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
           <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
@@ -371,7 +401,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           <div className="absolute bottom-[-10%] left-[20%] w-96 h-96 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
       </div>
 
-      <div className="relative z-10 flex w-full max-w-[1600px] mx-auto p-0 md:p-6 md:gap-6 h-screen">
+      <div className={`relative z-10 flex w-full max-w-[1600px] mx-auto p-0 md:p-6 md:gap-6 h-screen ${criticalDbError ? 'pt-24' : ''}`}>
         
         {mobileMenuOpen && (
             <div 

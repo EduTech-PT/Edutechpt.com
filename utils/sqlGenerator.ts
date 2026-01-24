@@ -3,10 +3,60 @@ import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- SCRIPT INTEGRAL DE ESTRUTURA E PERMISSÕES (${SQL_VERSION})
--- ATENÇÃO: Execute este script no SQL Editor do Supabase para corrigir erros de "Tabela não encontrada" ou "Policy already exists".
+-- ATENÇÃO: Execute este script no SQL Editor do Supabase para corrigir erros de "Tabela não encontrada".
 
 -- ==============================================================================
--- 1. ESTRUTURA DE DADOS
+-- 1. ESTRUTURA DE DADOS (BASE)
+-- ==============================================================================
+
+-- Tabela: App Config (Definições)
+create table if not exists public.app_config (
+  key text primary key,
+  value text,
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- Tabela: Profiles (Utilizadores)
+create table if not exists public.profiles (
+  id uuid references auth.users on delete cascade primary key,
+  email text unique not null,
+  full_name text,
+  role text default 'aluno',
+  created_at timestamp with time zone default timezone('utc'::text, now()),
+  avatar_url text,
+  bio text,
+  city text,
+  phone text,
+  linkedin_url text,
+  personal_email text,
+  birth_date date,
+  visibility_settings jsonb default '{}'::jsonb,
+  personal_folder_id text
+);
+
+-- Tabela: Roles (Cargos Personalizados)
+create table if not exists public.roles (
+  name text primary key,
+  description text,
+  permissions jsonb default '{}'::jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- Tabela: Courses (Cursos)
+create table if not exists public.courses (
+  id uuid default gen_random_uuid() primary key,
+  title text not null,
+  description text,
+  level text check (level in ('iniciante', 'intermedio', 'avancado')),
+  image_url text,
+  is_public boolean default false,
+  marketing_data jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now()),
+  instructor_id uuid references public.profiles(id) on delete set null
+);
+
+-- ==============================================================================
+-- 2. ESTRUTURA DE DADOS (TURMAS E RECURSOS)
 -- ==============================================================================
 
 -- Tabela: Classes (Turmas)
@@ -22,6 +72,15 @@ create table if not exists public.class_instructors (
   class_id uuid references public.classes(id) on delete cascade,
   profile_id uuid references public.profiles(id) on delete cascade,
   primary key (class_id, profile_id)
+);
+
+-- Tabela: Enrollments (Inscrições)
+create table if not exists public.enrollments (
+  user_id uuid references public.profiles(id) on delete cascade,
+  course_id uuid references public.courses(id) on delete cascade,
+  class_id uuid references public.classes(id) on delete set null,
+  enrolled_at timestamp with time zone default timezone('utc'::text, now()),
+  primary key (user_id, course_id)
 );
 
 -- Tabela: Materiais
@@ -54,21 +113,24 @@ create table if not exists public.class_assessments (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- Updates Schema
-do $$
-begin
-    if not exists (select 1 from information_schema.columns where table_name = 'enrollments' and column_name = 'class_id') then
-        alter table public.enrollments add column class_id uuid references public.classes(id);
-    end if;
-    if not exists (select 1 from information_schema.columns where table_name = 'user_invites' and column_name = 'course_id') then
-        alter table public.user_invites add column course_id uuid references public.courses(id);
-    end if;
-    if not exists (select 1 from information_schema.columns where table_name = 'user_invites' and column_name = 'class_id') then
-        alter table public.user_invites add column class_id uuid references public.classes(id);
-    end if;
-end $$;
+-- Tabela: Convites
+create table if not exists public.user_invites (
+  email text primary key,
+  role text not null,
+  course_id uuid references public.courses(id) on delete set null,
+  class_id uuid references public.classes(id) on delete set null,
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
 
--- Habilitar RLS
+-- Tabela: Logs
+create table if not exists public.access_logs (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade,
+  event_type text check (event_type in ('login', 'logout')),
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- Habilitar RLS em tudo
 alter table public.classes enable row level security;
 alter table public.class_instructors enable row level security;
 alter table public.class_materials enable row level security;
@@ -80,150 +142,123 @@ alter table public.courses enable row level security;
 alter table public.enrollments enable row level security;
 alter table public.roles enable row level security;
 alter table public.user_invites enable row level security;
+alter table public.access_logs enable row level security;
 
 -- ==============================================================================
--- 2. POLÍTICAS DE SEGURANÇA (RLS) - LIMPEZA E CRIAÇÃO
+-- 3. POLÍTICAS DE SEGURANÇA (RLS) - REINICIALIZAÇÃO TOTAL
 -- ==============================================================================
 
 -- --- APP CONFIG ---
--- Drops (Legacy & Current)
-drop policy if exists "Admin Config" on public.app_config;
-drop policy if exists "Ver Config" on public.app_config;
-drop policy if exists "Public Read Config" on public.app_config;
-drop policy if exists "Admin Manage Config" on public.app_config;
-drop policy if exists "Read Config" on public.app_config;
 drop policy if exists "Public Read App Config" on public.app_config;
 drop policy if exists "Admin Write App Config" on public.app_config;
 drop policy if exists "Admin Update App Config" on public.app_config;
 drop policy if exists "Admin Delete App Config" on public.app_config;
 
--- Creates
 create policy "Public Read App Config" on public.app_config for select using (true);
 create policy "Admin Write App Config" on public.app_config for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
 create policy "Admin Update App Config" on public.app_config for update using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
 create policy "Admin Delete App Config" on public.app_config for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
 
 -- --- PROFILES ---
--- Drops
-drop policy if exists "Ver Perfis" on public.profiles;
-drop policy if exists "Editar Proprio Perfil" on public.profiles;
-drop policy if exists "Admin Gere Perfis" on public.profiles;
-drop policy if exists "Sistema Cria Perfis" on public.profiles;
 drop policy if exists "Public Read Profiles" on public.profiles;
 drop policy if exists "Update Profiles Unified V2" on public.profiles;
 drop policy if exists "Admin Insert Profiles V2" on public.profiles;
 drop policy if exists "Admin Delete Profiles V2" on public.profiles;
 
--- Creates
 create policy "Public Read Profiles" on public.profiles for select using (true);
 create policy "Update Profiles Unified V2" on public.profiles for update to authenticated using ((select auth.uid()) = id OR exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
 create policy "Admin Insert Profiles V2" on public.profiles for insert to authenticated with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
 create policy "Admin Delete Profiles V2" on public.profiles for delete to authenticated using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
 
 -- --- COURSES ---
--- Drops
-drop policy if exists "Staff Gere Cursos" on public.courses;
-drop policy if exists "Ver Cursos" on public.courses;
 drop policy if exists "Public Read Courses" on public.courses;
 drop policy if exists "Staff Insert Courses V2" on public.courses;
 drop policy if exists "Staff Update Courses V2" on public.courses;
 drop policy if exists "Staff Delete Courses V2" on public.courses;
 
--- Creates
 create policy "Public Read Courses" on public.courses for select using (true);
 create policy "Staff Insert Courses V2" on public.courses for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Update Courses V2" on public.courses for update using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Delete Courses V2" on public.courses for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
 -- --- CLASSES ---
--- Drops
-drop policy if exists "Staff Gere Turmas" on public.classes;
-drop policy if exists "Ver Turmas" on public.classes;
 drop policy if exists "Public Read Classes" on public.classes;
 drop policy if exists "Staff Insert Classes V2" on public.classes;
 drop policy if exists "Staff Update Classes V2" on public.classes;
 drop policy if exists "Staff Delete Classes V2" on public.classes;
 
--- Creates
 create policy "Public Read Classes" on public.classes for select using (true);
 create policy "Staff Insert Classes V2" on public.classes for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Update Classes V2" on public.classes for update using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Delete Classes V2" on public.classes for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
 -- --- ENROLLMENTS ---
--- Drops
-drop policy if exists "Staff Gere Inscricoes" on public.enrollments;
-drop policy if exists "Ver Inscricoes" on public.enrollments;
 drop policy if exists "Read Enrollments V2" on public.enrollments;
 drop policy if exists "Staff Manage Enrollments V2" on public.enrollments;
 drop policy if exists "Staff Delete Enrollments V2" on public.enrollments;
 
--- Creates
 create policy "Read Enrollments V2" on public.enrollments for select using ((select auth.uid()) = user_id OR exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Manage Enrollments V2" on public.enrollments for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Delete Enrollments V2" on public.enrollments for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
--- --- RESOURCES (Materials, Announcements, Assessments) ---
--- Drops
+-- --- RESOURCES ---
 drop policy if exists "Read Materials V2" on public.class_materials;
 drop policy if exists "Staff Insert Materials V2" on public.class_materials;
 drop policy if exists "Staff Delete Materials V2" on public.class_materials;
+
+create policy "Read Materials V2" on public.class_materials for select using ((select auth.role()) = 'authenticated');
+create policy "Staff Insert Materials V2" on public.class_materials for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+create policy "Staff Delete Materials V2" on public.class_materials for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
 drop policy if exists "Read Announcements V2" on public.class_announcements;
 drop policy if exists "Staff Insert Announcements V2" on public.class_announcements;
 drop policy if exists "Staff Delete Announcements V2" on public.class_announcements;
 
-drop policy if exists "Read Assessments V2" on public.class_assessments;
-drop policy if exists "Staff Insert Assessments V2" on public.class_assessments;
-drop policy if exists "Staff Delete Assessments V2" on public.class_assessments;
-
--- Creates
-create policy "Read Materials V2" on public.class_materials for select using ((select auth.role()) = 'authenticated');
-create policy "Staff Insert Materials V2" on public.class_materials for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
-create policy "Staff Delete Materials V2" on public.class_materials for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
-
 create policy "Read Announcements V2" on public.class_announcements for select using ((select auth.role()) = 'authenticated');
 create policy "Staff Insert Announcements V2" on public.class_announcements for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Delete Announcements V2" on public.class_announcements for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+
+drop policy if exists "Read Assessments V2" on public.class_assessments;
+drop policy if exists "Staff Insert Assessments V2" on public.class_assessments;
+drop policy if exists "Staff Delete Assessments V2" on public.class_assessments;
 
 create policy "Read Assessments V2" on public.class_assessments for select using ((select auth.role()) = 'authenticated');
 create policy "Staff Insert Assessments V2" on public.class_assessments for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Delete Assessments V2" on public.class_assessments for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
 -- --- INSTRUCTORS ---
--- Drops
 drop policy if exists "Read Class Instructors V2" on public.class_instructors;
 drop policy if exists "Staff Insert Class Instructors V2" on public.class_instructors;
 drop policy if exists "Staff Delete Class Instructors V2" on public.class_instructors;
 
--- Creates
 create policy "Read Class Instructors V2" on public.class_instructors for select using (true);
 create policy "Staff Insert Class Instructors V2" on public.class_instructors for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor')));
 create policy "Staff Delete Class Instructors V2" on public.class_instructors for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor')));
 
 -- --- ROLES & INVITES ---
--- Drops
 drop policy if exists "Read Roles V2" on public.roles;
 drop policy if exists "Admin Manage Roles V2" on public.roles;
 drop policy if exists "Admin Update Roles V2" on public.roles;
 drop policy if exists "Admin Delete Roles V2" on public.roles;
 
-drop policy if exists "Read Invites V2" on public.user_invites;
-drop policy if exists "Staff Insert Invites V2" on public.user_invites;
-drop policy if exists "Staff Delete Invites V2" on public.user_invites;
-
--- Creates
 create policy "Read Roles V2" on public.roles for select using (true);
 create policy "Admin Manage Roles V2" on public.roles for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
 create policy "Admin Update Roles V2" on public.roles for update using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
 create policy "Admin Delete Roles V2" on public.roles for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
 
+drop policy if exists "Read Invites V2" on public.user_invites;
+drop policy if exists "Staff Insert Invites V2" on public.user_invites;
+drop policy if exists "Staff Delete Invites V2" on public.user_invites;
+
 create policy "Read Invites V2" on public.user_invites for select using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Insert Invites V2" on public.user_invites for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Delete Invites V2" on public.user_invites for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
+drop policy if exists "Admin Logs" on public.access_logs;
+create policy "Admin Logs" on public.access_logs for all using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
+
 -- ==============================================================================
--- 3. TRIGGERS E FUNÇÕES
+-- 4. FUNÇÕES DE SISTEMA
 -- ==============================================================================
 
 create or replace function public.handle_new_user() returns trigger 

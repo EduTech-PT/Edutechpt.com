@@ -6,6 +6,6 @@
 export const SUPABASE_URL = "https://zeedhuzljsbaoqafpfom.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ZOMCawahrL7OImeWeT6Fug_U_WMN0H1";
 
-export const APP_VERSION = "v2.12.16"; // Update: SQL Robustness
-export const SQL_VERSION = "v2.2.14"; // Fix: Fully Idempotent Script
+export const APP_VERSION = "v2.12.17"; // Update: SQL Dependencies Fix
+export const SQL_VERSION = "v2.2.15"; // Fix: Create Base Tables First
 export const APP_NAME = "EduTech PT";
