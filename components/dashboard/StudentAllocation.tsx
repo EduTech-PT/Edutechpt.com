@@ -1,0 +1,285 @@
+
+import React, { useState, useEffect } from 'react';
+import { Course, Class, Profile, UserRole } from '../../types';
+import { GlassCard } from '../GlassCard';
+import { courseService } from '../../services/courses';
+import { userService } from '../../services/users';
+
+export const StudentAllocation: React.FC = () => {
+    const [courses, setCourses] = useState<Course[]>([]);
+    const [classes, setClasses] = useState<Class[]>([]);
+    const [allStudents, setAllStudents] = useState<Profile[]>([]);
+    const [enrollments, setEnrollments] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    
+    // Filters
+    const [selectedCourseId, setSelectedCourseId] = useState<string>('');
+    const [selectedClassId, setSelectedClassId] = useState<string>('');
+    const [searchQuery, setSearchQuery] = useState('');
+    
+    // Processing state for individual user actions
+    const [processingUser, setProcessingUser] = useState<string | null>(null);
+
+    useEffect(() => {
+        loadData();
+    }, []);
+
+    useEffect(() => {
+        if (selectedCourseId) {
+            loadClasses(selectedCourseId);
+        } else {
+            setClasses([]);
+            setSelectedClassId('');
+        }
+    }, [selectedCourseId]);
+
+    const loadData = async () => {
+        try {
+            setLoading(true);
+            const [coursesData, profilesData, enrollmentsData] = await Promise.all([
+                courseService.getAll(),
+                userService.getAllProfiles(),
+                courseService.getAllEnrollments()
+            ]);
+            
+            setCourses(coursesData);
+            setAllStudents(profilesData.filter(p => p.role === UserRole.STUDENT));
+            setEnrollments(enrollmentsData || []);
+
+            if (coursesData.length > 0) {
+                setSelectedCourseId(coursesData[0].id);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadClasses = async (courseId: string) => {
+        const data = await courseService.getClasses(courseId);
+        setClasses(data);
+        if (data.length > 0) setSelectedClassId(data[0].id);
+        else setSelectedClassId('');
+    };
+
+    // --- ACTIONS ---
+
+    const handleAssign = async (studentId: string) => {
+        if (!selectedCourseId || !selectedClassId) return;
+        setProcessingUser(studentId);
+        try {
+            await courseService.assignStudentToClass(studentId, selectedCourseId, selectedClassId);
+            
+            // Update local state optimistic
+            // We need to either update enrollments or refetch. 
+            // Simple approach: Refetch enrollments to be safe with DB constraints
+            const newEnrollments = await courseService.getAllEnrollments();
+            setEnrollments(newEnrollments || []);
+        } catch (e: any) {
+            alert("Erro ao alocar aluno: " + e.message);
+        } finally {
+            setProcessingUser(null);
+        }
+    };
+
+    const handleRemove = async (studentId: string) => {
+        if (!selectedCourseId) return;
+        setProcessingUser(studentId);
+        try {
+            await courseService.removeStudentFromClass(studentId, selectedCourseId);
+            const newEnrollments = await courseService.getAllEnrollments();
+            setEnrollments(newEnrollments || []);
+        } catch (e: any) {
+            alert("Erro ao remover aluno: " + e.message);
+        } finally {
+            setProcessingUser(null);
+        }
+    };
+
+    // --- FILTER LOGIC ---
+
+    // 1. Alunos que estão na turma selecionada
+    const enrolledInClass = allStudents.filter(student => {
+        const enrollment = enrollments.find(e => 
+            e.user_id === student.id && 
+            e.course_id === selectedCourseId
+        );
+        return enrollment && enrollment.class_id === selectedClassId;
+    });
+
+    // 2. Alunos disponíveis para adicionar (não estão nesta turma)
+    // Podem estar:
+    // a) Inscritos no curso mas SEM turma (Prioridade)
+    // b) Inscritos no curso noutra turma (Aviso)
+    // c) Não inscritos no curso (Novo)
+    const availableStudents = allStudents.filter(student => {
+        // Excluir os que já estão na turma atual
+        if (enrolledInClass.some(e => e.id === student.id)) return false;
+        
+        // Filtro de pesquisa
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            return (
+                (student.full_name?.toLowerCase().includes(query)) ||
+                (student.email.toLowerCase().includes(query))
+            );
+        }
+        return true;
+    }).sort((a, b) => {
+        // Ordenação inteligente: Primeiro os que já estão inscritos no curso (sem turma)
+        const aEnrolled = enrollments.some(e => e.user_id === a.id && e.course_id === selectedCourseId);
+        const bEnrolled = enrollments.some(e => e.user_id === b.id && e.course_id === selectedCourseId);
+        if (aEnrolled && !bEnrolled) return -1;
+        if (!aEnrolled && bEnrolled) return 1;
+        return (a.full_name || '').localeCompare(b.full_name || '');
+    });
+
+    return (
+        <div className="space-y-6 h-[calc(100vh-140px)] flex flex-col animate-in slide-in-from-right duration-300">
+            {/* HEADERS & FILTERS */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
+                <div>
+                    <h2 className="text-xl font-bold text-indigo-900">Alocação de Alunos</h2>
+                    <p className="text-sm text-indigo-600">Distribua os alunos pelas turmas correspondentes.</p>
+                </div>
+                
+                <div className="flex gap-2 w-full md:w-auto">
+                    <select 
+                        value={selectedCourseId} 
+                        onChange={(e) => setSelectedCourseId(e.target.value)}
+                        className="flex-1 md:w-64 p-2 rounded-lg bg-white/60 border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none font-bold text-indigo-800 shadow-sm"
+                    >
+                        {courses.length === 0 && <option value="">A carregar cursos...</option>}
+                        {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                    </select>
+
+                    <select 
+                        value={selectedClassId} 
+                        onChange={(e) => setSelectedClassId(e.target.value)}
+                        className="flex-1 md:w-48 p-2 rounded-lg bg-white/60 border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none font-bold text-indigo-800 shadow-sm"
+                        disabled={!selectedCourseId || classes.length === 0}
+                    >
+                        {classes.length === 0 ? <option>Sem turmas</option> : null}
+                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </div>
+            </div>
+
+            {loading ? (
+                <div className="flex-1 flex items-center justify-center text-indigo-500">
+                    A carregar dados...
+                </div>
+            ) : !selectedClassId ? (
+                <GlassCard className="flex-1 flex flex-col items-center justify-center text-center opacity-60">
+                    <span className="text-4xl mb-2">🏫</span>
+                    <h3 className="font-bold text-lg text-indigo-900">Selecione uma Turma</h3>
+                    <p className="text-sm">Escolha um curso e uma turma para gerir os alunos.</p>
+                </GlassCard>
+            ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
+                    
+                    {/* LEFT: AVAILABLE STUDENTS */}
+                    <GlassCard className="flex flex-col p-0 overflow-hidden border-2 border-indigo-50/50 bg-white/20">
+                        <div className="p-4 bg-indigo-50/80 border-b border-indigo-100 shrink-0">
+                            <h3 className="font-bold text-indigo-900 mb-2">Alunos Disponíveis</h3>
+                            <input 
+                                type="text" 
+                                placeholder="🔍 Pesquisar aluno..." 
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full p-2 text-xs rounded bg-white border border-indigo-200 focus:ring-1 focus:ring-indigo-400 outline-none"
+                            />
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2">
+                            {availableStudents.length === 0 ? (
+                                <div className="p-8 text-center text-xs text-gray-400">Nenhum aluno encontrado.</div>
+                            ) : (
+                                availableStudents.map(student => {
+                                    const enrollment = enrollments.find(e => e.user_id === student.id && e.course_id === selectedCourseId);
+                                    const otherClassId = enrollment?.class_id;
+                                    const otherClass = otherClassId ? classes.find(c => c.id === otherClassId) : null;
+                                    const isProcessing = processingUser === student.id;
+
+                                    return (
+                                        <div key={student.id} className="flex items-center justify-between p-2 rounded-lg bg-white/60 hover:bg-white border border-transparent hover:border-indigo-100 transition-all group">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold overflow-hidden shrink-0">
+                                                    {student.avatar_url ? <img src={student.avatar_url} className="w-full h-full object-cover"/> : student.full_name?.[0]}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-xs font-bold text-indigo-900 truncate w-32 md:w-48">{student.full_name}</div>
+                                                    
+                                                    {/* Status Badge */}
+                                                    {otherClass ? (
+                                                        <div className="text-[9px] text-amber-600 font-bold flex items-center gap-1">
+                                                            ⚠️ Na turma: {otherClass.name}
+                                                        </div>
+                                                    ) : enrollment ? (
+                                                        <div className="text-[9px] text-green-600 font-bold">
+                                                            ✓ Inscrito no Curso (Sem turma)
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-[9px] text-gray-400">
+                                                            Não inscrito
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <button 
+                                                onClick={() => !isProcessing && handleAssign(student.id)}
+                                                disabled={isProcessing}
+                                                className="px-3 py-1.5 bg-indigo-100 text-indigo-700 text-xs font-bold rounded hover:bg-indigo-600 hover:text-white transition-colors"
+                                            >
+                                                {isProcessing ? '...' : 'Adicionar →'}
+                                            </button>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </GlassCard>
+
+                    {/* RIGHT: ENROLLED STUDENTS */}
+                    <GlassCard className="flex flex-col p-0 overflow-hidden border-2 border-indigo-100 bg-indigo-50/20">
+                        <div className="p-4 bg-white/60 border-b border-indigo-100 shrink-0 flex justify-between items-center">
+                            <h3 className="font-bold text-indigo-900">Alunos na Turma</h3>
+                            <span className="text-xs font-bold bg-indigo-600 text-white px-2 py-1 rounded-full">{enrolledInClass.length}</span>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2">
+                            {enrolledInClass.length === 0 ? (
+                                <div className="p-8 text-center text-xs text-gray-400">Turma vazia. Adicione alunos à esquerda.</div>
+                            ) : (
+                                enrolledInClass.map(student => {
+                                    const isProcessing = processingUser === student.id;
+                                    return (
+                                        <div key={student.id} className="flex items-center justify-between p-2 rounded-lg bg-white border border-indigo-50 hover:border-red-200 transition-all group">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <button 
+                                                    onClick={() => !isProcessing && handleRemove(student.id)}
+                                                    className="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-bold rounded hover:bg-red-500 hover:text-white transition-colors shrink-0"
+                                                >
+                                                    {isProcessing ? '...' : '← Remover'}
+                                                </button>
+                                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold overflow-hidden shrink-0">
+                                                    {student.avatar_url ? <img src={student.avatar_url} className="w-full h-full object-cover"/> : student.full_name?.[0]}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-xs font-bold text-indigo-900 truncate">{student.full_name}</div>
+                                                    <div className="text-[9px] text-gray-500 truncate">{student.email}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </GlassCard>
+
+                </div>
+            )}
+        </div>
+    );
+};

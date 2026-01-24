@@ -24,7 +24,8 @@ import { Calendar } from '../components/dashboard/Calendar';
 import { AvailabilityMap } from '../components/dashboard/AvailabilityMap';
 import { ClassManager } from '../components/dashboard/ClassManager'; 
 import { DidacticPortal } from '../components/dashboard/DidacticPortal';
-import { AccessLogs } from '../components/dashboard/AccessLogs'; // Novo Componente
+import { AccessLogs } from '../components/dashboard/AccessLogs'; 
+import { StudentAllocation } from '../components/dashboard/StudentAllocation'; // Novo Componente
 
 interface DashboardProps {
   session: SupabaseSession;
@@ -301,6 +302,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           case 'courses': return <StudentCourses profile={profile} />;
           case 'manage_courses': return <CourseManager profile={profile} />;
           case 'manage_classes': return <ClassManager />;
+          case 'manage_student_allocation': return <StudentAllocation />;
           case 'didactic_portal': return <DidacticPortal profile={profile} />;
 
           case 'media': return <MediaManager />;
@@ -327,6 +329,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       if (view === 'admin_edit_profile') return 'Gestão / Editar Perfil';
       if (view === 'manage_courses') return 'Gestão de Cursos';
       if (view === 'manage_classes') return 'Gestão de Turmas';
+      if (view === 'manage_student_allocation') return 'Alocação de Alunos';
       if (view === 'didactic_portal') return 'Gestor de Recursos';
       if (view === 'courses') return 'Meus Cursos e Oferta';
       if (view === 'calendar') return 'Minha Agenda';

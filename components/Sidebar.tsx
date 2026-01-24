@@ -95,7 +95,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
         { id: 'didactic_portal', label: 'Gestor de Recursos', permissionKey: 'view_didactic_portal', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
         { id: 'manage_courses', label: 'Gestão de Cursos', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
         { id: 'manage_classes', label: 'Gestão de Turmas', permissionKey: 'manage_classes', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] }, 
-        // Itens movidos de Material Didático para aqui
+        // NEW ITEM
+        { id: 'manage_student_allocation', label: 'Alocação Alunos', permissionKey: 'manage_classes', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
         { id: 'media', label: 'Galeria', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
         { id: 'drive', label: 'Arquivos Drive', permissionKey: 'view_drive', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
       ]
@@ -106,7 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       icon: '⚙️',
       items: [
         { id: 'users', label: 'Utilizadores', permissionKey: 'view_users', fallbackRoles: [UserRole.ADMIN] },
-        { id: 'settings_logs', label: 'Monitorização', permissionKey: 'view_users', fallbackRoles: [UserRole.ADMIN] }, // NOVO ITEM
+        { id: 'settings_logs', label: 'Monitorização', permissionKey: 'view_users', fallbackRoles: [UserRole.ADMIN] }, 
         { id: 'settings_roles', label: 'Cargos e Permissões', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
         { id: 'settings_allocation', label: 'Alocação Formadores', permissionKey: 'manage_allocations', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR] }, 
         { id: 'settings_geral', label: 'Sistema', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
@@ -224,15 +225,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       
       {/* Top Section */}
       <div className="p-6 pb-4 flex-shrink-0 flex justify-between items-center bg-white/10 backdrop-blur-sm md:bg-transparent">
-        {logoUrl ? (
-            <img 
-              src={logoUrl} 
-              alt="Logo" 
-              className="h-12 md:h-16 object-contain max-w-[200px] drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] transform hover:scale-110 transition-transform duration-500" 
-            />
-        ) : (
-            <h2 className="text-2xl font-bold text-indigo-900 tracking-tight">EduTech PT</h2>
-        )}
+        <div 
+            onClick={() => handleSetView('dashboard')}
+            className="cursor-pointer"
+            title="Ir para Dashboard"
+        >
+            {logoUrl ? (
+                <img 
+                  src={logoUrl} 
+                  alt="Logo" 
+                  className="h-12 md:h-16 object-contain max-w-[200px] drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] transform hover:scale-110 transition-transform duration-500" 
+                />
+            ) : (
+                <h2 className="text-2xl font-bold text-indigo-900 tracking-tight">EduTech PT</h2>
+            )}
+        </div>
         {onMobileClose && (
             <button onClick={onMobileClose} className="md:hidden p-2 text-indigo-900 hover:bg-indigo-100 rounded-lg">✕</button>
         )}

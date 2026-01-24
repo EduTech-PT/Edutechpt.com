@@ -28,6 +28,38 @@ export const courseService = {
         return data;
     },
 
+    // Buscar todas as inscrições (Enrollments) para gestão
+    async getAllEnrollments() {
+        const { data, error } = await supabase
+            .from('enrollments')
+            .select('*');
+        if (error) throw error;
+        return data;
+    },
+
+    // Atribuir aluno a uma turma (Upsert enrollment)
+    async assignStudentToClass(userId: string, courseId: string, classId: string) {
+        const { error } = await supabase.from('enrollments').upsert({
+            user_id: userId,
+            course_id: courseId,
+            class_id: classId,
+            enrolled_at: new Date().toISOString()
+        }, { onConflict: 'user_id, course_id' });
+        
+        if (error) throw error;
+    },
+
+    // Remover aluno da turma (Mantém no curso, mas class_id = null)
+    async removeStudentFromClass(userId: string, courseId: string) {
+        const { error } = await supabase
+            .from('enrollments')
+            .update({ class_id: null })
+            .eq('user_id', userId)
+            .eq('course_id', courseId);
+            
+        if (error) throw error;
+    },
+
     // Buscar apenas cursos públicos (vitrine)
     async getPublicCourses() {
         const { data, error } = await supabase
