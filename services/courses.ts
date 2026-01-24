@@ -14,24 +14,37 @@ export const courseService = {
 
     // Buscar cursos onde o aluno está inscrito
     async getStudentEnrollments(userId: string) {
-        // Utilizamos a notação de objectos aninhados do Supabase
-        // UPDATE: Incluir instrutores para obter o email para submissões
-        const { data, error } = await supabase
-            .from('enrollments')
-            .select(`
-                *,
-                course:courses (*),
-                class:classes (
+        try {
+            // Utilizamos a notação de objectos aninhados do Supabase
+            // UPDATE: Incluir instrutores para obter o email para submissões
+            const { data, error } = await supabase
+                .from('enrollments')
+                .select(`
                     *,
-                    instructors:class_instructors (
-                        profile:profiles (id, full_name, email)
+                    course:courses (*),
+                    class:classes (
+                        *,
+                        instructors:class_instructors (
+                            profile:profiles (id, full_name, email)
+                        )
                     )
-                )
-            `)
-            .eq('user_id', userId);
-            
-        if (error) throw error;
-        return data;
+                `)
+                .eq('user_id', userId);
+                
+            if (error) {
+                // Se tabela não existe, retorna vazio para não bloquear a UI, mas loga erro
+                if (error.code === '42P01') { 
+                    console.warn("Tabelas de turmas em falta.");
+                    return []; 
+                }
+                throw error;
+            }
+            return data;
+        } catch (e: any) {
+            // Propagar se for erro de conexão ou outro, mas se for tabela em falta, gerir graciosamente
+            if (e.code === '42P01') return [];
+            throw e;
+        }
     },
 
     // Buscar todas as inscrições (Enrollments) para gestão
@@ -39,7 +52,10 @@ export const courseService = {
         const { data, error } = await supabase
             .from('enrollments')
             .select('*');
-        if (error) throw error;
+        if (error) {
+             if (error.code === '42P01') return [];
+             throw error;
+        }
         return data;
     },
 
@@ -101,98 +117,131 @@ export const courseService = {
     // --- CLASSES (TURMAS) METHODS ---
 
     async getClasses(courseId?: string) {
-        // Agora faz join com instructor (profiles) através da tabela de junção
-        let query = supabase
-            .from('classes')
-            .select(`
-                *,
-                instructors:class_instructors(
-                    profile:profiles(*)
-                )
-            `)
-            .order('name', { ascending: true });
-        
-        if (courseId) {
-            query = query.eq('course_id', courseId);
-        }
+        try {
+            // Agora faz join com instructor (profiles) através da tabela de junção
+            let query = supabase
+                .from('classes')
+                .select(`
+                    *,
+                    instructors:class_instructors(
+                        profile:profiles(*)
+                    )
+                `)
+                .order('name', { ascending: true });
+            
+            if (courseId) {
+                query = query.eq('course_id', courseId);
+            }
 
-        const { data, error } = await query;
-        if (error) throw error;
-        
-        // Mapear estrutura complexa do Supabase para o tipo Class mais limpo
-        return data.map((item: any) => ({
-            ...item,
-            instructors: item.instructors?.map((i: any) => i.profile) || []
-        })) as Class[];
+            const { data, error } = await query;
+            if (error) {
+                if (error.code === '42P01') return [];
+                throw error;
+            }
+            
+            // Mapear estrutura complexa do Supabase para o tipo Class mais limpo
+            return data.map((item: any) => ({
+                ...item,
+                instructors: item.instructors?.map((i: any) => i.profile) || []
+            })) as Class[];
+        } catch (e: any) {
+            if (e.code === '42P01') return [];
+            throw e;
+        }
     },
 
     // Novo: Buscar turmas onde o formador dá aulas (Para o Portal Didático)
     async getTrainerClasses(trainerId: string) {
-        // TRUQUE SUPABASE:
-        // 1. my_instruction!inner -> Filtra as turmas onde EXISTE este formador (INNER JOIN)
-        // 2. instructors_details -> Busca TODOS os instrutores dessa turma para exibir (incluindo o próprio)
-        const { data, error } = await supabase
-            .from('classes')
-            .select(`
-                *,
-                course:courses(*),
-                my_instruction:class_instructors!inner(profile_id),
-                instructors_details:class_instructors(
-                    profile:profiles(*)
-                )
-            `)
-            .eq('my_instruction.profile_id', trainerId)
-            .order('name');
+        try {
+            // TRUQUE SUPABASE:
+            // 1. my_instruction!inner -> Filtra as turmas onde EXISTE este formador (INNER JOIN)
+            // 2. instructors_details -> Busca TODOS os instrutores dessa turma para exibir (incluindo o próprio)
+            const { data, error } = await supabase
+                .from('classes')
+                .select(`
+                    *,
+                    course:courses(*),
+                    my_instruction:class_instructors!inner(profile_id),
+                    instructors_details:class_instructors(
+                        profile:profiles(*)
+                    )
+                `)
+                .eq('my_instruction.profile_id', trainerId)
+                .order('name');
 
-        if (error) throw error;
-        
-        // Mapeamento para limpar a estrutura
-        return data.map((item: any) => ({
-            ...item,
-            instructors: item.instructors_details?.map((i: any) => i.profile) || []
-        })) as (Class & { course: Course })[];
+            if (error) {
+                if (error.code === '42P01') return [];
+                throw error;
+            }
+            
+            // Mapeamento para limpar a estrutura
+            return data.map((item: any) => ({
+                ...item,
+                instructors: item.instructors_details?.map((i: any) => i.profile) || []
+            })) as (Class & { course: Course })[];
+        } catch (e: any) {
+            if (e.code === '42P01') return [];
+            throw e;
+        }
     },
 
     // NOVO: Buscar TODAS as turmas com detalhes do curso E instrutores (Para Admin Dashboard)
     async getAllClassesWithDetails() {
-        const { data, error } = await supabase
-            .from('classes')
-            .select(`
-                *,
-                course:courses(*),
-                instructors:class_instructors(
-                    profile:profiles(*)
-                )
-            `)
-            .order('name');
+        try {
+            const { data, error } = await supabase
+                .from('classes')
+                .select(`
+                    *,
+                    course:courses(*),
+                    instructors:class_instructors(
+                        profile:profiles(*)
+                    )
+                `)
+                .order('name');
 
-        if (error) throw error;
-        
-        // Mapear para incluir a lista limpa de instructors
-        return data.map((item: any) => ({
-            ...item,
-            instructors: item.instructors?.map((i: any) => i.profile) || []
-        })) as (Class & { course: Course })[];
+            if (error) {
+                if (error.code === '42P01') return [];
+                throw error;
+            }
+            
+            // Mapear para incluir a lista limpa de instructors
+            return data.map((item: any) => ({
+                ...item,
+                instructors: item.instructors?.map((i: any) => i.profile) || []
+            })) as (Class & { course: Course })[];
+        } catch (e: any) {
+            if (e.code === '42P01') return [];
+            throw e;
+        }
     },
 
     // NOVO: Buscar Hierarquia Completa (Curso -> Turma -> Alunos) para Dashboard
     async getCourseHierarchy() {
-        const { data, error } = await supabase
-            .from('courses')
-            .select(`
-                *,
-                classes (
+        try {
+            const { data, error } = await supabase
+                .from('courses')
+                .select(`
                     *,
-                    enrollments (
-                        enrolled_at,
-                        user:profiles (id, full_name, email, avatar_url, role)
+                    classes (
+                        *,
+                        enrollments (
+                            enrolled_at,
+                            user:profiles (id, full_name, email, avatar_url, role)
+                        )
                     )
-                )
-            `)
-            .order('title');
+                `)
+                .order('title');
 
-        if (error) throw error;
-        return data as CourseHierarchy[];
+            if (error) {
+                // Se falhar a relação 'classes', é porque a tabela não existe
+                if (error.message?.includes('classes') || error.code === '42P01') return [];
+                throw error;
+            }
+            return data as CourseHierarchy[];
+        } catch (e: any) {
+            if (e.code === '42P01') return [];
+            return [];
+        }
     },
 
     async createClass(courseId: string, name: string) {
@@ -256,7 +305,10 @@ export const courseService = {
             .select('*')
             .eq('class_id', classId)
             .order('created_at', { ascending: false });
-        if (error) throw error;
+        if (error) {
+            if (error.code === '42P01') return [];
+            throw error;
+        }
         return data as ClassMaterial[];
     },
 
@@ -291,7 +343,10 @@ export const courseService = {
             `)
             .eq('class_id', classId)
             .order('created_at', { ascending: false });
-        if (error) throw error;
+        if (error) {
+            if (error.code === '42P01') return [];
+            throw error;
+        }
         return data as ClassAnnouncement[];
     },
 
@@ -312,7 +367,10 @@ export const courseService = {
             .select('*')
             .eq('class_id', classId)
             .order('due_date', { ascending: true });
-        if (error) throw error;
+        if (error) {
+            if (error.code === '42P01') return [];
+            throw error;
+        }
         return data as ClassAssessment[];
     },
 

@@ -90,7 +90,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           if (!session.user) return;
           
           // 0. HEALTH CHECK (Critical DB Tables)
-          const { error: healthError } = await supabase.from('classes').select('id').limit(1);
+          // Verificamos 'class_instructors' especificamente porque é a última tabela a ser criada
+          // Se faltar, o script SQL não correu todo.
+          const { error: healthError } = await supabase.from('class_instructors').select('class_id').limit(1);
           if (healthError && healthError.code === '42P01') { // 42P01 = undefined_table
               setCriticalDbError(true);
               console.error("CRITICAL: Tables missing from DB.");
