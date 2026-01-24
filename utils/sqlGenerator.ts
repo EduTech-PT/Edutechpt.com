@@ -2,34 +2,144 @@
 import { SQL_VERSION } from "../constants";
 
 export const generateSetupScript = (currentVersion: string): string => {
-    // Incrementando versão interna para v2.2.7 (RLS Performance Fixes)
-    const scriptVersion = "v2.2.7"; 
+    const scriptVersion = "v2.2.8"; 
     
-    return `-- SCRIPT DE OTIMIZAÇÃO E SEGURANÇA (${scriptVersion})
+    return `-- SCRIPT DE PERFORMANCE RLS (${scriptVersion})
 -- Autor: EduTech PT Architect
--- Objetivo: Corrigir warnings de performance (InitPlan) e Search Paths
+-- Objetivo: Separar politicas de Leitura vs Escrita para resolver "Multiple Permissive Policies"
 
 -- ==============================================================================
--- 1. LIMPEZA E HARDENING DE SEGURANÇA
+-- 1. LIMPEZA DE POLÍTICAS ANTIGAS (PREVENÇÃO DE DUPLICADOS)
 -- ==============================================================================
 
--- Remover política permissiva detetada pelo Linter
+-- App Config
+drop policy if exists "Admin Config" on public.app_config;
+drop policy if exists "Ver Config" on public.app_config;
+drop policy if exists "Public Read Config" on public.app_config;
+drop policy if exists "Admin Manage Config" on public.app_config;
+
+-- Profiles
+drop policy if exists "Ver Perfis" on public.profiles;
+drop policy if exists "Editar Proprio Perfil" on public.profiles;
+drop policy if exists "Admin Gere Perfis" on public.profiles;
 drop policy if exists "Sistema Cria Perfis" on public.profiles;
 
--- Assegurar que RLS está ativo em todas as tabelas sensíveis
-alter table public.profiles enable row level security;
-alter table public.access_logs enable row level security;
-alter table public.class_materials enable row level security;
-alter table public.class_announcements enable row level security;
-alter table public.class_assessments enable row level security;
-alter table public.classes enable row level security;
-alter table public.app_config enable row level security;
+-- Courses & Classes
+drop policy if exists "Staff Gere Cursos" on public.courses;
+drop policy if exists "Ver Cursos" on public.courses;
+drop policy if exists "Staff Gere Turmas" on public.classes;
+drop policy if exists "Ver Turmas" on public.classes;
+drop policy if exists "Staff Manage Classes" on public.classes;
+drop policy if exists "Read Classes" on public.classes;
+
+-- Enrollments
+drop policy if exists "Staff Gere Inscricoes" on public.enrollments;
+drop policy if exists "Ver Inscricoes" on public.enrollments;
+
+-- Resources (Materials, Announcements, Assessments)
+drop policy if exists "Read Materials" on public.class_materials;
+drop policy if exists "Manage Materials" on public.class_materials;
+drop policy if exists "Read Announcements" on public.class_announcements;
+drop policy if exists "Manage Announcements" on public.class_announcements;
+drop policy if exists "Read Assessments" on public.class_assessments;
+drop policy if exists "Manage Assessments" on public.class_assessments;
+
+-- Instructors & Invites & Roles
+drop policy if exists "Staff Gere Class Instructors" on public.class_instructors;
+drop policy if exists "Ver Class Instructors" on public.class_instructors;
+drop policy if exists "Staff Gere Convites" on public.user_invites;
+drop policy if exists "Ver Convites" on public.user_invites;
+drop policy if exists "Admin Roles" on public.roles;
+drop policy if exists "Ver Roles" on public.roles;
 
 -- ==============================================================================
--- 2. FUNÇÕES DE SISTEMA (COM SEARCH_PATH SEGURO)
+-- 2. NOVAS POLÍTICAS OTIMIZADAS (SPLIT READ/WRITE)
 -- ==============================================================================
 
--- Helper para obter role
+-- >>> APP CONFIG <<<
+-- Leitura Pública
+create policy "Read Config" on public.app_config for select using (true);
+-- Escrita Admin
+create policy "Admin Write Config" on public.app_config for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
+create policy "Admin Update Config" on public.app_config for update using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
+create policy "Admin Delete Config" on public.app_config for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
+
+-- >>> PROFILES <<<
+-- Leitura Pública (Necessário para avatares, nomes em comentários, etc)
+create policy "Read Profiles" on public.profiles for select using (true);
+-- Edição Própria
+create policy "Update Own Profile" on public.profiles for update using ((select auth.uid()) = id);
+-- Gestão Admin (Sem Select)
+create policy "Admin Insert Profiles" on public.profiles for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
+create policy "Admin Update Profiles" on public.profiles for update using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
+create policy "Admin Delete Profiles" on public.profiles for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
+
+-- >>> COURSES <<<
+-- Leitura Pública
+create policy "Read Courses" on public.courses for select using (true);
+-- Gestão Staff
+create policy "Staff Insert Courses" on public.courses for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+create policy "Staff Update Courses" on public.courses for update using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+create policy "Staff Delete Courses" on public.courses for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+
+-- >>> CLASSES <<<
+-- Leitura Pública
+create policy "Read Classes" on public.classes for select using (true);
+-- Gestão Staff
+create policy "Staff Insert Classes" on public.classes for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+create policy "Staff Update Classes" on public.classes for update using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+create policy "Staff Delete Classes" on public.classes for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+
+-- >>> ENROLLMENTS <<<
+-- Leitura: Staff vê tudo, Aluno vê as suas
+create policy "Read Enrollments" on public.enrollments for select using (
+    (select auth.uid()) = user_id OR 
+    exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador'))
+);
+-- Gestão: Staff e Sistema (Inserção automática via Trigger bypassa RLS se security definer, mas inserção manual precisa disto)
+create policy "Staff Manage Enrollments" on public.enrollments for insert with check (
+    exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador'))
+);
+create policy "Staff Delete Enrollments" on public.enrollments for delete using (
+    exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador'))
+);
+
+-- >>> RESOURCES (MATERIALS, ANNOUNCEMENTS, ASSESSMENTS) <<<
+-- Materials
+create policy "Read Materials" on public.class_materials for select using ((select auth.role()) = 'authenticated');
+create policy "Staff Insert Materials" on public.class_materials for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+create policy "Staff Delete Materials" on public.class_materials for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+
+-- Announcements
+create policy "Read Announcements" on public.class_announcements for select using ((select auth.role()) = 'authenticated');
+create policy "Staff Insert Announcements" on public.class_announcements for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+create policy "Staff Delete Announcements" on public.class_announcements for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+
+-- Assessments
+create policy "Read Assessments" on public.class_assessments for select using ((select auth.role()) = 'authenticated');
+create policy "Staff Insert Assessments" on public.class_assessments for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+create policy "Staff Delete Assessments" on public.class_assessments for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+
+-- >>> INSTRUCTORS (Class Allocations) <<<
+create policy "Read Class Instructors" on public.class_instructors for select using (true);
+create policy "Staff Insert Class Instructors" on public.class_instructors for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor')));
+create policy "Staff Delete Class Instructors" on public.class_instructors for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor')));
+
+-- >>> ROLES <<<
+create policy "Read Roles" on public.roles for select using (true);
+create policy "Admin Manage Roles" on public.roles for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
+create policy "Admin Update Roles" on public.roles for update using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
+create policy "Admin Delete Roles" on public.roles for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
+
+-- >>> USER INVITES <<<
+create policy "Read Invites" on public.user_invites for select using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+create policy "Staff Insert Invites" on public.user_invites for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+create policy "Staff Delete Invites" on public.user_invites for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+
+-- ==============================================================================
+-- 3. FUNÇÕES ESSENCIAIS (MANTER ESTRUTURA)
+-- ==============================================================================
+
 create or replace function public.get_auth_role()
 returns text
 language plpgsql
@@ -41,7 +151,6 @@ begin
 end;
 $$;
 
--- Trigger para estatísticas (Fix: Mutable Search Path)
 create or replace function public.increment_course_counter() returns trigger 
 language plpgsql 
 security definer
@@ -55,7 +164,6 @@ begin
 end;
 $$;
 
--- Trigger para novos utilizadores (Fix: Mutable Search Path)
 create or replace function public.handle_new_user() returns trigger 
 language plpgsql 
 security definer
@@ -74,14 +182,10 @@ begin
       insert into public.profiles (id, email, full_name, role)
       values (new.id, new.email, final_name, 'admin')
       on conflict (id) do nothing;
-      
-      -- Increment Stats (Admin)
       update public.app_config set value = (value::int + 1)::text where key = 'stat_total_users';
-      
       return new;
   end if;
 
-  -- Buscar dados completos do convite
   select * into invite_record from public.user_invites where lower(email) = lower(new.email);
   
   if invite_record.role is not null then
@@ -108,7 +212,6 @@ begin
 end;
 $$;
 
--- RPC: Obter membros da comunidade (Fix: Mutable Search Path)
 create or replace function public.get_community_members()
 returns setof public.profiles
 language plpgsql
@@ -134,7 +237,6 @@ begin
 end;
 $$;
 
--- RPC: Reclamar Convite (Fix: Mutable Search Path)
 create or replace function public.claim_invite()
 returns boolean
 language plpgsql
@@ -151,7 +253,6 @@ begin
   where id = auth.uid();
 
   if current_email is null then return false; end if;
-
   if exists (select 1 from public.profiles where id = auth.uid()) then return true; end if;
 
   select * into invite_record from public.user_invites where lower(email) = lower(current_email);
@@ -183,79 +284,6 @@ begin
     end if;
 end $$;
 
--- ==============================================================================
--- 3. POLÍTICAS RLS OTIMIZADAS (PERFORMANCE FIX)
--- ==============================================================================
--- Substitui chamadas diretas auth.uid() por (select auth.uid()) para evitar InitPlan overhead
-
--- LOGS
-drop policy if exists "Insert Own Logs" on public.access_logs;
-create policy "Insert Own Logs" on public.access_logs for insert 
-with check ((select auth.uid()) = user_id);
-
-drop policy if exists "Admin View Logs" on public.access_logs;
-create policy "Admin View Logs" on public.access_logs for select 
-using (public.get_auth_role() = 'admin');
-
-drop policy if exists "Admin Delete Logs" on public.access_logs;
-create policy "Admin Delete Logs" on public.access_logs for delete 
-using (public.get_auth_role() = 'admin');
-
--- PROFILES
-drop policy if exists "Ver Perfis" on public.profiles;
-create policy "Ver Perfis" on public.profiles for select using (true);
-
-drop policy if exists "Editar Proprio Perfil" on public.profiles;
-create policy "Editar Proprio Perfil" on public.profiles for update 
-using ((select auth.uid()) = id);
-
-drop policy if exists "Admin Gere Perfis" on public.profiles;
-create policy "Admin Gere Perfis" on public.profiles for all 
-using (public.get_auth_role() = 'admin');
-
--- MATERIALS
-drop policy if exists "Read Materials" on public.class_materials;
-create policy "Read Materials" on public.class_materials for select 
-using ((select auth.role()) = 'authenticated');
-
-drop policy if exists "Manage Materials" on public.class_materials;
-create policy "Manage Materials" on public.class_materials for all using (
-  exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador'))
-);
-
--- ANNOUNCEMENTS
-drop policy if exists "Read Announcements" on public.class_announcements;
-create policy "Read Announcements" on public.class_announcements for select 
-using ((select auth.role()) = 'authenticated');
-
-drop policy if exists "Manage Announcements" on public.class_announcements;
-create policy "Manage Announcements" on public.class_announcements for all using (
-  exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador'))
-);
-
--- ASSESSMENTS
-drop policy if exists "Read Assessments" on public.class_assessments;
-create policy "Read Assessments" on public.class_assessments for select 
-using ((select auth.role()) = 'authenticated');
-
-drop policy if exists "Manage Assessments" on public.class_assessments;
-create policy "Manage Assessments" on public.class_assessments for all using (
-  exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador'))
-);
-
--- APP CONFIG (Fix Multiple Permissive)
-drop policy if exists "Admin Config" on public.app_config;
-drop policy if exists "Ver Config" on public.app_config;
-
-create policy "Public Read Config" on public.app_config for select using (true);
-create policy "Admin Manage Config" on public.app_config for all using (
-  exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin')
-);
-
--- ==============================================================================
--- 4. ESTRUTURA E TRIGGERS
--- ==============================================================================
-
 -- Garantir trigger de contagem de cursos
 drop trigger if exists on_course_created on public.courses;
 create trigger on_course_created
@@ -263,18 +291,11 @@ after insert on public.courses
 for each row execute function public.increment_course_counter();
 
 -- Garantir Admin
-UPDATE public.profiles 
-SET role = 'admin' 
-WHERE email = 'edutechpt@hotmail.com';
-
-INSERT INTO public.user_invites (email, role)
-VALUES ('edutechpt@hotmail.com', 'admin')
+UPDATE public.profiles SET role = 'admin' WHERE email = 'edutechpt@hotmail.com';
+INSERT INTO public.user_invites (email, role) VALUES ('edutechpt@hotmail.com', 'admin')
 ON CONFLICT (email) DO UPDATE SET role = 'admin';
 
--- ==============================================================================
--- 5. ATUALIZAR VERSÃO
--- ==============================================================================
-
+-- UPDATE VERSION
 insert into public.app_config (key, value) values ('sql_version', '${scriptVersion}')
 on conflict (key) do update set value = excluded.value;
 
