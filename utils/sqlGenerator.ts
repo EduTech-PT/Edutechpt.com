@@ -131,6 +131,16 @@ create table if not exists public.class_assessments (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
+-- MIGRATION: Adicionar colunas de recursos às avaliações (Update v2.13.0)
+do $$
+begin
+    if not exists (select 1 from information_schema.columns where table_name = 'class_assessments' and column_name = 'resource_url') then
+        alter table public.class_assessments add column resource_url text;
+        alter table public.class_assessments add column resource_type text;
+        alter table public.class_assessments add column resource_title text;
+    end if;
+end $$;
+
 -- Tabela: Convites
 create table if not exists public.user_invites (
   email text primary key,

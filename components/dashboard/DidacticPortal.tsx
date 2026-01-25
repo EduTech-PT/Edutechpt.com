@@ -109,14 +109,25 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
     };
 
     // --- HANDLERS FOR MATERIALS ---
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldPrefix: string = '') => {
         if (!e.target.files || e.target.files.length === 0) return;
         setUploading(true);
         try {
             const file = e.target.files[0];
             const url = await courseService.uploadClassFile(file);
-            // Auto-fill form
-            setFormData({ ...formData, url: url, title: file.name, type: 'file' });
+            
+            // Se tiver prefixo (ex: 'resource_'), usa os campos específicos, senão usa os padrão (Materiais)
+            if (fieldPrefix) {
+                setFormData({ 
+                    ...formData, 
+                    [`${fieldPrefix}url`]: url, 
+                    [`${fieldPrefix}title`]: file.name, 
+                    [`${fieldPrefix}type`]: 'file' 
+                });
+            } else {
+                // Comportamento original para Materiais
+                setFormData({ ...formData, url: url, title: file.name, type: 'file' });
+            }
         } catch (err: any) {
             alert("Erro upload: " + err.message);
         } finally {
@@ -179,13 +190,24 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
         finally { setLoadingDrive(false); }
     };
 
-    const handleDriveFileSelect = (file: DriveFile) => {
-        setFormData({
-            ...formData,
-            url: file.url,
-            title: file.name,
-            type: 'drive' // Garante que fica como drive
-        });
+    const handleDriveFileSelect = (file: DriveFile, fieldPrefix: string = '') => {
+        if (fieldPrefix) {
+            // Assessment Attachment
+            setFormData({
+                ...formData,
+                [`${fieldPrefix}url`]: file.url,
+                [`${fieldPrefix}title`]: file.name,
+                [`${fieldPrefix}type`]: 'drive'
+            });
+        } else {
+            // Material
+            setFormData({
+                ...formData,
+                url: file.url,
+                title: file.name,
+                type: 'drive' // Garante que fica como drive
+            });
+        }
     };
 
     const handleEditMaterial = (m: ClassMaterial) => {
@@ -256,7 +278,14 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
             d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
             dateStr = d.toISOString().slice(0, 16);
         }
-        setFormData({ title: a.title, description: a.description, due_date: dateStr });
+        setFormData({ 
+            title: a.title, 
+            description: a.description, 
+            due_date: dateStr,
+            resource_url: a.resource_url,
+            resource_type: a.resource_type || 'file',
+            resource_title: a.resource_title
+        });
         setEditingId(a.id);
         setShowForm(true);
     };
@@ -279,6 +308,64 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
         if(!window.confirm("Apagar avaliação?")) return;
         await courseService.deleteClassAssessment(id);
         loadModuleData('assessments');
+    };
+
+    // Helper Component for Drive Selection (shared logic)
+    const DrivePickerUI = ({ fieldPrefix = '' }: { fieldPrefix?: string }) => {
+        const selectedUrl = fieldPrefix ? formData[`${fieldPrefix}url`] : formData.url;
+        const selectedTitle = fieldPrefix ? formData[`${fieldPrefix}title`] : formData.title;
+
+        return (
+            <div className="border border-indigo-200 rounded-lg p-3 bg-white/50">
+                <label className="block text-xs font-bold text-indigo-900 mb-2">Selecione do seu Drive</label>
+                
+                {loadingDrive ? (
+                    <div className="text-center py-4 text-indigo-500">
+                        <div className="animate-spin h-5 w-5 border-2 border-indigo-600 border-t-transparent rounded-full mx-auto mb-1"></div>
+                        A carregar Drive...
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {/* Drive Breadcrumbs */}
+                        <div className="flex items-center gap-1 text-xs text-indigo-600 mb-2 font-bold">
+                            {driveFolderStack.length > 0 && (
+                                <button type="button" onClick={handleDriveBack} className="hover:underline mr-2">⬅ Voltar</button>
+                            )}
+                            <span>{profile.role === UserRole.ADMIN ? 'Raiz' : 'Pasta Pessoal'}</span>
+                            {driveFolderStack.map(f => (
+                                <span key={f.id}> / {f.name}</span>
+                            ))}
+                        </div>
+
+                        {/* Drive File List */}
+                        <div className="max-h-40 overflow-y-auto custom-scrollbar border border-gray-200 rounded bg-white">
+                            {driveFiles.length === 0 && <div className="p-3 text-xs text-gray-400 text-center">Pasta vazia.</div>}
+                            {driveFiles.map(file => {
+                                const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
+                                const isSelected = selectedUrl === file.url;
+                                return (
+                                    <div 
+                                        key={file.id}
+                                        onClick={() => isFolder ? handleDriveNavigate(file) : handleDriveFileSelect(file, fieldPrefix)}
+                                        className={`flex items-center gap-2 p-2 cursor-pointer text-xs hover:bg-indigo-50 ${isSelected ? 'bg-indigo-100 font-bold text-indigo-900' : 'text-gray-700'}`}
+                                    >
+                                        <span>{isFolder ? '📁' : (file.mimeType.includes('pdf') ? '📕' : '📄')}</span>
+                                        <span className="truncate flex-1">{file.name}</span>
+                                        {!isFolder && isSelected && <span>✅</span>}
+                                    </div>
+                                )
+                            })}
+                        </div>
+                        
+                        {selectedUrl && (
+                            <div className="text-xs text-green-600 font-bold mt-1">
+                                Selecionado: {selectedTitle || 'Ficheiro'}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
     };
 
 
@@ -439,63 +526,13 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                     {formData.type === 'file' && (
                                         <div>
                                             <label className="block text-xs font-bold text-indigo-900 mb-1">Ficheiro</label>
-                                            <input type="file" onChange={handleFileUpload} className="block w-full text-sm text-indigo-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200"/>
+                                            <input type="file" onChange={(e) => handleFileUpload(e)} className="block w-full text-sm text-indigo-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200"/>
                                             {uploading && <span className="text-xs text-indigo-500 animate-pulse">A carregar...</span>}
                                             {formData.url && <span className="text-xs text-green-600 font-bold ml-2">Upload Concluído!</span>}
                                         </div>
                                     )}
 
-                                    {formData.type === 'drive' && (
-                                        <div className="border border-indigo-200 rounded-lg p-3 bg-white/50">
-                                            <label className="block text-xs font-bold text-indigo-900 mb-2">Selecione do seu Drive</label>
-                                            
-                                            {loadingDrive ? (
-                                                <div className="text-center py-4 text-indigo-500">
-                                                    <div className="animate-spin h-5 w-5 border-2 border-indigo-600 border-t-transparent rounded-full mx-auto mb-1"></div>
-                                                    A carregar Drive...
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-2">
-                                                    {/* Drive Breadcrumbs */}
-                                                    <div className="flex items-center gap-1 text-xs text-indigo-600 mb-2 font-bold">
-                                                        {driveFolderStack.length > 0 && (
-                                                            <button type="button" onClick={handleDriveBack} className="hover:underline mr-2">⬅ Voltar</button>
-                                                        )}
-                                                        <span>{profile.role === UserRole.ADMIN ? 'Raiz' : 'Pasta Pessoal'}</span>
-                                                        {driveFolderStack.map(f => (
-                                                            <span key={f.id}> / {f.name}</span>
-                                                        ))}
-                                                    </div>
-
-                                                    {/* Drive File List */}
-                                                    <div className="max-h-40 overflow-y-auto custom-scrollbar border border-gray-200 rounded bg-white">
-                                                        {driveFiles.length === 0 && <div className="p-3 text-xs text-gray-400 text-center">Pasta vazia.</div>}
-                                                        {driveFiles.map(file => {
-                                                            const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
-                                                            const isSelected = formData.url === file.url;
-                                                            return (
-                                                                <div 
-                                                                    key={file.id}
-                                                                    onClick={() => isFolder ? handleDriveNavigate(file) : handleDriveFileSelect(file)}
-                                                                    className={`flex items-center gap-2 p-2 cursor-pointer text-xs hover:bg-indigo-50 ${isSelected ? 'bg-indigo-100 font-bold text-indigo-900' : 'text-gray-700'}`}
-                                                                >
-                                                                    <span>{isFolder ? '📁' : (file.mimeType.includes('pdf') ? '📕' : '📄')}</span>
-                                                                    <span className="truncate flex-1">{file.name}</span>
-                                                                    {!isFolder && isSelected && <span>✅</span>}
-                                                                </div>
-                                                            )
-                                                        })}
-                                                    </div>
-                                                    
-                                                    {formData.url && (
-                                                        <div className="text-xs text-green-600 font-bold mt-1">
-                                                            Selecionado: {formData.title}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
+                                    {formData.type === 'drive' && <DrivePickerUI />}
 
                                     <div className="flex justify-end gap-2">
                                         <button type="button" onClick={closeForm} className="px-3 py-1 text-gray-500 font-bold">Cancelar</button>
@@ -632,9 +669,91 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                         <textarea value={formData.description || ''} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-2 rounded bg-white border border-indigo-200 min-h-[80px]" />
                                     </div>
 
-                                    <div className="flex justify-end gap-2">
+                                    {/* ATTACHMENT SECTION (NOVO) */}
+                                    <div className="border-t border-indigo-200 pt-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="block text-xs font-bold text-indigo-900">Anexar Recurso (Opcional)</label>
+                                            <div className="flex gap-2 text-xs">
+                                                <label className="flex items-center gap-1 cursor-pointer">
+                                                    <input 
+                                                        type="radio" 
+                                                        name="resType" 
+                                                        value="none" 
+                                                        checked={!formData.resource_type || formData.resource_type === 'none'} 
+                                                        onChange={() => setFormData({...formData, resource_type: 'none', resource_url: '', resource_title: ''})} 
+                                                    /> 
+                                                    Nenhum
+                                                </label>
+                                                <label className="flex items-center gap-1 cursor-pointer">
+                                                    <input 
+                                                        type="radio" 
+                                                        name="resType" 
+                                                        value="file" 
+                                                        checked={formData.resource_type === 'file'} 
+                                                        onChange={() => setFormData({...formData, resource_type: 'file'})} 
+                                                    /> 
+                                                    Ficheiro
+                                                </label>
+                                                <label className="flex items-center gap-1 cursor-pointer">
+                                                    <input 
+                                                        type="radio" 
+                                                        name="resType" 
+                                                        value="drive" 
+                                                        checked={formData.resource_type === 'drive'} 
+                                                        onChange={() => {
+                                                            setFormData({...formData, resource_type: 'drive'});
+                                                            initializeDrivePicker();
+                                                        }} 
+                                                    /> 
+                                                    Drive
+                                                </label>
+                                                <label className="flex items-center gap-1 cursor-pointer">
+                                                    <input 
+                                                        type="radio" 
+                                                        name="resType" 
+                                                        value="link" 
+                                                        checked={formData.resource_type === 'link'} 
+                                                        onChange={() => setFormData({...formData, resource_type: 'link'})} 
+                                                    /> 
+                                                    Link
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        {/* Dynamic Resource Input */}
+                                        {formData.resource_type === 'file' && (
+                                            <div className="bg-white/50 p-2 rounded border border-indigo-100">
+                                                <input type="file" onChange={(e) => handleFileUpload(e, 'resource_')} className="block w-full text-sm text-indigo-600 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200"/>
+                                                {uploading && <span className="text-xs text-indigo-500 animate-pulse">A carregar...</span>}
+                                                {formData.resource_url && <span className="text-xs text-green-600 font-bold ml-2">Ficheiro Anexado!</span>}
+                                            </div>
+                                        )}
+
+                                        {formData.resource_type === 'drive' && <DrivePickerUI fieldPrefix="resource_" />}
+
+                                        {formData.resource_type === 'link' && (
+                                            <div className="flex gap-2">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Título do Link (ex: Enunciado PDF)" 
+                                                    value={formData.resource_title || ''} 
+                                                    onChange={e => setFormData({...formData, resource_title: e.target.value})}
+                                                    className="flex-1 p-2 rounded bg-white border border-indigo-200 text-xs"
+                                                />
+                                                <input 
+                                                    type="url" 
+                                                    placeholder="https://..." 
+                                                    value={formData.resource_url || ''} 
+                                                    onChange={e => setFormData({...formData, resource_url: e.target.value})}
+                                                    className="flex-[2] p-2 rounded bg-white border border-indigo-200 text-xs"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex justify-end gap-2 pt-2">
                                         <button type="button" onClick={closeForm} className="px-3 py-1 text-gray-500 font-bold">Cancelar</button>
-                                        <button type="submit" className="px-4 py-1 bg-green-600 text-white rounded font-bold shadow">
+                                        <button type="submit" disabled={uploading} className="px-4 py-1 bg-green-600 text-white rounded font-bold shadow disabled:opacity-50">
                                             {editingId ? 'Guardar Alterações' : 'Agendar'}
                                         </button>
                                     </div>
@@ -651,6 +770,21 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                                     {a.title}
                                                 </h5>
                                                 {a.description && <p className="text-sm text-indigo-700 mt-1">{a.description}</p>}
+                                                
+                                                {/* Attachment Display */}
+                                                {a.resource_url && (
+                                                    <div className="mt-2">
+                                                        <a 
+                                                            href={a.resource_url} 
+                                                            target="_blank" 
+                                                            rel="noreferrer"
+                                                            className="inline-flex items-center gap-1 text-xs font-bold bg-indigo-50 text-indigo-600 px-2 py-1 rounded border border-indigo-100 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
+                                                        >
+                                                            <span>{a.resource_type === 'drive' ? '☁️' : (a.resource_type === 'file' ? '📎' : '🔗')}</span>
+                                                            {a.resource_title || 'Ver Recurso / Enunciado'}
+                                                        </a>
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-4 mt-2 md:mt-0">
                                                 {a.due_date && (

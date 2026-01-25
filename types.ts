@@ -117,6 +117,10 @@ export interface ClassAssessment {
   description?: string;
   due_date?: string;
   created_at: string;
+  // Novos campos para anexos no teste
+  resource_url?: string;
+  resource_type?: 'file' | 'link' | 'drive';
+  resource_title?: string;
 }
 
 export interface Enrollment {
