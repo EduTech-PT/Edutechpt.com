@@ -22,7 +22,6 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
     }, []);
 
     // Função auxiliar para converter imagem URL em Base64 (necessário para jsPDF)
-    // Atualizado para retornar dimensões e evitar distorção
     const getBase64ImageFromURL = (url: string): Promise<{ data: string; width: number; height: number }> => {
         return new Promise((resolve, reject) => {
             const img = new Image();
@@ -61,37 +60,31 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
 
         // 1. Fundo e Moldura
         doc.setFillColor(colorAccent);
-        doc.rect(0, 0, 297, 210, 'F'); // Fundo colorido suave
+        doc.rect(0, 0, 297, 210, 'F');
         
         doc.setFillColor('#ffffff');
-        doc.roundedRect(10, 10, 277, 190, 5, 5, 'F'); // Cartão branco central
+        doc.roundedRect(10, 10, 277, 190, 5, 5, 'F');
 
         doc.setLineWidth(1);
         doc.setDrawColor(colorPrimary);
-        doc.roundedRect(15, 15, 267, 180, 2, 2, 'S'); // Borda interna fina
+        doc.roundedRect(15, 15, 267, 180, 2, 2, 'S');
 
-        // 2. Logótipo (Topo) - Ajuste para não distorcer
+        // 2. Logótipo (Topo)
         let yPos = 40;
         if (logoUrl) {
             try {
                 const logoData = await getBase64ImageFromURL(logoUrl);
                 if (logoData.data) {
-                    // Definir caixa máxima para o logo
-                    const maxW = 80; // Mais largo
+                    const maxW = 80;
                     const maxH = 30;
-                    
-                    // Calcular rácio para manter proporção
                     const ratio = Math.min(maxW / logoData.width, maxH / logoData.height);
                     const finalW = logoData.width * ratio;
                     const finalH = logoData.height * ratio;
-                    
-                    // Centrar
                     const finalX = 148.5 - (finalW / 2);
 
                     doc.addImage(logoData.data, 'PNG', finalX, 20, finalW, finalH, '', 'FAST'); 
                     yPos = 60;
                 } else {
-                    // Fallback texto se imagem falhar
                     doc.setFont('helvetica', 'bold');
                     doc.setFontSize(24);
                     doc.setTextColor(colorSecondary);
@@ -101,7 +94,6 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
                 yPos = 40;
             }
         } else {
-            // Fallback texto se não houver URL
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(24);
             doc.setTextColor(colorSecondary);
@@ -124,14 +116,14 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
         doc.setTextColor(colorText);
         doc.text("Certifica-se que", 148.5, yPos + 35, { align: 'center' });
 
-        // Nome do Aluno (Destaque)
+        // Nome do Aluno
         doc.setFont('times', 'bolditalic');
         doc.setFontSize(32);
         doc.setTextColor(colorSecondary);
         const studentName = student.full_name || 'Aluno';
         doc.text(studentName, 148.5, yPos + 50, { align: 'center' });
         
-        // Linha decorativa abaixo do nome
+        // Linha decorativa
         doc.setLineWidth(0.5);
         doc.setDrawColor(colorPrimary);
         const textWidth = doc.getTextWidth(studentName);
@@ -149,33 +141,32 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
         doc.setTextColor(colorPrimary);
         doc.text(course.title, 148.5, yPos + 78, { align: 'center' });
 
-        // Detalhes (Nível, Data e Duração)
+        // Detalhes (Nível, Duração, Data)
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(12);
         doc.setTextColor('#6b7280'); // Gray 500
         const dateStr = formatDate(new Date());
         
-        // Lógica de apresentação da Duração
-        let detailText = `Nível: ${course.level.toUpperCase()}`;
+        let details = `Nível: ${course.level.toUpperCase()}`;
         if (course.duration) {
-            detailText += `  |  Duração: ${course.duration}`;
+            details += `  |  Duração: ${course.duration}`;
         }
-        detailText += `  |  Data de Emissão: ${dateStr}`;
+        details += `  |  Data de Emissão: ${dateStr}`;
         
-        doc.text(detailText, 148.5, yPos + 90, { align: 'center' });
+        doc.text(details, 148.5, yPos + 90, { align: 'center' });
 
-        // 5. Assinatura Fictícia (Posição 175mm)
-        const sigY = 175; 
+        // 5. Assinatura Fictícia (Posição 180mm para evitar sobreposição)
+        const sigY = 180; 
         
         // Linha da assinatura
-        doc.setDrawColor('#9ca3af'); // Gray 400
-        doc.line(110, sigY, 190, sigY); // Centrada
+        doc.setDrawColor('#9ca3af');
+        doc.line(110, sigY, 190, sigY);
         
-        // "Assinatura" (Fonte Script simulada com Italic)
+        // "Assinatura"
         doc.setFont('times', 'italic');
         doc.setFontSize(24);
         doc.setTextColor(colorSecondary);
-        doc.text("EduTechPT", 150, sigY - 5, { align: 'center' }); // Assinatura "manual"
+        doc.text("EduTechPT", 150, sigY - 5, { align: 'center' });
 
         // Cargo
         doc.setFont('helvetica', 'normal');
@@ -183,7 +174,6 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
         doc.setTextColor(colorText);
         doc.text("A Direção Pedagógica", 150, sigY + 6, { align: 'center' });
         
-        // Save
         doc.save(`certificado_${course.title.replace(/\s+/g, '_')}_${student.full_name?.split(' ')[0]}.pdf`);
         setGenerating(false);
         onClose();
@@ -192,8 +182,6 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl animate-in zoom-in duration-300 relative border border-indigo-100">
-                
-                {/* Decorative blob */}
                 <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 w-20 h-20 bg-indigo-600 rounded-full flex items-center justify-center shadow-lg border-4 border-white">
                     <span className="text-3xl text-white">🎓</span>
                 </div>
@@ -201,32 +189,19 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
                 <div className="mt-8">
                     <h2 className="text-2xl font-bold text-indigo-900 mb-2">Certificado Disponível!</h2>
                     <p className="text-indigo-600 mb-6 text-sm">
-                        Parabéns! Completaste todos os requisitos do curso <b>{course.title}</b>. O teu certificado oficial está pronto.
+                        Parabéns! Completaste todos os requisitos do curso <b>{course.title}</b>.
                     </p>
                     
                     <div className="flex flex-col gap-3">
                         <button 
                             onClick={generatePDF}
                             disabled={generating}
-                            className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg transform hover:-translate-y-1 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-wait"
+                            className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg transform hover:-translate-y-1 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                         >
-                            {generating ? (
-                                <>
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                    A Gerar PDF...
-                                </>
-                            ) : (
-                                <>
-                                    <span>📥</span> Descarregar Certificado
-                                </>
-                            )}
+                            {generating ? 'A Gerar PDF...' : '📥 Descarregar Certificado'}
                         </button>
                         
-                        <button 
-                            onClick={onClose}
-                            disabled={generating}
-                            className="w-full py-3 text-gray-500 hover:text-gray-800 font-bold text-sm hover:bg-gray-50 rounded-xl transition-colors"
-                        >
+                        <button onClick={onClose} disabled={generating} className="w-full py-3 text-gray-500 hover:text-gray-800 font-bold text-sm">
                             Fechar
                         </button>
                     </div>
