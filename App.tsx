@@ -4,6 +4,7 @@ import { supabase } from './lib/supabaseClient';
 import { LandingPage } from './pages/LandingPage';
 import { Dashboard } from './pages/Dashboard';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
+import { TermsOfService } from './pages/TermsOfService'; // NOVO IMPORT
 import { AuthForm } from './components/AuthForm';
 import { SupabaseSession } from './types';
 import { adminService } from './services/admin';
@@ -13,18 +14,22 @@ function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  // Estado para navegação pública (Landing vs Privacy)
-  // Inicializa baseado no URL query param para satisfazer requisitos da Google
-  const [publicView, setPublicView] = useState<'landing' | 'privacy'>(() => {
+  // Estado para navegação pública (Landing vs Privacy vs Terms)
+  // Inicializa baseado no URL query param para satisfazer requisitos da Google e Links diretos
+  const [publicView, setPublicView] = useState<'landing' | 'privacy' | 'terms'>(() => {
       const params = new URLSearchParams(window.location.search);
-      return params.get('page') === 'privacy' ? 'privacy' : 'landing';
+      if (params.get('page') === 'privacy') return 'privacy';
+      if (params.get('page') === 'terms') return 'terms';
+      return 'landing';
   });
 
   // Função para gerir navegação e atualizar URL
-  const handleNavigate = (view: 'landing' | 'privacy') => {
+  const handleNavigate = (view: 'landing' | 'privacy' | 'terms') => {
       setPublicView(view);
       if (view === 'privacy') {
           window.history.pushState({ view: 'privacy' }, '', '?page=privacy');
+      } else if (view === 'terms') {
+          window.history.pushState({ view: 'terms' }, '', '?page=terms');
       } else {
           window.history.pushState({ view: 'landing' }, '', window.location.pathname);
       }
@@ -34,7 +39,10 @@ function App() {
   useEffect(() => {
       const handlePopState = () => {
           const params = new URLSearchParams(window.location.search);
-          setPublicView(params.get('page') === 'privacy' ? 'privacy' : 'landing');
+          const page = params.get('page');
+          if (page === 'privacy') setPublicView('privacy');
+          else if (page === 'terms') setPublicView('terms');
+          else setPublicView('landing');
       };
       window.addEventListener('popstate', handlePopState);
       return () => window.removeEventListener('popstate', handlePopState);
@@ -165,7 +173,10 @@ function App() {
               <LandingPage 
                   onLoginClick={() => setShowAuthModal(true)} 
                   onPrivacyClick={() => handleNavigate('privacy')}
+                  onTermsClick={() => handleNavigate('terms')} // NOVO PROP
               />
+          ) : publicView === 'terms' ? (
+              <TermsOfService onBack={() => handleNavigate('landing')} />
           ) : (
               <PrivacyPolicy onBack={() => handleNavigate('landing')} />
           )}
@@ -176,6 +187,10 @@ function App() {
                   onPrivacyClick={() => {
                       setShowAuthModal(false);
                       handleNavigate('privacy');
+                  }}
+                  onTermsClick={() => { // NOVO HANDLER
+                      setShowAuthModal(false);
+                      handleNavigate('terms');
                   }}
               />
           )}

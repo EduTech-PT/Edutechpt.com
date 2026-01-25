@@ -484,13 +484,15 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                         </div>
                     </div>
 
-                    {/* PRIVACY POLICY LINK SECTION (NOVO) */}
+                    {/* LEGAL SECTION (Privacy + Terms) */}
                     <div className="border-t border-indigo-100 pt-6">
                         <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
                             <span>⚖️</span> Legal
                         </h3>
-                        <div className="bg-white/40 p-6 rounded-xl border border-white/50 flex flex-col md:flex-row items-center gap-4">
-                            <div className="flex-1 w-full">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            
+                            {/* Privacy Policy Block */}
+                            <div className="bg-white/40 p-6 rounded-xl border border-white/50">
                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Link da Política de Privacidade</label>
                                 <div className="flex gap-2">
                                     <input 
@@ -504,30 +506,56 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                         onClick={() => handleCopyText(`${window.location.origin}?page=privacy`)} 
                                         className="px-3 py-2 bg-white text-indigo-600 border border-indigo-200 rounded font-bold hover:bg-indigo-50 transition-all text-xs whitespace-nowrap shadow-sm"
                                     >
-                                        {copyFeedback === 'Copiado!' ? 'Copiado!' : 'Copiar Link'}
+                                        Copiar
                                     </button>
                                 </div>
-                                <p className="text-xs text-indigo-500 mt-2 opacity-80">
-                                    Use este link na configuração OAuth da Google ou no rodapé de emails institucionais.
-                                    <br/>
-                                    <span className="italic">Nota: Esta página é pública e visível para visitantes sem sessão iniciada.</span>
-                                </p>
+                                <div className="mt-2 text-right">
+                                    <a 
+                                        href={`${window.location.origin}?page=privacy`} 
+                                        target="_blank" 
+                                        rel="noreferrer"
+                                        className="text-xs font-bold text-indigo-600 hover:underline"
+                                    >
+                                        Testar Link ↗
+                                    </a>
+                                </div>
                             </div>
-                            <a 
-                                href={`${window.location.origin}?page=privacy`} 
-                                target="_blank" 
-                                rel="noreferrer"
-                                className="px-4 py-3 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg font-bold hover:bg-indigo-100 transition-colors text-sm flex items-center gap-2 whitespace-nowrap shadow-sm"
-                                onClick={(e) => {
-                                    // Aviso opcional, pois o link vai abrir a app e se estiver logado mostra dashboard
-                                    if (!confirm("Aviso: Como está autenticado como Administrador, este link irá redirecioná-lo para a Dashboard.\n\nPara ver a Política de Privacidade como um visitante, abra este link numa Janela Anónima.\n\nDeseja abrir o link mesmo assim?")) {
-                                        e.preventDefault();
-                                    }
-                                }}
-                            >
-                                Testar Link ↗
-                            </a>
+
+                            {/* Terms of Service Block */}
+                            <div className="bg-white/40 p-6 rounded-xl border border-white/50">
+                                <label className="block text-sm text-indigo-800 font-bold mb-1">Link dos Termos de Serviço</label>
+                                <div className="flex gap-2">
+                                    <input 
+                                        type="text" 
+                                        readOnly 
+                                        value={`${window.location.origin}?page=terms`} 
+                                        className="w-full p-2 rounded bg-white/50 border border-white/60 text-indigo-600 font-mono text-sm outline-none cursor-text"
+                                        onClick={(e) => e.currentTarget.select()}
+                                    />
+                                    <button 
+                                        onClick={() => handleCopyText(`${window.location.origin}?page=terms`)} 
+                                        className="px-3 py-2 bg-white text-indigo-600 border border-indigo-200 rounded font-bold hover:bg-indigo-50 transition-all text-xs whitespace-nowrap shadow-sm"
+                                    >
+                                        Copiar
+                                    </button>
+                                </div>
+                                <div className="mt-2 text-right">
+                                    <a 
+                                        href={`${window.location.origin}?page=terms`} 
+                                        target="_blank" 
+                                        rel="noreferrer"
+                                        className="text-xs font-bold text-indigo-600 hover:underline"
+                                    >
+                                        Testar Link ↗
+                                    </a>
+                                </div>
+                            </div>
+
                         </div>
+                        <p className="text-xs text-indigo-500 mt-4 opacity-80 px-2">
+                            Utilize estes links na configuração OAuth da Google ou no rodapé de emails institucionais.
+                            Estas páginas são públicas e visíveis para visitantes sem sessão iniciada.
+                        </p>
                     </div>
                 </GlassCard>
             )}

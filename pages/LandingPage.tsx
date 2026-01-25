@@ -9,9 +9,10 @@ import { CourseDetailModal } from '../components/CourseDetailModal';
 interface LandingPageProps {
   onLoginClick: () => void;
   onPrivacyClick: () => void;
+  onTermsClick?: () => void; // NOVO PROP
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivacyClick }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivacyClick, onTermsClick }) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
@@ -49,6 +50,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
   const handlePrivacyLinkClick = (e: React.MouseEvent) => {
       e.preventDefault();
       onPrivacyClick();
+  };
+
+  const handleTermsLinkClick = (e: React.MouseEvent) => {
+      e.preventDefault();
+      if (onTermsClick) onTermsClick();
   };
 
   return (
@@ -167,13 +173,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
 
       <footer className="w-full py-6 text-center text-indigo-900/60 text-sm bg-white/20 backdrop-blur-md mt-auto flex flex-col gap-2">
         <p>&copy; {new Date().getFullYear()} EduTech PT. v1.0.0</p>
-        <div>
+        <div className="flex justify-center items-center gap-2">
             <a 
                 href="?page=privacy"
                 onClick={handlePrivacyLinkClick}
                 className="hover:text-indigo-900 hover:underline transition-colors font-medium cursor-pointer"
             >
                 Política de Privacidade
+            </a>
+            <span className="opacity-50">|</span>
+            <a 
+                href="?page=terms"
+                onClick={handleTermsLinkClick}
+                className="hover:text-indigo-900 hover:underline transition-colors font-medium cursor-pointer"
+            >
+                Termos de Serviço
             </a>
         </div>
       </footer>

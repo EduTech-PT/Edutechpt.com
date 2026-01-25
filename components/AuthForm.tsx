@@ -8,9 +8,10 @@ import { adminService } from '../services/admin';
 interface AuthFormProps {
   onCancel: () => void;
   onPrivacyClick?: () => void;
+  onTermsClick?: () => void; // NOVO PROP
 }
 
-export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick }) => {
+export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, onTermsClick }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
@@ -164,7 +165,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick }) 
         </div>
 
         <p className="mt-8 text-xs text-center text-indigo-900/60">
-           Ao continuar, aceita os Termos de Uso e a <button onClick={onPrivacyClick} className="underline hover:text-indigo-900 font-bold">Política de Privacidade</button>.
+           Ao continuar, aceita os <button onClick={onTermsClick} className="underline hover:text-indigo-900 font-bold">Termos de Uso</button> e a <button onClick={onPrivacyClick} className="underline hover:text-indigo-900 font-bold">Política de Privacidade</button>.
         </p>
       </GlassCard>
     </div>
