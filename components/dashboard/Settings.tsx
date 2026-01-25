@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { APP_VERSION, SQL_VERSION } from '../../constants';
@@ -9,13 +8,16 @@ import { GAS_TEMPLATE_CODE, GAS_VERSION, driveService } from '../../services/dri
 import { RoleManager } from './RoleManager';
 import { ClassAllocation } from './ClassAllocation';
 import { storageService } from '../../services/storage';
+import { Profile, Course } from '../../types'; // Importado Profile e Course
+import { CertificateGenerator } from '../CertificateGenerator'; // Importado Gerador
 
 interface Props {
   dbVersion: string;
   initialTab?: 'geral' | 'sql' | 'drive' | 'avatars' | 'access' | 'roles' | 'allocation' | 'legal';
+  profile: Profile; // Adicionado profile às props
 }
 
-export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) => {
+export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral', profile }) => {
     const [tab, setTab] = useState<'geral' | 'sql' | 'drive' | 'avatars' | 'access' | 'roles' | 'allocation' | 'legal'>(initialTab);
     const [sqlScript, setSqlScript] = useState('');
     const [config, setConfig] = useState<any>({});
@@ -33,6 +35,9 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
     
     // Novo Estado para versão remota real
     const [remoteGasVersion, setRemoteGasVersion] = useState<string>('checking');
+
+    // Estado para Teste de Certificado
+    const [showCertTest, setShowCertTest] = useState(false);
     
     useEffect(() => {
         setSqlScript(generateSetupScript(SQL_VERSION));
@@ -287,6 +292,17 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
         }
     };
 
+    // MOCK COURSE FOR CERTIFICATE TEST
+    const testCourse: Course = {
+        id: 'test-certificate',
+        title: 'Curso de Demonstração (Sistema)',
+        description: 'Certificado de teste para validação de layout.',
+        level: 'avancado',
+        created_at: new Date().toISOString(),
+        instructor_id: profile.id,
+        is_public: false
+    };
+
     const renderGasAlert = () => {
         if (remoteGasVersion === 'checking' || !config.googleScriptUrl) return null;
 
@@ -436,6 +452,21 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                     }
                                     onUpdate={() => setTab('drive')}
                                 />
+                            </div>
+                        </div>
+
+                        {/* FERRAMENTAS DE TESTE (MOVIDO DA SALA DE AULA) */}
+                        <div className="border-t border-indigo-100 pt-6">
+                            <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
+                                <span>🧪</span> Ferramentas de Teste
+                            </h3>
+                            <div className="flex gap-4">
+                                <button 
+                                    onClick={() => setShowCertTest(true)}
+                                    className="px-6 py-3 bg-white border border-indigo-200 text-indigo-800 rounded-lg font-bold shadow-sm hover:bg-indigo-50 transition-all flex items-center gap-2"
+                                >
+                                    <span>🎓</span> Testar Emissão de Certificado
+                                </button>
                             </div>
                         </div>
 
@@ -697,6 +728,15 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                     </div>
                 )}
             </div>
+
+            {/* Certificate Modal - Rendered via Portal */}
+            {showCertTest && (
+                <CertificateGenerator 
+                    student={profile} 
+                    course={testCourse} 
+                    onClose={() => setShowCertTest(false)} 
+                />
+            )}
         </div>
     );
 };

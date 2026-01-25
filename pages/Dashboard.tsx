@@ -381,15 +381,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           
           // SETTINGS
           case 'settings_logs': return <AccessLogs onlineUsers={onlineUsers} />;
-          case 'settings_geral': return <Settings dbVersion={dbVersion} initialTab="geral" />;
-          case 'settings_roles': return <Settings dbVersion={dbVersion} initialTab="roles" />;
-          case 'settings_sql': return <Settings dbVersion={dbVersion} initialTab="sql" />;
-          case 'settings_drive': return <Settings dbVersion={dbVersion} initialTab="drive" />;
-          case 'settings_avatars': return <Settings dbVersion={dbVersion} initialTab="avatars" />;
-          case 'settings_access': return <Settings dbVersion={dbVersion} initialTab="access" />;
-          case 'settings_allocation': return <Settings dbVersion={dbVersion} initialTab="allocation" />; 
-          case 'settings_legal': return <Settings dbVersion={dbVersion} initialTab="legal" />;
-          case 'settings': return <Settings dbVersion={dbVersion} initialTab="geral" />;
+          case 'settings_geral': return <Settings dbVersion={dbVersion} initialTab="geral" profile={profile} />;
+          case 'settings_roles': return <Settings dbVersion={dbVersion} initialTab="roles" profile={profile} />;
+          case 'settings_sql': return <Settings dbVersion={dbVersion} initialTab="sql" profile={profile} />;
+          case 'settings_drive': return <Settings dbVersion={dbVersion} initialTab="drive" profile={profile} />;
+          case 'settings_avatars': return <Settings dbVersion={dbVersion} initialTab="avatars" profile={profile} />;
+          case 'settings_access': return <Settings dbVersion={dbVersion} initialTab="access" profile={profile} />;
+          case 'settings_allocation': return <Settings dbVersion={dbVersion} initialTab="allocation" profile={profile} />; 
+          case 'settings_legal': return <Settings dbVersion={dbVersion} initialTab="legal" profile={profile} />;
+          case 'settings': return <Settings dbVersion={dbVersion} initialTab="geral" profile={profile} />;
           
           // LEGAL PAGES (EMBEDDED)
           case 'privacy': return <PrivacyPolicy onBack={() => handleSetView('dashboard')} isEmbedded={true} />;

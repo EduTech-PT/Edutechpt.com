@@ -158,13 +158,6 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
             <div className="space-y-6 animate-in fade-in">
                 <div className="flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-indigo-900">As Minhas Salas de Aula</h2>
-                    {/* Botão de Teste (APENAS ADMIN - Atalho Rápido) */}
-                    {profile.role === 'admin' && (
-                        <button 
-                            onClick={() => setShowCertificate(true)} // Note: Will fail if no course selected, but UI renders. Logic below handles null.
-                            className="hidden" // Hidden here, shown inside classroom
-                        >Test</button>
-                    )}
                 </div>
 
                 {myEnrollments.length === 0 ? (
@@ -316,17 +309,6 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                                             className="px-4 py-1.5 bg-yellow-400 text-yellow-900 font-bold rounded-lg shadow-md hover:bg-yellow-500 hover:text-white transition-all animate-pulse"
                                         >
                                             🎓 Emitir Certificado
-                                        </button>
-                                    )}
-
-                                    {/* Botão de Teste (APENAS ADMIN) */}
-                                    {profile.role === 'admin' && (
-                                        <button 
-                                            onClick={() => setShowCertificate(true)}
-                                            className="px-3 py-1.5 bg-gray-100 border border-gray-300 text-gray-600 font-bold rounded-lg hover:bg-gray-200 transition-all text-xs flex items-center gap-1"
-                                            title="Gerar PDF de teste (Visível apenas para Admin)"
-                                        >
-                                            <span>🖨️</span> Testar Certificado
                                         </button>
                                     )}
                                 </div>
