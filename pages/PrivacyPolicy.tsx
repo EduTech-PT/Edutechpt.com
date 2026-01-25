@@ -3,53 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { adminService } from '../services/admin';
 
-interface Props {
-  onBack: () => void;
-}
-
-export const PrivacyPolicy: React.FC<Props> = ({ onBack }) => {
-  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    adminService.getAppConfig().then(c => {
-        if (c.logoUrl) setLogoUrl(c.logoUrl);
-    }).catch(e => console.log('Config load error (Privacy)', e));
-  }, []);
-
-  return (
-    <div className="min-h-screen flex flex-col">
-      {/* Navbar */}
-      <nav className="w-full p-4 md:p-6 flex justify-between items-center z-10 bg-white/10 backdrop-blur-md border-b border-white/20 sticky top-0">
-        <div className="text-xl font-bold text-indigo-900 cursor-pointer" onClick={onBack}>
-             {logoUrl ? (
-                <img 
-                  src={logoUrl} 
-                  alt="EduTech PT" 
-                  className="h-10 md:h-12 object-contain drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] transform hover:scale-110 transition-transform duration-500" 
-                />
-            ) : (
-                "EduTech PT"
-            )}
-        </div>
-        <button 
-          onClick={onBack}
-          className="px-4 py-2 bg-white/50 hover:bg-white/80 text-indigo-900 rounded-lg text-sm font-bold transition-all shadow-sm flex items-center gap-2"
-        >
-          <span>⬅️</span> Voltar
-        </button>
-      </nav>
-
-      {/* Content */}
-      <div className="flex-grow container mx-auto px-4 py-8 max-w-4xl relative z-0">
-         {/* Background Orbs (Recycled from Landing for consistency) */}
-        <div className="fixed top-1/4 left-1/4 w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none -z-10"></div>
-        <div className="fixed bottom-1/4 right-1/4 w-96 h-96 bg-indigo-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none -z-10"></div>
-
-        <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600">
-            <h1 className="text-3xl md:text-4xl font-bold text-center mb-8">Política de Privacidade</h1>
+// Default content used if database is empty
+const DEFAULT_CONTENT = `
+            <h1 class="text-3xl md:text-4xl font-bold text-center mb-8">Política de Privacidade</h1>
             
-            <p className="lead text-center text-lg font-medium opacity-80 mb-8">
-                Última atualização: {new Date().toLocaleDateString('pt-PT')}
+            <p class="lead text-center text-lg font-medium opacity-80 mb-8">
+                Última atualização: ${new Date().toLocaleDateString('pt-PT')}
             </p>
 
             <h3>1. Introdução</h3>
@@ -114,25 +73,76 @@ export const PrivacyPolicy: React.FC<Props> = ({ onBack }) => {
                 Podemos atualizar esta política ocasionalmente. Recomendamos que reveja esta página periodicamente para quaisquer alterações. O uso continuado da plataforma após alterações constitui aceitação das mesmas.
             </p>
 
-            <div className="bg-indigo-50 border-l-4 border-indigo-500 p-4 my-8 rounded-r-lg">
-                <h3 className="mt-0 text-indigo-900">9. Conformidade com Serviços Google</h3>
+            <div class="bg-indigo-50 border-l-4 border-indigo-500 p-4 my-8 rounded-r-lg">
+                <h3 class="mt-0 text-indigo-900">9. Conformidade com Serviços Google</h3>
                 <p>
                     A utilização e transferência de informações recebidas das APIs do Google para qualquer outra aplicação pela EduTech PT aderirá à 
-                    <a href="https://developers.google.com/terms/api-services-user-data-policy#additional_requirements_for_specific_api_scopes" target="_blank" rel="noreferrer" className="font-bold text-indigo-700 hover:text-indigo-900 mx-1">
+                    <a href="https://developers.google.com/terms/api-services-user-data-policy#additional_requirements_for_specific_api_scopes" target="_blank" rel="noreferrer" class="font-bold text-indigo-700 hover:text-indigo-900 mx-1">
                          Política de Dados do Utilizador dos Serviços API da Google
                     </a>, 
                     incluindo os requisitos de Uso Limitado.
                 </p>
             </div>
 
-            <div className="mt-12 pt-8 border-t border-indigo-200/50 text-center">
-                <p className="text-sm opacity-70">
+            <div class="mt-12 pt-8 border-t border-indigo-200/50 text-center">
+                <p class="text-sm opacity-70">
                     Dúvidas? Contacte-nos: <strong>edutechpt@hotmail.com</strong>
                 </p>
-                <p className="text-xs opacity-50 mt-2">
-                    <a href="/" className="hover:underline">Página Inicial</a>
+                <p class="text-xs opacity-50 mt-2">
+                    <a href="/" class="hover:underline">Página Inicial</a>
                 </p>
             </div>
+`;
+
+interface Props {
+  onBack: () => void;
+}
+
+export const PrivacyPolicy: React.FC<Props> = ({ onBack }) => {
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+  const [content, setContent] = useState<string>(DEFAULT_CONTENT);
+
+  useEffect(() => {
+    adminService.getAppConfig().then(c => {
+        if (c.logoUrl) setLogoUrl(c.logoUrl);
+        // Se existir conteúdo customizado na BD, usa-o. Senão, mantém o default.
+        if (c.privacyPolicyContent && c.privacyPolicyContent.trim() !== '') {
+            setContent(c.privacyPolicyContent);
+        }
+    }).catch(e => console.log('Config load error (Privacy)', e));
+  }, []);
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* Navbar */}
+      <nav className="w-full p-4 md:p-6 flex justify-between items-center z-10 bg-white/10 backdrop-blur-md border-b border-white/20 sticky top-0">
+        <div className="text-xl font-bold text-indigo-900 cursor-pointer" onClick={onBack}>
+             {logoUrl ? (
+                <img 
+                  src={logoUrl} 
+                  alt="EduTech PT" 
+                  className="h-10 md:h-12 object-contain drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] transform hover:scale-110 transition-transform duration-500" 
+                />
+            ) : (
+                "EduTech PT"
+            )}
+        </div>
+        <button 
+          onClick={onBack}
+          className="px-4 py-2 bg-white/50 hover:bg-white/80 text-indigo-900 rounded-lg text-sm font-bold transition-all shadow-sm flex items-center gap-2"
+        >
+          <span>⬅️</span> Voltar
+        </button>
+      </nav>
+
+      {/* Content */}
+      <div className="flex-grow container mx-auto px-4 py-8 max-w-4xl relative z-0">
+         {/* Background Orbs */}
+        <div className="fixed top-1/4 left-1/4 w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none -z-10"></div>
+        <div className="fixed bottom-1/4 right-1/4 w-96 h-96 bg-indigo-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none -z-10"></div>
+
+        <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600">
+            <div dangerouslySetInnerHTML={{ __html: content }} />
         </GlassCard>
       </div>
 

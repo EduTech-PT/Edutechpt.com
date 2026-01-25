@@ -12,11 +12,11 @@ import { storageService } from '../../services/storage';
 
 interface Props {
   dbVersion: string;
-  initialTab?: 'geral' | 'sql' | 'drive' | 'avatars' | 'access' | 'roles' | 'allocation';
+  initialTab?: 'geral' | 'sql' | 'drive' | 'avatars' | 'access' | 'roles' | 'allocation' | 'legal';
 }
 
 export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) => {
-    const [tab, setTab] = useState<'geral' | 'sql' | 'drive' | 'avatars' | 'access' | 'roles' | 'allocation'>(initialTab);
+    const [tab, setTab] = useState<'geral' | 'sql' | 'drive' | 'avatars' | 'access' | 'roles' | 'allocation' | 'legal'>(initialTab);
     const [sqlScript, setSqlScript] = useState('');
     const [config, setConfig] = useState<any>({});
     const [copyFeedback, setCopyFeedback] = useState('');
@@ -181,6 +181,11 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                 await loadConfig();
                 alert('Configuração Drive guardada!');
             }
+            if (tab === 'legal') {
+                await adminService.updateAppConfig('legal_privacy_policy', config.privacyPolicyContent || '');
+                await adminService.updateAppConfig('legal_terms_service', config.termsServiceContent || '');
+                alert('Conteúdo legal atualizado com sucesso!');
+            }
         } catch (e: any) { 
             alert('Erro ao guardar: ' + e.message); 
         } finally {
@@ -325,556 +330,358 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
 
     return (
         <div className="h-full flex flex-col animate-in fade-in duration-300">
-            {tab === 'geral' && (
-                <GlassCard className="space-y-8">
-                    {/* SYSTEM HEALTH */}
-                    <div>
-                        <h3 className="font-bold text-xl text-indigo-900 mb-6 flex items-center gap-2">
-                            <span>🛠️</span> Estado do Sistema
-                        </h3>
-                        <div className="space-y-4">
-                            <VersionRow 
-                                label="Versão Aplicação (Frontend)"
-                                current={APP_VERSION}
-                                expected={APP_VERSION}
-                                status="ok"
-                            />
-                            <VersionRow 
-                                label="Versão Base de Dados (SQL)"
-                                current={dbVersion}
-                                expected={SQL_VERSION}
-                                status={dbVersion === SQL_VERSION ? 'ok' : 'error'}
-                                onUpdate={() => setTab('sql')}
-                            />
-                            <VersionRow 
-                                label="Versão Google Script (Backend)"
-                                current={remoteGasVersion === 'checking' ? 'A verificar...' : (remoteGasVersion === 'not_configured' ? 'Não Configurado' : remoteGasVersion)}
-                                expected={GAS_VERSION}
-                                status={
-                                    remoteGasVersion === 'checking' ? 'loading' :
-                                    remoteGasVersion === GAS_VERSION ? 'ok' : 
-                                    remoteGasVersion === 'not_configured' ? 'warning' : 'error'
-                                }
-                                onUpdate={() => setTab('drive')}
-                            />
+            
+            {/* TABS DE NAVEGAÇÃO INTERNA */}
+            <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide shrink-0">
+                {[
+                    { id: 'geral', label: 'Geral', icon: '⚙️' },
+                    { id: 'legal', label: 'Conteúdo Legal', icon: '⚖️' }, // NOVO
+                    { id: 'drive', label: 'Drive & Integrações', icon: '☁️' },
+                    { id: 'avatars', label: 'Avatares', icon: '🖼️' },
+                    { id: 'access', label: 'Acesso & Email', icon: '🔒' },
+                    { id: 'sql', label: 'Base de Dados', icon: '🛠️' },
+                ].map(item => (
+                    <button
+                        key={item.id}
+                        onClick={() => setTab(item.id as any)}
+                        className={`
+                            whitespace-nowrap px-4 py-2 rounded-lg font-bold transition-all text-sm flex items-center gap-2
+                            ${tab === item.id 
+                                ? 'bg-indigo-600 text-white shadow-md' 
+                                : 'bg-white/40 text-indigo-700 hover:bg-white/60'
+                            }
+                        `}
+                    >
+                        <span>{item.icon}</span>
+                        {item.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* TAB CONTENT */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar pb-10">
+                
+                {tab === 'geral' && (
+                    <GlassCard className="space-y-8">
+                        {/* SYSTEM HEALTH */}
+                        <div>
+                            <h3 className="font-bold text-xl text-indigo-900 mb-6 flex items-center gap-2">
+                                <span>🛠️</span> Estado do Sistema
+                            </h3>
+                            <div className="space-y-4">
+                                <VersionRow 
+                                    label="Versão Aplicação (Frontend)"
+                                    current={APP_VERSION}
+                                    expected={APP_VERSION}
+                                    status="ok"
+                                />
+                                <VersionRow 
+                                    label="Versão Base de Dados (SQL)"
+                                    current={dbVersion}
+                                    expected={SQL_VERSION}
+                                    status={dbVersion === SQL_VERSION ? 'ok' : 'error'}
+                                    onUpdate={() => setTab('sql')}
+                                />
+                                <VersionRow 
+                                    label="Versão Google Script (Backend)"
+                                    current={remoteGasVersion === 'checking' ? 'A verificar...' : (remoteGasVersion === 'not_configured' ? 'Não Configurado' : remoteGasVersion)}
+                                    expected={GAS_VERSION}
+                                    status={
+                                        remoteGasVersion === 'checking' ? 'loading' :
+                                        remoteGasVersion === GAS_VERSION ? 'ok' : 
+                                        remoteGasVersion === 'not_configured' ? 'warning' : 'error'
+                                    }
+                                    onUpdate={() => setTab('drive')}
+                                />
+                            </div>
                         </div>
-                    </div>
 
-                    {/* MOVIDO: AVISO GOOGLE (LOGIN) - Agora aqui para ser mais visível */}
-                    <div className="border-t border-indigo-100 pt-6">
-                         <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
-                             <span>⚠️</span> Mensagem de Login (Google)
-                         </h3>
-                         <p className="text-sm text-indigo-700 mb-4 opacity-80">
-                            Personalize o aviso exibido no ecrã de login para ajudar os utilizadores a passarem o alerta "Aplicação Não Verificada" da Google.
-                         </p>
-                         <div className="space-y-4 bg-amber-50 p-4 rounded-xl border border-amber-100">
-                             <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Título do Aviso</label>
-                                 <input 
-                                    type="text" 
-                                    value={config.authWarningTitle || ''} 
-                                    onChange={e => setConfig({...config, authWarningTitle: e.target.value})} 
-                                    placeholder='Aviso: "A Google não validou esta app"'
-                                    className="w-full p-2 rounded bg-white border border-amber-200 focus:ring-2 focus:ring-amber-300"
-                                 />
-                             </div>
-                             <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Texto Introdutório</label>
-                                 <input 
-                                    type="text" 
-                                    value={config.authWarningIntro || ''} 
-                                    onChange={e => setConfig({...config, authWarningIntro: e.target.value})} 
-                                    placeholder="Como esta é uma aplicação interna..."
-                                    className="w-full p-2 rounded bg-white border border-amber-200 focus:ring-2 focus:ring-amber-300"
-                                 />
-                             </div>
-                             <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Título do Acordeão (Ajuda)</label>
-                                 <input 
-                                    type="text" 
-                                    value={config.authWarningSummary || ''} 
-                                    onChange={e => setConfig({...config, authWarningSummary: e.target.value})} 
-                                    placeholder="Como ultrapassar este aviso?"
-                                    className="w-full p-2 rounded bg-white border border-amber-200 focus:ring-2 focus:ring-amber-300"
-                                 />
-                             </div>
-                             <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Passo a Passo (HTML Permitido)</label>
-                                 <RichTextEditor 
-                                    value={config.authWarningSteps || ''} 
-                                    onChange={val => setConfig({...config, authWarningSteps: val})}
-                                    label=""
-                                    placeholder="Lista de passos para desbloquear..."
-                                 />
-                             </div>
-                         </div>
-                    </div>
-
-                    {/* BRANDING CONFIGURATION */}
-                    <div className="border-t border-indigo-100 pt-6">
-                         <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
-                            <span>🎨</span> Personalização
-                        </h3>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                             {/* LOGO UPLOAD */}
-                             <div className="bg-white/40 p-6 rounded-xl border border-white/50">
-                                 <label className="block text-sm text-indigo-800 font-bold mb-3 uppercase tracking-wide">Logótipo</label>
-                                 <div className="flex gap-2 items-center mb-3">
+                        {/* AVISO GOOGLE (LOGIN) */}
+                        <div className="border-t border-indigo-100 pt-6">
+                             <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
+                                 <span>⚠️</span> Mensagem de Login (Google)
+                             </h3>
+                             <p className="text-sm text-indigo-700 mb-4 opacity-80">
+                                Personalize o aviso exibido no ecrã de login para ajudar os utilizadores a passarem o alerta "Aplicação Não Verificada" da Google.
+                             </p>
+                             <div className="space-y-4 bg-amber-50 p-4 rounded-xl border border-amber-100">
+                                 <div>
+                                     <label className="block text-sm text-indigo-800 font-bold mb-1">Título do Aviso</label>
                                      <input 
-                                         type="text" 
-                                         placeholder="https://..." 
-                                         value={config.logoUrl || ''} 
-                                         onChange={e => setConfig({...config, logoUrl: e.target.value})} 
-                                         className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 outline-none text-xs"
+                                        type="text" 
+                                        value={config.authWarningTitle || ''} 
+                                        onChange={e => setConfig({...config, authWarningTitle: e.target.value})} 
+                                        placeholder='Aviso: "A Google não validou esta app"'
+                                        className="w-full p-2 rounded bg-white border border-amber-200 focus:ring-2 focus:ring-amber-300"
                                      />
-                                     <label className={`px-3 py-2 bg-white text-indigo-600 border border-indigo-200 rounded font-bold cursor-pointer hover:bg-indigo-50 transition-all text-xs flex items-center gap-1 ${uploadingLogo ? 'opacity-50' : ''}`}>
-                                         {uploadingLogo ? '...' : '📁'}
-                                         <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} />
-                                     </label>
                                  </div>
-                                 <div className="flex flex-col items-start justify-center py-4 pl-4 pr-[25px] bg-transparent rounded-lg border border-indigo-200 border-dashed h-32">
-                                     {config.logoUrl ? (
-                                         <img 
-                                            src={config.logoUrl} 
-                                            alt="Logo Preview" 
-                                            className="h-24 object-contain drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] transform hover:scale-110 transition-transform duration-500" 
+                                 <div>
+                                     <label className="block text-sm text-indigo-800 font-bold mb-1">Texto Introdutório</label>
+                                     <input 
+                                        type="text" 
+                                        value={config.authWarningIntro || ''} 
+                                        onChange={e => setConfig({...config, authWarningIntro: e.target.value})} 
+                                        placeholder="Como esta é uma aplicação interna..."
+                                        className="w-full p-2 rounded bg-white border border-amber-200 focus:ring-2 focus:ring-amber-300"
+                                     />
+                                 </div>
+                                 <div>
+                                     <label className="block text-sm text-indigo-800 font-bold mb-1">Título do Acordeão (Ajuda)</label>
+                                     <input 
+                                        type="text" 
+                                        value={config.authWarningSummary || ''} 
+                                        onChange={e => setConfig({...config, authWarningSummary: e.target.value})} 
+                                        placeholder="Como ultrapassar este aviso?"
+                                        className="w-full p-2 rounded bg-white border border-amber-200 focus:ring-2 focus:ring-amber-300"
+                                     />
+                                 </div>
+                                 <div>
+                                     <label className="block text-sm text-indigo-800 font-bold mb-1">Passo a Passo (HTML Permitido)</label>
+                                     <RichTextEditor 
+                                        value={config.authWarningSteps || ''} 
+                                        onChange={val => setConfig({...config, authWarningSteps: val})}
+                                        label=""
+                                        placeholder="Lista de passos para desbloquear..."
+                                     />
+                                 </div>
+                             </div>
+                        </div>
+
+                        {/* BRANDING CONFIGURATION */}
+                        <div className="border-t border-indigo-100 pt-6">
+                             <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
+                                <span>🎨</span> Personalização
+                            </h3>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                                 {/* LOGO UPLOAD */}
+                                 <div className="bg-white/40 p-6 rounded-xl border border-white/50">
+                                     <label className="block text-sm text-indigo-800 font-bold mb-3 uppercase tracking-wide">Logótipo</label>
+                                     <div className="flex gap-2 items-center mb-3">
+                                         <input 
+                                             type="text" 
+                                             placeholder="https://..." 
+                                             value={config.logoUrl || ''} 
+                                             onChange={e => setConfig({...config, logoUrl: e.target.value})} 
+                                             className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 outline-none text-xs"
                                          />
-                                     ) : (
-                                         <span className="text-indigo-900 font-bold opacity-30 text-xs">Sem Logótipo</span>
-                                     )}
+                                         <label className={`px-3 py-2 bg-white text-indigo-600 border border-indigo-200 rounded font-bold cursor-pointer hover:bg-indigo-50 transition-all text-xs flex items-center gap-1 ${uploadingLogo ? 'opacity-50' : ''}`}>
+                                             {uploadingLogo ? '...' : '📁'}
+                                             <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} />
+                                         </label>
+                                     </div>
+                                     <div className="flex flex-col items-start justify-center py-4 pl-4 pr-[25px] bg-transparent rounded-lg border border-indigo-200 border-dashed h-32">
+                                         {config.logoUrl ? (
+                                             <img 
+                                                src={config.logoUrl} 
+                                                alt="Logo Preview" 
+                                                className="h-24 object-contain drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] transform hover:scale-110 transition-transform duration-500" 
+                                             />
+                                         ) : (
+                                             <span className="text-indigo-900 font-bold opacity-30 text-xs">Sem Logótipo</span>
+                                         )}
+                                     </div>
                                  </div>
-                             </div>
 
-                             {/* FAVICON UPLOAD */}
-                             <div className="bg-white/40 p-6 rounded-xl border border-white/50">
-                                 <label className="block text-sm text-indigo-800 font-bold mb-3 uppercase tracking-wide">Favicon (Ícone)</label>
-                                 <div className="flex gap-2 items-center mb-3">
-                                     <input 
-                                         type="text" 
-                                         placeholder="https://..." 
-                                         value={config.faviconUrl || ''} 
-                                         onChange={e => setConfig({...config, faviconUrl: e.target.value})} 
-                                         className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 outline-none text-xs"
-                                     />
-                                     <label className={`px-3 py-2 bg-white text-indigo-600 border border-indigo-200 rounded font-bold cursor-pointer hover:bg-indigo-50 transition-all text-xs flex items-center gap-1 ${uploadingFavicon ? 'opacity-50' : ''}`}>
-                                         {uploadingFavicon ? '...' : '📁'}
-                                         <input type="file" className="hidden" accept="image/x-icon,image/png" onChange={handleFaviconUpload} disabled={uploadingFavicon} />
-                                     </label>
+                                 {/* FAVICON UPLOAD */}
+                                 <div className="bg-white/40 p-6 rounded-xl border border-white/50">
+                                     <label className="block text-sm text-indigo-800 font-bold mb-3 uppercase tracking-wide">Favicon (Ícone)</label>
+                                     <div className="flex gap-2 items-center mb-3">
+                                         <input 
+                                             type="text" 
+                                             placeholder="https://..." 
+                                             value={config.faviconUrl || ''} 
+                                             onChange={e => setConfig({...config, faviconUrl: e.target.value})} 
+                                             className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 outline-none text-xs"
+                                         />
+                                         <label className={`px-3 py-2 bg-white text-indigo-600 border border-indigo-200 rounded font-bold cursor-pointer hover:bg-indigo-50 transition-all text-xs flex items-center gap-1 ${uploadingFavicon ? 'opacity-50' : ''}`}>
+                                             {uploadingFavicon ? '...' : '📁'}
+                                             <input type="file" className="hidden" accept="image/x-icon,image/png" onChange={handleFaviconUpload} disabled={uploadingFavicon} />
+                                         </label>
+                                     </div>
+                                     <div className="flex flex-col items-center justify-center p-4 bg-transparent rounded-lg border border-indigo-200 border-dashed h-32">
+                                         {config.faviconUrl ? (
+                                             <img src={config.faviconUrl} alt="Favicon Preview" className="h-8 w-8 object-contain" />
+                                         ) : (
+                                             <span className="text-indigo-900 font-bold opacity-30 text-xs">Sem Ícone</span>
+                                         )}
+                                     </div>
                                  </div>
-                                 <div className="flex flex-col items-center justify-center p-4 bg-transparent rounded-lg border border-indigo-200 border-dashed h-32">
-                                     {config.faviconUrl ? (
-                                         <img src={config.faviconUrl} alt="Favicon Preview" className="h-8 w-8 object-contain" />
-                                     ) : (
-                                         <span className="text-indigo-900 font-bold opacity-30 text-xs">Sem Ícone</span>
-                                     )}
-                                 </div>
-                             </div>
-                        </div>
-
-                        <div className="mt-6 flex justify-end">
-                            <button 
-                                onClick={handleSaveConfig} 
-                                disabled={isSaving}
-                                className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-lg disabled:opacity-50"
-                            >
-                                {isSaving ? 'A Guardar...' : 'Guardar Definições'}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* LEGAL SECTION (Privacy + Terms) */}
-                    <div className="border-t border-indigo-100 pt-6">
-                        <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
-                            <span>⚖️</span> Legal
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            
-                            {/* Privacy Policy Block */}
-                            <div className="bg-white/40 p-6 rounded-xl border border-white/50">
-                                <label className="block text-sm text-indigo-800 font-bold mb-1">Link da Política de Privacidade</label>
-                                <div className="flex gap-2">
-                                    <input 
-                                        type="text" 
-                                        readOnly 
-                                        value={`${window.location.origin}?page=privacy`} 
-                                        className="w-full p-2 rounded bg-white/50 border border-white/60 text-indigo-600 font-mono text-sm outline-none cursor-text"
-                                        onClick={(e) => e.currentTarget.select()}
-                                    />
-                                    <button 
-                                        onClick={() => handleCopyText(`${window.location.origin}?page=privacy`)} 
-                                        className="px-3 py-2 bg-white text-indigo-600 border border-indigo-200 rounded font-bold hover:bg-indigo-50 transition-all text-xs whitespace-nowrap shadow-sm"
-                                    >
-                                        Copiar
-                                    </button>
-                                </div>
-                                <div className="mt-2 text-right">
-                                    <a 
-                                        href={`${window.location.origin}?page=privacy`} 
-                                        target="_blank" 
-                                        rel="noreferrer"
-                                        className="text-xs font-bold text-indigo-600 hover:underline"
-                                    >
-                                        Testar Link ↗
-                                    </a>
-                                </div>
                             </div>
 
-                            {/* Terms of Service Block */}
-                            <div className="bg-white/40 p-6 rounded-xl border border-white/50">
-                                <label className="block text-sm text-indigo-800 font-bold mb-1">Link dos Termos de Serviço</label>
-                                <div className="flex gap-2">
-                                    <input 
-                                        type="text" 
-                                        readOnly 
-                                        value={`${window.location.origin}?page=terms`} 
-                                        className="w-full p-2 rounded bg-white/50 border border-white/60 text-indigo-600 font-mono text-sm outline-none cursor-text"
-                                        onClick={(e) => e.currentTarget.select()}
-                                    />
-                                    <button 
-                                        onClick={() => handleCopyText(`${window.location.origin}?page=terms`)} 
-                                        className="px-3 py-2 bg-white text-indigo-600 border border-indigo-200 rounded font-bold hover:bg-indigo-50 transition-all text-xs whitespace-nowrap shadow-sm"
-                                    >
-                                        Copiar
-                                    </button>
-                                </div>
-                                <div className="mt-2 text-right">
-                                    <a 
-                                        href={`${window.location.origin}?page=terms`} 
-                                        target="_blank" 
-                                        rel="noreferrer"
-                                        className="text-xs font-bold text-indigo-600 hover:underline"
-                                    >
-                                        Testar Link ↗
-                                    </a>
-                                </div>
-                            </div>
-
-                        </div>
-                        <p className="text-xs text-indigo-500 mt-4 opacity-80 px-2">
-                            Utilize estes links na configuração OAuth da Google ou no rodapé de emails institucionais.
-                            Estas páginas são públicas e visíveis para visitantes sem sessão iniciada.
-                        </p>
-                    </div>
-                </GlassCard>
-            )}
-
-            {tab === 'sql' && (
-                <GlassCard className="h-full flex flex-col">
-                    <div className="flex justify-between items-center mb-4">
-                        <div>
-                            <h3 className="font-bold text-xl text-indigo-900">Manutenção da Base de Dados</h3>
-                            <p className="text-sm text-indigo-600">Script de atualização de estrutura e permissões.</p>
-                        </div>
-                        <button 
-                            onClick={() => handleCopyText(sqlScript)} 
-                            className={`px-4 py-2 rounded-lg font-bold shadow-md transition-all ${copyFeedback ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
-                        >
-                            {copyFeedback || 'Copiar Script SQL'}
-                        </button>
-                    </div>
-
-                    <div className="bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner flex-1 overflow-auto custom-scrollbar">
-                        <pre className="text-slate-300 font-mono text-xs whitespace-pre-wrap leading-relaxed">
-                            {sqlScript}
-                        </pre>
-                    </div>
-
-                    <div className="mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg text-sm text-indigo-800">
-                        <strong className="block mb-1">Instruções:</strong>
-                        <ol className="list-decimal ml-5 space-y-1">
-                            <li>Clique no botão <b>Copiar</b> acima.</li>
-                            <li>Aceda ao seu projeto no <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="underline font-bold text-indigo-600">Supabase Dashboard</a>.</li>
-                            <li>Vá ao <b>SQL Editor</b> (Menu lateral).</li>
-                            <li>Cole o código e clique em <b>Run</b>.</li>
-                        </ol>
-                    </div>
-                </GlassCard>
-            )}
-
-            {tab === 'roles' && (
-                <RoleManager />
-            )}
-
-            {tab === 'allocation' && (
-                <ClassAllocation />
-            )}
-
-            {tab === 'avatars' && (
-                <GlassCard>
-                    <h3 className="font-bold text-xl text-indigo-900 mb-6 flex items-center gap-2">
-                        <span>🖼️</span> Configuração de Avatares
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-sm text-indigo-800 font-bold mb-1">Tamanho Máximo (KB)</label>
-                            <input 
-                                type="number" 
-                                value={config.maxSizeKb || 100} 
-                                onChange={e => setConfig({...config, maxSizeKb: parseInt(e.target.value)})} 
-                                className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-indigo-800 font-bold mb-1">Link para Redimensionar (Opcional)</label>
-                            <input 
-                                type="url" 
-                                value={config.resizerLink || ''} 
-                                onChange={e => setConfig({...config, resizerLink: e.target.value})} 
-                                placeholder="https://imageresizer.com"
-                                className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-indigo-800 font-bold mb-1">Largura Máxima (px)</label>
-                            <input 
-                                type="number" 
-                                value={config.maxWidth || 500} 
-                                onChange={e => setConfig({...config, maxWidth: parseInt(e.target.value)})} 
-                                className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-indigo-800 font-bold mb-1">Altura Máxima (px)</label>
-                            <input 
-                                type="number" 
-                                value={config.maxHeight || 500} 
-                                onChange={e => setConfig({...config, maxHeight: parseInt(e.target.value)})} 
-                                className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
-                            />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="block text-sm text-indigo-800 font-bold mb-1">Texto de Ajuda (Exibido no perfil)</label>
-                            <textarea 
-                                value={config.helpText || ''} 
-                                onChange={e => setConfig({...config, helpText: e.target.value})} 
-                                className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300 text-sm"
-                                placeholder="Instruções para o utilizador sobre como redimensionar a imagem..."
-                            />
-                        </div>
-                    </div>
-                    <div className="flex justify-end mt-6">
-                        <button onClick={handleSaveConfig} className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 shadow-lg">
-                            Guardar Configuração
-                        </button>
-                    </div>
-                </GlassCard>
-            )}
-
-            {tab === 'access' && (
-                 <div className="space-y-6">
-                     
-                     {/* SECÇÃO: CONFIGURAÇÃO DE ENTREGA DE TRABALHOS (NOVO) */}
-                     <GlassCard>
-                         <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
-                             <span>📤</span> Configuração de Entrega de Trabalhos
-                         </h3>
-                         <p className="text-sm text-indigo-700 mb-4 opacity-80">
-                            Configure o template do email que será gerado quando um aluno clica em "Entregar Trabalho".
-                            O destinatário será sempre o <b>Formador</b> da turma.
-                         </p>
-                         <div className="space-y-4">
-                             <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Assunto do Email</label>
-                                 <input 
-                                    type="text" 
-                                    value={config.submissionSubject || ''} 
-                                    onChange={e => setConfig({...config, submissionSubject: e.target.value})} 
-                                    placeholder="Entrega: {trabalho} - {aluno}"
-                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
-                                 />
-                             </div>
-                             <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Corpo do Email</label>
-                                 <textarea 
-                                    value={config.submissionBody || ''} 
-                                    onChange={e => setConfig({...config, submissionBody: e.target.value})} 
-                                    placeholder="Olá Formador, segue em anexo o meu trabalho sobre {trabalho}."
-                                    className="w-full h-32 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"
-                                 />
-                                 <div className="mt-3 bg-indigo-50 border border-indigo-100 rounded-lg p-3 grid grid-cols-2 gap-2 text-xs">
-                                     <div className="font-bold text-indigo-900 col-span-2 mb-1">Variáveis Disponíveis:</div>
-                                     <code className="bg-white px-2 py-1 rounded border text-indigo-600 font-bold">{'{aluno}'}</code>
-                                     <span className="text-indigo-800">Nome do Aluno</span>
-                                     <code className="bg-white px-2 py-1 rounded border text-indigo-600 font-bold">{'{trabalho}'}</code>
-                                     <span className="text-indigo-800">Título da Avaliação</span>
-                                     <code className="bg-white px-2 py-1 rounded border text-indigo-600 font-bold">{'{curso}'}</code>
-                                     <span className="text-indigo-800">Nome do Curso</span>
-                                     <code className="bg-white px-2 py-1 rounded border text-indigo-600 font-bold">{'{turma}'}</code>
-                                     <span className="text-indigo-800">Nome da Turma</span>
-                                 </div>
-                             </div>
-                         </div>
-                     </GlassCard>
-
-                     {/* SECÇÃO: ACESSO NEGADO */}
-                     <GlassCard>
-                         <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
-                             <span>⛔</span> Configuração de Acesso Negado
-                         </h3>
-                         <p className="text-sm text-indigo-700 mb-4 opacity-80">
-                            Defina a mensagem de email que será pré-preenchida quando um utilizador não autorizado tentar entrar.
-                         </p>
-                         <div className="space-y-4">
-                             <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Email de Destino (Admin)</label>
-                                 <input type="email" value={config.accessDeniedEmail || ''} onChange={e => setConfig({...config, accessDeniedEmail: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"/>
-                             </div>
-                             <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Assunto do Email</label>
-                                 <input type="text" value={config.accessDeniedSubject || ''} onChange={e => setConfig({...config, accessDeniedSubject: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"/>
-                             </div>
-                             <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Corpo da Mensagem</label>
-                                 <textarea 
-                                    value={config.accessDeniedBody || ''} 
-                                    onChange={e => setConfig({...config, accessDeniedBody: e.target.value})} 
-                                    className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"
-                                 />
-                             </div>
-                         </div>
-                     </GlassCard>
-
-                     {/* SECÇÃO: CONVITES */}
-                     <GlassCard>
-                         <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
-                             <span>✉️</span> Configuração de Convites
-                         </h3>
-                         <div className="space-y-4">
-                             <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Assunto do Convite</label>
-                                 <input 
-                                    type="text" 
-                                    value={config.inviteSubject || ''} 
-                                    onChange={e => setConfig({...config, inviteSubject: e.target.value})} 
-                                    placeholder="Convite para EduTech PT"
-                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
-                                 />
-                             </div>
-                             <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Corpo do Email</label>
-                                 <textarea 
-                                    value={config.inviteBody || ''} 
-                                    onChange={e => setConfig({...config, inviteBody: e.target.value})} 
-                                    placeholder="Olá,\n\nFoste convidado para a plataforma.\nEntra aqui: {link}"
-                                    className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"
-                                 />
-                                 <div className="text-xs mt-1 text-indigo-600">Use <b>{'{link}'}</b> para inserir o endereço do site.</div>
-                             </div>
-                         </div>
-                     </GlassCard>
-
-                     <div className="flex justify-end pt-2">
-                         <button onClick={handleSaveConfig} className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 shadow-lg transform active:scale-95 transition-all">
-                            Guardar Definições de Acesso
-                         </button>
-                     </div>
-                 </div>
-            )}
-
-            {tab === 'drive' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-0">
-                     <GlassCard>
-                        <h3 className="font-bold text-xl text-indigo-900 mb-4">Configuração Conexão</h3>
-                        
-                        {renderGasAlert()}
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm text-indigo-800 font-bold mb-1">Google Script Web App URL</label>
-                                <input 
-                                    type="text" 
-                                    value={config.googleScriptUrl || ''} 
-                                    onChange={e => setConfig({...config, googleScriptUrl: e.target.value})} 
-                                    placeholder="https://script.google.com/macros/s/..." 
-                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm"
-                                />
-                            </div>
-                            
-                            {/* NEW: Extra Calendars */}
-                            <div>
-                                <label className="block text-sm text-indigo-800 font-bold mb-1">IDs Calendários Extra (Opcional)</label>
-                                <input 
-                                    type="text" 
-                                    value={config.calendarIds || ''} 
-                                    onChange={e => setConfig({...config, calendarIds: e.target.value})} 
-                                    placeholder="ex: turma_x@group.calendar.google.com, pt.portuguese#holiday@group.v.calendar.google.com" 
-                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm"
-                                />
-                                <p className="text-xs text-indigo-600 mt-1">
-                                    Se os calendários partilhados não aparecerem automaticamente, cole aqui os seus IDs (separados por vírgula). Encontra o ID nas Definições do Google Agenda {'>'} Integrar Agenda.
-                                </p>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm text-indigo-800 font-bold mb-1">ID da Pasta Google Drive</label>
-                                <div className="relative">
-                                    <input 
-                                        type="text" 
-                                        value={config.driveFolderId || ''} 
-                                        onChange={e => setConfig({...config, driveFolderId: e.target.value})} 
-                                        placeholder="Ex: 1A2b3C... ou Link da pasta" 
-                                        className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm pr-20"
-                                    />
-                                    {config.driveFolderId && config.driveFolderId.includes('/folders/') && (
-                                        <span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded font-bold animate-pulse">Link Detetado (Guardar p/ limpar)</span>
-                                    )}
-                                </div>
-                                <div className="mt-1 flex justify-between items-center text-xs">
-                                     <p className="text-indigo-600 opacity-80">
-                                        ID atual na DB: {savedId ? <span className="font-mono bg-indigo-100 px-1 rounded text-indigo-800">{savedId.substring(0,10)}...</span> : <span className="text-red-500 font-bold">Não Configurado</span>}
-                                     </p>
-                                </div>
-                            </div>
-                            
-                            <div className="flex gap-2 pt-2">
+                            <div className="mt-6 flex justify-end">
                                 <button 
                                     onClick={handleSaveConfig} 
                                     disabled={isSaving}
-                                    className="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md active:transform active:scale-95"
+                                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-lg disabled:opacity-50"
                                 >
-                                    {isSaving ? 'A Guardar...' : 'Guardar Configuração'}
-                                </button>
-                                <button 
-                                    onClick={handleTestConnection} 
-                                    className="px-4 py-3 bg-white text-indigo-600 border border-indigo-200 rounded-lg font-bold hover:bg-indigo-50 shadow-sm transition-all"
-                                >
-                                    Testar ⚡
+                                    {isSaving ? 'A Guardar...' : 'Guardar Definições'}
                                 </button>
                             </div>
-
-                            {testStatus && (
-                                <div className={`p-3 rounded-lg text-sm font-medium border ${testStatus.success ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'} animate-in fade-in slide-in-from-top-2`}>
-                                    {testStatus.msg}
-                                </div>
-                            )}
                         </div>
-                     </GlassCard>
 
-                     <GlassCard className="flex flex-col min-h-0">
-                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-xl text-indigo-900">Código Google Script</h3>
-                            <button onClick={() => handleCopyText(GAS_TEMPLATE_CODE)} className={`text-xs px-3 py-1 rounded font-bold ${copyFeedback ? 'bg-green-600 text-white' : 'bg-indigo-100 text-indigo-800'}`}>
-                                {copyFeedback || 'Copiar'}
-                            </button>
-                         </div>
-                         <div className="flex-1 overflow-auto bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner">
-                            <pre className="text-slate-300 font-mono text-xs whitespace-pre-wrap">{GAS_TEMPLATE_CODE}</pre>
-                         </div>
-                         <div className="mt-4 text-xs text-indigo-800 bg-indigo-50 p-3 rounded border border-indigo-200">
-                             <b>Passos Rápidos:</b>
-                             <ol className="list-decimal ml-4 mt-1 space-y-1">
-                                 <li>Copie o código e cole no <a href="https://script.google.com" target="_blank" className="underline font-bold">Google Apps Script</a>.</li>
-                                 <li><b>Implementar</b> {'>'} <b>Nova implementação</b>.</li>
-                                 <li>Tipo: <b>Aplicação Web</b>.</li>
-                                 <li>Acesso: <b>Qualquer pessoa</b> (Importante!).</li>
-                                 <li>Cole o URL gerado no campo à esquerda.</li>
-                             </ol>
-                         </div>
-                     </GlassCard>
-                </div>
-            )}
+                        {/* LEGAL LINKS (View Only) */}
+                        <div className="border-t border-indigo-100 pt-6">
+                            <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
+                                <span>🔗</span> Links Rápidos
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="bg-white/40 p-4 rounded-xl border border-white/50 text-xs">
+                                    <label className="block font-bold text-indigo-800 mb-1">Link da Política de Privacidade</label>
+                                    <div className="flex gap-2">
+                                        <input type="text" readOnly value={`${window.location.origin}?page=privacy`} className="w-full p-2 rounded bg-white/50 border border-white/60 text-indigo-600 font-mono outline-none" onClick={(e) => e.currentTarget.select()} />
+                                        <button onClick={() => handleCopyText(`${window.location.origin}?page=privacy`)} className="px-3 bg-white text-indigo-600 border border-indigo-200 rounded font-bold hover:bg-indigo-50">Copiar</button>
+                                    </div>
+                                </div>
+                                <div className="bg-white/40 p-4 rounded-xl border border-white/50 text-xs">
+                                    <label className="block font-bold text-indigo-800 mb-1">Link dos Termos de Serviço</label>
+                                    <div className="flex gap-2">
+                                        <input type="text" readOnly value={`${window.location.origin}?page=terms`} className="w-full p-2 rounded bg-white/50 border border-white/60 text-indigo-600 font-mono outline-none" onClick={(e) => e.currentTarget.select()} />
+                                        <button onClick={() => handleCopyText(`${window.location.origin}?page=terms`)} className="px-3 bg-white text-indigo-600 border border-indigo-200 rounded font-bold hover:bg-indigo-50">Copiar</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </GlassCard>
+                )}
+
+                {tab === 'legal' && (
+                    <GlassCard>
+                        <h3 className="font-bold text-xl text-indigo-900 mb-6 flex items-center gap-2">
+                            <span>⚖️</span> Editor de Conteúdo Legal
+                        </h3>
+                        <p className="text-sm text-indigo-700 mb-6 bg-indigo-50 p-3 rounded border border-indigo-100">
+                            Edite aqui o texto que será apresentado nas páginas públicas. Se deixar vazio, será exibido o texto padrão da plataforma.
+                        </p>
+
+                        <div className="space-y-8">
+                            {/* Editor Política de Privacidade */}
+                            <div>
+                                <h4 className="font-bold text-lg text-indigo-800 mb-2 border-b border-indigo-100 pb-2">Política de Privacidade</h4>
+                                <RichTextEditor 
+                                    value={config.privacyPolicyContent || ''} 
+                                    onChange={val => setConfig({...config, privacyPolicyContent: val})}
+                                    placeholder="Escreva aqui a sua Política de Privacidade... (Deixe vazio para usar o padrão)"
+                                    className="min-h-[300px]"
+                                />
+                            </div>
+
+                            {/* Editor Termos de Serviço */}
+                            <div>
+                                <h4 className="font-bold text-lg text-indigo-800 mb-2 border-b border-indigo-100 pb-2">Termos de Serviço</h4>
+                                <RichTextEditor 
+                                    value={config.termsServiceContent || ''} 
+                                    onChange={val => setConfig({...config, termsServiceContent: val})}
+                                    placeholder="Escreva aqui os seus Termos de Serviço... (Deixe vazio para usar o padrão)"
+                                    className="min-h-[300px]"
+                                />
+                            </div>
+
+                            <div className="flex justify-end pt-4 border-t border-indigo-100">
+                                <button 
+                                    onClick={handleSaveConfig} 
+                                    disabled={isSaving}
+                                    className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg disabled:opacity-50 transition-all transform active:scale-95"
+                                >
+                                    {isSaving ? 'A Guardar...' : 'Publicar Alterações'}
+                                </button>
+                            </div>
+                        </div>
+                    </GlassCard>
+                )}
+
+                {/* Resto das Tabs (Código existente) */}
+                {tab === 'sql' && (
+                    <GlassCard className="h-full flex flex-col">
+                        <div className="flex justify-between items-center mb-4">
+                            <div>
+                                <h3 className="font-bold text-xl text-indigo-900">Manutenção da Base de Dados</h3>
+                                <p className="text-sm text-indigo-600">Script de atualização de estrutura e permissões.</p>
+                            </div>
+                            <button onClick={() => handleCopyText(sqlScript)} className={`px-4 py-2 rounded-lg font-bold shadow-md transition-all ${copyFeedback ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>{copyFeedback || 'Copiar Script SQL'}</button>
+                        </div>
+                        <div className="bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner flex-1 overflow-auto custom-scrollbar">
+                            <pre className="text-slate-300 font-mono text-xs whitespace-pre-wrap leading-relaxed">{sqlScript}</pre>
+                        </div>
+                        <div className="mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg text-sm text-indigo-800">
+                            <strong className="block mb-1">Instruções:</strong>
+                            <ol className="list-decimal ml-5 space-y-1">
+                                <li>Clique no botão <b>Copiar</b> acima.</li>
+                                <li>Aceda ao seu projeto no <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="underline font-bold text-indigo-600">Supabase Dashboard</a>.</li>
+                                <li>Vá ao <b>SQL Editor</b> (Menu lateral).</li>
+                                <li>Cole o código e clique em <b>Run</b>.</li>
+                            </ol>
+                        </div>
+                    </GlassCard>
+                )}
+
+                {tab === 'roles' && <RoleManager />}
+                {tab === 'allocation' && <ClassAllocation />}
+
+                {tab === 'avatars' && (
+                    <GlassCard>
+                        <h3 className="font-bold text-xl text-indigo-900 mb-6 flex items-center gap-2"><span>🖼️</span> Configuração de Avatares</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div><label className="block text-sm text-indigo-800 font-bold mb-1">Tamanho Máximo (KB)</label><input type="number" value={config.maxSizeKb || 100} onChange={e => setConfig({...config, maxSizeKb: parseInt(e.target.value)})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"/></div>
+                            <div><label className="block text-sm text-indigo-800 font-bold mb-1">Link para Redimensionar (Opcional)</label><input type="url" value={config.resizerLink || ''} onChange={e => setConfig({...config, resizerLink: e.target.value})} placeholder="https://imageresizer.com" className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"/></div>
+                            <div><label className="block text-sm text-indigo-800 font-bold mb-1">Largura Máxima (px)</label><input type="number" value={config.maxWidth || 500} onChange={e => setConfig({...config, maxWidth: parseInt(e.target.value)})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"/></div>
+                            <div><label className="block text-sm text-indigo-800 font-bold mb-1">Altura Máxima (px)</label><input type="number" value={config.maxHeight || 500} onChange={e => setConfig({...config, maxHeight: parseInt(e.target.value)})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"/></div>
+                            <div className="md:col-span-2"><label className="block text-sm text-indigo-800 font-bold mb-1">Texto de Ajuda (Exibido no perfil)</label><textarea value={config.helpText || ''} onChange={e => setConfig({...config, helpText: e.target.value})} className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300 text-sm" placeholder="Instruções para o utilizador sobre como redimensionar a imagem..."/></div>
+                        </div>
+                        <div className="flex justify-end mt-6"><button onClick={handleSaveConfig} className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 shadow-lg">Guardar Configuração</button></div>
+                    </GlassCard>
+                )}
+
+                {tab === 'access' && (
+                     <div className="space-y-6">
+                         <GlassCard>
+                             <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2"><span>📤</span> Configuração de Entrega de Trabalhos</h3>
+                             <p className="text-sm text-indigo-700 mb-4 opacity-80">Configure o template do email que será gerado quando um aluno clica em "Entregar Trabalho".</p>
+                             <div className="space-y-4">
+                                 <div><label className="block text-sm text-indigo-800 font-bold mb-1">Assunto do Email</label><input type="text" value={config.submissionSubject || ''} onChange={e => setConfig({...config, submissionSubject: e.target.value})} placeholder="Entrega: {trabalho} - {aluno}" className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"/></div>
+                                 <div><label className="block text-sm text-indigo-800 font-bold mb-1">Corpo do Email</label><textarea value={config.submissionBody || ''} onChange={e => setConfig({...config, submissionBody: e.target.value})} placeholder="Olá Formador, segue em anexo o meu trabalho sobre {trabalho}." className="w-full h-32 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"/></div>
+                             </div>
+                         </GlassCard>
+                         <GlassCard>
+                             <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2"><span>⛔</span> Configuração de Acesso Negado</h3>
+                             <div className="space-y-4">
+                                 <div><label className="block text-sm text-indigo-800 font-bold mb-1">Email de Destino (Admin)</label><input type="email" value={config.accessDeniedEmail || ''} onChange={e => setConfig({...config, accessDeniedEmail: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"/></div>
+                                 <div><label className="block text-sm text-indigo-800 font-bold mb-1">Assunto do Email</label><input type="text" value={config.accessDeniedSubject || ''} onChange={e => setConfig({...config, accessDeniedSubject: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"/></div>
+                                 <div><label className="block text-sm text-indigo-800 font-bold mb-1">Corpo da Mensagem</label><textarea value={config.accessDeniedBody || ''} onChange={e => setConfig({...config, accessDeniedBody: e.target.value})} className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"/></div>
+                             </div>
+                         </GlassCard>
+                         <GlassCard>
+                             <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2"><span>✉️</span> Configuração de Convites</h3>
+                             <div className="space-y-4">
+                                 <div><label className="block text-sm text-indigo-800 font-bold mb-1">Assunto do Convite</label><input type="text" value={config.inviteSubject || ''} onChange={e => setConfig({...config, inviteSubject: e.target.value})} placeholder="Convite para EduTech PT" className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"/></div>
+                                 <div><label className="block text-sm text-indigo-800 font-bold mb-1">Corpo do Email</label><textarea value={config.inviteBody || ''} onChange={e => setConfig({...config, inviteBody: e.target.value})} placeholder="Olá,\n\nFoste convidado para a plataforma.\nEntra aqui: {link}" className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"/></div>
+                             </div>
+                         </GlassCard>
+                         <div className="flex justify-end pt-2"><button onClick={handleSaveConfig} className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 shadow-lg transform active:scale-95 transition-all">Guardar Definições de Acesso</button></div>
+                     </div>
+                )}
+
+                {tab === 'drive' && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-0">
+                         <GlassCard>
+                            <h3 className="font-bold text-xl text-indigo-900 mb-4">Configuração Conexão</h3>
+                            {renderGasAlert()}
+                            <div className="space-y-4">
+                                <div><label className="block text-sm text-indigo-800 font-bold mb-1">Google Script Web App URL</label><input type="text" value={config.googleScriptUrl || ''} onChange={e => setConfig({...config, googleScriptUrl: e.target.value})} placeholder="https://script.google.com/macros/s/..." className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm"/></div>
+                                <div><label className="block text-sm text-indigo-800 font-bold mb-1">IDs Calendários Extra (Opcional)</label><input type="text" value={config.calendarIds || ''} onChange={e => setConfig({...config, calendarIds: e.target.value})} placeholder="ex: turma_x@group.calendar.google.com" className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm"/></div>
+                                <div><label className="block text-sm text-indigo-800 font-bold mb-1">ID da Pasta Google Drive</label><div className="relative"><input type="text" value={config.driveFolderId || ''} onChange={e => setConfig({...config, driveFolderId: e.target.value})} placeholder="Ex: 1A2b3C... ou Link da pasta" className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm pr-20"/>{config.driveFolderId && config.driveFolderId.includes('/folders/') && (<span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded font-bold animate-pulse">Link Detetado</span>)}</div></div>
+                                <div className="flex gap-2 pt-2"><button onClick={handleSaveConfig} disabled={isSaving} className="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md active:transform active:scale-95">{isSaving ? 'A Guardar...' : 'Guardar Configuração'}</button><button onClick={handleTestConnection} className="px-4 py-3 bg-white text-indigo-600 border border-indigo-200 rounded-lg font-bold hover:bg-indigo-50 shadow-sm transition-all">Testar ⚡</button></div>
+                                {testStatus && (<div className={`p-3 rounded-lg text-sm font-medium border ${testStatus.success ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'} animate-in fade-in slide-in-from-top-2`}>{testStatus.msg}</div>)}
+                            </div>
+                         </GlassCard>
+                         <GlassCard className="flex flex-col min-h-0">
+                             <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-xl text-indigo-900">Código Google Script</h3><button onClick={() => handleCopyText(GAS_TEMPLATE_CODE)} className={`text-xs px-3 py-1 rounded font-bold ${copyFeedback ? 'bg-green-600 text-white' : 'bg-indigo-100 text-indigo-800'}`}>{copyFeedback || 'Copiar'}</button></div>
+                             <div className="flex-1 overflow-auto bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner"><pre className="text-slate-300 font-mono text-xs whitespace-pre-wrap">{GAS_TEMPLATE_CODE}</pre></div>
+                             <div className="mt-4 text-xs text-indigo-800 bg-indigo-50 p-3 rounded border border-indigo-200"><b>Passos Rápidos:</b><ol className="list-decimal ml-4 mt-1 space-y-1"><li>Copie o código e cole no <a href="https://script.google.com" target="_blank" className="underline font-bold">Google Apps Script</a>.</li><li><b>Implementar</b> {'>'} <b>Nova implementação</b>.</li><li>Tipo: <b>Aplicação Web</b>.</li><li>Acesso: <b>Qualquer pessoa</b> (Importante!).</li><li>Cole o URL gerado no campo à esquerda.</li></ol></div>
+                         </GlassCard>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
