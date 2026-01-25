@@ -1,12 +1,12 @@
 
--- SCRIPT v3.0.4 - Fix Schema Cache & Columns
--- Execute este script para corrigir o erro "Could not find column... in schema cache"
+-- SCRIPT v3.0.5 - CRITICAL CACHE FIX
+-- Execute este script para corrigir o erro "Could not find the 'duration' column"
 
 -- 1. ATUALIZAR VERSÃO
-insert into public.app_config (key, value) values ('sql_version', 'v3.0.4')
-on conflict (key) do update set value = 'v3.0.4';
+insert into public.app_config (key, value) values ('sql_version', 'v3.0.5')
+on conflict (key) do update set value = 'v3.0.5';
 
--- 2. GARANTIR COLUNAS (Caso não tenham sido criadas)
+-- 2. GARANTIR COLUNAS (Idempotente - só cria se não existirem)
 do $$
 begin
     if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'duration') then
@@ -17,6 +17,6 @@ begin
     end if;
 end $$;
 
--- 3. FORÇAR RECARREGAMENTO DO CACHE DO POSTGREST (CRÍTICO)
--- Isto avisa o Supabase que a estrutura mudou.
+-- 3. FORÇAR RECARREGAMENTO DO CACHE DO POSTGREST (AÇÃO PRINCIPAL)
+-- Isto é necessário sempre que se altera a estrutura da tabela para que a API reconheça os novos campos.
 NOTIFY pgrst, 'reload schema';
