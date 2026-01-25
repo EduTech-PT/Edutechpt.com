@@ -243,16 +243,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       {/* FINAL CTA SECTION */}
       <div className="py-20 px-4 relative z-10">
           <GlassCard className="max-w-5xl mx-auto text-center py-16 bg-gradient-to-r from-indigo-600/90 to-purple-600/90 border-0 shadow-2xl">
-              <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">Pronto para evoluir a tua carreira?</h2>
-              <p className="text-indigo-100 text-lg max-w-2xl mx-auto mb-10">
-                  Junte-se a nossa comunidade de alunos e tenha acesso às melhores ferramentas e conteúdos.
+              <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">Já faz parte da comunidade?</h2>
+              <p className="text-indigo-100 text-lg max-w-2xl mx-auto mb-10 leading-relaxed">
+                  Aceda à sua área pessoal para continuar a evoluir. O acesso à EduTech PT é exclusivo, mas estamos sempre à procura de novos talentos.
               </p>
-              <button 
-                  onClick={onLoginClick}
-                  className="px-10 py-4 bg-white text-indigo-700 rounded-xl font-bold text-lg hover:bg-indigo-50 transition-all shadow-lg transform hover:-translate-y-1"
-              >
-                  Criar Conta Gratuita
-              </button>
+              
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                  <button 
+                      onClick={onLoginClick}
+                      className="px-10 py-4 bg-white text-indigo-700 rounded-xl font-bold text-lg hover:bg-indigo-50 transition-all shadow-lg transform hover:-translate-y-1 min-w-[250px]"
+                  >
+                      Entrar na Plataforma
+                  </button>
+                  
+                  <a 
+                      href="mailto:edutechpt@hotmail.com?subject=Candidatura%20EduTech%20PT&body=Ol%C3%A1%2C%0A%0AGostaria%20de%20saber%20mais%20informa%C3%A7%C3%B5es%20sobre%20os%20vossos%20cursos%20e%20como%20posso%20integrar%20a%20comunidade.%0A%0AOs%20meus%20interesses%20s%C3%A3o%3A%20..."
+                      className="px-10 py-4 bg-transparent border-2 border-white text-white rounded-xl font-bold text-lg hover:bg-white/10 transition-all shadow-lg transform hover:-translate-y-1 min-w-[250px]"
+                  >
+                      Solicitar Acesso
+                  </a>
+              </div>
           </GlassCard>
       </div>
 
