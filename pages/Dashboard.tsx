@@ -3,12 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { Profile, UserRole, SupabaseSession, UserPermissions, OnlineUser } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { GlassCard } from '../components/GlassCard';
+import { Footer } from '../components/Footer'; // NOVO IMPORT
 import { userService } from '../services/users';
 import { adminService } from '../services/admin';
 import { SQL_VERSION, APP_VERSION } from '../constants';
 import { formatTime, formatDate } from '../utils/formatters';
 import { driveService, GAS_VERSION } from '../services/drive';
-import { supabase } from '../lib/supabaseClient'; // Necessário para Realtime
+import { supabase } from '../lib/supabaseClient';
 
 // Views
 import { Overview } from '../components/dashboard/Overview';
@@ -26,7 +27,12 @@ import { ClassManager } from '../components/dashboard/ClassManager';
 import { DidacticPortal } from '../components/dashboard/DidacticPortal';
 import { AccessLogs } from '../components/dashboard/AccessLogs'; 
 import { StudentAllocation } from '../components/dashboard/StudentAllocation';
-import { StudentClassroom } from '../components/dashboard/StudentClassroom'; // NOVO IMPORT
+import { StudentClassroom } from '../components/dashboard/StudentClassroom';
+
+// Legal Pages (Embedded)
+import { PrivacyPolicy } from './PrivacyPolicy';
+import { TermsOfService } from './TermsOfService';
+import { FAQPage } from './FAQPage';
 
 interface DashboardProps {
   session: SupabaseSession;
@@ -284,6 +290,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       setCurrentView('student_classroom');
   };
 
+  // Footer Navigation Handler
+  const handleFooterNavigate = (view: 'privacy' | 'terms' | 'faq') => {
+      handleSetView(view);
+  };
+
   if (loading) return <div className="min-h-screen flex items-center justify-center text-indigo-600">A carregar EduTech PT...</div>;
 
   if (!profile) return (
@@ -360,6 +371,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           case 'settings_allocation': return <Settings dbVersion={dbVersion} initialTab="allocation" />; 
           case 'settings_legal': return <Settings dbVersion={dbVersion} initialTab="legal" />;
           case 'settings': return <Settings dbVersion={dbVersion} initialTab="geral" />;
+          
+          // LEGAL PAGES (EMBEDDED)
+          case 'privacy': return <PrivacyPolicy onBack={() => handleSetView('dashboard')} isEmbedded={true} />;
+          case 'terms': return <TermsOfService onBack={() => handleSetView('dashboard')} isEmbedded={true} />;
+          case 'faq': return <FAQPage onBack={() => handleSetView('dashboard')} isEmbedded={true} />;
+
           default: return <GlassCard><h2>Em Construção: {currentView}</h2></GlassCard>;
       }
   };
@@ -376,6 +393,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       if (view === 'courses') return 'Meus Cursos e Oferta';
       if (view === 'calendar') return 'Minha Agenda';
       if (view === 'availability') return 'Mapa de Disponibilidade';
+      if (view === 'privacy') return 'Política de Privacidade';
+      if (view === 'terms') return 'Termos de Serviço';
+      if (view === 'faq') return 'Perguntas Frequentes';
       return view.replace('_', ' ');
   };
 
@@ -463,8 +483,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar pb-20 md:pb-10">
-                {renderView()}
+            <div className="flex-1 overflow-y-auto custom-scrollbar md:pb-0">
+                <div className="min-h-full flex flex-col">
+                    <div className="flex-1 pb-10">
+                        {renderView()}
+                    </div>
+                    {/* Reusable Footer inside Dashboard */}
+                    <Footer onNavigate={handleFooterNavigate} className="mt-auto rounded-xl md:rounded-none bg-white/40 border-none" />
+                </div>
             </div>
         </main>
       </div>

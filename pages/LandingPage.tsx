@@ -5,12 +5,13 @@ import { supabase } from '../lib/supabaseClient';
 import { Course } from '../types';
 import { adminService } from '../services/admin';
 import { CourseDetailModal } from '../components/CourseDetailModal';
+import { Footer } from '../components/Footer';
 
 interface LandingPageProps {
   onLoginClick: () => void;
   onPrivacyClick: () => void;
   onTermsClick?: () => void;
-  onFaqClick?: () => void; // NOVO PROP
+  onFaqClick?: () => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivacyClick, onTermsClick, onFaqClick }) => {
@@ -47,19 +48,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
     }
   };
 
-  const handlePrivacyLinkClick = (e: React.MouseEvent) => {
-      e.preventDefault();
-      onPrivacyClick();
-  };
-
-  const handleTermsLinkClick = (e: React.MouseEvent) => {
-      e.preventDefault();
-      if (onTermsClick) onTermsClick();
-  };
-
-  const handleFaqLinkClick = (e: React.MouseEvent) => {
-      e.preventDefault();
-      if (onFaqClick) onFaqClick();
+  const handleFooterNavigate = (view: 'privacy' | 'terms' | 'faq') => {
+      if (view === 'privacy') onPrivacyClick();
+      if (view === 'terms' && onTermsClick) onTermsClick();
+      if (view === 'faq' && onFaqClick) onFaqClick();
   };
 
   const scrollToCourses = () => {
@@ -278,42 +270,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
           />
       )}
 
-      {/* Footer */}
-      <footer className="w-full py-10 text-center text-indigo-900/60 text-sm bg-white/30 backdrop-blur-xl border-t border-white/40 mt-auto z-20">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="text-left">
-                <h4 className="font-bold text-indigo-900 text-lg mb-1">EduTech PT</h4>
-                <p className="text-xs max-w-xs">Plataforma de gestão de formação técnica especializada.</p>
-            </div>
-            
-            <div className="flex flex-col gap-2 text-right">
-                <p>&copy; {new Date().getFullYear()} Todos os direitos reservados.</p>
-                <div className="flex justify-end items-center gap-4 text-xs font-bold uppercase tracking-wide">
-                    <a 
-                        href="?page=faq"
-                        onClick={handleFaqLinkClick}
-                        className="hover:text-indigo-900 hover:underline transition-colors cursor-pointer"
-                    >
-                        Perguntas Frequentes
-                    </a>
-                    <a 
-                        href="?page=privacy"
-                        onClick={handlePrivacyLinkClick}
-                        className="hover:text-indigo-900 hover:underline transition-colors cursor-pointer"
-                    >
-                        Privacidade
-                    </a>
-                    <a 
-                        href="?page=terms"
-                        onClick={handleTermsLinkClick}
-                        className="hover:text-indigo-900 hover:underline transition-colors cursor-pointer"
-                    >
-                        Termos
-                    </a>
-                </div>
-            </div>
-        </div>
-      </footer>
+      {/* Footer Reutilizável */}
+      <Footer onNavigate={handleFooterNavigate} />
     </div>
   );
 };

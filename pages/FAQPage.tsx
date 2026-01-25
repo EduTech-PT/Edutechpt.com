@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { adminService } from '../services/admin';
+import { Footer } from '../components/Footer';
 
 // Default content used if database is empty and no structured list exists
 const DEFAULT_CONTENT = `
@@ -42,9 +43,10 @@ const DEFAULT_CONTENT = `
 
 interface Props {
   onBack: () => void;
+  isEmbedded?: boolean; // Se true, esconde Navbar e Footer (para usar no Dashboard)
 }
 
-export const FAQPage: React.FC<Props> = ({ onBack }) => {
+export const FAQPage: React.FC<Props> = ({ onBack, isEmbedded = false }) => {
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
   const [htmlContent, setHtmlContent] = useState<string>(DEFAULT_CONTENT);
   const [structuredList, setStructuredList] = useState<{q: string, a: string}[]>([]);
@@ -67,35 +69,17 @@ export const FAQPage: React.FC<Props> = ({ onBack }) => {
       setOpenFaq(openFaq === index ? null : index);
   };
 
-  return (
-    <div className="min-h-screen flex flex-col">
-      {/* Navbar */}
-      <nav className="w-full p-4 md:p-6 flex justify-between items-center z-10 bg-white/10 backdrop-blur-md border-b border-white/20 sticky top-0">
-        <div className="text-xl font-bold text-indigo-900 cursor-pointer" onClick={onBack}>
-             {logoUrl ? (
-                <img 
-                  src={logoUrl} 
-                  alt="EduTech PT" 
-                  className="h-10 md:h-12 object-contain drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] transform hover:scale-110 transition-transform duration-500" 
-                />
-            ) : (
-                "EduTech PT"
-            )}
-        </div>
-        <button 
-          onClick={onBack}
-          className="px-4 py-2 bg-white/50 hover:bg-white/80 text-indigo-900 rounded-lg text-sm font-bold transition-all shadow-sm flex items-center gap-2"
-        >
-          <span>⬅️</span> Voltar
-        </button>
-      </nav>
+  const handleNavigate = (view: 'privacy' | 'terms' | 'faq') => {
+      // Navegação para Footer Standalone
+      const url = new URL(window.location.href);
+      url.searchParams.set('page', view);
+      window.history.pushState({}, '', url.toString());
+      window.dispatchEvent(new PopStateEvent('popstate'));
+  };
 
-      {/* Content */}
-      <div className="flex-grow container mx-auto px-4 py-8 max-w-4xl relative z-0">
-         {/* Background Orbs */}
-        <div className="fixed top-1/4 right-1/4 w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none -z-10"></div>
-        <div className="fixed bottom-1/4 left-1/4 w-96 h-96 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none -z-10"></div>
-
+  // MAIN CONTENT COMPONENT (Shared)
+  const Content = () => (
+      <>
         {structuredList.length > 0 ? (
             // RENDERIZAÇÃO ESTRUTURADA (ACCORDION)
             <div>
@@ -137,11 +121,52 @@ export const FAQPage: React.FC<Props> = ({ onBack }) => {
                 <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
             </GlassCard>
         )}
+      </>
+  );
+
+  // SE FOR EMBEDDED (DASHBOARD), RENDERIZA SÓ O CONTEÚDO
+  if (isEmbedded) {
+      return (
+          <div className="animate-in fade-in slide-in-from-right duration-300">
+              <Content />
+          </div>
+      );
+  }
+
+  // SE FOR STANDALONE (PÚBLICO), RENDERIZA COM HEADER/FOOTER
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* Navbar */}
+      <nav className="w-full p-4 md:p-6 flex justify-between items-center z-10 bg-white/10 backdrop-blur-md border-b border-white/20 sticky top-0">
+        <div className="text-xl font-bold text-indigo-900 cursor-pointer" onClick={onBack}>
+             {logoUrl ? (
+                <img 
+                  src={logoUrl} 
+                  alt="EduTech PT" 
+                  className="h-10 md:h-12 object-contain drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] transform hover:scale-110 transition-transform duration-500" 
+                />
+            ) : (
+                "EduTech PT"
+            )}
+        </div>
+        <button 
+          onClick={onBack}
+          className="px-4 py-2 bg-white/50 hover:bg-white/80 text-indigo-900 rounded-lg text-sm font-bold transition-all shadow-sm flex items-center gap-2"
+        >
+          <span>⬅️</span> Voltar
+        </button>
+      </nav>
+
+      {/* Content Wrapper */}
+      <div className="flex-grow container mx-auto px-4 py-8 max-w-4xl relative z-0">
+         {/* Background Orbs */}
+        <div className="fixed top-1/4 right-1/4 w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none -z-10"></div>
+        <div className="fixed bottom-1/4 left-1/4 w-96 h-96 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none -z-10"></div>
+
+        <Content />
       </div>
 
-      <footer className="w-full py-6 text-center text-indigo-900/60 text-sm bg-white/20 backdrop-blur-md mt-auto">
-        &copy; {new Date().getFullYear()} EduTech PT. Todos os direitos reservados.
-      </footer>
+      <Footer onNavigate={handleNavigate} />
     </div>
   );
 };

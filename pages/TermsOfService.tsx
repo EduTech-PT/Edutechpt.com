@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { adminService } from '../services/admin';
+import { Footer } from '../components/Footer';
 
 // Default content used if database is empty
 const DEFAULT_CONTENT = `
@@ -78,9 +79,10 @@ const DEFAULT_CONTENT = `
 
 interface Props {
   onBack: () => void;
+  isEmbedded?: boolean;
 }
 
-export const TermsOfService: React.FC<Props> = ({ onBack }) => {
+export const TermsOfService: React.FC<Props> = ({ onBack, isEmbedded = false }) => {
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
   const [content, setContent] = useState<string>(DEFAULT_CONTENT);
 
@@ -93,6 +95,27 @@ export const TermsOfService: React.FC<Props> = ({ onBack }) => {
         }
     }).catch(e => console.log('Config load error (Terms)', e));
   }, []);
+
+  const handleNavigate = (view: 'privacy' | 'terms' | 'faq') => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('page', view);
+      window.history.pushState({}, '', url.toString());
+      window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
+  const Content = () => (
+      <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600">
+          <div dangerouslySetInnerHTML={{ __html: content }} />
+      </GlassCard>
+  );
+
+  if (isEmbedded) {
+      return (
+          <div className="animate-in fade-in slide-in-from-right duration-300">
+              <Content />
+          </div>
+      );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -123,14 +146,10 @@ export const TermsOfService: React.FC<Props> = ({ onBack }) => {
         <div className="fixed top-1/4 left-1/4 w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none -z-10"></div>
         <div className="fixed bottom-1/4 right-1/4 w-96 h-96 bg-indigo-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none -z-10"></div>
 
-        <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600">
-            <div dangerouslySetInnerHTML={{ __html: content }} />
-        </GlassCard>
+        <Content />
       </div>
 
-      <footer className="w-full py-6 text-center text-indigo-900/60 text-sm bg-white/20 backdrop-blur-md mt-auto">
-        &copy; {new Date().getFullYear()} EduTech PT. Todos os direitos reservados.
-      </footer>
+      <Footer onNavigate={handleNavigate} />
     </div>
   );
 };
