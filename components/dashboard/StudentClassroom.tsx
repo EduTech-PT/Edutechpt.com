@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
-import { Profile, Class, Course, ClassMaterial, ClassAnnouncement, ClassAssessment } from '../../types';
+import { Profile, Class, Course, ClassMaterial, ClassAnnouncement, ClassAssessment, UserRole } from '../../types';
 import { formatShortDate } from '../../utils/formatters';
 import { CertificateGenerator } from '../CertificateGenerator';
 
@@ -56,10 +56,29 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
         }
     }, [activeCourseId]);
 
+    const getEnrollmentsForUser = async () => {
+        if (profile.role === UserRole.ADMIN) {
+            // ADMIN: Virtual enrollments in ALL classes
+            const allClasses = await courseService.getAllClassesWithDetails();
+            return allClasses.map(cls => ({
+                user_id: profile.id,
+                course_id: cls.course_id,
+                class_id: cls.id,
+                enrolled_at: new Date().toISOString(),
+                course: cls.course,
+                class: cls
+            }));
+        } else {
+            // NORMAL USER
+            return await courseService.getStudentEnrollments(profile.id);
+        }
+    };
+
     const detectCourse = async () => {
         setLoading(true);
         try {
-            const enrollments = await courseService.getStudentEnrollments(profile.id);
+            const enrollments = await getEnrollmentsForUser();
+            
             if (enrollments && enrollments.length === 1) {
                 // Auto-select the only course
                 setActiveCourseId(enrollments[0].course_id);
@@ -84,19 +103,34 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
     const loadClassroomData = async (courseId: string) => {
         setLoading(true);
         try {
-            // Get enrollment to find class
-            const enrollments = await courseService.getStudentEnrollments(profile.id);
-            const enrollment = enrollments.find(e => e.course_id === courseId);
+            const enrollments = await getEnrollmentsForUser();
             
-            if (enrollment && enrollment.class) {
-                setActiveClass(enrollment.class);
-                setCourse(enrollment.course);
-                await loadResources(enrollment.class.id);
-            } else if (enrollment && enrollment.course) {
-                // Course but no class yet
-                setCourse(enrollment.course);
+            // Filter enrollments for this specific course
+            const courseEnrollments = enrollments.filter(e => e.course_id === courseId);
+
+            if (courseEnrollments.length === 0) {
+                // Should not happen if flow is correct, but handle it
+                setCourse(null);
                 setActiveClass(null);
+            } else if (courseEnrollments.length === 1) {
+                // Single class, enter directly
+                const enrollment = courseEnrollments[0];
+                if (enrollment && enrollment.class) {
+                    setActiveClass(enrollment.class);
+                    setCourse(enrollment.course);
+                    await loadResources(enrollment.class.id);
+                } else if (enrollment && enrollment.course) {
+                    setCourse(enrollment.course);
+                    setActiveClass(null);
+                }
+            } else {
+                // Multiple classes for same course (Admin scenario)
+                // Force selection screen restricted to this course
+                setMyEnrollments(courseEnrollments);
+                setShowSelection(true);
+                setActiveCourseId(undefined); // Clear active ID to show selection
             }
+
         } catch (err) {
             console.error(err);
         } finally {
@@ -152,12 +186,14 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
 
     if (loading) return <div className="p-10 text-center text-indigo-600 font-bold">A carregar sala de aula...</div>;
 
-    // --- SELECTION SCREEN (If multiple courses and no ID) ---
+    // --- SELECTION SCREEN (If multiple courses and no ID, OR multiple classes for admin) ---
     if (showSelection && !activeCourseId) {
         return (
             <div className="space-y-6 animate-in fade-in">
                 <div className="flex justify-between items-center">
-                    <h2 className="text-2xl font-bold text-indigo-900">As Minhas Salas de Aula</h2>
+                    <h2 className="text-2xl font-bold text-indigo-900">
+                        {initialCourseId ? 'Escolha a Turma' : 'As Minhas Salas de Aula'}
+                    </h2>
                 </div>
 
                 {myEnrollments.length === 0 ? (
@@ -171,12 +207,20 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                     </GlassCard>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {myEnrollments.map(enr => (
+                        {myEnrollments.map((enr, idx) => (
                             <GlassCard 
-                                key={enr.course_id} 
+                                key={`${enr.course_id}-${enr.class_id || idx}`} 
                                 hoverEffect={true} 
                                 className="cursor-pointer group relative overflow-hidden"
-                                onClick={() => setActiveCourseId(enr.course_id)}
+                                onClick={() => {
+                                    // Manually force enter this specific enrollment (class)
+                                    // We set state directly to skip the 'find' logic in loadClassroomData
+                                    setCourse(enr.course);
+                                    setActiveClass(enr.class);
+                                    setActiveCourseId(enr.course_id);
+                                    setShowSelection(false);
+                                    if (enr.class) loadResources(enr.class.id);
+                                }}
                             >
                                 <div className="h-32 bg-indigo-100 rounded-lg mb-4 overflow-hidden relative">
                                     {enr.course?.image_url ? (

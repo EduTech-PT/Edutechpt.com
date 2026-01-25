@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
-import { Profile, Course } from '../../types';
+import { Profile, Course, UserRole } from '../../types';
 import { formatShortDate } from '../../utils/formatters';
 import { CourseDetailModal } from '../CourseDetailModal';
 
@@ -24,13 +23,27 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
     const loadData = async () => {
         setLoading(true);
         
-        // 1. Carregar Inscrições
+        // 1. Carregar Inscrições (Lógica Especial para Admin)
         try {
-            const myCourses = await courseService.getStudentEnrollments(profile.id);
-            setEnrollments(myCourses || []);
+            if (profile.role === UserRole.ADMIN) {
+                // ADMIN: "Inscrito" virtualmente em todas as turmas
+                const allClasses = await courseService.getAllClassesWithDetails();
+                const virtualEnrollments = allClasses.map(cls => ({
+                    user_id: profile.id,
+                    course_id: cls.course_id,
+                    class_id: cls.id,
+                    enrolled_at: new Date().toISOString(),
+                    course: cls.course,
+                    class: cls
+                }));
+                setEnrollments(virtualEnrollments);
+            } else {
+                // ALUNO/FORMADOR: Inscrições reais
+                const myCourses = await courseService.getStudentEnrollments(profile.id);
+                setEnrollments(myCourses || []);
+            }
         } catch (err) {
-            console.error("Erro ao carregar inscrições (Verifique se a tabela 'classes' existe na BD):", err);
-            // Não bloqueia o fluxo, apenas define vazio
+            console.error("Erro ao carregar inscrições:", err);
             setEnrollments([]); 
         }
 
@@ -47,7 +60,7 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
     };
 
     loadData();
-  }, [profile.id]);
+  }, [profile.id, profile.role]);
 
   const handleOpenCourse = (course: Course) => {
       setSelectedCourse(course);
@@ -87,7 +100,11 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
             <span className="text-3xl">🎓</span>
             <div>
                 <h2 className="text-2xl font-bold text-indigo-900">A Minha Formação</h2>
-                <p className="text-sm text-indigo-600">Cursos onde estou oficialmente inscrito.</p>
+                <p className="text-sm text-indigo-600">
+                    {profile.role === UserRole.ADMIN 
+                        ? 'Acesso Global: Visualizar como aluno (Todas as Turmas).' 
+                        : 'Cursos onde estou oficialmente inscrito.'}
+                </p>
             </div>
         </div>
 
@@ -101,14 +118,14 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
             </GlassCard>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {enrollments.map((item) => {
+                {enrollments.map((item, idx) => {
                     const course = item.course;
                     const classInfo = item.class;
                     
                     if (!course) return null;
 
                     return (
-                        <GlassCard key={item.course_id + item.user_id} hoverEffect={true} className="flex flex-col relative overflow-hidden group border-l-4 border-l-indigo-500">
+                        <GlassCard key={`${item.course_id}-${item.class_id || idx}`} hoverEffect={true} className="flex flex-col relative overflow-hidden group border-l-4 border-l-indigo-500">
                              {/* Badge Turma */}
                              <div className="absolute top-4 right-4 z-10">
                                 {classInfo ? (
@@ -134,7 +151,9 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                              <p className="text-xs text-indigo-500 font-medium uppercase mb-4 tracking-wide">{course.level}</p>
                              
                              <div className="mt-auto pt-4 border-t border-indigo-100 flex justify-between items-center">
-                                <span className="text-xs text-indigo-400">Inscrito a {formatShortDate(item.enrolled_at)}</span>
+                                <span className="text-xs text-indigo-400">
+                                    {profile.role === UserRole.ADMIN ? 'Acesso Admin' : `Inscrito a ${formatShortDate(item.enrolled_at)}`}
+                                </span>
                                 <button 
                                     onClick={() => handleOpenCourse(course)}
                                     className="px-4 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700 transition-colors shadow-sm"

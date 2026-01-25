@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { userService } from '../../services/users';
 import { adminService } from '../../services/admin';
-import { Profile } from '../../types';
+import { Profile, UserRole } from '../../types';
 import { formatDate } from '../../utils/formatters';
 import { sanitizeHTML } from '../../utils/security';
 
@@ -41,8 +40,11 @@ export const Community: React.FC = () => {
     };
 
     const filteredMembers = members.filter(m => 
-        (m.full_name?.toLowerCase() || '').includes(search.toLowerCase()) ||
-        (m.city?.toLowerCase() || '').includes(search.toLowerCase())
+        m.role !== UserRole.ADMIN && // HIDE ADMIN FROM COMMUNITY
+        (
+            (m.full_name?.toLowerCase() || '').includes(search.toLowerCase()) ||
+            (m.city?.toLowerCase() || '').includes(search.toLowerCase())
+        )
     );
 
     // Helper para verificar visibilidade
