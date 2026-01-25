@@ -156,8 +156,8 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
         const dateStr = formatDate(new Date());
         doc.text(`Nível: ${course.level.toUpperCase()}  |  Data de Emissão: ${dateStr}`, 148.5, yPos + 90, { align: 'center' });
 
-        // 5. Assinatura Fictícia (Ajustada posição)
-        const sigY = 160; 
+        // 5. Assinatura Fictícia (Ajustada posição para baixo)
+        const sigY = 175; 
         
         // Linha da assinatura
         doc.setDrawColor('#9ca3af'); // Gray 400
