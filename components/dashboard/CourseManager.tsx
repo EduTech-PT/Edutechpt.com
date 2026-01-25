@@ -19,7 +19,7 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
   // Form States
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Course>>({
-      title: '', description: '', level: 'iniciante', image_url: '', is_public: false
+      title: '', description: '', level: 'iniciante', image_url: '', is_public: false, duration: '', price: ''
   });
 
   // Marketing Data (Agora sempre visível)
@@ -132,7 +132,7 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
   };
 
   const resetForm = () => {
-      setFormData({ title: '', description: '', level: 'iniciante', image_url: '', is_public: false });
+      setFormData({ title: '', description: '', level: 'iniciante', image_url: '', is_public: false, duration: '', price: '' });
       setMarketingData({ headline: '', promise: '', target: '', curriculum: '', benefits: '', social: '', authority: '', guarantee: '', bonuses: '', cta: '' });
       setIsEditing(null);
   };
@@ -144,7 +144,9 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
           description: c.description, 
           level: c.level, 
           image_url: c.image_url || '', 
-          is_public: c.is_public || false 
+          is_public: c.is_public || false,
+          duration: c.duration || '',
+          price: c.price || ''
       });
       // Carregar dados de marketing se existirem
       if (c.marketing_data) {
@@ -297,7 +299,7 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
                      </details>
                  </div>
 
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                     <div>
                          <label className="block text-sm mb-1 text-indigo-900 font-bold">Nível de Dificuldade</label>
                          <select value={formData.level} onChange={e => setFormData({...formData, level: e.target.value as any})} className="w-full p-2 rounded bg-white/50 border border-white/60 outline-none">
@@ -306,9 +308,29 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
                              <option value="avancado">Avançado</option>
                          </select>
                      </div>
-                     <div className="flex items-center gap-3 pt-6">
+                     <div>
+                         <label className="block text-sm mb-1 text-indigo-900 font-bold">Duração (Horas)</label>
+                         <input 
+                            type="text" 
+                            value={formData.duration || ''} 
+                            onChange={e => setFormData({...formData, duration: e.target.value})} 
+                            placeholder="Ex: 40h" 
+                            className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"
+                         />
+                     </div>
+                     <div>
+                         <label className="block text-sm mb-1 text-indigo-900 font-bold">Custo (Opcional)</label>
+                         <input 
+                            type="text" 
+                            value={formData.price || ''} 
+                            onChange={e => setFormData({...formData, price: e.target.value})} 
+                            placeholder="Ex: 250€ ou Grátis" 
+                            className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"
+                         />
+                     </div>
+                     <div className="flex items-center gap-3 pb-2">
                         <input type="checkbox" checked={formData.is_public} onChange={(e) => setFormData({...formData, is_public: e.target.checked})} className="h-5 w-5 text-indigo-600 rounded"/>
-                        <span className="text-sm font-bold text-indigo-900">Publicar na Landing Page</span>
+                        <span className="text-sm font-bold text-indigo-900">Publicar</span>
                      </div>
                  </div>
                  <div className="flex justify-end gap-2 pt-4 border-t border-white/50">
@@ -336,7 +358,10 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
                      </div>
                      <div className="flex justify-between items-center text-xs opacity-70 mt-auto border-t border-indigo-100 pt-2">
                          <span className="uppercase font-bold text-indigo-600">{course.level}</span>
-                         <span>{formatShortDate(course.created_at)}</span>
+                         <div className="flex gap-2">
+                             {course.duration && <span className="font-bold text-indigo-800">{course.duration}</span>}
+                             {course.price && <span className="font-bold text-green-700 bg-green-50 px-1 rounded">{course.price}</span>}
+                         </div>
                      </div>
                  </GlassCard>
              ))}

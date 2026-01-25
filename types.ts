@@ -78,6 +78,8 @@ export interface Course {
   level: 'iniciante' | 'intermedio' | 'avancado';
   is_public?: boolean;
   marketing_data?: MarketingData;
+  duration?: string; // NOVO: Duração (ex: "40h")
+  price?: string;    // NOVO: Preço (ex: "250€" ou "Gratuito")
 }
 
 export interface Class {

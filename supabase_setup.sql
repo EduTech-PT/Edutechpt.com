@@ -1,12 +1,24 @@
 
--- SCRIPT v1.2.1 - Classes & Batch Enrollments Fix
--- Execute este script para habilitar a gestão de turmas e convites em massa
+-- SCRIPT v3.0.2 - Duration & Price Fields
+-- Execute este script para atualizar a estrutura
 
 -- 1. ATUALIZAR VERSÃO
-insert into public.app_config (key, value) values ('sql_version', 'v1.2.1')
-on conflict (key) do update set value = 'v1.2.1';
+insert into public.app_config (key, value) values ('sql_version', 'v3.0.2')
+on conflict (key) do update set value = 'v3.0.2';
 
--- 2. CRIAR TABELA DE TURMAS (CLASSES)
+-- 2. ADICIONAR CAMPOS DURAÇÃO E PREÇO AOS CURSOS
+do $$
+begin
+    if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'duration') then
+        alter table public.courses add column duration text;
+    end if;
+    if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'price') then
+        alter table public.courses add column price text;
+    end if;
+end $$;
+
+-- 3. GARANTIR INTEGRIDADE DE OUTRAS TABELAS (Caso script anterior tenha falhado)
+-- Tabela: Turmas
 create table if not exists public.classes (
   id uuid default gen_random_uuid() primary key,
   course_id uuid references public.courses(id) on delete cascade,
@@ -14,76 +26,46 @@ create table if not exists public.classes (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- Habilitar RLS para Classes
-alter table public.classes enable row level security;
-drop policy if exists "Read Classes" on public.classes;
-create policy "Read Classes" on public.classes for select using (true);
-
-drop policy if exists "Staff Manage Classes" on public.classes;
-create policy "Staff Manage Classes" on public.classes for all using (
-    exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador'))
+-- Tabela: Instrutores da Turma
+create table if not exists public.class_instructors (
+  class_id uuid references public.classes(id) on delete cascade,
+  profile_id uuid references public.profiles(id) on delete cascade,
+  primary key (class_id, profile_id)
 );
 
--- 3. ATUALIZAR TABELAS EXISTENTES
--- Enrollments: Adicionar class_id
-do $$
-begin
-    if not exists (select 1 from information_schema.columns where table_name = 'enrollments' and column_name = 'class_id') then
-        alter table public.enrollments add column class_id uuid references public.classes(id);
-    end if;
-end $$;
+-- Tabela: Materiais (Com tipo drive)
+create table if not exists public.class_materials (
+  id uuid default gen_random_uuid() primary key,
+  class_id uuid references public.classes(id) on delete cascade,
+  title text not null,
+  url text not null,
+  type text check (type in ('file', 'link', 'drive')),
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
 
--- User Invites: Adicionar course_id e class_id para auto-enrollment
-do $$
-begin
-    if not exists (select 1 from information_schema.columns where table_name = 'user_invites' and column_name = 'course_id') then
-        alter table public.user_invites add column course_id uuid references public.courses(id);
-    end if;
-    if not exists (select 1 from information_schema.columns where table_name = 'user_invites' and column_name = 'class_id') then
-        alter table public.user_invites add column class_id uuid references public.classes(id);
-    end if;
-end $$;
+-- Tabela: Presenças
+create table if not exists public.class_attendance (
+    id uuid default gen_random_uuid() primary key,
+    class_id uuid references public.classes(id) on delete cascade,
+    student_id uuid references public.profiles(id) on delete cascade,
+    date date not null,
+    status text check (status in ('present', 'absent', 'late', 'excused')),
+    notes text,
+    created_at timestamp with time zone default timezone('utc'::text, now()),
+    unique(class_id, student_id, date)
+);
 
--- 4. ATUALIZAR TRIGGER DE NOVOS UTILIZADORES
--- Agora inscreve automaticamente se o convite tiver course_id/class_id
-create or replace function public.handle_new_user() returns trigger as $$
-declare
-  invite_record record;
-  final_name text;
-begin
-  final_name := new.raw_user_meta_data->>'full_name';
-  if exists (select 1 from public.profiles where lower(full_name) = lower(final_name)) then
-      final_name := final_name || ' (' || substring(new.id::text, 1, 4) || ')';
-  end if;
+-- Tabela: Notas
+create table if not exists public.student_grades (
+    id uuid default gen_random_uuid() primary key,
+    assessment_id uuid references public.class_assessments(id) on delete cascade,
+    student_id uuid references public.profiles(id) on delete cascade,
+    grade text,
+    feedback text,
+    graded_at timestamp with time zone default timezone('utc'::text, now()),
+    unique(assessment_id, student_id)
+);
 
-  if new.email = 'edutechpt@hotmail.com' then
-      insert into public.profiles (id, email, full_name, role)
-      values (new.id, new.email, final_name, 'admin')
-      on conflict (id) do nothing;
-      return new;
-  end if;
-
-  -- Buscar dados completos do convite
-  select * into invite_record from public.user_invites where lower(email) = lower(new.email);
-  
-  if invite_record.role is not null then
-      -- 1. Cria o perfil
-      insert into public.profiles (id, email, full_name, role)
-      values (new.id, new.email, final_name, invite_record.role);
-      
-      -- 2. Inscreve no Curso/Turma Automaticamente (Se definido no convite)
-      if invite_record.course_id is not null then
-          insert into public.enrollments (user_id, course_id, class_id)
-          values (new.id, invite_record.course_id, invite_record.class_id)
-          on conflict (user_id, course_id) do nothing;
-      end if;
-
-      -- 3. Remove o convite (Limpeza automática)
-      delete from public.user_invites where lower(email) = lower(new.email);
-      
-      return new;
-  else
-      raise exception 'ACESSO NEGADO: Email não convidado.';
-  end if;
-end;
-$$ language plpgsql security definer;
+-- REFRESH POLICIES (Garante acesso ao novo campo)
+-- Recarrega o cache de esquema do PostgREST
+NOTIFY pgrst, 'reload schema';

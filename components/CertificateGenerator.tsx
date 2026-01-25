@@ -149,14 +149,22 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
         doc.setTextColor(colorPrimary);
         doc.text(course.title, 148.5, yPos + 78, { align: 'center' });
 
-        // Detalhes (Nível e Data)
+        // Detalhes (Nível, Data e Duração)
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(12);
         doc.setTextColor('#6b7280'); // Gray 500
         const dateStr = formatDate(new Date());
-        doc.text(`Nível: ${course.level.toUpperCase()}  |  Data de Emissão: ${dateStr}`, 148.5, yPos + 90, { align: 'center' });
+        
+        // Lógica de apresentação da Duração
+        let detailText = `Nível: ${course.level.toUpperCase()}`;
+        if (course.duration) {
+            detailText += `  |  Duração: ${course.duration}`;
+        }
+        detailText += `  |  Data de Emissão: ${dateStr}`;
+        
+        doc.text(detailText, 148.5, yPos + 90, { align: 'center' });
 
-        // 5. Assinatura Fictícia (Ajustada posição para baixo)
+        // 5. Assinatura Fictícia (Posição 175mm)
         const sigY = 175; 
         
         // Linha da assinatura
@@ -175,8 +183,6 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
         doc.setTextColor(colorText);
         doc.text("A Direção Pedagógica", 150, sigY + 6, { align: 'center' });
         
-        // Removido o badge de "Certificado Verificado" conforme solicitado
-
         // Save
         doc.save(`certificado_${course.title.replace(/\s+/g, '_')}_${student.full_name?.split(' ')[0]}.pdf`);
         setGenerating(false);
