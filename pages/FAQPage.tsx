@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { adminService } from '../services/admin';
 
-// Default content used if database is empty
+// Default content used if database is empty and no structured list exists
 const DEFAULT_CONTENT = `
             <h1 class="text-3xl md:text-4xl font-bold text-center mb-8">Perguntas Frequentes</h1>
             
@@ -46,17 +46,26 @@ interface Props {
 
 export const FAQPage: React.FC<Props> = ({ onBack }) => {
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
-  const [content, setContent] = useState<string>(DEFAULT_CONTENT);
+  const [htmlContent, setHtmlContent] = useState<string>(DEFAULT_CONTENT);
+  const [structuredList, setStructuredList] = useState<{q: string, a: string}[]>([]);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   useEffect(() => {
     adminService.getAppConfig().then(c => {
         if (c.logoUrl) setLogoUrl(c.logoUrl);
-        // Se existir conteúdo customizado na BD, usa-o.
-        if (c.faqContent && c.faqContent.trim() !== '') {
-            setContent(c.faqContent);
+        
+        // Prioridade: JSON Estruturado > HTML Customizado > Default
+        if (c.faqJson && Array.isArray(c.faqJson) && c.faqJson.length > 0) {
+            setStructuredList(c.faqJson);
+        } else if (c.faqContent && c.faqContent.trim() !== '') {
+            setHtmlContent(c.faqContent);
         }
     }).catch(e => console.log('Config load error (FAQ)', e));
   }, []);
+
+  const toggleFaq = (index: number) => {
+      setOpenFaq(openFaq === index ? null : index);
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -87,9 +96,47 @@ export const FAQPage: React.FC<Props> = ({ onBack }) => {
         <div className="fixed top-1/4 right-1/4 w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none -z-10"></div>
         <div className="fixed bottom-1/4 left-1/4 w-96 h-96 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none -z-10"></div>
 
-        <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600">
-            <div dangerouslySetInnerHTML={{ __html: content }} />
-        </GlassCard>
+        {structuredList.length > 0 ? (
+            // RENDERIZAÇÃO ESTRUTURADA (ACCORDION)
+            <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-center mb-4 text-indigo-900">Perguntas Frequentes</h1>
+                <p className="text-center text-lg font-medium opacity-80 mb-12 text-indigo-700">
+                    Encontre respostas rápidas para as dúvidas mais comuns.
+                </p>
+                <div className="space-y-4">
+                    {structuredList.map((item, idx) => (
+                        <GlassCard 
+                            key={idx} 
+                            className="cursor-pointer hover:bg-white/50 transition-colors p-0 overflow-hidden"
+                            onClick={() => toggleFaq(idx)}
+                        >
+                            <div className="p-6 flex justify-between items-center">
+                                <h3 className="font-bold text-indigo-900 text-lg">{item.q}</h3>
+                                <span className={`text-indigo-500 transform transition-transform duration-300 ${openFaq === idx ? 'rotate-180' : ''}`}>
+                                    ▼
+                                </span>
+                            </div>
+                            <div className={`px-6 overflow-hidden transition-all duration-300 ease-in-out ${openFaq === idx ? 'max-h-[500px] pb-6 opacity-100' : 'max-h-0 opacity-0'}`}>
+                                <div 
+                                    className="text-indigo-800 text-sm leading-relaxed border-t border-indigo-100 pt-4 prose prose-indigo max-w-none"
+                                    dangerouslySetInnerHTML={{ __html: item.a }}
+                                />
+                            </div>
+                        </GlassCard>
+                    ))}
+                </div>
+                <div className="mt-12 pt-8 border-t border-indigo-200/50 text-center">
+                    <p className="text-sm opacity-70 text-indigo-900">
+                        Ainda tem dúvidas? Contacte: <strong>edutechpt@hotmail.com</strong>
+                    </p>
+                </div>
+            </div>
+        ) : (
+            // RENDERIZAÇÃO HTML (FALLBACK)
+            <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600">
+                <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+            </GlassCard>
+        )}
       </div>
 
       <footer className="w-full py-6 text-center text-indigo-900/60 text-sm bg-white/20 backdrop-blur-md mt-auto">

@@ -256,7 +256,16 @@ export const adminService = {
                 // Legal Content (Privacy, Terms, FAQ)
                 if (item.key === 'legal_privacy_policy') config.privacyPolicyContent = item.value;
                 if (item.key === 'legal_terms_service') config.termsServiceContent = item.value;
-                if (item.key === 'legal_faq_content') config.faqContent = item.value; // NOVO
+                if (item.key === 'legal_faq_content') config.faqContent = item.value; 
+                
+                // FAQ STRUCTURED (JSON)
+                if (item.key === 'legal_faq_json') {
+                    try {
+                        config.faqJson = JSON.parse(item.value);
+                    } catch (e) {
+                        config.faqJson = [];
+                    }
+                }
             });
         }
         return config;

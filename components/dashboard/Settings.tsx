@@ -24,6 +24,9 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
     const [isSaving, setIsSaving] = useState(false);
     const [savedId, setSavedId] = useState<string | null>(null);
     
+    // FAQ Structured State
+    const [faqList, setFaqList] = useState<{q: string, a: string}[]>([]);
+    
     // Upload States
     const [uploadingLogo, setUploadingLogo] = useState(false);
     const [uploadingFavicon, setUploadingFavicon] = useState(false);
@@ -55,6 +58,11 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
             const cfg = await adminService.getAppConfig();
             setConfig(cfg);
             setSavedId(cfg.driveFolderId);
+            
+            // Carregar FAQ List se existir, senão iniciar vazia
+            if (cfg.faqJson && Array.isArray(cfg.faqJson)) {
+                setFaqList(cfg.faqJson);
+            }
         } catch (e) { console.error(e); }
     };
 
@@ -115,6 +123,34 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
         } finally {
             setUploadingFavicon(false);
         }
+    };
+
+    // --- FAQ HANDLERS ---
+    const addFaqItem = () => {
+        setFaqList([...faqList, { q: '', a: '' }]);
+    };
+
+    const removeFaqItem = (index: number) => {
+        if (!window.confirm('Remover esta pergunta?')) return;
+        setFaqList(faqList.filter((_, i) => i !== index));
+    };
+
+    const updateFaqItem = (index: number, field: 'q' | 'a', value: string) => {
+        const newList = [...faqList];
+        newList[index][field] = value;
+        setFaqList(newList);
+    };
+
+    const moveFaqItem = (index: number, direction: 'up' | 'down') => {
+        if (direction === 'up' && index === 0) return;
+        if (direction === 'down' && index === faqList.length - 1) return;
+        
+        const newList = [...faqList];
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        
+        // Swap
+        [newList[index], newList[targetIndex]] = [newList[targetIndex], newList[index]];
+        setFaqList(newList);
     };
 
     const handleSaveConfig = async () => {
@@ -184,8 +220,14 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
             if (tab === 'legal') {
                 await adminService.updateAppConfig('legal_privacy_policy', config.privacyPolicyContent || '');
                 await adminService.updateAppConfig('legal_terms_service', config.termsServiceContent || '');
-                await adminService.updateAppConfig('legal_faq_content', config.faqContent || ''); // NOVO
-                alert('Conteúdo legal atualizado com sucesso!');
+                
+                // Guardar FAQ como JSON
+                await adminService.updateAppConfig('legal_faq_json', JSON.stringify(faqList));
+                
+                // Limpar conteúdo HTML legado para evitar conflitos (opcional, mas recomendado)
+                // await adminService.updateAppConfig('legal_faq_content', '');
+
+                alert('Conteúdo legal e FAQ atualizados com sucesso!');
             }
         } catch (e: any) { 
             alert('Erro ao guardar: ' + e.message); 
@@ -559,7 +601,7 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                             <span>⚖️</span> Editor de Conteúdo Legal
                         </h3>
                         <p className="text-sm text-indigo-700 mb-6 bg-indigo-50 p-3 rounded border border-indigo-100">
-                            Edite aqui o texto que será apresentado nas páginas públicas. Se deixar vazio, será exibido o texto padrão da plataforma.
+                            Edite aqui o texto que será apresentado nas páginas públicas.
                         </p>
 
                         <div className="space-y-8">
@@ -585,15 +627,53 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                 />
                             </div>
 
-                            {/* Editor FAQ (NOVO) */}
+                            {/* Editor FAQ ESTRUTURADO (NOVO) */}
                             <div>
-                                <h4 className="font-bold text-lg text-indigo-800 mb-2 border-b border-indigo-100 pb-2">Perguntas Frequentes (FAQ)</h4>
-                                <RichTextEditor 
-                                    value={config.faqContent || ''} 
-                                    onChange={val => setConfig({...config, faqContent: val})}
-                                    placeholder="Escreva aqui as Perguntas Frequentes... (Deixe vazio para usar o padrão)"
-                                    className="min-h-[250px]"
-                                />
+                                <div className="flex justify-between items-center border-b border-indigo-100 pb-2 mb-4">
+                                    <h4 className="font-bold text-lg text-indigo-800">Perguntas Frequentes (FAQ)</h4>
+                                    <button 
+                                        onClick={addFaqItem}
+                                        className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 shadow-sm flex items-center gap-2"
+                                    >
+                                        <span>+</span> Adicionar Pergunta
+                                    </button>
+                                </div>
+                                
+                                {faqList.length === 0 ? (
+                                    <div className="text-center py-8 bg-indigo-50 rounded-xl border border-indigo-100 text-indigo-400">
+                                        <p>Sem perguntas configuradas.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {faqList.map((item, idx) => (
+                                            <div key={idx} className="bg-white/50 p-4 rounded-xl border border-indigo-100 shadow-sm relative group">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <span className="text-xs font-bold text-indigo-400 uppercase">Pergunta {idx + 1}</span>
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => moveFaqItem(idx, 'up')} className="text-indigo-300 hover:text-indigo-600 text-xs" disabled={idx === 0}>⬆</button>
+                                                        <button onClick={() => moveFaqItem(idx, 'down')} className="text-indigo-300 hover:text-indigo-600 text-xs" disabled={idx === faqList.length - 1}>⬇</button>
+                                                        <button onClick={() => removeFaqItem(idx)} className="text-red-300 hover:text-red-600 ml-2" title="Eliminar">🗑️</button>
+                                                    </div>
+                                                </div>
+                                                
+                                                <input 
+                                                    type="text" 
+                                                    value={item.q} 
+                                                    onChange={(e) => updateFaqItem(idx, 'q', e.target.value)}
+                                                    placeholder="Escreva a pergunta..."
+                                                    className="w-full p-2 mb-3 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none font-bold text-indigo-900"
+                                                />
+                                                
+                                                <RichTextEditor 
+                                                    value={item.a} 
+                                                    onChange={(val) => updateFaqItem(idx, 'a', val)}
+                                                    placeholder="Escreva a resposta detalhada..."
+                                                    className="min-h-[150px]"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex justify-end pt-4 border-t border-indigo-100">
