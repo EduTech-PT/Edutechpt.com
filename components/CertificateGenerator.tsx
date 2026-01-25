@@ -1,8 +1,8 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import { Course, Profile } from '../types';
 import { formatDate } from '../utils/formatters';
+import { adminService } from '../services/admin';
 
 interface Props {
     student: Profile;
@@ -11,95 +11,215 @@ interface Props {
 }
 
 export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose }) => {
+    const [generating, setGenerating] = useState(false);
+    const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        // Carregar configuração para obter o logótipo
+        adminService.getAppConfig().then(config => {
+            if (config.logoUrl) setLogoUrl(config.logoUrl);
+        }).catch(err => console.error("Erro ao carregar config para certificado", err));
+    }, []);
+
+    // Função auxiliar para converter imagem URL em Base64 (necessário para jsPDF)
+    const getBase64ImageFromURL = (url: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.src = url;
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                // Manter proporção, limitando tamanho
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext("2d");
+                ctx?.drawImage(img, 0, 0);
+                const dataURL = canvas.toDataURL("image/png");
+                resolve(dataURL);
+            };
+            img.onerror = () => {
+                console.warn("Não foi possível carregar a imagem do logótipo para o PDF (CORS ou URL inválido).");
+                resolve(""); // Resolve vazio para não bloquear a geração
+            };
+        });
+    };
     
-    const generatePDF = () => {
+    const generatePDF = async () => {
+        setGenerating(true);
         const doc = new jsPDF({
             orientation: 'landscape',
             unit: 'mm',
             format: 'a4'
         });
 
-        // Cores
-        const primaryColor = '#4f46e5'; // Indigo 600
-        const secondaryColor = '#312e81'; // Indigo 900
+        // Cores da Plataforma
+        const colorPrimary = '#4f46e5'; // Indigo 600
+        const colorSecondary = '#312e81'; // Indigo 900
+        const colorText = '#1f2937'; // Gray 800
+        const colorAccent = '#e0e7ff'; // Indigo 100 (Fundo suave)
 
-        // Borda
-        doc.setLineWidth(2);
-        doc.setDrawColor(primaryColor);
-        doc.rect(10, 10, 277, 190);
+        // 1. Fundo e Moldura
+        doc.setFillColor(colorAccent);
+        doc.rect(0, 0, 297, 210, 'F'); // Fundo colorido suave
         
-        doc.setLineWidth(0.5);
-        doc.rect(15, 15, 267, 180);
+        doc.setFillColor('#ffffff');
+        doc.roundedRect(10, 10, 277, 190, 5, 5, 'F'); // Cartão branco central
 
-        // Header
+        doc.setLineWidth(1);
+        doc.setDrawColor(colorPrimary);
+        doc.roundedRect(15, 15, 267, 180, 2, 2, 'S'); // Borda interna fina
+
+        // 2. Logótipo (Topo)
+        let yPos = 40;
+        if (logoUrl) {
+            try {
+                const base64Logo = await getBase64ImageFromURL(logoUrl);
+                if (base64Logo) {
+                    // Adicionar imagem centrada (ajustar dimensões aprox 30x30mm)
+                    doc.addImage(base64Logo, 'PNG', 133.5, 20, 30, 30, '', 'FAST'); 
+                    yPos = 60;
+                } else {
+                    // Fallback texto se imagem falhar
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(24);
+                    doc.setTextColor(colorSecondary);
+                    doc.text("EduTech PT", 148.5, 35, { align: 'center' });
+                }
+            } catch (e) {
+                yPos = 40;
+            }
+        } else {
+            // Fallback texto se não houver URL
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(24);
+            doc.setTextColor(colorSecondary);
+            doc.text("EduTech PT", 148.5, 35, { align: 'center' });
+        }
+
+        // 3. Título
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(36);
-        doc.setTextColor(secondaryColor);
-        doc.text("CERTIFICADO DE CONCLUSÃO", 148.5, 50, { align: 'center' });
-
-        // Corpo
+        doc.setFontSize(40);
+        doc.setTextColor(colorSecondary);
+        doc.text("CERTIFICADO", 148.5, yPos + 10, { align: 'center' });
+        
+        doc.setFontSize(14);
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(16);
-        doc.setTextColor('#000000');
-        doc.text("Certifica-se que", 148.5, 80, { align: 'center' });
+        doc.setTextColor(colorPrimary);
+        doc.text("DE CONCLUSÃO DE CURSO", 148.5, yPos + 20, { align: 'center' });
 
-        // Nome do Aluno
+        // 4. Corpo do Texto
+        doc.setFontSize(16);
+        doc.setTextColor(colorText);
+        doc.text("Certifica-se que", 148.5, yPos + 35, { align: 'center' });
+
+        // Nome do Aluno (Destaque)
         doc.setFont('times', 'bolditalic');
-        doc.setFontSize(30);
-        doc.setTextColor(primaryColor);
-        doc.text(student.full_name || 'Aluno', 148.5, 95, { align: 'center' });
+        doc.setFontSize(32);
+        doc.setTextColor(colorSecondary);
+        const studentName = student.full_name || 'Aluno';
+        doc.text(studentName, 148.5, yPos + 50, { align: 'center' });
+        
+        // Linha decorativa abaixo do nome
+        doc.setLineWidth(0.5);
+        doc.setDrawColor(colorPrimary);
+        const textWidth = doc.getTextWidth(studentName);
+        doc.line(148.5 - (textWidth / 2) - 10, yPos + 52, 148.5 + (textWidth / 2) + 10, yPos + 52);
 
-        // Curso
+        // Texto do Curso
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(16);
-        doc.setTextColor('#000000');
-        doc.text("concluiu com êxito o curso de formação profissional de", 148.5, 115, { align: 'center' });
+        doc.setTextColor(colorText);
+        doc.text("concluiu com êxito a ação de formação em", 148.5, yPos + 65, { align: 'center' });
 
+        // Nome do Curso
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(22);
-        doc.text(course.title, 148.5, 130, { align: 'center' });
+        doc.setTextColor(colorPrimary);
+        doc.text(course.title, 148.5, yPos + 78, { align: 'center' });
 
-        // Detalhes
+        // Detalhes (Nível e Data)
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(12);
-        doc.setTextColor('#555555');
+        doc.setTextColor('#6b7280'); // Gray 500
         const dateStr = formatDate(new Date());
-        doc.text(`Data de Emissão: ${dateStr}`, 148.5, 150, { align: 'center' });
-        doc.text(`Nível: ${course.level.toUpperCase()}`, 148.5, 156, { align: 'center' });
+        doc.text(`Nível: ${course.level.toUpperCase()}  |  Data de Emissão: ${dateStr}`, 148.5, yPos + 90, { align: 'center' });
 
-        // Assinatura Digital (Simulada)
-        doc.setLineWidth(0.5);
-        doc.line(200, 175, 260, 175);
+        // 5. Assinatura Fictícia
+        const sigY = 170;
+        
+        // Linha da assinatura
+        doc.setDrawColor('#9ca3af'); // Gray 400
+        doc.line(200, sigY, 260, sigY);
+        
+        // "Assinatura" (Fonte Script simulada com Italic)
+        doc.setFont('times', 'italic');
+        doc.setFontSize(24);
+        doc.setTextColor(colorSecondary);
+        doc.text("EduTechPT", 230, sigY - 5, { align: 'center' }); // Assinatura "manual"
+
+        // Cargo
+        doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
-        doc.text("A Direção Pedagógica", 230, 182, { align: 'center' });
-        doc.text("EduTech PT", 230, 187, { align: 'center' });
+        doc.setTextColor(colorText);
+        doc.text("A Direção Pedagógica", 230, sigY + 6, { align: 'center' });
+        
+        // Badge de Verificação (Canto Inferior Esquerdo)
+        doc.setDrawColor(colorPrimary);
+        doc.setFillColor(colorAccent);
+        doc.circle(40, sigY - 5, 12, 'FD');
+        doc.setFontSize(16);
+        doc.text("✔", 40, sigY, { align: 'center' });
+        doc.setFontSize(8);
+        doc.text("Certificado", 40, sigY + 10, { align: 'center' });
+        doc.text("Verificado", 40, sigY + 14, { align: 'center' });
 
         // Save
-        doc.save(`certificado_${course.title.replace(/\s+/g, '_')}.pdf`);
+        doc.save(`certificado_${course.title.replace(/\s+/g, '_')}_${student.full_name?.split(' ')[0]}.pdf`);
+        setGenerating(false);
         onClose();
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl animate-in zoom-in duration-300">
-                <div className="text-6xl mb-4">🎓</div>
-                <h2 className="text-2xl font-bold text-indigo-900 mb-2">Parabéns!</h2>
-                <p className="text-indigo-600 mb-6">
-                    Completaste 100% dos materiais deste curso. O teu certificado está pronto a ser emitido.
-                </p>
-                <div className="flex flex-col gap-3">
-                    <button 
-                        onClick={generatePDF}
-                        className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg transform hover:-translate-y-1 transition-all"
-                    >
-                        Descarregar PDF
-                    </button>
-                    <button 
-                        onClick={onClose}
-                        className="w-full py-3 text-gray-500 hover:text-gray-800 font-bold"
-                    >
-                        Fechar
-                    </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl animate-in zoom-in duration-300 relative border border-indigo-100">
+                
+                {/* Decorative blob */}
+                <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 w-20 h-20 bg-indigo-600 rounded-full flex items-center justify-center shadow-lg border-4 border-white">
+                    <span className="text-3xl text-white">🎓</span>
+                </div>
+
+                <div className="mt-8">
+                    <h2 className="text-2xl font-bold text-indigo-900 mb-2">Certificado Disponível!</h2>
+                    <p className="text-indigo-600 mb-6 text-sm">
+                        Parabéns! Completaste todos os requisitos do curso <b>{course.title}</b>. O teu certificado oficial está pronto.
+                    </p>
+                    
+                    <div className="flex flex-col gap-3">
+                        <button 
+                            onClick={generatePDF}
+                            disabled={generating}
+                            className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg transform hover:-translate-y-1 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-wait"
+                        >
+                            {generating ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    A Gerar PDF...
+                                </>
+                            ) : (
+                                <>
+                                    <span>📥</span> Descarregar Certificado
+                                </>
+                            )}
+                        </button>
+                        
+                        <button 
+                            onClick={onClose}
+                            disabled={generating}
+                            className="w-full py-3 text-gray-500 hover:text-gray-800 font-bold text-sm hover:bg-gray-50 rounded-xl transition-colors"
+                        >
+                            Fechar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
