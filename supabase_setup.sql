@@ -1,12 +1,12 @@
 
--- SCRIPT v3.0.7 - SCHEMA CACHE RELOAD & FIX
+-- SCRIPT v3.0.8 - FINAL SCHEMA CACHE FIX
 -- Execute este script para corrigir o erro "Could not find column... in schema cache"
 
 -- 1. ATUALIZAR VERSÃO
-insert into public.app_config (key, value) values ('sql_version', 'v3.0.7')
-on conflict (key) do update set value = 'v3.0.7';
+insert into public.app_config (key, value) values ('sql_version', 'v3.0.8')
+on conflict (key) do update set value = 'v3.0.8';
 
--- 2. GARANTIR COLUNAS (Idempotente)
+-- 2. REFORÇAR COLUNAS (Garantia Absoluta)
 do $$
 begin
     if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'duration') then
@@ -17,6 +17,9 @@ begin
     end if;
 end $$;
 
--- 3. FORÇAR RECARREGAMENTO DO CACHE DO POSTGREST
--- Notifica o PostgREST para reconstruir o seu esquema interno.
+-- 3. FORÇAR RECARREGAMENTO (NOTIFY + ALTER TABLE HACK)
+-- O NOTIFY pgrst nem sempre funciona se o pool estiver preso. 
+-- Fazer um ALTER irrelevante numa tabela core às vezes força o refresh interno.
+COMMENT ON TABLE public.courses IS 'Courses Table - Cache Refresh v3.0.8';
+
 NOTIFY pgrst, 'reload schema';

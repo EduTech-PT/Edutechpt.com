@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { supabase } from '../lib/supabaseClient';
 import { Course } from '../types';
 import { adminService } from '../services/admin';
+import { courseService } from '../services/courses'; // Import Course Service
 import { CourseDetailModal } from '../components/CourseDetailModal';
 import { Footer } from '../components/Footer';
 
@@ -31,13 +31,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
 
   const fetchData = async () => {
     try {
-      const [coursesResult, configResult] = await Promise.all([
-         supabase.from('courses').select('*').eq('is_public', true).order('created_at', { ascending: false }).limit(6),
+      // Use Service for courses to leverage error fallback protection
+      const [coursesData, configResult] = await Promise.all([
+         courseService.getPublicCourses(6), // Limit to 6
          adminService.getAppConfig()
       ]);
 
-      if (coursesResult.error) console.error('Error loading courses:', coursesResult.error);
-      else setCourses(coursesResult.data || []);
+      setCourses(coursesData || []);
 
       if (configResult) {
           if (configResult.logoUrl) setLogoUrl(configResult.logoUrl);

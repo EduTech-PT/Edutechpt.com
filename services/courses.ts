@@ -18,8 +18,8 @@ export const courseService = {
             return data as Course[];
         } catch (error: any) {
             // Se for erro de cache de esquema, tenta buscar apenas as colunas antigas
-            if (error.message?.includes('schema cache') || error.code === 'PGRST204') {
-                console.warn("Schema cache error detected. Using fallback columns.");
+            if (error.message?.includes('schema cache') || error.message?.includes('duration') || error.code === 'PGRST204') {
+                console.warn("Schema cache error detected (getAll). Using fallback columns.");
                 const { data } = await supabase
                     .from('courses')
                     .select(SAFE_COURSE_COLUMNS)
@@ -49,7 +49,7 @@ export const courseService = {
                 
             if (error) {
                 if (error.code === '42P01') return []; 
-                if (error.message?.includes('schema cache')) {
+                if (error.message?.includes('schema cache') || error.message?.includes('duration')) {
                      // Fallback simplificado
                      const { data: fallbackData } = await supabase
                         .from('enrollments')
@@ -119,23 +119,38 @@ export const courseService = {
     },
 
     // Buscar apenas cursos públicos (vitrine)
-    async getPublicCourses() {
+    // ATUALIZADO: Suporta limit e fallback robusto
+    async getPublicCourses(limit?: number) {
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('courses')
                 .select('*')
                 .eq('is_public', true)
                 .order('created_at', { ascending: false });
             
+            if (limit) {
+                query = query.limit(limit);
+            }
+
+            const { data, error } = await query;
+            
             if (error) throw error;
             return data as Course[];
         } catch (error: any) {
-            if (error.message?.includes('schema cache') || error.code === 'PGRST204') {
-                const { data } = await supabase
+            // Deteta erro específico de cache
+            if (error.message?.includes('schema cache') || error.message?.includes('duration') || error.code === 'PGRST204') {
+                console.warn("Schema cache error detected (Public). Using fallback columns.");
+                let fallbackQuery = supabase
                     .from('courses')
                     .select(SAFE_COURSE_COLUMNS)
                     .eq('is_public', true)
                     .order('created_at', { ascending: false });
+                
+                if (limit) {
+                    fallbackQuery = fallbackQuery.limit(limit);
+                }
+
+                const { data } = await fallbackQuery;
                 return data as Course[];
             }
             throw error;
@@ -214,7 +229,7 @@ export const courseService = {
 
             if (error) {
                 // Fallback para courses sem colunas novas
-                if (error.message?.includes('schema cache')) {
+                if (error.message?.includes('schema cache') || error.message?.includes('duration')) {
                      const { data: fallbackData } = await supabase
                         .from('classes')
                         .select(`
@@ -263,7 +278,7 @@ export const courseService = {
 
             if (error) {
                 // Fallback
-                if (error.message?.includes('schema cache')) {
+                if (error.message?.includes('schema cache') || error.message?.includes('duration')) {
                     const { data: fallbackData } = await supabase
                         .from('classes')
                         .select(`
@@ -312,7 +327,7 @@ export const courseService = {
                 .order('title');
 
             if (error) {
-                if (error.message?.includes('schema cache')) {
+                if (error.message?.includes('schema cache') || error.message?.includes('duration')) {
                     const { data: fallbackData } = await supabase
                         .from('courses')
                         .select(`
