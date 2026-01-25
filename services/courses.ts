@@ -2,42 +2,73 @@
 import { supabase } from '../lib/supabaseClient';
 import { Course, Class, Profile, ClassMaterial, ClassAnnouncement, ClassAssessment, CourseHierarchy, AttendanceRecord, StudentGrade } from '../types';
 
-// Colunas seguras (antigas) para fallback em caso de erro de cache
-const SAFE_COURSE_COLUMNS = 'id, title, description, level, image_url, is_public, marketing_data, created_at, instructor_id';
+// Colunas base que sabemos que existem garantidamente.
+// Se a cache falhar nas novas colunas, usamos apenas estas para o site não quebrar.
+const BASE_COLUMNS = 'id, title, description, level, image_url, is_public, marketing_data, created_at, instructor_id';
 
 export const courseService = {
     async getAll() {
         try {
-            // Tenta selecionar tudo (incluindo duration/price)
+            // Tenta selecionar explicitamente as colunas novas + base
+            // Evitamos select('*') para não trazer colunas fantasma da cache antiga
             const { data, error } = await supabase
                 .from('courses')
-                .select('*')
+                .select(`${BASE_COLUMNS}, duration, price`)
                 .order('created_at', { ascending: false });
             
             if (error) throw error;
             return data as Course[];
         } catch (error: any) {
-            // Se for erro de cache de esquema, tenta buscar apenas as colunas antigas
-            if (error.message?.includes('schema cache') || error.message?.includes('duration') || error.code === 'PGRST204') {
-                console.warn("Schema cache error detected (getAll). Using fallback columns.");
-                const { data } = await supabase
-                    .from('courses')
-                    .select(SAFE_COURSE_COLUMNS)
-                    .order('created_at', { ascending: false });
-                return data as Course[];
-            }
-            throw error;
+            console.warn("Recuperação automática de erro de DB (getAll):", error.message);
+            // Fallback incondicional: Se falhar, carrega o site na mesma com dados básicos
+            const { data } = await supabase
+                .from('courses')
+                .select(BASE_COLUMNS)
+                .order('created_at', { ascending: false });
+            return data as Course[];
+        }
+    },
+
+    // Buscar apenas cursos públicos (vitrine) - CRÍTICO PARA LANDING PAGE
+    async getPublicCourses(limit?: number) {
+        try {
+            let query = supabase
+                .from('courses')
+                .select(`${BASE_COLUMNS}, duration, price`)
+                .eq('is_public', true)
+                .order('created_at', { ascending: false });
+            
+            if (limit) query = query.limit(limit);
+
+            const { data, error } = await query;
+            if (error) throw error;
+            
+            return data as Course[];
+        } catch (error: any) {
+            console.warn("Recuperação automática de erro de DB (getPublicCourses):", error.message);
+            // Fallback robusto: Ignora erros de cache e carrega o que é possível
+            let fallbackQuery = supabase
+                .from('courses')
+                .select(BASE_COLUMNS)
+                .eq('is_public', true)
+                .order('created_at', { ascending: false });
+            
+            if (limit) fallbackQuery = fallbackQuery.limit(limit);
+
+            const { data } = await fallbackQuery;
+            return data as Course[];
         }
     },
 
     // Buscar cursos onde o aluno está inscrito
     async getStudentEnrollments(userId: string) {
         try {
+            // Tenta query completa
             const { data, error } = await supabase
                 .from('enrollments')
                 .select(`
                     *,
-                    course:courses (*),
+                    course:courses (${BASE_COLUMNS}, duration, price),
                     class:classes (
                         *,
                         instructors:class_instructors (
@@ -47,55 +78,40 @@ export const courseService = {
                 `)
                 .eq('user_id', userId);
                 
-            if (error) {
-                if (error.code === '42P01') return []; 
-                if (error.message?.includes('schema cache') || error.message?.includes('duration')) {
-                     // Fallback simplificado
-                     const { data: fallbackData } = await supabase
-                        .from('enrollments')
-                        .select(`
-                            *,
-                            course:courses (${SAFE_COURSE_COLUMNS}),
-                            class:classes (*)
-                        `)
-                        .eq('user_id', userId);
-                     return fallbackData || [];
-                }
-                throw error;
-            }
+            if (error) throw error;
             return data;
         } catch (e: any) {
-            if (e.code === '42P01') return [];
-            throw e;
+            console.warn("Recuperação automática de erro de DB (Enrollments):", e.message);
+            // Fallback para query simplificada
+            const { data } = await supabase
+                .from('enrollments')
+                .select(`
+                    *,
+                    course:courses (${BASE_COLUMNS}),
+                    class:classes (*)
+                `)
+                .eq('user_id', userId);
+            return data || [];
         }
     },
 
     // Buscar todas as inscrições (Enrollments) para gestão
     async getAllEnrollments() {
-        const { data, error } = await supabase
-            .from('enrollments')
-            .select('*');
-        if (error) {
-             if (error.code === '42P01') return [];
-             throw error;
-        }
+        const { data, error } = await supabase.from('enrollments').select('*');
+        if (error) return []; // Fail safe return empty array
         return data;
     },
 
-    // NOVO: Buscar alunos de uma turma específica
     async getClassStudents(classId: string) {
         const { data, error } = await supabase
             .from('enrollments')
-            .select(`
-                user:profiles(*)
-            `)
+            .select(`user:profiles(*)`)
             .eq('class_id', classId);
         
-        if (error) throw error;
+        if (error) return [];
         return data.map((e: any) => e.user) as Profile[];
     },
 
-    // Atribuir aluno a uma turma (Upsert enrollment)
     async assignStudentToClass(userId: string, courseId: string, classId: string) {
         const { error } = await supabase.from('enrollments').upsert({
             user_id: userId,
@@ -103,58 +119,16 @@ export const courseService = {
             class_id: classId,
             enrolled_at: new Date().toISOString()
         }, { onConflict: 'user_id, course_id' });
-        
         if (error) throw error;
     },
 
-    // Remover aluno da turma (Mantém no curso, mas class_id = null)
     async removeStudentFromClass(userId: string, courseId: string) {
         const { error } = await supabase
             .from('enrollments')
             .update({ class_id: null })
             .eq('user_id', userId)
             .eq('course_id', courseId);
-            
         if (error) throw error;
-    },
-
-    // Buscar apenas cursos públicos (vitrine)
-    // ATUALIZADO: Suporta limit e fallback robusto
-    async getPublicCourses(limit?: number) {
-        try {
-            let query = supabase
-                .from('courses')
-                .select('*')
-                .eq('is_public', true)
-                .order('created_at', { ascending: false });
-            
-            if (limit) {
-                query = query.limit(limit);
-            }
-
-            const { data, error } = await query;
-            
-            if (error) throw error;
-            return data as Course[];
-        } catch (error: any) {
-            // Deteta erro específico de cache
-            if (error.message?.includes('schema cache') || error.message?.includes('duration') || error.code === 'PGRST204') {
-                console.warn("Schema cache error detected (Public). Using fallback columns.");
-                let fallbackQuery = supabase
-                    .from('courses')
-                    .select(SAFE_COURSE_COLUMNS)
-                    .eq('is_public', true)
-                    .order('created_at', { ascending: false });
-                
-                if (limit) {
-                    fallbackQuery = fallbackQuery.limit(limit);
-                }
-
-                const { data } = await fallbackQuery;
-                return data as Course[];
-            }
-            throw error;
-        }
     },
 
     async create(course: Partial<Course>) {
@@ -163,52 +137,35 @@ export const courseService = {
     },
 
     async update(id: string, updates: Partial<Course>) {
-        const { error } = await supabase
-            .from('courses')
-            .update(updates)
-            .eq('id', id);
+        const { error } = await supabase.from('courses').update(updates).eq('id', id);
         if (error) throw error;
     },
 
     async delete(id: string) {
-        const { error } = await supabase
-            .from('courses')
-            .delete()
-            .eq('id', id);
+        const { error } = await supabase.from('courses').delete().eq('id', id);
         if (error) throw error;
     },
 
-    // --- CLASSES (TURMAS) METHODS ---
+    // --- CLASSES ---
 
     async getClasses(courseId?: string) {
         try {
             let query = supabase
                 .from('classes')
-                .select(`
-                    *,
-                    instructors:class_instructors(
-                        profile:profiles(*)
-                    )
-                `)
+                .select(`*, instructors:class_instructors(profile:profiles(*))`)
                 .order('name', { ascending: true });
             
-            if (courseId) {
-                query = query.eq('course_id', courseId);
-            }
+            if (courseId) query = query.eq('course_id', courseId);
 
             const { data, error } = await query;
-            if (error) {
-                if (error.code === '42P01') return [];
-                throw error;
-            }
+            if (error) throw error;
             
             return data.map((item: any) => ({
                 ...item,
                 instructors: item.instructors?.map((i: any) => i.profile) || []
             })) as Class[];
-        } catch (e: any) {
-            if (e.code === '42P01') return [];
-            throw e;
+        } catch (e) {
+            return [];
         }
     },
 
@@ -218,48 +175,36 @@ export const courseService = {
                 .from('classes')
                 .select(`
                     *,
-                    course:courses(*),
+                    course:courses(${BASE_COLUMNS}, duration, price),
                     my_instruction:class_instructors!inner(profile_id),
-                    instructors_details:class_instructors(
-                        profile:profiles(*)
-                    )
+                    instructors_details:class_instructors(profile:profiles(*))
                 `)
                 .eq('my_instruction.profile_id', trainerId)
                 .order('name');
 
-            if (error) {
-                // Fallback para courses sem colunas novas
-                if (error.message?.includes('schema cache') || error.message?.includes('duration')) {
-                     const { data: fallbackData } = await supabase
-                        .from('classes')
-                        .select(`
-                            *,
-                            course:courses(${SAFE_COURSE_COLUMNS}),
-                            my_instruction:class_instructors!inner(profile_id),
-                            instructors_details:class_instructors(
-                                profile:profiles(*)
-                            )
-                        `)
-                        .eq('my_instruction.profile_id', trainerId)
-                        .order('name');
-                     
-                     return fallbackData?.map((item: any) => ({
-                        ...item,
-                        instructors: item.instructors_details?.map((i: any) => i.profile) || []
-                    })) || [];
-                }
-                
-                if (error.code === '42P01') return [];
-                throw error;
-            }
+            if (error) throw error;
             
             return data.map((item: any) => ({
                 ...item,
                 instructors: item.instructors_details?.map((i: any) => i.profile) || []
             })) as (Class & { course: Course })[];
         } catch (e: any) {
-            if (e.code === '42P01') return [];
-            throw e;
+            // Fallback
+            const { data } = await supabase
+                .from('classes')
+                .select(`
+                    *,
+                    course:courses(${BASE_COLUMNS}),
+                    my_instruction:class_instructors!inner(profile_id),
+                    instructors_details:class_instructors(profile:profiles(*))
+                `)
+                .eq('my_instruction.profile_id', trainerId)
+                .order('name');
+            
+            return data?.map((item: any) => ({
+                ...item,
+                instructors: item.instructors_details?.map((i: any) => i.profile) || []
+            })) as (Class & { course: Course })[] || [];
         }
     },
 
@@ -269,44 +214,31 @@ export const courseService = {
                 .from('classes')
                 .select(`
                     *,
-                    course:courses(*),
-                    instructors:class_instructors(
-                        profile:profiles(*)
-                    )
+                    course:courses(${BASE_COLUMNS}, duration, price),
+                    instructors:class_instructors(profile:profiles(*))
                 `)
                 .order('name');
 
-            if (error) {
-                // Fallback
-                if (error.message?.includes('schema cache') || error.message?.includes('duration')) {
-                    const { data: fallbackData } = await supabase
-                        .from('classes')
-                        .select(`
-                            *,
-                            course:courses(${SAFE_COURSE_COLUMNS}),
-                            instructors:class_instructors(
-                                profile:profiles(*)
-                            )
-                        `)
-                        .order('name');
-                        
-                    return fallbackData?.map((item: any) => ({
-                        ...item,
-                        instructors: item.instructors?.map((i: any) => i.profile) || []
-                    })) || [];
-                }
-
-                if (error.code === '42P01') return [];
-                throw error;
-            }
+            if (error) throw error;
             
             return data.map((item: any) => ({
                 ...item,
                 instructors: item.instructors?.map((i: any) => i.profile) || []
             })) as (Class & { course: Course })[];
-        } catch (e: any) {
-            if (e.code === '42P01') return [];
-            throw e;
+        } catch (e) {
+            const { data } = await supabase
+                .from('classes')
+                .select(`
+                    *,
+                    course:courses(${BASE_COLUMNS}),
+                    instructors:class_instructors(profile:profiles(*))
+                `)
+                .order('name');
+                
+            return data?.map((item: any) => ({
+                ...item,
+                instructors: item.instructors?.map((i: any) => i.profile) || []
+            })) as (Class & { course: Course })[] || [];
         }
     },
 
@@ -315,7 +247,7 @@ export const courseService = {
             const { data, error } = await supabase
                 .from('courses')
                 .select(`
-                    *,
+                    ${BASE_COLUMNS}, duration, price,
                     classes (
                         *,
                         enrollments (
@@ -326,238 +258,115 @@ export const courseService = {
                 `)
                 .order('title');
 
-            if (error) {
-                if (error.message?.includes('schema cache') || error.message?.includes('duration')) {
-                    const { data: fallbackData } = await supabase
-                        .from('courses')
-                        .select(`
-                            ${SAFE_COURSE_COLUMNS},
-                            classes (
-                                *,
-                                enrollments (
-                                    enrolled_at,
-                                    user:profiles (id, full_name, email, avatar_url, role)
-                                )
-                            )
-                        `)
-                        .order('title');
-                    return fallbackData as CourseHierarchy[];
-                }
-                if (error.message?.includes('classes') || error.code === '42P01') return [];
-                throw error;
-            }
+            if (error) throw error;
             return data as CourseHierarchy[];
-        } catch (e: any) {
-            if (e.code === '42P01') return [];
-            return [];
+        } catch (e) {
+            const { data } = await supabase
+                .from('courses')
+                .select(`
+                    ${BASE_COLUMNS},
+                    classes (
+                        *,
+                        enrollments (
+                            enrolled_at,
+                            user:profiles (id, full_name, email, avatar_url, role)
+                        )
+                    )
+                `)
+                .order('title');
+            return data as CourseHierarchy[] || [];
         }
     },
 
     async createClass(courseId: string, name: string) {
-        const { data, error } = await supabase
-            .from('classes')
-            .insert([{ course_id: courseId, name: name }])
-            .select()
-            .single();
+        const { data, error } = await supabase.from('classes').insert([{ course_id: courseId, name: name }]).select().single();
         if (error) throw error;
         return data as Class;
     },
 
     async updateClass(id: string, name: string) {
-        const { error } = await supabase
-            .from('classes')
-            .update({ name })
-            .eq('id', id);
+        const { error } = await supabase.from('classes').update({ name }).eq('id', id);
         if (error) throw error;
     },
 
     async addInstructorToClass(classId: string, instructorId: string) {
-        const { error } = await supabase
-            .from('class_instructors')
-            .upsert({ class_id: classId, profile_id: instructorId }, { onConflict: 'class_id,profile_id' });
+        const { error } = await supabase.from('class_instructors').upsert({ class_id: classId, profile_id: instructorId }, { onConflict: 'class_id,profile_id' });
         if (error) throw error;
     },
 
     async removeInstructorFromClass(classId: string, instructorId: string) {
-        const { error } = await supabase
-            .from('class_instructors')
-            .delete()
-            .eq('class_id', classId)
-            .eq('profile_id', instructorId);
+        const { error } = await supabase.from('class_instructors').delete().eq('class_id', classId).eq('profile_id', instructorId);
         if (error) throw error;
     },
 
     async deleteClass(id: string) {
-        const { error } = await supabase
-            .from('classes')
-            .delete()
-            .eq('id', id);
+        const { error } = await supabase.from('classes').delete().eq('id', id);
         if (error) throw error;
     },
 
-    // --- RECURSOS DA TURMA ---
-
+    // --- RECURSOS ---
     async getClassMaterials(classId: string) {
-        const { data, error } = await supabase
-            .from('class_materials')
-            .select('*')
-            .eq('class_id', classId)
-            .order('created_at', { ascending: false });
-        if (error) {
-            if (error.code === '42P01') return [];
-            throw error;
-        }
+        const { data, error } = await supabase.from('class_materials').select('*').eq('class_id', classId).order('created_at', { ascending: false });
+        if (error) return [];
         return data as ClassMaterial[];
     },
-
-    async createClassMaterial(material: Partial<ClassMaterial>) {
-        const { error } = await supabase.from('class_materials').insert([material]);
-        if (error) throw error;
-    },
-
-    async updateClassMaterial(id: string, updates: Partial<ClassMaterial>) {
-        const { error } = await supabase.from('class_materials').update(updates).eq('id', id);
-        if (error) throw error;
-    },
-
-    async deleteClassMaterial(id: string) {
-        const { error } = await supabase.from('class_materials').delete().eq('id', id);
-        if (error) throw error;
-    },
-
+    async createClassMaterial(material: Partial<ClassMaterial>) { const { error } = await supabase.from('class_materials').insert([material]); if (error) throw error; },
+    async updateClassMaterial(id: string, updates: Partial<ClassMaterial>) { const { error } = await supabase.from('class_materials').update(updates).eq('id', id); if (error) throw error; },
+    async deleteClassMaterial(id: string) { const { error } = await supabase.from('class_materials').delete().eq('id', id); if (error) throw error; },
     async uploadClassFile(file: File) {
         const fileExt = file.name.split('.').pop();
         const fileName = `resource-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-        
         const { error } = await supabase.storage.from('class-files').upload(fileName, file);
         if (error) throw error;
-
         const { data } = supabase.storage.from('class-files').getPublicUrl(fileName);
         return data.publicUrl;
     },
 
-    // 2. AVISOS
     async getClassAnnouncements(classId: string) {
-        const { data, error } = await supabase
-            .from('class_announcements')
-            .select(`
-                *,
-                author:profiles(*)
-            `)
-            .eq('class_id', classId)
-            .order('created_at', { ascending: false });
-        if (error) {
-            if (error.code === '42P01') return [];
-            throw error;
-        }
+        const { data, error } = await supabase.from('class_announcements').select('*, author:profiles(*)').eq('class_id', classId).order('created_at', { ascending: false });
+        if (error) return [];
         return data as ClassAnnouncement[];
     },
+    async createClassAnnouncement(announcement: Partial<ClassAnnouncement>) { const { error } = await supabase.from('class_announcements').insert([announcement]); if (error) throw error; },
+    async updateClassAnnouncement(id: string, updates: Partial<ClassAnnouncement>) { const { error } = await supabase.from('class_announcements').update(updates).eq('id', id); if (error) throw error; },
+    async deleteClassAnnouncement(id: string) { const { error } = await supabase.from('class_announcements').delete().eq('id', id); if (error) throw error; },
 
-    async createClassAnnouncement(announcement: Partial<ClassAnnouncement>) {
-        const { error } = await supabase.from('class_announcements').insert([announcement]);
-        if (error) throw error;
-    },
-
-    async updateClassAnnouncement(id: string, updates: Partial<ClassAnnouncement>) {
-        const { error } = await supabase.from('class_announcements').update(updates).eq('id', id);
-        if (error) throw error;
-    },
-
-    async deleteClassAnnouncement(id: string) {
-        const { error } = await supabase.from('class_announcements').delete().eq('id', id);
-        if (error) throw error;
-    },
-
-    // 3. AVALIAÇÕES
     async getClassAssessments(classId: string) {
-        const { data, error } = await supabase
-            .from('class_assessments')
-            .select('*')
-            .eq('class_id', classId)
-            .order('due_date', { ascending: true });
-        if (error) {
-            if (error.code === '42P01') return [];
-            throw error;
-        }
+        const { data, error } = await supabase.from('class_assessments').select('*').eq('class_id', classId).order('due_date', { ascending: true });
+        if (error) return [];
         return data as ClassAssessment[];
     },
+    async createClassAssessment(assessment: Partial<ClassAssessment>) { const { error } = await supabase.from('class_assessments').insert([assessment]); if (error) throw error; },
+    async updateClassAssessment(id: string, updates: Partial<ClassAssessment>) { const { error } = await supabase.from('class_assessments').update(updates).eq('id', id); if (error) throw error; },
+    async deleteClassAssessment(id: string) { const { error } = await supabase.from('class_assessments').delete().eq('id', id); if (error) throw error; },
 
-    async createClassAssessment(assessment: Partial<ClassAssessment>) {
-        const { error } = await supabase.from('class_assessments').insert([assessment]);
-        if (error) throw error;
-    },
-
-    async updateClassAssessment(id: string, updates: Partial<ClassAssessment>) {
-        const { error } = await supabase.from('class_assessments').update(updates).eq('id', id);
-        if (error) throw error;
-    },
-
-    async deleteClassAssessment(id: string) {
-        const { error } = await supabase.from('class_assessments').delete().eq('id', id);
-        if (error) throw error;
-    },
-
-    // --- STUDENT PROGRESS (NEW V3) ---
+    // --- STUDENT PROGRESS & ATTENDANCE ---
     async getStudentProgress(userId: string) {
-        const { data, error } = await supabase
-            .from('student_progress')
-            .select('material_id')
-            .eq('user_id', userId);
-        if (error) {
-            if (error.code === '42P01') return [];
-            throw error;
-        }
+        const { data, error } = await supabase.from('student_progress').select('material_id').eq('user_id', userId);
+        if (error) return [];
         return data.map(i => i.material_id);
     },
-
     async toggleMaterialProgress(userId: string, materialId: string, isCompleted: boolean) {
-        if (isCompleted) {
-            const { error } = await supabase.from('student_progress').upsert({ user_id: userId, material_id: materialId });
-            if (error) throw error;
-        } else {
-            const { error } = await supabase.from('student_progress').delete().eq('user_id', userId).eq('material_id', materialId);
-            if (error) throw error;
-        }
+        if (isCompleted) await supabase.from('student_progress').upsert({ user_id: userId, material_id: materialId });
+        else await supabase.from('student_progress').delete().eq('user_id', userId).eq('material_id', materialId);
     },
-
-    // --- ATTENDANCE (NEW V3) ---
     async getAttendance(classId: string, date: string) {
-        const { data, error } = await supabase
-            .from('class_attendance')
-            .select('*')
-            .eq('class_id', classId)
-            .eq('date', date);
-        if (error) {
-            if (error.code === '42P01') return [];
-            throw error;
-        }
+        const { data, error } = await supabase.from('class_attendance').select('*').eq('class_id', classId).eq('date', date);
+        if (error) return [];
         return data as AttendanceRecord[];
     },
-
     async saveAttendance(records: Partial<AttendanceRecord>[]) {
         const { error } = await supabase.from('class_attendance').upsert(records, { onConflict: 'class_id, student_id, date' });
         if (error) throw error;
     },
-
-    // --- GRADES (NEW V3) ---
     async getGrades(classId: string) {
-        // Obter todas as avaliações da turma
         const { data: assessments } = await supabase.from('class_assessments').select('id').eq('class_id', classId);
         if (!assessments || assessments.length === 0) return [];
-
         const ids = assessments.map(a => a.id);
-        const { data, error } = await supabase
-            .from('student_grades')
-            .select('*')
-            .in('assessment_id', ids);
-            
-        if (error) {
-            if (error.code === '42P01') return [];
-            throw error;
-        }
+        const { data, error } = await supabase.from('student_grades').select('*').in('assessment_id', ids);
+        if (error) return [];
         return data as StudentGrade[];
     },
-
     async saveGrades(grades: Partial<StudentGrade>[]) {
         const { error } = await supabase.from('student_grades').upsert(grades, { onConflict: 'assessment_id, student_id' });
         if (error) throw error;
