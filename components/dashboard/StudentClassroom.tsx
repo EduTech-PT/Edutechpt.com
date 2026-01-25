@@ -14,10 +14,18 @@ interface Props {
 type ModuleType = 'home' | 'materials' | 'announcements' | 'assessments';
 
 export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, onBack }) => {
+    // Internal State for Course ID (handles auto-select)
+    const [activeCourseId, setActiveCourseId] = useState<string | undefined>(initialCourseId);
+    
+    // Classroom Data
     const [course, setCourse] = useState<Course | null>(null);
     const [activeClass, setActiveClass] = useState<Class | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeModule, setActiveModule] = useState<ModuleType>('home');
+
+    // Selection Mode Data
+    const [myEnrollments, setMyEnrollments] = useState<any[]>([]);
+    const [showSelection, setShowSelection] = useState(false);
 
     // Resources
     const [materials, setMaterials] = useState<ClassMaterial[]>([]);
@@ -31,31 +39,63 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
     // Certificate
     const [showCertificate, setShowCertificate] = useState(false);
 
+    // 1. Initial Check: ID Provided vs Auto-Detect
     useEffect(() => {
-        if (!initialCourseId) {
-            setLoading(false);
-            return;
+        if (initialCourseId) {
+            setActiveCourseId(initialCourseId);
+            setShowSelection(false);
+        } else {
+            detectCourse();
         }
-        loadClassroomData();
     }, [initialCourseId, profile.id]);
 
-    const loadClassroomData = async () => {
-        if (!initialCourseId) return;
+    // 2. Load Data when ID is set
+    useEffect(() => {
+        if (activeCourseId) {
+            loadClassroomData(activeCourseId);
+        }
+    }, [activeCourseId]);
+
+    const detectCourse = async () => {
+        setLoading(true);
+        try {
+            const enrollments = await courseService.getStudentEnrollments(profile.id);
+            if (enrollments && enrollments.length === 1) {
+                // Auto-select the only course
+                setActiveCourseId(enrollments[0].course_id);
+            } else if (enrollments && enrollments.length > 1) {
+                // Show selection screen
+                setMyEnrollments(enrollments);
+                setShowSelection(true);
+                setLoading(false);
+            } else {
+                // No enrollments
+                setMyEnrollments([]);
+                setShowSelection(true);
+                setLoading(false);
+            }
+        } catch (e) {
+            console.error(e);
+            setLoading(false);
+            setShowSelection(true);
+        }
+    };
+
+    const loadClassroomData = async (courseId: string) => {
         setLoading(true);
         try {
             // Get enrollment to find class
             const enrollments = await courseService.getStudentEnrollments(profile.id);
-            const enrollment = enrollments.find(e => e.course_id === initialCourseId);
+            const enrollment = enrollments.find(e => e.course_id === courseId);
             
             if (enrollment && enrollment.class) {
                 setActiveClass(enrollment.class);
                 setCourse(enrollment.course);
-                
-                // Load resources
                 await loadResources(enrollment.class.id);
             } else if (enrollment && enrollment.course) {
                 // Course but no class yet
                 setCourse(enrollment.course);
+                setActiveClass(null);
             }
         } catch (err) {
             console.error(err);
@@ -112,26 +152,72 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
 
     if (loading) return <div className="p-10 text-center text-indigo-600 font-bold">A carregar sala de aula...</div>;
 
-    if (!initialCourseId) {
+    // --- SELECTION SCREEN (If multiple courses and no ID) ---
+    if (showSelection && !activeCourseId) {
         return (
-            <GlassCard className="text-center py-12">
-                <h2 className="text-xl font-bold text-indigo-900 mb-2">Erro de Seleção</h2>
-                <p className="text-indigo-700 mb-4">Nenhum curso foi identificado. Por favor volte atrás.</p>
-                <button onClick={onBack} className="px-4 py-2 bg-indigo-100 text-indigo-800 rounded font-bold">Voltar</button>
-            </GlassCard>
+            <div className="space-y-6 animate-in fade-in">
+                <div className="flex justify-between items-center">
+                    <h2 className="text-2xl font-bold text-indigo-900">As Minhas Salas de Aula</h2>
+                    {/* Botão de Teste (APENAS ADMIN - Atalho Rápido) */}
+                    {profile.role === 'admin' && (
+                        <button 
+                            onClick={() => setShowCertificate(true)} // Note: Will fail if no course selected, but UI renders. Logic below handles null.
+                            className="hidden" // Hidden here, shown inside classroom
+                        >Test</button>
+                    )}
+                </div>
+
+                {myEnrollments.length === 0 ? (
+                    <GlassCard className="text-center py-12">
+                        <div className="text-4xl mb-4">🎓</div>
+                        <h3 className="text-xl font-bold text-indigo-900 mb-2">Sem Cursos Ativos</h3>
+                        <p className="text-indigo-700 mb-6">Ainda não estás inscrito em nenhuma turma.</p>
+                        <button onClick={onBack} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700">
+                            Ver Catálogo de Cursos
+                        </button>
+                    </GlassCard>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {myEnrollments.map(enr => (
+                            <GlassCard 
+                                key={enr.course_id} 
+                                hoverEffect={true} 
+                                className="cursor-pointer group relative overflow-hidden"
+                                onClick={() => setActiveCourseId(enr.course_id)}
+                            >
+                                <div className="h-32 bg-indigo-100 rounded-lg mb-4 overflow-hidden relative">
+                                    {enr.course?.image_url ? (
+                                        <img src={enr.course.image_url} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-4xl">📚</div>
+                                    )}
+                                    {/* Overlay Hover */}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <span className="text-white font-bold border-2 border-white px-4 py-1 rounded-full">Entrar</span>
+                                    </div>
+                                </div>
+                                <h3 className="font-bold text-indigo-900 text-lg leading-tight mb-1">{enr.course?.title}</h3>
+                                <p className="text-xs text-indigo-500 uppercase font-bold">{enr.class?.name || 'Sem Turma'}</p>
+                            </GlassCard>
+                        ))}
+                    </div>
+                )}
+            </div>
         );
     }
 
+    // --- CLASSROOM PENDING STATE ---
     if (!activeClass || !course) {
         return (
             <GlassCard className="text-center py-12">
                 <h2 className="text-xl font-bold text-indigo-900 mb-2">Acesso Pendente</h2>
-                <p className="text-indigo-700 mb-4">Ainda não foste alocado a uma turma para este curso.</p>
-                <button onClick={onBack} className="px-4 py-2 bg-indigo-100 text-indigo-800 rounded font-bold">Voltar</button>
+                <p className="text-indigo-700 mb-4">Ainda não foste alocado a uma turma para este curso ({course?.title || '...'}).</p>
+                <button onClick={() => { setActiveCourseId(undefined); setShowSelection(true); }} className="px-4 py-2 bg-indigo-100 text-indigo-800 rounded font-bold">Voltar</button>
             </GlassCard>
         );
     }
 
+    // --- MAIN CLASSROOM UI ---
     return (
         <div className="h-full flex flex-col animate-in slide-in-from-right duration-300">
             {/* Header */}
@@ -140,7 +226,14 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                     <h2 className="text-2xl font-bold text-indigo-900">{course.title}</h2>
                     <p className="text-indigo-600 font-medium">{activeClass.name}</p>
                 </div>
-                <button onClick={onBack} className="px-4 py-2 bg-white/50 text-indigo-800 rounded-lg font-bold hover:bg-white transition-colors">
+                <button 
+                    onClick={() => {
+                        // Se veio do dashboard com ID fixo, volta para lá. Se auto-detetou, volta para lista.
+                        if (initialCourseId) onBack(); 
+                        else { setActiveCourseId(undefined); setShowSelection(true); }
+                    }} 
+                    className="px-4 py-2 bg-white/50 text-indigo-800 rounded-lg font-bold hover:bg-white transition-colors"
+                >
                     ⬅ Voltar
                 </button>
             </div>
