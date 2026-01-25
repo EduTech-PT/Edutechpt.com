@@ -121,6 +121,7 @@ export interface ClassAssessment {
   resource_url?: string;
   resource_type?: 'file' | 'link' | 'drive';
   resource_title?: string;
+  quiz_data?: any; // JSONB para estrutura de testes nativos
 }
 
 export interface Enrollment {
@@ -129,6 +130,32 @@ export interface Enrollment {
   class_id?: string;
   enrolled_at: string;
 }
+
+// --- NOVOS TIPOS (V3.0) ---
+export interface StudentProgress {
+    user_id: string;
+    material_id: string;
+    completed_at: string;
+}
+
+export interface AttendanceRecord {
+    id: string;
+    class_id: string;
+    student_id: string;
+    date: string; // YYYY-MM-DD
+    status: 'present' | 'absent' | 'late' | 'excused';
+    notes?: string;
+}
+
+export interface StudentGrade {
+    id: string;
+    assessment_id: string;
+    student_id: string;
+    grade: string | number; // Flexível (0-20 ou A-F)
+    feedback?: string;
+    graded_at: string;
+}
+// ----------------------------
 
 export interface SupabaseSession {
   user: {

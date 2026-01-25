@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabaseClient';
-import { Course, Class, Profile, ClassMaterial, ClassAnnouncement, ClassAssessment, CourseHierarchy } from '../types';
+import { Course, Class, Profile, ClassMaterial, ClassAnnouncement, ClassAssessment, CourseHierarchy, AttendanceRecord, StudentGrade } from '../types';
 
 export const courseService = {
     async getAll() {
@@ -15,8 +15,6 @@ export const courseService = {
     // Buscar cursos onde o aluno está inscrito
     async getStudentEnrollments(userId: string) {
         try {
-            // Utilizamos a notação de objectos aninhados do Supabase
-            // UPDATE: Incluir instrutores para obter o email para submissões
             const { data, error } = await supabase
                 .from('enrollments')
                 .select(`
@@ -32,28 +30,12 @@ export const courseService = {
                 .eq('user_id', userId);
                 
             if (error) {
-                // Se tabela não existe (42P01)
-                if (error.code === '42P01') { 
-                    console.warn("Tabelas de turmas em falta.");
-                    return []; 
-                }
-                
-                // Tratamento específico para erro de relação (Foreign Key em falta)
-                if (error.message && error.message.includes('Could not find a relationship')) {
-                     console.error("Erro crítico de esquema: Relação Enrollments -> Classes em falta.");
-                     throw new Error("Erro de Base de Dados: A relação entre 'Inscrições' e 'Turmas' não foi encontrada. Por favor vá a Definições > Base de Dados e execute o script SQL mais recente.");
-                }
-
+                if (error.code === '42P01') return []; 
                 throw error;
             }
             return data;
         } catch (e: any) {
-            // Re-throw se for o erro que acabámos de criar
-            if (e.message && e.message.includes('Erro de Base de Dados')) throw e;
-            
-            // Se for tabela em falta, falha graciosamente
             if (e.code === '42P01') return [];
-            
             throw e;
         }
     },
@@ -68,6 +50,19 @@ export const courseService = {
              throw error;
         }
         return data;
+    },
+
+    // NOVO: Buscar alunos de uma turma específica
+    async getClassStudents(classId: string) {
+        const { data, error } = await supabase
+            .from('enrollments')
+            .select(`
+                user:profiles(*)
+            `)
+            .eq('class_id', classId);
+        
+        if (error) throw error;
+        return data.map((e: any) => e.user) as Profile[];
     },
 
     // Atribuir aluno a uma turma (Upsert enrollment)
@@ -129,7 +124,6 @@ export const courseService = {
 
     async getClasses(courseId?: string) {
         try {
-            // Agora faz join com instructor (profiles) através da tabela de junção
             let query = supabase
                 .from('classes')
                 .select(`
@@ -150,7 +144,6 @@ export const courseService = {
                 throw error;
             }
             
-            // Mapear estrutura complexa do Supabase para o tipo Class mais limpo
             return data.map((item: any) => ({
                 ...item,
                 instructors: item.instructors?.map((i: any) => i.profile) || []
@@ -161,12 +154,8 @@ export const courseService = {
         }
     },
 
-    // Novo: Buscar turmas onde o formador dá aulas (Para o Portal Didático)
     async getTrainerClasses(trainerId: string) {
         try {
-            // TRUQUE SUPABASE:
-            // 1. my_instruction!inner -> Filtra as turmas onde EXISTE este formador (INNER JOIN)
-            // 2. instructors_details -> Busca TODOS os instrutores dessa turma para exibir (incluindo o próprio)
             const { data, error } = await supabase
                 .from('classes')
                 .select(`
@@ -185,7 +174,6 @@ export const courseService = {
                 throw error;
             }
             
-            // Mapeamento para limpar a estrutura
             return data.map((item: any) => ({
                 ...item,
                 instructors: item.instructors_details?.map((i: any) => i.profile) || []
@@ -196,7 +184,6 @@ export const courseService = {
         }
     },
 
-    // NOVO: Buscar TODAS as turmas com detalhes do curso E instrutores (Para Admin Dashboard)
     async getAllClassesWithDetails() {
         try {
             const { data, error } = await supabase
@@ -215,7 +202,6 @@ export const courseService = {
                 throw error;
             }
             
-            // Mapear para incluir a lista limpa de instructors
             return data.map((item: any) => ({
                 ...item,
                 instructors: item.instructors?.map((i: any) => i.profile) || []
@@ -226,7 +212,6 @@ export const courseService = {
         }
     },
 
-    // NOVO: Buscar Hierarquia Completa (Curso -> Turma -> Alunos) para Dashboard
     async getCourseHierarchy() {
         try {
             const { data, error } = await supabase
@@ -244,7 +229,6 @@ export const courseService = {
                 .order('title');
 
             if (error) {
-                // Se falhar a relação 'classes', é porque a tabela não existe
                 if (error.message?.includes('classes') || error.code === '42P01') return [];
                 throw error;
             }
@@ -273,15 +257,6 @@ export const courseService = {
         if (error) throw error;
     },
 
-    // Deprecado: Mantido apenas se necessário para retrocompatibilidade
-    async updateClassInstructor(classId: string, instructorId: string | null) {
-        // Se formos adicionar um único, usamos o método novo addInstructor
-        if (instructorId) {
-            await this.addInstructorToClass(classId, instructorId);
-        }
-    },
-
-    // NOVO: Adicionar Instrutor (Tabela de Junção)
     async addInstructorToClass(classId: string, instructorId: string) {
         const { error } = await supabase
             .from('class_instructors')
@@ -289,7 +264,6 @@ export const courseService = {
         if (error) throw error;
     },
 
-    // NOVO: Remover Instrutor
     async removeInstructorFromClass(classId: string, instructorId: string) {
         const { error } = await supabase
             .from('class_instructors')
@@ -307,9 +281,8 @@ export const courseService = {
         if (error) throw error;
     },
 
-    // --- RECURSOS DA TURMA (MATERIAIS, AVISOS, AVALIAÇÕES) ---
+    // --- RECURSOS DA TURMA ---
 
-    // 1. MATERIAIS
     async getClassMaterials(classId: string) {
         const { data, error } = await supabase
             .from('class_materials')
@@ -407,6 +380,72 @@ export const courseService = {
 
     async deleteClassAssessment(id: string) {
         const { error } = await supabase.from('class_assessments').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    // --- STUDENT PROGRESS (NEW V3) ---
+    async getStudentProgress(userId: string) {
+        const { data, error } = await supabase
+            .from('student_progress')
+            .select('material_id')
+            .eq('user_id', userId);
+        if (error) {
+            if (error.code === '42P01') return [];
+            throw error;
+        }
+        return data.map(i => i.material_id);
+    },
+
+    async toggleMaterialProgress(userId: string, materialId: string, isCompleted: boolean) {
+        if (isCompleted) {
+            const { error } = await supabase.from('student_progress').upsert({ user_id: userId, material_id: materialId });
+            if (error) throw error;
+        } else {
+            const { error } = await supabase.from('student_progress').delete().eq('user_id', userId).eq('material_id', materialId);
+            if (error) throw error;
+        }
+    },
+
+    // --- ATTENDANCE (NEW V3) ---
+    async getAttendance(classId: string, date: string) {
+        const { data, error } = await supabase
+            .from('class_attendance')
+            .select('*')
+            .eq('class_id', classId)
+            .eq('date', date);
+        if (error) {
+            if (error.code === '42P01') return [];
+            throw error;
+        }
+        return data as AttendanceRecord[];
+    },
+
+    async saveAttendance(records: Partial<AttendanceRecord>[]) {
+        const { error } = await supabase.from('class_attendance').upsert(records, { onConflict: 'class_id, student_id, date' });
+        if (error) throw error;
+    },
+
+    // --- GRADES (NEW V3) ---
+    async getGrades(classId: string) {
+        // Obter todas as avaliações da turma
+        const { data: assessments } = await supabase.from('class_assessments').select('id').eq('class_id', classId);
+        if (!assessments || assessments.length === 0) return [];
+
+        const ids = assessments.map(a => a.id);
+        const { data, error } = await supabase
+            .from('student_grades')
+            .select('*')
+            .in('assessment_id', ids);
+            
+        if (error) {
+            if (error.code === '42P01') return [];
+            throw error;
+        }
+        return data as StudentGrade[];
+    },
+
+    async saveGrades(grades: Partial<StudentGrade>[]) {
+        const { error } = await supabase.from('student_grades').upsert(grades, { onConflict: 'assessment_id, student_id' });
         if (error) throw error;
     }
 };

@@ -5,6 +5,7 @@ import { courseService } from '../../services/courses';
 import { adminService } from '../../services/admin';
 import { Profile, Course, ClassMaterial, ClassAnnouncement, ClassAssessment } from '../../types';
 import { formatShortDate, formatTime } from '../../utils/formatters';
+import { CertificateGenerator } from '../CertificateGenerator';
 
 interface Props {
     profile: Profile;
@@ -43,6 +44,10 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
     const [assessments, setAssessments] = useState<ClassAssessment[]>([]);
     const [loadingResources, setLoadingResources] = useState(false);
 
+    // V3: Progress Tracking
+    const [completedMaterials, setCompletedMaterials] = useState<string[]>([]);
+    const [showCertificate, setShowCertificate] = useState(false);
+
     useEffect(() => {
         loadClasses();
         loadConfig();
@@ -54,6 +59,8 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
             setMaterials([]);
             setAnnouncements([]);
             setAssessments([]);
+            setCompletedMaterials([]);
+            loadProgress(); // Load progress on class switch
         }
     }, [activeClassId]);
 
@@ -153,6 +160,32 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
             setErrorMsg(err.message || "Erro desconhecido ao carregar turmas.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadProgress = async () => {
+        if (!activeClassId) return;
+        try {
+            const progress = await courseService.getStudentProgress(profile.id);
+            setCompletedMaterials(progress);
+        } catch (e) {
+            console.warn("Progress load fail:", e);
+        }
+    };
+
+    const toggleProgress = async (materialId: string, isCompleted: boolean) => {
+        // Optimistic UI
+        if (isCompleted) {
+            setCompletedMaterials([...completedMaterials, materialId]);
+        } else {
+            setCompletedMaterials(completedMaterials.filter(id => id !== materialId));
+        }
+
+        try {
+            await courseService.toggleMaterialProgress(profile.id, materialId, isCompleted);
+        } catch (e) {
+            console.error("Failed to save progress", e);
+            loadProgress(); // Revert
         }
     };
 
@@ -311,6 +344,12 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
     }
 
     const activeClassData = enrolledClasses.find(c => c.id === activeClassId);
+    
+    // Progress Calculation
+    let progressPercentage = 0;
+    if (activeModule === 'materials' && materials.length > 0) {
+        progressPercentage = Math.round((completedMaterials.length / materials.length) * 100);
+    }
 
     return (
         <div className="h-full flex flex-col animate-in slide-in-from-right duration-300">
@@ -383,12 +422,27 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                         </div>
                         
                         {activeModule !== 'home' && (
-                            <button 
-                                onClick={() => setActiveModule('home')}
-                                className="px-4 py-2 bg-indigo-100 text-indigo-800 rounded-lg font-bold hover:bg-indigo-200 transition-colors flex items-center gap-2"
-                            >
-                                🏠 Menu da Turma
-                            </button>
+                            <div className="flex flex-col items-end gap-2">
+                                {/* PROGRESS BAR (Only in materials view) */}
+                                {activeModule === 'materials' && materials.length > 0 && (
+                                    <div className="w-48">
+                                        <div className="flex justify-between text-[10px] font-bold text-indigo-900 mb-1">
+                                            <span>Progresso</span>
+                                            <span>{progressPercentage}%</span>
+                                        </div>
+                                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                            <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${progressPercentage}%` }}></div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <button 
+                                    onClick={() => setActiveModule('home')}
+                                    className="px-4 py-2 bg-indigo-100 text-indigo-800 rounded-lg font-bold hover:bg-indigo-200 transition-colors flex items-center gap-2"
+                                >
+                                    🏠 Menu da Turma
+                                </button>
+                            </div>
                         )}
                     </div>
 
@@ -424,10 +478,23 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                         </div>
                     )}
 
-                    {/* LISTAGEM DE MATERIAIS */}
+                    {/* LISTAGEM DE MATERIAIS + PROGRESS */}
                     {activeModule === 'materials' && (
                         <div className="flex-1 flex flex-col animate-in fade-in">
-                            <h4 className="font-bold text-lg text-indigo-900 mb-4">Materiais Disponíveis</h4>
+                            <div className="flex justify-between items-center mb-4">
+                                <h4 className="font-bold text-lg text-indigo-900">Materiais Disponíveis</h4>
+                                
+                                {/* Certificate Button */}
+                                {progressPercentage === 100 && !activeClassData.isTeacher && (
+                                    <button 
+                                        onClick={() => setShowCertificate(true)}
+                                        className="px-4 py-1.5 bg-yellow-400 text-yellow-900 font-bold rounded-lg shadow-md hover:bg-yellow-500 hover:text-white transition-all animate-pulse"
+                                    >
+                                        🎓 Emitir Certificado
+                                    </button>
+                                )}
+                            </div>
+
                             {loadingResources ? <p className="text-center opacity-50">A carregar...</p> : (
                                 <div className="space-y-3">
                                     {materials.length === 0 && (
@@ -436,49 +503,64 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                                             <p>Ainda não foram partilhados materiais.</p>
                                         </div>
                                     )}
-                                    {materials.map(m => (
-                                        <div key={m.id} className="flex items-center justify-between p-4 bg-white/60 border border-indigo-100 rounded-xl hover:shadow-md hover:bg-white transition-all group">
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-3xl p-2 bg-indigo-50 rounded-lg">
-                                                    {m.type === 'drive' ? '☁️' : (m.type === 'file' ? '📄' : '🔗')}
-                                                </span>
-                                                <div>
-                                                    <h5 className="font-bold text-indigo-900">{m.title}</h5>
-                                                    <div className="flex gap-2 text-xs text-indigo-500">
-                                                        <span>{formatShortDate(m.created_at)}</span>
-                                                        {m.type === 'drive' && <span className="bg-blue-100 text-blue-700 px-1 rounded text-[9px] font-bold">DRIVE</span>}
+                                    {materials.map(m => {
+                                        const isCompleted = completedMaterials.includes(m.id);
+                                        return (
+                                            <div key={m.id} className={`flex items-center justify-between p-4 border rounded-xl hover:shadow-md transition-all group ${isCompleted ? 'bg-green-50 border-green-200' : 'bg-white/60 border-indigo-100'}`}>
+                                                <div className="flex items-center gap-4">
+                                                    {/* Checkbox Progress (Student Only) */}
+                                                    {!activeClassData.isTeacher && (
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={isCompleted} 
+                                                            onChange={(e) => toggleProgress(m.id, e.target.checked)}
+                                                            className="w-5 h-5 text-green-600 rounded focus:ring-green-500 cursor-pointer"
+                                                            title="Marcar como concluído"
+                                                        />
+                                                    )}
+
+                                                    <span className="text-3xl p-2 bg-white/50 rounded-lg">
+                                                        {m.type === 'drive' ? '☁️' : (m.type === 'file' ? '📄' : '🔗')}
+                                                    </span>
+                                                    <div>
+                                                        <h5 className={`font-bold ${isCompleted ? 'text-green-900' : 'text-indigo-900'}`}>{m.title}</h5>
+                                                        <div className="flex gap-2 text-xs text-indigo-500">
+                                                            <span>{formatShortDate(m.created_at)}</span>
+                                                            {m.type === 'drive' && <span className="bg-blue-100 text-blue-700 px-1 rounded text-[9px] font-bold">DRIVE</span>}
+                                                        </div>
                                                     </div>
                                                 </div>
+                                                
+                                                <div className="flex gap-2">
+                                                    {m.type === 'drive' && (
+                                                        (() => {
+                                                            const driveId = getDriveId(m.url);
+                                                            if(driveId) {
+                                                                return (
+                                                                     <a 
+                                                                        href={`https://drive.google.com/uc?export=download&id=${driveId}`}
+                                                                        className="px-4 py-2 bg-white border border-indigo-200 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-50 shadow-sm transition-colors flex items-center gap-2"
+                                                                        title="Download Direto"
+                                                                     >
+                                                                        Download ⬇️
+                                                                     </a>
+                                                                )
+                                                            }
+                                                        })()
+                                                    )}
+                                                    <a 
+                                                        href={m.url} 
+                                                        target="_blank" 
+                                                        rel="noreferrer" 
+                                                        className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 shadow-sm transition-colors"
+                                                        onClick={() => !isCompleted && !activeClassData.isTeacher && toggleProgress(m.id, true)}
+                                                    >
+                                                        Abrir ↗
+                                                    </a>
+                                                </div>
                                             </div>
-                                            
-                                            <div className="flex gap-2">
-                                                {m.type === 'drive' && (
-                                                    (() => {
-                                                        const driveId = getDriveId(m.url);
-                                                        if(driveId) {
-                                                            return (
-                                                                 <a 
-                                                                    href={`https://drive.google.com/uc?export=download&id=${driveId}`}
-                                                                    className="px-4 py-2 bg-white border border-indigo-200 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-50 shadow-sm transition-colors flex items-center gap-2"
-                                                                    title="Download Direto"
-                                                                 >
-                                                                    Download ⬇️
-                                                                 </a>
-                                                            )
-                                                        }
-                                                    })()
-                                                )}
-                                                <a 
-                                                    href={m.url} 
-                                                    target="_blank" 
-                                                    rel="noreferrer" 
-                                                    className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 shadow-sm transition-colors"
-                                                >
-                                                    Abrir ↗
-                                                </a>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -566,6 +648,14 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                     )}
 
                 </GlassCard>
+            )}
+
+            {showCertificate && activeClassData && (
+                <CertificateGenerator 
+                    student={profile} 
+                    course={activeClassData.course} 
+                    onClose={() => setShowCertificate(false)} 
+                />
             )}
         </div>
     );
