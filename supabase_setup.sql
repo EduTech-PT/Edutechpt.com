@@ -1,10 +1,10 @@
 
--- SCRIPT v3.0.5 - CRITICAL CACHE FIX
+-- SCRIPT v3.0.6 - CRITICAL CACHE FIX
 -- Execute este script para corrigir o erro "Could not find the 'duration' column"
 
 -- 1. ATUALIZAR VERSÃO
-insert into public.app_config (key, value) values ('sql_version', 'v3.0.5')
-on conflict (key) do update set value = 'v3.0.5';
+insert into public.app_config (key, value) values ('sql_version', 'v3.0.6')
+on conflict (key) do update set value = 'v3.0.6';
 
 -- 2. GARANTIR COLUNAS (Idempotente - só cria se não existirem)
 do $$
