@@ -186,9 +186,12 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                 // Convites
                 await adminService.updateAppConfig('invite_email_subject', config.inviteSubject);
                 await adminService.updateAppConfig('invite_email_body', config.inviteBody);
-                // Submissões de Trabalho (NOVO)
+                // Submissões de Trabalho
                 await adminService.updateAppConfig('submission_email_subject', config.submissionSubject);
                 await adminService.updateAppConfig('submission_email_body', config.submissionBody);
+                // Candidatura Espontânea (Landing Page)
+                await adminService.updateAppConfig('application_email_subject', config.applicationSubject);
+                await adminService.updateAppConfig('application_email_body', config.applicationBody);
                 
                 alert('Configuração de Email e Acesso guardada!');
             }
@@ -224,9 +227,6 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                 // Guardar FAQ como JSON
                 await adminService.updateAppConfig('legal_faq_json', JSON.stringify(faqList));
                 
-                // Limpar conteúdo HTML legado para evitar conflitos (opcional, mas recomendado)
-                // await adminService.updateAppConfig('legal_faq_content', '');
-
                 alert('Conteúdo legal e FAQ atualizados com sucesso!');
             }
         } catch (e: any) { 
@@ -595,100 +595,6 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                     </GlassCard>
                 )}
 
-                {tab === 'legal' && (
-                    <GlassCard>
-                        <h3 className="font-bold text-xl text-indigo-900 mb-6 flex items-center gap-2">
-                            <span>⚖️</span> Editor de Conteúdo Legal
-                        </h3>
-                        <p className="text-sm text-indigo-700 mb-6 bg-indigo-50 p-3 rounded border border-indigo-100">
-                            Edite aqui o texto que será apresentado nas páginas públicas.
-                        </p>
-
-                        <div className="space-y-8">
-                            {/* Editor Política de Privacidade */}
-                            <div>
-                                <h4 className="font-bold text-lg text-indigo-800 mb-2 border-b border-indigo-100 pb-2">Política de Privacidade</h4>
-                                <RichTextEditor 
-                                    value={config.privacyPolicyContent || ''} 
-                                    onChange={val => setConfig({...config, privacyPolicyContent: val})}
-                                    placeholder="Escreva aqui a sua Política de Privacidade... (Deixe vazio para usar o padrão)"
-                                    className="min-h-[250px]"
-                                />
-                            </div>
-
-                            {/* Editor Termos de Serviço */}
-                            <div>
-                                <h4 className="font-bold text-lg text-indigo-800 mb-2 border-b border-indigo-100 pb-2">Termos de Serviço</h4>
-                                <RichTextEditor 
-                                    value={config.termsServiceContent || ''} 
-                                    onChange={val => setConfig({...config, termsServiceContent: val})}
-                                    placeholder="Escreva aqui os seus Termos de Serviço... (Deixe vazio para usar o padrão)"
-                                    className="min-h-[250px]"
-                                />
-                            </div>
-
-                            {/* Editor FAQ ESTRUTURADO (NOVO) */}
-                            <div>
-                                <div className="flex justify-between items-center border-b border-indigo-100 pb-2 mb-4">
-                                    <h4 className="font-bold text-lg text-indigo-800">Perguntas Frequentes (FAQ)</h4>
-                                    <button 
-                                        onClick={addFaqItem}
-                                        className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 shadow-sm flex items-center gap-2"
-                                    >
-                                        <span>+</span> Adicionar Pergunta
-                                    </button>
-                                </div>
-                                
-                                {faqList.length === 0 ? (
-                                    <div className="text-center py-8 bg-indigo-50 rounded-xl border border-indigo-100 text-indigo-400">
-                                        <p>Sem perguntas configuradas.</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {faqList.map((item, idx) => (
-                                            <div key={idx} className="bg-white/50 p-4 rounded-xl border border-indigo-100 shadow-sm relative group">
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="text-xs font-bold text-indigo-400 uppercase">Pergunta {idx + 1}</span>
-                                                    <div className="flex gap-2">
-                                                        <button onClick={() => moveFaqItem(idx, 'up')} className="text-indigo-300 hover:text-indigo-600 text-xs" disabled={idx === 0}>⬆</button>
-                                                        <button onClick={() => moveFaqItem(idx, 'down')} className="text-indigo-300 hover:text-indigo-600 text-xs" disabled={idx === faqList.length - 1}>⬇</button>
-                                                        <button onClick={() => removeFaqItem(idx)} className="text-red-300 hover:text-red-600 ml-2" title="Eliminar">🗑️</button>
-                                                    </div>
-                                                </div>
-                                                
-                                                <input 
-                                                    type="text" 
-                                                    value={item.q} 
-                                                    onChange={(e) => updateFaqItem(idx, 'q', e.target.value)}
-                                                    placeholder="Escreva a pergunta..."
-                                                    className="w-full p-2 mb-3 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none font-bold text-indigo-900"
-                                                />
-                                                
-                                                <RichTextEditor 
-                                                    value={item.a} 
-                                                    onChange={(val) => updateFaqItem(idx, 'a', val)}
-                                                    placeholder="Escreva a resposta detalhada..."
-                                                    className="min-h-[150px]"
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="flex justify-end pt-4 border-t border-indigo-100">
-                                <button 
-                                    onClick={handleSaveConfig} 
-                                    disabled={isSaving}
-                                    className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg disabled:opacity-50 transition-all transform active:scale-95"
-                                >
-                                    {isSaving ? 'A Guardar...' : 'Publicar Alterações'}
-                                </button>
-                            </div>
-                        </div>
-                    </GlassCard>
-                )}
-
                 {/* Resto das Tabs (Código existente) */}
                 {tab === 'sql' && (
                     <GlassCard className="h-full flex flex-col">
@@ -741,6 +647,16 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                  <div><label className="block text-sm text-indigo-800 font-bold mb-1">Corpo do Email</label><textarea value={config.submissionBody || ''} onChange={e => setConfig({...config, submissionBody: e.target.value})} placeholder="Olá Formador, segue em anexo o meu trabalho sobre {trabalho}." className="w-full h-32 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"/></div>
                              </div>
                          </GlassCard>
+                         
+                         <GlassCard>
+                             <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2"><span>🙋</span> Configuração de Candidatura Espontânea</h3>
+                             <p className="text-sm text-indigo-700 mb-4 opacity-80">Configure o template do email que será gerado no botão "Solicitar Acesso" da Landing Page.</p>
+                             <div className="space-y-4">
+                                 <div><label className="block text-sm text-indigo-800 font-bold mb-1">Assunto do Email</label><input type="text" value={config.applicationSubject || ''} onChange={e => setConfig({...config, applicationSubject: e.target.value})} placeholder="Candidatura EduTech PT" className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"/></div>
+                                 <div><label className="block text-sm text-indigo-800 font-bold mb-1">Corpo do Email</label><textarea value={config.applicationBody || ''} onChange={e => setConfig({...config, applicationBody: e.target.value})} placeholder="Olá, gostaria de saber mais informações..." className="w-full h-32 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"/></div>
+                             </div>
+                         </GlassCard>
+
                          <GlassCard>
                              <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2"><span>⛔</span> Configuração de Acesso Negado</h3>
                              <div className="space-y-4">

@@ -253,6 +253,10 @@ export const adminService = {
                 if (item.key === 'submission_email_subject') config.submissionSubject = item.value;
                 if (item.key === 'submission_email_body') config.submissionBody = item.value;
 
+                // Application (Candidatura) Email Settings (NOVO)
+                if (item.key === 'application_email_subject') config.applicationSubject = item.value;
+                if (item.key === 'application_email_body') config.applicationBody = item.value;
+
                 // Legal Content (Privacy, Terms, FAQ)
                 if (item.key === 'legal_privacy_policy') config.privacyPolicyContent = item.value;
                 if (item.key === 'legal_terms_service') config.termsServiceContent = item.value;

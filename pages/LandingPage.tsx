@@ -20,6 +20,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   
+  // App Email Config
+  const [appEmailConfig, setAppEmailConfig] = useState({
+      subject: 'Candidatura EduTech PT',
+      body: 'Olá,\n\nGostaria de saber mais informações sobre os vossos cursos e como posso integrar a comunidade.\n\nOs meus interesses são: ...'
+  });
+  
   useEffect(() => {
     fetchData();
   }, []);
@@ -37,8 +43,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
         setCourses(coursesResult.data || []);
       }
 
-      if (configResult && configResult.logoUrl) {
-          setLogoUrl(configResult.logoUrl);
+      if (configResult) {
+          if (configResult.logoUrl) setLogoUrl(configResult.logoUrl);
+          if (configResult.applicationSubject || configResult.applicationBody) {
+              setAppEmailConfig({
+                  subject: configResult.applicationSubject || appEmailConfig.subject,
+                  body: configResult.applicationBody || appEmailConfig.body
+              });
+          }
       }
 
     } catch (err) {
@@ -257,7 +269,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                   </button>
                   
                   <a 
-                      href="mailto:edutechpt@hotmail.com?subject=Candidatura%20EduTech%20PT&body=Ol%C3%A1%2C%0A%0AGostaria%20de%20saber%20mais%20informa%C3%A7%C3%B5es%20sobre%20os%20vossos%20cursos%20e%20como%20posso%20integrar%20a%20comunidade.%0A%0AOs%20meus%20interesses%20s%C3%A3o%3A%20..."
+                      href={`mailto:edutechpt@hotmail.com?subject=${encodeURIComponent(appEmailConfig.subject)}&body=${encodeURIComponent(appEmailConfig.body)}`}
                       className="px-10 py-4 bg-transparent border-2 border-white text-white rounded-xl font-bold text-lg hover:bg-white/10 transition-all shadow-lg transform hover:-translate-y-1 min-w-[250px]"
                   >
                       Solicitar Acesso
