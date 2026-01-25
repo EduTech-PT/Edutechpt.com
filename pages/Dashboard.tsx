@@ -370,7 +370,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       if (view === 'manage_courses') return 'Gestão de Cursos';
       if (view === 'manage_classes') return 'Gestão de Turmas';
       if (view === 'manage_student_allocation') return 'Alocação de Alunos';
-      if (view === 'didactic_portal') return 'Gestor de Recursos';
+      if (view === 'didactic_portal') return 'Recursos da Sala de Aula'; // ALTERADO AQUI
       if (view === 'student_classroom') return 'Sala de Aula';
       if (view === 'courses') return 'Meus Cursos e Oferta';
       if (view === 'calendar') return 'Minha Agenda';

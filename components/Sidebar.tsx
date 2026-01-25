@@ -93,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       items: [
         { id: 'student_classroom', label: 'Sala de Aula', permissionKey: 'view_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER, UserRole.STUDENT] },
         { id: 'courses', label: 'Catálogo & Inscrições', permissionKey: 'view_courses', fallbackRoles: [UserRole.STUDENT] },
-        { id: 'didactic_portal', label: 'Gestor de Recursos', permissionKey: 'view_didactic_portal', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
+        { id: 'didactic_portal', label: 'Recursos da Sala de Aula', permissionKey: 'view_didactic_portal', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
         { id: 'manage_courses', label: 'Gestão de Cursos', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
         { id: 'manage_classes', label: 'Gestão de Turmas', permissionKey: 'manage_classes', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] }, 
         { id: 'manage_student_allocation', label: 'Alocação Alunos', permissionKey: 'manage_classes', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
