@@ -27,6 +27,7 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
 
     // Form States
     const [showForm, setShowForm] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
     
     // Generic form data holder
@@ -50,7 +51,7 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
             setMaterials([]);
             setAnnouncements([]);
             setAssessments([]);
-            setShowForm(false);
+            closeForm();
         }
     }, [activeTab]);
 
@@ -95,11 +96,16 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
 
     const handleModuleSwitch = (module: ModuleType) => {
         setActiveModule(module);
-        setShowForm(false);
-        setFormData({});
+        closeForm();
         if (module !== 'home') {
             loadModuleData(module);
         }
+    };
+
+    const closeForm = () => {
+        setShowForm(false);
+        setEditingId(null);
+        setFormData({});
     };
 
     // --- HANDLERS FOR MATERIALS ---
@@ -161,11 +167,8 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
             const newStack = [...driveFolderStack];
             newStack.pop();
             setDriveFolderStack(newStack);
-            // Se stack vazia, temos de reinicializar root ou guardar rootId algures.
-            // Simplificação: Recarrega root se vazio, ou parent folder.
-            // Para robustez, se stack vazia, chama initializeDrivePicker.
             if (newStack.length === 0) {
-                await initializeDrivePicker(); // Reset to root logic
+                await initializeDrivePicker();
             } else {
                 const parentId = newStack[newStack.length - 1].id;
                 setDriveCurrentFolder(parentId);
@@ -185,13 +188,23 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
         });
     };
 
+    const handleEditMaterial = (m: ClassMaterial) => {
+        setFormData({ title: m.title, url: m.url, type: m.type });
+        setEditingId(m.id);
+        setShowForm(true);
+        // Se for drive, talvez não queiramos abrir o picker automaticamente a menos que o user mude
+    };
+
     const submitMaterial = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!activeTab) return;
         try {
-            await courseService.createClassMaterial({ ...formData, class_id: activeTab });
-            setShowForm(false);
-            setFormData({});
+            if (editingId) {
+                await courseService.updateClassMaterial(editingId, formData);
+            } else {
+                await courseService.createClassMaterial({ ...formData, class_id: activeTab });
+            }
+            closeForm();
             loadModuleData('materials');
         } catch (err: any) { alert(err.message); }
     };
@@ -203,17 +216,26 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
     };
 
     // --- HANDLERS FOR ANNOUNCEMENTS ---
+    const handleEditAnnouncement = (a: ClassAnnouncement) => {
+        setFormData({ title: a.title, content: a.content });
+        setEditingId(a.id);
+        setShowForm(true);
+    };
+
     const submitAnnouncement = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!activeTab) return;
         try {
-            await courseService.createClassAnnouncement({ 
-                ...formData, 
-                class_id: activeTab,
-                created_by: profile.id
-            });
-            setShowForm(false);
-            setFormData({});
+            if (editingId) {
+                await courseService.updateClassAnnouncement(editingId, formData);
+            } else {
+                await courseService.createClassAnnouncement({ 
+                    ...formData, 
+                    class_id: activeTab,
+                    created_by: profile.id
+                });
+            }
+            closeForm();
             loadModuleData('announcements');
         } catch (err: any) { alert(err.message); }
     };
@@ -225,13 +247,30 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
     };
 
     // --- HANDLERS FOR ASSESSMENTS ---
+    const handleEditAssessment = (a: ClassAssessment) => {
+        let dateStr = '';
+        if (a.due_date) {
+            // Converter ISO para formato datetime-local (YYYY-MM-DDThh:mm)
+            const d = new Date(a.due_date);
+            // Ajuste básico para fuso horário local
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            dateStr = d.toISOString().slice(0, 16);
+        }
+        setFormData({ title: a.title, description: a.description, due_date: dateStr });
+        setEditingId(a.id);
+        setShowForm(true);
+    };
+
     const submitAssessment = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!activeTab) return;
         try {
-            await courseService.createClassAssessment({ ...formData, class_id: activeTab });
-            setShowForm(false);
-            setFormData({});
+            if (editingId) {
+                await courseService.updateClassAssessment(editingId, formData);
+            } else {
+                await courseService.createClassAssessment({ ...formData, class_id: activeTab });
+            }
+            closeForm();
             loadModuleData('assessments');
         } catch (err: any) { alert(err.message); }
     };
@@ -361,6 +400,10 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
 
                             {showForm && (
                                 <form onSubmit={submitMaterial} className="bg-indigo-50 p-4 rounded-xl border border-indigo-200 mb-6 space-y-4">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-bold text-indigo-800">{editingId ? 'Editar Material' : 'Adicionar Novo'}</h5>
+                                        {editingId && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 rounded">Modo Edição</span>}
+                                    </div>
                                     <div className="flex gap-4">
                                         <div className="flex-1">
                                             <label className="block text-xs font-bold text-indigo-900 mb-1">Título do Material</label>
@@ -455,8 +498,10 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                     )}
 
                                     <div className="flex justify-end gap-2">
-                                        <button type="button" onClick={() => setShowForm(false)} className="px-3 py-1 text-gray-500 font-bold">Cancelar</button>
-                                        <button type="submit" disabled={uploading || !formData.title || !formData.url} className="px-4 py-1 bg-green-600 text-white rounded font-bold shadow disabled:opacity-50">Publicar</button>
+                                        <button type="button" onClick={closeForm} className="px-3 py-1 text-gray-500 font-bold">Cancelar</button>
+                                        <button type="submit" disabled={uploading || !formData.title || !formData.url} className="px-4 py-1 bg-green-600 text-white rounded font-bold shadow disabled:opacity-50">
+                                            {editingId ? 'Guardar Alterações' : 'Publicar'}
+                                        </button>
                                     </div>
                                 </form>
                             )}
@@ -479,7 +524,10 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                                 </div>
                                             </div>
                                             {isStaff && (
-                                                <button onClick={() => deleteMaterial(m.id)} className="text-red-400 hover:text-red-600 p-2">🗑️</button>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => handleEditMaterial(m)} className="text-indigo-400 hover:text-indigo-600 p-2" title="Editar">✏️</button>
+                                                    <button onClick={() => deleteMaterial(m.id)} className="text-red-400 hover:text-red-600 p-2" title="Apagar">🗑️</button>
+                                                </div>
                                             )}
                                         </div>
                                     ))}
@@ -502,6 +550,10 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
 
                             {showForm && (
                                 <form onSubmit={submitAnnouncement} className="bg-indigo-50 p-4 rounded-xl border border-indigo-200 mb-6 space-y-4">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-bold text-indigo-800">{editingId ? 'Editar Aviso' : 'Adicionar Novo'}</h5>
+                                        {editingId && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 rounded">Modo Edição</span>}
+                                    </div>
                                     <div>
                                         <label className="block text-xs font-bold text-indigo-900 mb-1">Título / Assunto</label>
                                         <input type="text" required value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full p-2 rounded bg-white border border-indigo-200" placeholder="Ex: Alteração de Horário"/>
@@ -513,8 +565,10 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                     </div>
 
                                     <div className="flex justify-end gap-2">
-                                        <button type="button" onClick={() => setShowForm(false)} className="px-3 py-1 text-gray-500 font-bold">Cancelar</button>
-                                        <button type="submit" disabled={!formData.title} className="px-4 py-1 bg-green-600 text-white rounded font-bold shadow disabled:opacity-50">Publicar</button>
+                                        <button type="button" onClick={closeForm} className="px-3 py-1 text-gray-500 font-bold">Cancelar</button>
+                                        <button type="submit" disabled={!formData.title} className="px-4 py-1 bg-green-600 text-white rounded font-bold shadow disabled:opacity-50">
+                                            {editingId ? 'Guardar Alterações' : 'Publicar'}
+                                        </button>
                                     </div>
                                 </form>
                             )}
@@ -532,7 +586,10 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                             <div className="mt-2 text-xs text-indigo-400 font-bold">Por: {a.author?.full_name || 'Staff'}</div>
                                             
                                             {isStaff && (
-                                                <button onClick={() => deleteAnnouncement(a.id)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity">🗑️</button>
+                                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                                                    <button onClick={() => handleEditAnnouncement(a)} className="text-indigo-400 hover:text-indigo-600" title="Editar">✏️</button>
+                                                    <button onClick={() => deleteAnnouncement(a.id)} className="text-red-400 hover:text-red-600" title="Apagar">🗑️</button>
+                                                </div>
                                             )}
                                         </div>
                                     ))}
@@ -555,6 +612,10 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
 
                             {showForm && (
                                 <form onSubmit={submitAssessment} className="bg-indigo-50 p-4 rounded-xl border border-indigo-200 mb-6 space-y-4">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className="font-bold text-indigo-800">{editingId ? 'Editar Avaliação' : 'Nova Avaliação'}</h5>
+                                        {editingId && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 rounded">Modo Edição</span>}
+                                    </div>
                                     <div className="flex gap-4">
                                         <div className="flex-1">
                                             <label className="block text-xs font-bold text-indigo-900 mb-1">Título</label>
@@ -572,8 +633,10 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                     </div>
 
                                     <div className="flex justify-end gap-2">
-                                        <button type="button" onClick={() => setShowForm(false)} className="px-3 py-1 text-gray-500 font-bold">Cancelar</button>
-                                        <button type="submit" className="px-4 py-1 bg-green-600 text-white rounded font-bold shadow">Agendar</button>
+                                        <button type="button" onClick={closeForm} className="px-3 py-1 text-gray-500 font-bold">Cancelar</button>
+                                        <button type="submit" className="px-4 py-1 bg-green-600 text-white rounded font-bold shadow">
+                                            {editingId ? 'Guardar Alterações' : 'Agendar'}
+                                        </button>
                                     </div>
                                 </form>
                             )}
@@ -599,7 +662,10 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                                     </div>
                                                 )}
                                                 {isStaff && (
-                                                     <button onClick={() => deleteAssessment(a.id)} className="text-red-400 hover:text-red-600 p-2 opacity-0 group-hover:opacity-100 transition-opacity">🗑️</button>
+                                                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                         <button onClick={() => handleEditAssessment(a)} className="text-indigo-400 hover:text-indigo-600 p-2" title="Editar">✏️</button>
+                                                         <button onClick={() => deleteAssessment(a.id)} className="text-red-400 hover:text-red-600 p-2" title="Apagar">🗑️</button>
+                                                     </div>
                                                 )}
                                             </div>
                                         </div>

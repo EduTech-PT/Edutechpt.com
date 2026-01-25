@@ -229,28 +229,37 @@ create policy "Staff Manage Enrollments V2" on public.enrollments for insert wit
 create policy "Staff Delete Enrollments V2" on public.enrollments for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
 -- --- RESOURCES ---
+-- MATERIALS
 drop policy if exists "Read Materials V2" on public.class_materials;
 drop policy if exists "Staff Insert Materials V2" on public.class_materials;
+drop policy if exists "Staff Update Materials V2" on public.class_materials;
 drop policy if exists "Staff Delete Materials V2" on public.class_materials;
 
 create policy "Read Materials V2" on public.class_materials for select using ((select auth.role()) = 'authenticated');
 create policy "Staff Insert Materials V2" on public.class_materials for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+create policy "Staff Update Materials V2" on public.class_materials for update using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Delete Materials V2" on public.class_materials for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
+-- ANNOUNCEMENTS
 drop policy if exists "Read Announcements V2" on public.class_announcements;
 drop policy if exists "Staff Insert Announcements V2" on public.class_announcements;
+drop policy if exists "Staff Update Announcements V2" on public.class_announcements;
 drop policy if exists "Staff Delete Announcements V2" on public.class_announcements;
 
 create policy "Read Announcements V2" on public.class_announcements for select using ((select auth.role()) = 'authenticated');
 create policy "Staff Insert Announcements V2" on public.class_announcements for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+create policy "Staff Update Announcements V2" on public.class_announcements for update using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Delete Announcements V2" on public.class_announcements for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
+-- ASSESSMENTS
 drop policy if exists "Read Assessments V2" on public.class_assessments;
 drop policy if exists "Staff Insert Assessments V2" on public.class_assessments;
+drop policy if exists "Staff Update Assessments V2" on public.class_assessments;
 drop policy if exists "Staff Delete Assessments V2" on public.class_assessments;
 
 create policy "Read Assessments V2" on public.class_assessments for select using ((select auth.role()) = 'authenticated');
 create policy "Staff Insert Assessments V2" on public.class_assessments for insert with check (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+create policy "Staff Update Assessments V2" on public.class_assessments for update using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 create policy "Staff Delete Assessments V2" on public.class_assessments for delete using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
 -- --- INSTRUCTORS ---

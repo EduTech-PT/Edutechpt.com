@@ -328,6 +328,11 @@ export const courseService = {
         if (error) throw error;
     },
 
+    async updateClassMaterial(id: string, updates: Partial<ClassMaterial>) {
+        const { error } = await supabase.from('class_materials').update(updates).eq('id', id);
+        if (error) throw error;
+    },
+
     async deleteClassMaterial(id: string) {
         const { error } = await supabase.from('class_materials').delete().eq('id', id);
         if (error) throw error;
@@ -366,6 +371,11 @@ export const courseService = {
         if (error) throw error;
     },
 
+    async updateClassAnnouncement(id: string, updates: Partial<ClassAnnouncement>) {
+        const { error } = await supabase.from('class_announcements').update(updates).eq('id', id);
+        if (error) throw error;
+    },
+
     async deleteClassAnnouncement(id: string) {
         const { error } = await supabase.from('class_announcements').delete().eq('id', id);
         if (error) throw error;
@@ -387,6 +397,11 @@ export const courseService = {
 
     async createClassAssessment(assessment: Partial<ClassAssessment>) {
         const { error } = await supabase.from('class_assessments').insert([assessment]);
+        if (error) throw error;
+    },
+
+    async updateClassAssessment(id: string, updates: Partial<ClassAssessment>) {
+        const { error } = await supabase.from('class_assessments').update(updates).eq('id', id);
         if (error) throw error;
     },
 
