@@ -32,6 +32,10 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
     const [showCertificate, setShowCertificate] = useState(false);
 
     useEffect(() => {
+        if (!initialCourseId) {
+            setLoading(false);
+            return;
+        }
         loadClassroomData();
     }, [initialCourseId, profile.id]);
 
@@ -107,6 +111,16 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
         : 0;
 
     if (loading) return <div className="p-10 text-center text-indigo-600 font-bold">A carregar sala de aula...</div>;
+
+    if (!initialCourseId) {
+        return (
+            <GlassCard className="text-center py-12">
+                <h2 className="text-xl font-bold text-indigo-900 mb-2">Erro de Seleção</h2>
+                <p className="text-indigo-700 mb-4">Nenhum curso foi identificado. Por favor volte atrás.</p>
+                <button onClick={onBack} className="px-4 py-2 bg-indigo-100 text-indigo-800 rounded font-bold">Voltar</button>
+            </GlassCard>
+        );
+    }
 
     if (!activeClass || !course) {
         return (
@@ -199,8 +213,30 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                     {activeModule === 'materials' && (
                         <div className="space-y-3">
                             <div className="flex justify-between items-center mb-4">
-                                <h3 className="font-bold text-indigo-900">Materiais de Estudo</h3>
-                                <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded">{completedMaterials.length} / {materials.length}</span>
+                                <h4 className="font-bold text-lg text-indigo-900">Materiais Disponíveis</h4>
+                                
+                                <div className="flex gap-2 items-center">
+                                    {/* Botão Real (Alunos com 100%) */}
+                                    {progressPercentage === 100 && !activeClass.instructor_id && (
+                                        <button 
+                                            onClick={() => setShowCertificate(true)}
+                                            className="px-4 py-1.5 bg-yellow-400 text-yellow-900 font-bold rounded-lg shadow-md hover:bg-yellow-500 hover:text-white transition-all animate-pulse"
+                                        >
+                                            🎓 Emitir Certificado
+                                        </button>
+                                    )}
+
+                                    {/* Botão de Teste (APENAS ADMIN) */}
+                                    {profile.role === 'admin' && (
+                                        <button 
+                                            onClick={() => setShowCertificate(true)}
+                                            className="px-3 py-1.5 bg-gray-100 border border-gray-300 text-gray-600 font-bold rounded-lg hover:bg-gray-200 transition-all text-xs flex items-center gap-1"
+                                            title="Gerar PDF de teste (Visível apenas para Admin)"
+                                        >
+                                            <span>🖨️</span> Testar Certificado
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             
                             {loadingResources ? <p className="text-center opacity-50">A carregar...</p> : materials.length === 0 ? <p className="text-center text-gray-400 py-8">Sem materiais disponíveis.</p> : materials.map(m => {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Profile, UserRole, SupabaseSession, UserPermissions, OnlineUser } from '../types';
 import { Sidebar } from '../components/Sidebar';
@@ -54,8 +53,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   // Admin Edit User State
   const [selectedUserToEdit, setSelectedUserToEdit] = useState<Profile | null>(null);
   
-  // Student Classroom State
-  const [selectedCourseForClassroom, setSelectedCourseForClassroom] = useState<string | undefined>(undefined);
+  // Student Classroom State - INITIALIZED FROM URL
+  const [selectedCourseForClassroom, setSelectedCourseForClassroom] = useState<string | undefined>(() => {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('course_id') || undefined;
+  });
 
   // Responsive State
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -83,9 +85,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
     const handlePopState = () => {
         const params = new URLSearchParams(window.location.search);
         const view = params.get('view') || 'dashboard';
+        const courseId = params.get('course_id') || undefined;
+        
         setCurrentView(view);
         setSelectedUserToEdit(null); 
-        setSelectedCourseForClassroom(undefined);
+        setSelectedCourseForClassroom(courseId);
     };
     
     window.addEventListener('popstate', handlePopState);
@@ -249,10 +253,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const handleSetView = (newView: string) => {
       setCurrentView(newView);
       setSelectedUserToEdit(null);
-      setSelectedCourseForClassroom(undefined);
+      // Clear classroom state ONLY if leaving it
+      if (newView !== 'student_classroom') {
+          setSelectedCourseForClassroom(undefined);
+      }
       
       const params = new URLSearchParams(window.location.search);
       params.set('view', newView);
+      // Clear course_id if leaving classroom
+      if (newView !== 'student_classroom') {
+          params.delete('course_id');
+      }
+      
       const newUrl = `${window.location.pathname}?${params.toString()}`;
       window.history.pushState({ path: newUrl }, '', newUrl);
   };
@@ -288,6 +300,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const handleOpenClassroom = (courseId: string) => {
       setSelectedCourseForClassroom(courseId);
       setCurrentView('student_classroom');
+      
+      // PERSIST IN URL
+      const params = new URLSearchParams(window.location.search);
+      params.set('view', 'student_classroom');
+      params.set('course_id', courseId);
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
   };
 
   // Footer Navigation Handler
