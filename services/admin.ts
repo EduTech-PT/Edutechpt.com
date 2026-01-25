@@ -244,6 +244,7 @@ export const adminService = {
                 if (item.key === 'invite_email_body') config.inviteBody = item.value;
 
                 // Auth Warning Settings
+                if (item.key === 'auth_warning_title') config.authWarningTitle = item.value; // NOVO: Título
                 if (item.key === 'auth_warning_intro') config.authWarningIntro = item.value;
                 if (item.key === 'auth_warning_summary') config.authWarningSummary = item.value;
                 if (item.key === 'auth_warning_steps') config.authWarningSteps = item.value;

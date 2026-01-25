@@ -125,7 +125,14 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                  // Salvar Branding
                  await adminService.updateAppConfig('app_logo_url', config.logoUrl || '');
                  await adminService.updateAppConfig('app_favicon_url', config.faviconUrl || '');
-                 alert('Definições gerais guardadas. (Atualize a página para ver as alterações)');
+                 
+                 // Salvar Aviso Google (MOVIDO PARA AQUI)
+                 await adminService.updateAppConfig('auth_warning_title', config.authWarningTitle);
+                 await adminService.updateAppConfig('auth_warning_intro', config.authWarningIntro);
+                 await adminService.updateAppConfig('auth_warning_summary', config.authWarningSummary);
+                 await adminService.updateAppConfig('auth_warning_steps', config.authWarningSteps);
+
+                 alert('Definições gerais e de login guardadas. (Atualize a página para ver as alterações)');
             }
             if (tab === 'avatars') {
                 await adminService.updateAppConfig('avatar_resizer_link', config.resizerLink?.trim());
@@ -143,15 +150,11 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                 // Convites
                 await adminService.updateAppConfig('invite_email_subject', config.inviteSubject);
                 await adminService.updateAppConfig('invite_email_body', config.inviteBody);
-                // Aviso Google
-                await adminService.updateAppConfig('auth_warning_intro', config.authWarningIntro);
-                await adminService.updateAppConfig('auth_warning_summary', config.authWarningSummary);
-                await adminService.updateAppConfig('auth_warning_steps', config.authWarningSteps);
                 // Submissões de Trabalho (NOVO)
                 await adminService.updateAppConfig('submission_email_subject', config.submissionSubject);
                 await adminService.updateAppConfig('submission_email_body', config.submissionBody);
                 
-                alert('Configuração de Acesso, Convites e Submissões guardada!');
+                alert('Configuração de Email e Acesso guardada!');
             }
             if (tab === 'drive') {
                 const rawId = config.driveFolderId || '';
@@ -355,6 +358,57 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                 onUpdate={() => setTab('drive')}
                             />
                         </div>
+                    </div>
+
+                    {/* MOVIDO: AVISO GOOGLE (LOGIN) - Agora aqui para ser mais visível */}
+                    <div className="border-t border-indigo-100 pt-6">
+                         <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
+                             <span>⚠️</span> Mensagem de Login (Google)
+                         </h3>
+                         <p className="text-sm text-indigo-700 mb-4 opacity-80">
+                            Personalize o aviso exibido no ecrã de login para ajudar os utilizadores a passarem o alerta "Aplicação Não Verificada" da Google.
+                         </p>
+                         <div className="space-y-4 bg-amber-50 p-4 rounded-xl border border-amber-100">
+                             <div>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Título do Aviso</label>
+                                 <input 
+                                    type="text" 
+                                    value={config.authWarningTitle || ''} 
+                                    onChange={e => setConfig({...config, authWarningTitle: e.target.value})} 
+                                    placeholder='Aviso: "A Google não validou esta app"'
+                                    className="w-full p-2 rounded bg-white border border-amber-200 focus:ring-2 focus:ring-amber-300"
+                                 />
+                             </div>
+                             <div>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Texto Introdutório</label>
+                                 <input 
+                                    type="text" 
+                                    value={config.authWarningIntro || ''} 
+                                    onChange={e => setConfig({...config, authWarningIntro: e.target.value})} 
+                                    placeholder="Como esta é uma aplicação interna..."
+                                    className="w-full p-2 rounded bg-white border border-amber-200 focus:ring-2 focus:ring-amber-300"
+                                 />
+                             </div>
+                             <div>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Título do Acordeão (Ajuda)</label>
+                                 <input 
+                                    type="text" 
+                                    value={config.authWarningSummary || ''} 
+                                    onChange={e => setConfig({...config, authWarningSummary: e.target.value})} 
+                                    placeholder="Como ultrapassar este aviso?"
+                                    className="w-full p-2 rounded bg-white border border-amber-200 focus:ring-2 focus:ring-amber-300"
+                                 />
+                             </div>
+                             <div>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Passo a Passo (HTML Permitido)</label>
+                                 <RichTextEditor 
+                                    value={config.authWarningSteps || ''} 
+                                    onChange={val => setConfig({...config, authWarningSteps: val})}
+                                    label=""
+                                    placeholder="Lista de passos para desbloquear..."
+                                 />
+                             </div>
+                         </div>
                     </div>
 
                     {/* BRANDING CONFIGURATION */}
@@ -679,47 +733,6 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                     className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 text-sm font-sans focus:ring-2 focus:ring-indigo-300"
                                  />
                                  <div className="text-xs mt-1 text-indigo-600">Use <b>{'{link}'}</b> para inserir o endereço do site.</div>
-                             </div>
-                         </div>
-                     </GlassCard>
-
-                     {/* SECÇÃO: AVISO GOOGLE (LOGIN) */}
-                     <GlassCard>
-                         <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
-                             <span>⚠️</span> Configuração do Aviso Google (Login)
-                         </h3>
-                         <p className="text-sm text-indigo-700 mb-4 opacity-80">
-                            Personalize o texto de ajuda que aparece no formulário de login para instruir os utilizadores a passarem o ecrã "Aplicação Não Verificada" da Google.
-                         </p>
-                         <div className="space-y-4">
-                             <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Texto Introdutório</label>
-                                 <input 
-                                    type="text" 
-                                    value={config.authWarningIntro || ''} 
-                                    onChange={e => setConfig({...config, authWarningIntro: e.target.value})} 
-                                    placeholder="Como esta é uma aplicação interna..."
-                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
-                                 />
-                             </div>
-                             <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Título do Acordeão (Ajuda)</label>
-                                 <input 
-                                    type="text" 
-                                    value={config.authWarningSummary || ''} 
-                                    onChange={e => setConfig({...config, authWarningSummary: e.target.value})} 
-                                    placeholder="Como ultrapassar este aviso?"
-                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
-                                 />
-                             </div>
-                             <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Passo a Passo (HTML Permitido)</label>
-                                 <RichTextEditor 
-                                    value={config.authWarningSteps || ''} 
-                                    onChange={val => setConfig({...config, authWarningSteps: val})}
-                                    label=""
-                                    placeholder="Lista de passos para desbloquear..."
-                                 />
                              </div>
                          </div>
                      </GlassCard>

@@ -16,6 +16,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick }) 
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
   
   // Warning Text State (with Defaults)
+  const [warningTitle, setWarningTitle] = useState('Aviso: "A Google não validou esta app"');
   const [warningIntro, setWarningIntro] = useState("Como esta é uma aplicação interna, a Google poderá exibir um alerta de segurança na primeira utilização. É seguro continuar.");
   const [warningSummary, setWarningSummary] = useState("Como ultrapassar este aviso?");
   const [warningSteps, setWarningSteps] = useState(`
@@ -29,6 +30,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick }) 
   useEffect(() => {
     adminService.getAppConfig().then(c => {
         if (c.logoUrl) setLogoUrl(c.logoUrl);
+        if (c.authWarningTitle) setWarningTitle(c.authWarningTitle); // NOVO
         if (c.authWarningIntro) setWarningIntro(c.authWarningIntro);
         if (c.authWarningSummary) setWarningSummary(c.authWarningSummary);
         if (c.authWarningSteps) setWarningSteps(c.authWarningSteps);
@@ -105,7 +107,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick }) 
           <div className="bg-amber-50/80 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 text-left shadow-inner mb-2">
              <div className="flex items-center gap-1.5 font-bold mb-1.5 text-amber-800">
                 <span className="text-sm">⚠️</span>
-                <span>Aviso: "A Google não validou esta app"</span>
+                <span>{warningTitle}</span>
              </div>
              <p className="opacity-90 leading-relaxed mb-2">
                 {warningIntro}
