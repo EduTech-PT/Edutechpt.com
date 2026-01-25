@@ -109,7 +109,7 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
         doc.setFontSize(14);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(colorPrimary);
-        // ATUALIZAÇÃO: Alterado de "DE CONCLUSÃO DE CURSO" para "DE CONCLUSÃO DE CURSO/FORMAÇÃO"
+        // TEXTO ALTERADO AQUI
         doc.text("DE CONCLUSÃO DE CURSO/FORMAÇÃO", 148.5, yPos + 20, { align: 'center' });
 
         // 4. Corpo do Texto
