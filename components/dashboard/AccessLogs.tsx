@@ -135,7 +135,7 @@ export const AccessLogs: React.FC<Props> = ({ onlineUsers }) => {
                     <button onClick={loadLogs} className="p-2 hover:bg-indigo-50 rounded-full text-indigo-600" title="Atualizar">🔄</button>
                 </div>
 
-                <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
+                <div className="max-h-[500px] overflow-y-auto custom-scrollbar overflow-x-auto">
                     <table className="w-full text-sm text-left">
                         <thead className="text-indigo-500 font-medium sticky top-0 bg-white/80 backdrop-blur-md z-10 shadow-sm">
                             <tr>

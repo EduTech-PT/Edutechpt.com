@@ -358,6 +358,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           case 'settings_avatars': return <Settings dbVersion={dbVersion} initialTab="avatars" />;
           case 'settings_access': return <Settings dbVersion={dbVersion} initialTab="access" />;
           case 'settings_allocation': return <Settings dbVersion={dbVersion} initialTab="allocation" />; 
+          case 'settings_legal': return <Settings dbVersion={dbVersion} initialTab="legal" />;
           case 'settings': return <Settings dbVersion={dbVersion} initialTab="geral" />;
           default: return <GlassCard><h2>Em Construção: {currentView}</h2></GlassCard>;
       }
@@ -438,8 +439,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
             />
         </div>
         
-        <main className="flex-1 min-w-0 h-full flex flex-col w-full p-4 md:p-0">
-            <header className="flex justify-between items-center mb-6 p-4 bg-white/30 backdrop-blur-md rounded-2xl shadow-sm border border-white/40 sticky top-0 z-20 md:relative">
+        <main className="flex-1 min-w-0 h-full flex flex-col w-full p-2 md:p-0">
+            <header className="flex justify-between items-center mb-4 md:mb-6 p-4 bg-white/30 backdrop-blur-md rounded-2xl shadow-sm border border-white/40 sticky top-0 z-20 md:relative">
                 <div className="flex items-center gap-3">
                     <button 
                         onClick={() => setMobileMenuOpen(true)}

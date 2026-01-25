@@ -66,7 +66,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                 <img 
                   src={logoUrl} 
                   alt="EduTech PT" 
-                  className="h-14 md:h-20 object-contain drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] transform hover:scale-110 transition-transform duration-500" 
+                  className="h-10 md:h-20 object-contain drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] transform hover:scale-110 transition-transform duration-500" 
                 />
             ) : (
                 "EduTech PT"
@@ -81,23 +81,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       </nav>
 
       {/* Hero Section */}
-      <div className="flex-grow flex flex-col items-center justify-center text-center px-4 py-12 md:py-20 relative">
+      <div className="flex-grow flex flex-col items-center justify-center text-center px-4 py-8 md:py-20 relative">
         <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
         <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
         <div className="absolute bottom-1/4 left-1/2 w-64 h-64 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
 
         <GlassCard className="max-w-4xl z-10 w-full">
-          <h1 className="text-4xl md:text-6xl font-bold text-indigo-900 mb-6 leading-tight">
+          <h1 className="text-3xl md:text-6xl font-bold text-indigo-900 mb-6 leading-tight">
             Domine as <span className="text-indigo-600 block md:inline">Novas Tecnologias</span>
           </h1>
-          <p className="text-base md:text-lg text-indigo-800 mb-10 max-w-2xl mx-auto opacity-80">
+          <p className="text-sm md:text-lg text-indigo-800 mb-8 md:mb-10 max-w-2xl mx-auto opacity-80">
             Plataforma de excelência para formação técnica. Desenvolva as suas competências com os melhores especialistas do mercado.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button 
                 onClick={onLoginClick}
-                className="px-8 py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-xl hover:bg-indigo-700 transition-all transform hover:-translate-y-1"
+                className="px-8 py-3 md:py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-xl hover:bg-indigo-700 transition-all transform hover:-translate-y-1"
             >
               Começar Agora
             </button>
@@ -106,7 +106,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                    const el = document.getElementById('courses-section');
                    if(el) el.scrollIntoView({behavior: 'smooth'});
                 }}
-                className="px-8 py-4 bg-white/50 text-indigo-900 rounded-xl font-bold hover:bg-white/70 transition-all backdrop-blur-sm"
+                className="px-8 py-3 md:py-4 bg-white/50 text-indigo-900 rounded-xl font-bold hover:bg-white/70 transition-all backdrop-blur-sm"
             >
               Ver Oferta
             </button>

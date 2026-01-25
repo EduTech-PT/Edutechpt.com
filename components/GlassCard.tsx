@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface GlassCardProps {
@@ -19,7 +20,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({ children, className = '', 
         border border-white/40 
         shadow-lg 
         rounded-2xl 
-        p-6 
+        p-4 md:p-6 
         ${hoverEffect ? 'transition-all duration-300 hover:bg-white/40 hover:shadow-xl hover:-translate-y-1' : ''}
         ${className}
       `}

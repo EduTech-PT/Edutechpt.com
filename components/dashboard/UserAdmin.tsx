@@ -365,7 +365,7 @@ export const UserAdmin: React.FC<UserAdminProps> = ({ onEditUser, currentUserRol
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <GlassCard className="col-span-2">
                     <h3 className="font-bold text-indigo-900 mb-4 border-b border-indigo-200 pb-2">Ativos ({users.length})</h3>
-                    <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
+                    <div className="max-h-[500px] overflow-y-auto custom-scrollbar overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead className="text-left text-indigo-500 sticky top-0 bg-white/80 backdrop-blur-sm z-10">
                                 <tr>
@@ -442,7 +442,7 @@ export const UserAdmin: React.FC<UserAdminProps> = ({ onEditUser, currentUserRol
 
                 <GlassCard>
                     <h3 className="font-bold text-indigo-900 mb-4 border-b border-indigo-200 pb-2">Convites Pendentes ({invites.length})</h3>
-                    <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
+                    <div className="max-h-[500px] overflow-y-auto custom-scrollbar overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead className="text-left text-indigo-500">
                                 <tr>
