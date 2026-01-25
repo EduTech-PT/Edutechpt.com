@@ -215,13 +215,22 @@ drop policy if exists "Staff Manage Classes" on public.classes;
 create policy "Staff Manage Classes" on public.classes for all using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
 -- --- RESOURCES ---
+drop policy if exists "Read Materials" on public.class_materials;
 create policy "Read Materials" on public.class_materials for select using ((select auth.role()) = 'authenticated');
+
+drop policy if exists "Staff Manage Materials" on public.class_materials;
 create policy "Staff Manage Materials" on public.class_materials for all using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
+drop policy if exists "Read Announcements" on public.class_announcements;
 create policy "Read Announcements" on public.class_announcements for select using ((select auth.role()) = 'authenticated');
+
+drop policy if exists "Staff Manage Announcements" on public.class_announcements;
 create policy "Staff Manage Announcements" on public.class_announcements for all using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
+drop policy if exists "Read Assessments" on public.class_assessments;
 create policy "Read Assessments" on public.class_assessments for select using ((select auth.role()) = 'authenticated');
+
+drop policy if exists "Staff Manage Assessments" on public.class_assessments;
 create policy "Staff Manage Assessments" on public.class_assessments for all using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
 -- --- NEW V3 POLICIES (Progress, Attendance, Grades) ---
@@ -256,18 +265,31 @@ create policy "Grades Manage" on public.student_grades for all using (
 );
 
 -- --- OTHERS ---
+drop policy if exists "Read Instructors" on public.class_instructors;
 create policy "Read Instructors" on public.class_instructors for select using (true);
+
+drop policy if exists "Manage Instructors" on public.class_instructors;
 create policy "Manage Instructors" on public.class_instructors for all using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor')));
 
+drop policy if exists "Read Enrollments" on public.enrollments;
 create policy "Read Enrollments" on public.enrollments for select using ((select auth.uid()) = user_id OR exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+
+drop policy if exists "Manage Enrollments" on public.enrollments;
 create policy "Manage Enrollments" on public.enrollments for all using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
+drop policy if exists "Read Roles" on public.roles;
 create policy "Read Roles" on public.roles for select using (true);
+
+drop policy if exists "Admin Manage Roles" on public.roles;
 create policy "Admin Manage Roles" on public.roles for all using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
 
+drop policy if exists "Read Invites" on public.user_invites;
 create policy "Read Invites" on public.user_invites for select using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
+
+drop policy if exists "Manage Invites" on public.user_invites;
 create policy "Manage Invites" on public.user_invites for all using (exists (select 1 from public.profiles where id = (select auth.uid()) and role in ('admin', 'editor', 'formador')));
 
+drop policy if exists "Admin Logs" on public.access_logs;
 create policy "Admin Logs" on public.access_logs for all using (exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin'));
 
 -- ==============================================================================
