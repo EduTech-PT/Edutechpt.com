@@ -683,11 +683,14 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                          </div>
                      </GlassCard>
 
-                     {/* SECÇÃO: AVISO GOOGLE */}
+                     {/* SECÇÃO: AVISO GOOGLE (LOGIN) */}
                      <GlassCard>
                          <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
                              <span>⚠️</span> Configuração do Aviso Google (Login)
                          </h3>
+                         <p className="text-sm text-indigo-700 mb-4 opacity-80">
+                            Personalize o texto de ajuda que aparece no formulário de login para instruir os utilizadores a passarem o ecrã "Aplicação Não Verificada" da Google.
+                         </p>
                          <div className="space-y-4">
                              <div>
                                  <label className="block text-sm text-indigo-800 font-bold mb-1">Texto Introdutório</label>
@@ -695,24 +698,27 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                     type="text" 
                                     value={config.authWarningIntro || ''} 
                                     onChange={e => setConfig({...config, authWarningIntro: e.target.value})} 
+                                    placeholder="Como esta é uma aplicação interna..."
                                     className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
                                  />
                              </div>
                              <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Título do Acordeão</label>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Título do Acordeão (Ajuda)</label>
                                  <input 
                                     type="text" 
                                     value={config.authWarningSummary || ''} 
                                     onChange={e => setConfig({...config, authWarningSummary: e.target.value})} 
+                                    placeholder="Como ultrapassar este aviso?"
                                     className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-300"
                                  />
                              </div>
                              <div>
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Passo a Passo (HTML)</label>
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Passo a Passo (HTML Permitido)</label>
                                  <RichTextEditor 
                                     value={config.authWarningSteps || ''} 
                                     onChange={val => setConfig({...config, authWarningSteps: val})}
                                     label=""
+                                    placeholder="Lista de passos para desbloquear..."
                                  />
                              </div>
                          </div>
