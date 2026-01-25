@@ -184,6 +184,7 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
             if (tab === 'legal') {
                 await adminService.updateAppConfig('legal_privacy_policy', config.privacyPolicyContent || '');
                 await adminService.updateAppConfig('legal_terms_service', config.termsServiceContent || '');
+                await adminService.updateAppConfig('legal_faq_content', config.faqContent || ''); // NOVO
                 alert('Conteúdo legal atualizado com sucesso!');
             }
         } catch (e: any) { 
@@ -335,7 +336,7 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
             <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide shrink-0">
                 {[
                     { id: 'geral', label: 'Geral', icon: '⚙️' },
-                    { id: 'legal', label: 'Conteúdo Legal', icon: '⚖️' }, // NOVO
+                    { id: 'legal', label: 'Conteúdo Legal', icon: '⚖️' }, 
                     { id: 'drive', label: 'Drive & Integrações', icon: '☁️' },
                     { id: 'avatars', label: 'Avatares', icon: '🖼️' },
                     { id: 'access', label: 'Acesso & Email', icon: '🔒' },
@@ -525,19 +526,26 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                             <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2">
                                 <span>🔗</span> Links Rápidos
                             </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <div className="bg-white/40 p-4 rounded-xl border border-white/50 text-xs">
-                                    <label className="block font-bold text-indigo-800 mb-1">Link da Política de Privacidade</label>
+                                    <label className="block font-bold text-indigo-800 mb-1">Política de Privacidade</label>
                                     <div className="flex gap-2">
                                         <input type="text" readOnly value={`${window.location.origin}?page=privacy`} className="w-full p-2 rounded bg-white/50 border border-white/60 text-indigo-600 font-mono outline-none" onClick={(e) => e.currentTarget.select()} />
                                         <button onClick={() => handleCopyText(`${window.location.origin}?page=privacy`)} className="px-3 bg-white text-indigo-600 border border-indigo-200 rounded font-bold hover:bg-indigo-50">Copiar</button>
                                     </div>
                                 </div>
                                 <div className="bg-white/40 p-4 rounded-xl border border-white/50 text-xs">
-                                    <label className="block font-bold text-indigo-800 mb-1">Link dos Termos de Serviço</label>
+                                    <label className="block font-bold text-indigo-800 mb-1">Termos de Serviço</label>
                                     <div className="flex gap-2">
                                         <input type="text" readOnly value={`${window.location.origin}?page=terms`} className="w-full p-2 rounded bg-white/50 border border-white/60 text-indigo-600 font-mono outline-none" onClick={(e) => e.currentTarget.select()} />
                                         <button onClick={() => handleCopyText(`${window.location.origin}?page=terms`)} className="px-3 bg-white text-indigo-600 border border-indigo-200 rounded font-bold hover:bg-indigo-50">Copiar</button>
+                                    </div>
+                                </div>
+                                <div className="bg-white/40 p-4 rounded-xl border border-white/50 text-xs">
+                                    <label className="block font-bold text-indigo-800 mb-1">Perguntas Frequentes (FAQ)</label>
+                                    <div className="flex gap-2">
+                                        <input type="text" readOnly value={`${window.location.origin}?page=faq`} className="w-full p-2 rounded bg-white/50 border border-white/60 text-indigo-600 font-mono outline-none" onClick={(e) => e.currentTarget.select()} />
+                                        <button onClick={() => handleCopyText(`${window.location.origin}?page=faq`)} className="px-3 bg-white text-indigo-600 border border-indigo-200 rounded font-bold hover:bg-indigo-50">Copiar</button>
                                     </div>
                                 </div>
                             </div>
@@ -562,7 +570,7 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                     value={config.privacyPolicyContent || ''} 
                                     onChange={val => setConfig({...config, privacyPolicyContent: val})}
                                     placeholder="Escreva aqui a sua Política de Privacidade... (Deixe vazio para usar o padrão)"
-                                    className="min-h-[300px]"
+                                    className="min-h-[250px]"
                                 />
                             </div>
 
@@ -573,7 +581,18 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral' }) =
                                     value={config.termsServiceContent || ''} 
                                     onChange={val => setConfig({...config, termsServiceContent: val})}
                                     placeholder="Escreva aqui os seus Termos de Serviço... (Deixe vazio para usar o padrão)"
-                                    className="min-h-[300px]"
+                                    className="min-h-[250px]"
+                                />
+                            </div>
+
+                            {/* Editor FAQ (NOVO) */}
+                            <div>
+                                <h4 className="font-bold text-lg text-indigo-800 mb-2 border-b border-indigo-100 pb-2">Perguntas Frequentes (FAQ)</h4>
+                                <RichTextEditor 
+                                    value={config.faqContent || ''} 
+                                    onChange={val => setConfig({...config, faqContent: val})}
+                                    placeholder="Escreva aqui as Perguntas Frequentes... (Deixe vazio para usar o padrão)"
+                                    className="min-h-[250px]"
                                 />
                             </div>
 

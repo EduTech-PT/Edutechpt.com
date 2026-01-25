@@ -4,7 +4,8 @@ import { supabase } from './lib/supabaseClient';
 import { LandingPage } from './pages/LandingPage';
 import { Dashboard } from './pages/Dashboard';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
-import { TermsOfService } from './pages/TermsOfService'; // NOVO IMPORT
+import { TermsOfService } from './pages/TermsOfService';
+import { FAQPage } from './pages/FAQPage'; // NOVO IMPORT
 import { AuthForm } from './components/AuthForm';
 import { SupabaseSession } from './types';
 import { adminService } from './services/admin';
@@ -14,22 +15,25 @@ function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  // Estado para navegação pública (Landing vs Privacy vs Terms)
-  // Inicializa baseado no URL query param para satisfazer requisitos da Google e Links diretos
-  const [publicView, setPublicView] = useState<'landing' | 'privacy' | 'terms'>(() => {
+  // Estado para navegação pública (Landing vs Privacy vs Terms vs FAQ)
+  const [publicView, setPublicView] = useState<'landing' | 'privacy' | 'terms' | 'faq'>(() => {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('page') === 'privacy') return 'privacy';
-      if (params.get('page') === 'terms') return 'terms';
+      const page = params.get('page');
+      if (page === 'privacy') return 'privacy';
+      if (page === 'terms') return 'terms';
+      if (page === 'faq') return 'faq';
       return 'landing';
   });
 
   // Função para gerir navegação e atualizar URL
-  const handleNavigate = (view: 'landing' | 'privacy' | 'terms') => {
+  const handleNavigate = (view: 'landing' | 'privacy' | 'terms' | 'faq') => {
       setPublicView(view);
       if (view === 'privacy') {
           window.history.pushState({ view: 'privacy' }, '', '?page=privacy');
       } else if (view === 'terms') {
           window.history.pushState({ view: 'terms' }, '', '?page=terms');
+      } else if (view === 'faq') {
+          window.history.pushState({ view: 'faq' }, '', '?page=faq');
       } else {
           window.history.pushState({ view: 'landing' }, '', window.location.pathname);
       }
@@ -42,6 +46,7 @@ function App() {
           const page = params.get('page');
           if (page === 'privacy') setPublicView('privacy');
           else if (page === 'terms') setPublicView('terms');
+          else if (page === 'faq') setPublicView('faq');
           else setPublicView('landing');
       };
       window.addEventListener('popstate', handlePopState);
@@ -173,10 +178,13 @@ function App() {
               <LandingPage 
                   onLoginClick={() => setShowAuthModal(true)} 
                   onPrivacyClick={() => handleNavigate('privacy')}
-                  onTermsClick={() => handleNavigate('terms')} // NOVO PROP
+                  onTermsClick={() => handleNavigate('terms')} 
+                  onFaqClick={() => handleNavigate('faq')} // NOVO PROP
               />
           ) : publicView === 'terms' ? (
               <TermsOfService onBack={() => handleNavigate('landing')} />
+          ) : publicView === 'faq' ? (
+              <FAQPage onBack={() => handleNavigate('landing')} />
           ) : (
               <PrivacyPolicy onBack={() => handleNavigate('landing')} />
           )}
@@ -188,7 +196,7 @@ function App() {
                       setShowAuthModal(false);
                       handleNavigate('privacy');
                   }}
-                  onTermsClick={() => { // NOVO HANDLER
+                  onTermsClick={() => {
                       setShowAuthModal(false);
                       handleNavigate('terms');
                   }}
