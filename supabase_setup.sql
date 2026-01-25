@@ -1,12 +1,12 @@
 
--- SCRIPT v3.0.6 - CRITICAL CACHE FIX
--- Execute este script para corrigir o erro "Could not find the 'duration' column"
+-- SCRIPT v3.0.7 - SCHEMA CACHE RELOAD & FIX
+-- Execute este script para corrigir o erro "Could not find column... in schema cache"
 
 -- 1. ATUALIZAR VERSÃO
-insert into public.app_config (key, value) values ('sql_version', 'v3.0.6')
-on conflict (key) do update set value = 'v3.0.6';
+insert into public.app_config (key, value) values ('sql_version', 'v3.0.7')
+on conflict (key) do update set value = 'v3.0.7';
 
--- 2. GARANTIR COLUNAS (Idempotente - só cria se não existirem)
+-- 2. GARANTIR COLUNAS (Idempotente)
 do $$
 begin
     if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'duration') then
@@ -17,6 +17,6 @@ begin
     end if;
 end $$;
 
--- 3. FORÇAR RECARREGAMENTO DO CACHE DO POSTGREST (AÇÃO PRINCIPAL)
--- Isto é necessário sempre que se altera a estrutura da tabela para que a API reconheça os novos campos.
+-- 3. FORÇAR RECARREGAMENTO DO CACHE DO POSTGREST
+-- Notifica o PostgREST para reconstruir o seu esquema interno.
 NOTIFY pgrst, 'reload schema';

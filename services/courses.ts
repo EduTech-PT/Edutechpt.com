@@ -2,14 +2,32 @@
 import { supabase } from '../lib/supabaseClient';
 import { Course, Class, Profile, ClassMaterial, ClassAnnouncement, ClassAssessment, CourseHierarchy, AttendanceRecord, StudentGrade } from '../types';
 
+// Colunas seguras (antigas) para fallback em caso de erro de cache
+const SAFE_COURSE_COLUMNS = 'id, title, description, level, image_url, is_public, marketing_data, created_at, instructor_id';
+
 export const courseService = {
     async getAll() {
-        const { data, error } = await supabase
-            .from('courses')
-            .select('*')
-            .order('created_at', { ascending: false });
-        if (error) throw error;
-        return data as Course[];
+        try {
+            // Tenta selecionar tudo (incluindo duration/price)
+            const { data, error } = await supabase
+                .from('courses')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (error) throw error;
+            return data as Course[];
+        } catch (error: any) {
+            // Se for erro de cache de esquema, tenta buscar apenas as colunas antigas
+            if (error.message?.includes('schema cache') || error.code === 'PGRST204') {
+                console.warn("Schema cache error detected. Using fallback columns.");
+                const { data } = await supabase
+                    .from('courses')
+                    .select(SAFE_COURSE_COLUMNS)
+                    .order('created_at', { ascending: false });
+                return data as Course[];
+            }
+            throw error;
+        }
     },
 
     // Buscar cursos onde o aluno está inscrito
@@ -31,6 +49,18 @@ export const courseService = {
                 
             if (error) {
                 if (error.code === '42P01') return []; 
+                if (error.message?.includes('schema cache')) {
+                     // Fallback simplificado
+                     const { data: fallbackData } = await supabase
+                        .from('enrollments')
+                        .select(`
+                            *,
+                            course:courses (${SAFE_COURSE_COLUMNS}),
+                            class:classes (*)
+                        `)
+                        .eq('user_id', userId);
+                     return fallbackData || [];
+                }
                 throw error;
             }
             return data;
@@ -90,13 +120,26 @@ export const courseService = {
 
     // Buscar apenas cursos públicos (vitrine)
     async getPublicCourses() {
-        const { data, error } = await supabase
-            .from('courses')
-            .select('*')
-            .eq('is_public', true)
-            .order('created_at', { ascending: false });
-        if (error) throw error;
-        return data as Course[];
+        try {
+            const { data, error } = await supabase
+                .from('courses')
+                .select('*')
+                .eq('is_public', true)
+                .order('created_at', { ascending: false });
+            
+            if (error) throw error;
+            return data as Course[];
+        } catch (error: any) {
+            if (error.message?.includes('schema cache') || error.code === 'PGRST204') {
+                const { data } = await supabase
+                    .from('courses')
+                    .select(SAFE_COURSE_COLUMNS)
+                    .eq('is_public', true)
+                    .order('created_at', { ascending: false });
+                return data as Course[];
+            }
+            throw error;
+        }
     },
 
     async create(course: Partial<Course>) {
@@ -170,6 +213,27 @@ export const courseService = {
                 .order('name');
 
             if (error) {
+                // Fallback para courses sem colunas novas
+                if (error.message?.includes('schema cache')) {
+                     const { data: fallbackData } = await supabase
+                        .from('classes')
+                        .select(`
+                            *,
+                            course:courses(${SAFE_COURSE_COLUMNS}),
+                            my_instruction:class_instructors!inner(profile_id),
+                            instructors_details:class_instructors(
+                                profile:profiles(*)
+                            )
+                        `)
+                        .eq('my_instruction.profile_id', trainerId)
+                        .order('name');
+                     
+                     return fallbackData?.map((item: any) => ({
+                        ...item,
+                        instructors: item.instructors_details?.map((i: any) => i.profile) || []
+                    })) || [];
+                }
+                
                 if (error.code === '42P01') return [];
                 throw error;
             }
@@ -198,6 +262,25 @@ export const courseService = {
                 .order('name');
 
             if (error) {
+                // Fallback
+                if (error.message?.includes('schema cache')) {
+                    const { data: fallbackData } = await supabase
+                        .from('classes')
+                        .select(`
+                            *,
+                            course:courses(${SAFE_COURSE_COLUMNS}),
+                            instructors:class_instructors(
+                                profile:profiles(*)
+                            )
+                        `)
+                        .order('name');
+                        
+                    return fallbackData?.map((item: any) => ({
+                        ...item,
+                        instructors: item.instructors?.map((i: any) => i.profile) || []
+                    })) || [];
+                }
+
                 if (error.code === '42P01') return [];
                 throw error;
             }
@@ -229,6 +312,22 @@ export const courseService = {
                 .order('title');
 
             if (error) {
+                if (error.message?.includes('schema cache')) {
+                    const { data: fallbackData } = await supabase
+                        .from('courses')
+                        .select(`
+                            ${SAFE_COURSE_COLUMNS},
+                            classes (
+                                *,
+                                enrollments (
+                                    enrolled_at,
+                                    user:profiles (id, full_name, email, avatar_url, role)
+                                )
+                            )
+                        `)
+                        .order('title');
+                    return fallbackData as CourseHierarchy[];
+                }
                 if (error.message?.includes('classes') || error.code === '42P01') return [];
                 throw error;
             }
