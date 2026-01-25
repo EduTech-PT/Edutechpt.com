@@ -22,24 +22,25 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
     }, []);
 
     // Função auxiliar para converter imagem URL em Base64 (necessário para jsPDF)
-    const getBase64ImageFromURL = (url: string): Promise<string> => {
+    // Atualizado para retornar dimensões e evitar distorção
+    const getBase64ImageFromURL = (url: string): Promise<{ data: string; width: number; height: number }> => {
         return new Promise((resolve, reject) => {
             const img = new Image();
             img.crossOrigin = "Anonymous";
             img.src = url;
             img.onload = () => {
                 const canvas = document.createElement("canvas");
-                // Manter proporção, limitando tamanho
+                // Manter resolução original
                 canvas.width = img.width;
                 canvas.height = img.height;
                 const ctx = canvas.getContext("2d");
                 ctx?.drawImage(img, 0, 0);
                 const dataURL = canvas.toDataURL("image/png");
-                resolve(dataURL);
+                resolve({ data: dataURL, width: img.width, height: img.height });
             };
             img.onerror = () => {
                 console.warn("Não foi possível carregar a imagem do logótipo para o PDF (CORS ou URL inválido).");
-                resolve(""); // Resolve vazio para não bloquear a geração
+                resolve({ data: "", width: 0, height: 0 }); // Resolve vazio para não bloquear a geração
             };
         });
     };
@@ -69,14 +70,25 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
         doc.setDrawColor(colorPrimary);
         doc.roundedRect(15, 15, 267, 180, 2, 2, 'S'); // Borda interna fina
 
-        // 2. Logótipo (Topo)
+        // 2. Logótipo (Topo) - Ajuste para não distorcer
         let yPos = 40;
         if (logoUrl) {
             try {
-                const base64Logo = await getBase64ImageFromURL(logoUrl);
-                if (base64Logo) {
-                    // Adicionar imagem centrada (ajustar dimensões aprox 30x30mm)
-                    doc.addImage(base64Logo, 'PNG', 133.5, 20, 30, 30, '', 'FAST'); 
+                const logoData = await getBase64ImageFromURL(logoUrl);
+                if (logoData.data) {
+                    // Definir caixa máxima para o logo
+                    const maxW = 80; // Mais largo
+                    const maxH = 30;
+                    
+                    // Calcular rácio para manter proporção
+                    const ratio = Math.min(maxW / logoData.width, maxH / logoData.height);
+                    const finalW = logoData.width * ratio;
+                    const finalH = logoData.height * ratio;
+                    
+                    // Centrar
+                    const finalX = 148.5 - (finalW / 2);
+
+                    doc.addImage(logoData.data, 'PNG', finalX, 20, finalW, finalH, '', 'FAST'); 
                     yPos = 60;
                 } else {
                     // Fallback texto se imagem falhar
@@ -144,34 +156,26 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
         const dateStr = formatDate(new Date());
         doc.text(`Nível: ${course.level.toUpperCase()}  |  Data de Emissão: ${dateStr}`, 148.5, yPos + 90, { align: 'center' });
 
-        // 5. Assinatura Fictícia
-        const sigY = 170;
+        // 5. Assinatura Fictícia (Ajustada posição)
+        const sigY = 160; 
         
         // Linha da assinatura
         doc.setDrawColor('#9ca3af'); // Gray 400
-        doc.line(200, sigY, 260, sigY);
+        doc.line(110, sigY, 190, sigY); // Centrada
         
         // "Assinatura" (Fonte Script simulada com Italic)
         doc.setFont('times', 'italic');
         doc.setFontSize(24);
         doc.setTextColor(colorSecondary);
-        doc.text("EduTechPT", 230, sigY - 5, { align: 'center' }); // Assinatura "manual"
+        doc.text("EduTechPT", 150, sigY - 5, { align: 'center' }); // Assinatura "manual"
 
         // Cargo
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
         doc.setTextColor(colorText);
-        doc.text("A Direção Pedagógica", 230, sigY + 6, { align: 'center' });
+        doc.text("A Direção Pedagógica", 150, sigY + 6, { align: 'center' });
         
-        // Badge de Verificação (Canto Inferior Esquerdo)
-        doc.setDrawColor(colorPrimary);
-        doc.setFillColor(colorAccent);
-        doc.circle(40, sigY - 5, 12, 'FD');
-        doc.setFontSize(16);
-        doc.text("✔", 40, sigY, { align: 'center' });
-        doc.setFontSize(8);
-        doc.text("Certificado", 40, sigY + 10, { align: 'center' });
-        doc.text("Verificado", 40, sigY + 14, { align: 'center' });
+        // Removido o badge de "Certificado Verificado" conforme solicitado
 
         // Save
         doc.save(`certificado_${course.title.replace(/\s+/g, '_')}_${student.full_name?.split(' ')[0]}.pdf`);
