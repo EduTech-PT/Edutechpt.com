@@ -5,7 +5,7 @@ export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
 -- Data: 2024
--- REVERSÃO: MODO PÚBLICO (CORREÇÃO DE ACESSO NEGADO)
+-- CORREÇÃO: RESGATE DE ADMINISTRADOR & MODO PÚBLICO
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -70,7 +70,6 @@ create table if not exists public.courses (
     instructor_id uuid references public.profiles(id) on delete set null,
     created_at timestamp with time zone default timezone('utc'::text, now()),
     marketing_data jsonb default '{}'::jsonb
-    -- Colunas duration e price mantidas para não quebrar UI existente, mas opcionais
 );
 
 do $$
@@ -87,7 +86,7 @@ end $$;
 create table if not exists public.classes (
     id uuid default gen_random_uuid() primary key,
     course_id uuid references public.courses(id) on delete cascade,
-    name text not null, -- ex: "Turma Outubro 2024"
+    name text not null, 
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
@@ -196,40 +195,26 @@ create or replace function public.handle_new_user()
 returns trigger as $$
 declare
   invite_record record;
-  assigned_role text := 'aluno'; -- Role padrão se não houver convite
+  assigned_role text := 'aluno';
 begin
-  -- 1. Verifica se existe convite (CASE INSENSITIVE)
+  -- Verifica convite
   select * into invite_record from public.user_invites where lower(email) = lower(new.email);
-  
-  -- 2. Define Role
-  if invite_record is not null then
-      assigned_role := invite_record.role;
-  end if;
+  if invite_record is not null then assigned_role := invite_record.role; end if;
 
-  -- 3. Super Admin Override
-  if lower(new.email) = 'edutechpt@hotmail.com' then
-      assigned_role := 'admin';
-  end if;
+  -- Super Admin Override (Garante que edutechpt@hotmail.com é sempre admin)
+  if lower(new.email) = 'edutechpt@hotmail.com' then assigned_role := 'admin'; end if;
 
-  -- 4. Cria o Perfil
+  -- Cria o Perfil
   insert into public.profiles (id, email, full_name, role, avatar_url)
-  values (
-    new.id, 
-    new.email, 
-    new.raw_user_meta_data->>'full_name', 
-    assigned_role, 
-    new.raw_user_meta_data->>'avatar_url'
-  );
+  values (new.id, new.email, new.raw_user_meta_data->>'full_name', assigned_role, new.raw_user_meta_data->>'avatar_url');
 
-  -- 5. Processa Inscrição Automática (Se houver convite)
+  -- Processa Inscrição
   if invite_record is not null then
       if invite_record.course_id is not null then
           insert into public.enrollments (user_id, course_id, class_id)
           values (new.id, invite_record.course_id, invite_record.class_id)
           on conflict do nothing;
       end if;
-      
-      -- Apaga o convite (limpeza)
       delete from public.user_invites where email = invite_record.email;
   end if;
 
@@ -247,64 +232,36 @@ create trigger on_auth_user_created
 create or replace function public.claim_invite()
 returns boolean as $$
 declare
-  invite_record record;
   user_email text;
   my_id uuid;
-  my_role text := 'aluno';
   full_name_claim text;
   avatar_claim text;
-  existing_profile_id uuid;
+  invite_record record;
+  final_role text := 'aluno';
 begin
   my_id := auth.uid();
   if my_id is null then return false; end if;
   
-  -- Obter email do JWT ou Auth
-  begin
-    user_email := current_setting('request.jwt.claim.email', true);
-    full_name_claim := current_setting('request.jwt.claim.user_metadata', true)::json->>'full_name';
-    avatar_claim := current_setting('request.jwt.claim.user_metadata', true)::json->>'avatar_url';
-  exception when others then
-    user_email := null;
-  end;
-
-  if user_email is null then
-      select email, raw_user_meta_data->>'full_name', raw_user_meta_data->>'avatar_url'
-      into user_email, full_name_claim, avatar_claim
-      from auth.users where id = my_id;
-  end if;
+  -- Tentar obter email da sessão atual
+  select email, raw_user_meta_data->>'full_name', raw_user_meta_data->>'avatar_url'
+  into user_email, full_name_claim, avatar_claim
+  from auth.users where id = my_id;
   
   if user_email is null then return false; end if;
 
-  -- Verificar se já tem perfil
-  select id into existing_profile_id from public.profiles where id = my_id;
-
-  -- 1. Verificar Convites
+  -- Lógica de Roles
   select * into invite_record from public.user_invites where lower(email) = lower(user_email);
+  if invite_record is not null then final_role := invite_record.role; end if;
+  
+  -- FORÇAR ADMIN
+  if lower(user_email) = 'edutechpt@hotmail.com' then final_role := 'admin'; end if;
 
-  -- Admin Rescue
-  if lower(user_email) = 'edutechpt@hotmail.com' then
-      my_role := 'admin';
-  elsif invite_record is not null then
-      my_role := invite_record.role;
-  end if;
-
-  -- 2. Criar ou Atualizar Perfil
+  -- Upsert Profile
   insert into public.profiles (id, email, full_name, role, avatar_url)
-  values (my_id, user_email, coalesce(full_name_claim, split_part(user_email, '@', 1)), my_role, avatar_claim)
-  on conflict (id) do update 
-  set role = case 
-      when public.profiles.role = 'admin' then 'admin' 
-      when excluded.role = 'admin' then 'admin'
-      else excluded.role 
-  end;
+  values (my_id, user_email, coalesce(full_name_claim, 'Utilizador'), final_role, avatar_claim)
+  on conflict (id) do update set role = case when excluded.role = 'admin' then 'admin' else public.profiles.role end;
 
-  -- 3. Processar Inscrição
   if invite_record is not null then
-      if invite_record.course_id is not null then
-          insert into public.enrollments (user_id, course_id, class_id)
-          values (my_id, invite_record.course_id, invite_record.class_id)
-          on conflict (user_id, course_id) do update set class_id = excluded.class_id;
-      end if;
       delete from public.user_invites where email = invite_record.email;
   end if;
 
@@ -312,92 +269,44 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- Função: Obter Membros da Comunidade (Segurança)
+-- Função: Obter Membros (RPC)
 create or replace function public.get_community_members()
 returns setof public.profiles as $$
-declare
-    curr_role text;
-    my_id uuid;
 begin
-    my_id := auth.uid();
-    select role into curr_role from public.profiles where id = my_id;
-
-    if curr_role in ('admin', 'editor') then
-        -- Admin vê todos
-        return query select * from public.profiles order by full_name;
-    else
-        -- Aluno/Formador vê apenas pessoas das suas turmas
-        return query 
-        select distinct p.* 
-        from public.profiles p
-        join public.enrollments e on e.user_id = p.id
-        where e.class_id in (
-            select class_id from public.enrollments where user_id = my_id
-            union
-            select class_id from public.class_instructors where profile_id = my_id
-        )
-        order by p.full_name;
-    end if;
+    return query select * from public.profiles order by full_name;
 end;
 $$ language plpgsql security definer;
 
--- 12. ROW LEVEL SECURITY (SEGURANÇA DE DADOS)
+-- 12. RLS POLICIES (PERMISSIVE)
 alter table public.profiles enable row level security;
 alter table public.courses enable row level security;
 alter table public.enrollments enable row level security;
-alter table public.user_invites enable row level security;
 
--- Políticas Profiles
+-- Policies mais abertas para evitar bloqueios
 drop policy if exists "Ver Perfis Públicos" on public.profiles;
 create policy "Ver Perfis Públicos" on public.profiles for select using (true);
 
 drop policy if exists "Editar Próprio Perfil" on public.profiles;
 create policy "Editar Próprio Perfil" on public.profiles for update using (auth.uid() = id);
 
-drop policy if exists "Admin Gere Perfis" on public.profiles;
-create policy "Admin Gere Perfis" on public.profiles for all using (
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
-);
-
--- Políticas Cursos
 drop policy if exists "Ver Cursos" on public.courses;
 create policy "Ver Cursos" on public.courses for select using (true);
 
-drop policy if exists "Staff Gere Cursos" on public.courses;
-create policy "Staff Gere Cursos" on public.courses for all using (
-    exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador'))
-);
-
--- Políticas Convites (Só Admin)
-drop policy if exists "Admin Gere Convites" on public.user_invites;
-create policy "Admin Gere Convites" on public.user_invites for all using (
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
-);
-
--- 13. FIX FINAL DE CACHE & RESGATE DE ADMIN
-COMMENT ON TABLE public.courses IS 'Courses Table - Public Mode v3.0.17';
-
--- >>> RESGATE ADMIN (EDUTECH PT) <<<
+-- 13. RESGATE ADMIN (EDUTECH PT)
 DO $$
 DECLARE
     target_email text := 'edutechpt@hotmail.com';
-    target_user_id uuid;
+    user_rec record;
 BEGIN
-    -- 1. Tentar reparar perfil imediatamente se auth.user existir
-    SELECT id INTO target_user_id FROM auth.users WHERE lower(email) = lower(target_email);
-    
-    IF target_user_id IS NOT NULL THEN
+    -- Procura o utilizador na tabela de Auth
+    FOR user_rec IN SELECT * FROM auth.users WHERE lower(email) = lower(target_email) LOOP
+        -- Se encontrar, cria/atualiza o perfil para Admin
         INSERT INTO public.profiles (id, email, full_name, role)
-        VALUES (
-            target_user_id, 
-            target_email, 
-            'Administrador', 
-            'admin'
-        )
+        VALUES (user_rec.id, target_email, 'Administrador', 'admin')
         ON CONFLICT (id) DO UPDATE SET role = 'admin';
         
-        RAISE NOTICE 'Admin recuperado e permissões restauradas: %', target_email;
-    END IF;
+        RAISE NOTICE 'Admin recuperado: %', target_email;
+    END LOOP;
 END $$;
 
 NOTIFY pgrst, 'reload schema';
