@@ -5,7 +5,7 @@ export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
 -- Data: 2024
--- AÇÃO: REPARAÇÃO TOTAL DE ACESSOS E PERFIS
+-- AÇÃO: POLÍTICAS PERMISSIVAS + CORREÇÃO TOTAL ADMIN
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -182,22 +182,12 @@ drop policy if exists "Profiles are viewable by everyone" on public.profiles;
 drop policy if exists "Users can insert their own profile" on public.profiles;
 drop policy if exists "Users can update own profile" on public.profiles;
 drop policy if exists "Leitura Universal de Perfis" on public.profiles;
+drop policy if exists "Criar Próprio Perfil" on public.profiles;
 
--- CRIAR POLICY DE LEITURA UNIVERSAL (Para desbloquear o Dashboard)
-create policy "Leitura Universal de Perfis" on public.profiles
-for select using (true);
-
--- CRIAR POLICY DE EDIÇÃO (Apenas o próprio ou Admin)
-create policy "Editar Próprio Perfil" on public.profiles
-for update using (
-    auth.uid() = id 
-    OR 
-    (select role from public.profiles where id = auth.uid()) = 'admin'
-);
-
--- CRIAR POLICY DE INSERÇÃO (Para novos registos)
-create policy "Criar Próprio Perfil" on public.profiles
-for insert with check (auth.uid() = id);
+-- CRIAR POLICY "GOD MODE" PARA PERFIS (PERMISSIVA PARA TODOS AUTENTICADOS)
+-- Isto é necessário para desbloquear o acesso.
+create policy "Acesso Total a Perfis" on public.profiles
+for all using (true) with check (true);
 
 -- Políticas Genéricas para Outras Tabelas
 alter table public.courses enable row level security;

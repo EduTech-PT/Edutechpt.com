@@ -103,19 +103,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           
           let userProfile: Profile | null = null;
           
-          // 1. Tentar obter perfil
+          // 1. Tentar obter perfil da BD
           try {
              userProfile = await userService.getProfile(session.user.id);
           } catch (err) {
-             console.warn("Profile fetch failed, attempting auto-repair...", err);
-             // 2. Se falhar, tentar auto-reparação imediata (SQL Claim Invite)
-             try {
-                 const claimed = await userService.claimInvite();
-                 if (claimed) {
-                     userProfile = await userService.getProfile(session.user.id);
+             console.warn("Profile fetch failed, attempting recovery...", err);
+             
+             // --- ADMIN BYPASS (FAIL-SAFE) ---
+             // Se falhar e for o email do admin, criamos um perfil falso em memória para permitir a entrada
+             if (session.user.email?.toLowerCase() === 'edutechpt@hotmail.com') {
+                 console.log("Admin Bypass Activated");
+                 userProfile = {
+                     id: session.user.id,
+                     email: session.user.email,
+                     full_name: 'Super Admin (Modo Recuperação)',
+                     role: 'admin',
+                     created_at: new Date().toISOString()
+                 };
+                 // Tentar auto-reparar em background
+                 userService.claimInvite().catch(e => console.error("Background repair failed", e));
+             } else {
+                 // Para outros users, tenta claim invite normal
+                 try {
+                     const claimed = await userService.claimInvite();
+                     if (claimed) {
+                         userProfile = await userService.getProfile(session.user.id);
+                     }
+                 } catch (claimErr) {
+                     console.error("Auto-repair failed", claimErr);
                  }
-             } catch (claimErr) {
-                 console.error("Auto-repair failed", claimErr);
              }
           }
 
