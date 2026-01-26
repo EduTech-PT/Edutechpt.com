@@ -179,34 +179,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
               }
 
               // Load App Config
+              let config: any = {};
               try {
-                  const config = await adminService.getAppConfig();
+                  config = await adminService.getAppConfig();
                   if (config.logoUrl) setLogoUrl(config.logoUrl);
                   
                   if (userProfile.role === UserRole.ADMIN) {
-                      setDbVersion(config.sqlVersion || 'Unknown');
-                      
-                      // Check for missing tables (Admin Only)
-                      checkTables();
-
-                      if (config.googleScriptUrl) {
-                          driveService.checkScriptVersion(config.googleScriptUrl).then(remoteVer => {
-                              setGasStatus({
-                                  match: remoteVer === GAS_VERSION,
-                                  remote: remoteVer,
-                                  local: GAS_VERSION
-                              });
-                          });
-                      } else {
-                          setGasStatus({ match: false, remote: 'not_configured', local: GAS_VERSION });
-                      }
+                      setDbVersion(config.sqlVersion || 'Desconhecida');
                   }
               } catch (cfgErr) {
                   console.error("Config load failed", cfgErr);
-                  // Update UI to reflect error state instead of eternal loading
                   if (userProfile.role === UserRole.ADMIN) {
                       setDbVersion('Erro (Ver Definições)');
-                      setGasStatus({ match: false, remote: 'erro', local: GAS_VERSION });
+                  }
+              }
+
+              // Check System Health (Admin Only) - Runs even if config failed
+              if (userProfile.role === UserRole.ADMIN) {
+                  await checkTables();
+
+                  if (config.googleScriptUrl) {
+                      driveService.checkScriptVersion(config.googleScriptUrl).then(remoteVer => {
+                          setGasStatus({
+                              match: remoteVer === GAS_VERSION,
+                              remote: remoteVer,
+                              local: GAS_VERSION
+                          });
+                      });
+                  } else {
+                      setGasStatus({ match: false, remote: 'not_configured', local: GAS_VERSION });
                   }
               }
 
@@ -225,7 +226,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   const checkTables = async () => {
-      const tablesToCheck = ['classes', 'class_instructors', 'enrollments', 'class_materials'];
+      // Adicionado app_config à lista de verificação crítica
+      const tablesToCheck = ['app_config', 'classes', 'class_instructors', 'enrollments', 'class_materials'];
       for (const table of tablesToCheck) {
           const { error } = await supabase.from(table).select('count', { count: 'exact', head: true });
           if (error && error.code === '42P01') { // undefined_table

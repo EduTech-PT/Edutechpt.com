@@ -210,7 +210,16 @@ export const adminService = {
 
     async getAppConfig() {
         const { data, error } = await supabase.from('app_config').select('*');
-        if (error) throw error;
+        
+        if (error) {
+            // Se a tabela não existir (42P01), retornamos vazio em vez de crashar
+            // Isto permite que o Dashboard detete o problema via checkTables
+            if (error.code === '42P01') {
+                console.warn("Tabela app_config em falta.");
+                return {};
+            }
+            throw error;
+        }
         
         const config: any = {};
         if (data) {
