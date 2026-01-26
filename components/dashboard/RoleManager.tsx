@@ -140,7 +140,11 @@ export const RoleManager: React.FC = () => {
             setShowModal(false);
             loadRoles();
         } catch (err: any) {
-            alert("Erro: " + err.message);
+            if (err.message?.includes("recursion") || err.message?.includes("policy")) {
+                alert("ERRO CRÍTICO DE BASE DE DADOS:\nDetetada recursividade infinita nas permissões.\n\nSOLUÇÃO:\n1. Vá ao menu 'Definições' > 'Base de Dados'\n2. Copie e execute o script de correção (v3.0.28).");
+            } else {
+                alert("Erro: " + err.message);
+            }
         }
     };
 

@@ -5,7 +5,7 @@ export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
 -- Data: 2024
--- AÇÃO: REPARAÇÃO CRÍTICA DE VISIBILIDADE DE PERFIS (RESET POLICIES)
+-- AÇÃO: CORREÇÃO CRÍTICA DE RECURSIVIDADE (INFINITE RECURSION FIX)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -17,11 +17,13 @@ create table if not exists public.app_config (
 insert into public.app_config (key, value) values ('sql_version', '${SQL_VERSION}')
 on conflict (key) do update set value = '${SQL_VERSION}';
 
--- 2. FUNÇÃO DE SEGURANÇA (SECURITY DEFINER)
+-- 2. FUNÇÃO DE SEGURANÇA (REDEFINIDA PARA EVITAR RECURSIVIDADE)
+-- O 'security definer' é essencial aqui para que a função execute com privilégios de 
+-- sistema e não trigger as políticas RLS da tabela profiles novamente.
 create or replace function public.is_admin()
 returns boolean
 language plpgsql
-security definer
+security definer 
 set search_path = public
 as $$
 begin
@@ -65,7 +67,7 @@ insert into public.roles (name, description) values
 ('aluno', 'Acesso a cursos e materiais')
 on conflict (name) do nothing;
 
--- 5. CURSOS E TABELAS AUXILIARES (Estrutura Base)
+-- 5. CURSOS E TABELAS AUXILIARES
 create table if not exists public.courses (
     id uuid default gen_random_uuid() primary key,
     title text not null,
@@ -116,7 +118,7 @@ create table if not exists public.access_logs (
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- Tabelas de Recursos (Simplificadas para o script de setup)
+-- Tabelas de Recursos
 create table if not exists public.class_materials ( id uuid default gen_random_uuid() primary key, class_id uuid references public.classes(id) on delete cascade, title text, url text, type text, created_at timestamp default now() );
 create table if not exists public.class_announcements ( id uuid default gen_random_uuid() primary key, class_id uuid references public.classes(id) on delete cascade, title text, content text, created_by uuid references public.profiles(id), created_at timestamp default now() );
 create table if not exists public.class_assessments ( id uuid default gen_random_uuid() primary key, class_id uuid references public.classes(id) on delete cascade, title text, description text, due_date timestamp, resource_url text, resource_type text, resource_title text, quiz_data jsonb, created_at timestamp default now() );
@@ -133,26 +135,40 @@ insert into storage.buckets (id, name, public) values ('avatars', 'avatars', tru
 -- 8. SEGURANÇA E POLÍTICAS (REPARAÇÃO NUCLEAR)
 -- ==============================================================================
 
--- 8.1 PERFIS - O problema está aqui. Vamos limpar tudo e permitir acesso total autenticado.
+-- 8.1 PERFIS - LIMPEZA TOTAL DE POLÍTICAS ANTIGAS
+-- Usamos um bloco DO para remover dinamicamente todas as policies da tabela profiles
+-- Isto garante que nenhuma policy antiga (ex: "Ver Perfis Públicos") continue ativa a causar conflitos.
+DO $$ 
+DECLARE 
+  pol record; 
+BEGIN 
+  FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'profiles' 
+  LOOP 
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.profiles', pol.policyname); 
+  END LOOP; 
+END $$;
+
 alter table public.profiles enable row level security;
 
-do $$ begin
-  -- Remove TODAS as variantes de políticas antigas
-  drop policy if exists "Ver Perfis Públicos" on public.profiles;
-  drop policy if exists "Editar Próprio Perfil" on public.profiles;
-  drop policy if exists "Leitura Universal de Perfis" on public.profiles;
-  drop policy if exists "Criar Próprio Perfil" on public.profiles;
-  drop policy if exists "Acesso Total a Perfis" on public.profiles;
-  drop policy if exists "Profiles are viewable by everyone" on public.profiles;
-  drop policy if exists "Users can insert their own profile" on public.profiles;
-  drop policy if exists "Users can update own profile" on public.profiles;
-end $$;
+-- Política ÚNICA para perfis (Acesso Total para utilizadores autenticados)
+-- Usar (true) em vez de uma função previne a recursividade de leitura.
+create policy "Acesso Total Perfis v4" on public.profiles
+for all using ( auth.role() = 'authenticated' ) with check ( auth.role() = 'authenticated' );
 
--- Política ÚNICA e GLOBAL para desbloquear visualização
-create policy "Acesso Total v3" on public.profiles
-for all using (true) with check (true);
+-- 8.2 ROLES - POLÍTICAS
+alter table public.roles enable row level security;
+drop policy if exists "Admin Gere Roles" on public.roles;
+drop policy if exists "Todos Veem Roles" on public.roles;
 
--- 8.2 APP CONFIG
+-- Admins podem fazer tudo na tabela roles
+create policy "Admin Gere Roles" on public.roles
+for all using ( public.is_admin() );
+
+-- Todos podem LER os cargos (necessário para o formulário de user admin carregar a lista)
+create policy "Todos Veem Roles" on public.roles
+for select using ( true );
+
+-- 8.3 APP CONFIG
 alter table public.app_config enable row level security;
 do $$ begin
   drop policy if exists "Leitura Publica Config" on public.app_config;
@@ -161,10 +177,11 @@ end $$;
 create policy "Leitura Publica Config" on public.app_config for select using (true);
 create policy "Admin Gere Config" on public.app_config for all using ( public.is_admin() );
 
--- 8.3 CURSOS
+-- 8.4 CURSOS
 alter table public.courses enable row level security;
 drop policy if exists "Ver Cursos" on public.courses;
 create policy "Ver Cursos" on public.courses for select using (true);
+create policy "Admin Gere Cursos" on public.courses for all using ( public.is_admin() OR exists (select 1 from public.profiles where id = auth.uid() and role = 'formador') );
 
 -- 9. TRIGGERS E FUNÇÕES DE SISTEMA (REPARAÇÃO DE LOGIN)
 
@@ -186,7 +203,7 @@ begin
   values (new.id, new.email, new.raw_user_meta_data->>'full_name', assigned_role, new.raw_user_meta_data->>'avatar_url')
   on conflict (id) do update set role = assigned_role;
 
-  -- 4. Processar Matrícula Automática se houver convite
+  -- 4. Processar Matrícula Automática
   if invite_record is not null and invite_record.course_id is not null then
       insert into public.enrollments (user_id, course_id, class_id)
       values (new.id, invite_record.course_id, invite_record.class_id)
@@ -204,7 +221,7 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- RPC: Auto-reparação manual (Chamado pelo botão "Reparar Acesso")
+-- RPC: Auto-reparação manual
 create or replace function public.claim_invite()
 returns boolean as $$
 declare
@@ -213,7 +230,6 @@ declare
 begin
   my_id := auth.uid();
   if my_id is null then return false; end if;
-  
   select email into user_email from auth.users where id = my_id;
   
   if lower(user_email) = 'edutechpt@hotmail.com' then
@@ -226,7 +242,6 @@ begin
   insert into public.profiles (id, email, full_name, role)
   values (my_id, user_email, 'Utilizador', 'aluno')
   on conflict (id) do nothing;
-
   return true;
 end;
 $$ language plpgsql security definer;
@@ -249,11 +264,9 @@ BEGIN
     SELECT id INTO target_user_id FROM auth.users WHERE lower(email) = lower(target_email);
 
     IF target_user_id IS NOT NULL THEN
-        -- Garante que o admin tem perfil e cargo correto
         INSERT INTO public.profiles (id, email, full_name, role)
         VALUES (target_user_id, target_email, 'Administrador', 'admin')
         ON CONFLICT (id) DO UPDATE SET role = 'admin';
-        
         RAISE NOTICE 'SUCESSO: Permissões de % restauradas.', target_email;
     END IF;
 END $$;
