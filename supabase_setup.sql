@@ -1,21 +1,37 @@
 
 -- ==============================================================================
--- EDUTECH PT - SCHEMA COMPLETO (v3.0.23)
+-- EDUTECH PT - SCHEMA COMPLETO (v3.0.24)
 -- Data: 2024
--- AÇÃO: DESBLOQUEIO DE LEITURA DE CONFIGURAÇÃO (APP_CONFIG)
+-- AÇÃO: CORREÇÃO DE RECURSIVIDADE INFINITA (RLS) USANDO SECURITY DEFINER
 -- ==============================================================================
 
--- 1. CONFIGURAÇÃO E VERSÃO
+-- 1. FUNÇÃO DE SEGURANÇA (SECURITY DEFINER)
+-- Esta função executa com permissões de superadmin, ignorando RLS, 
+-- para verificar o cargo sem criar loops infinitos.
+create or replace function public.is_admin()
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role = 'admin'
+  );
+end;
+$$;
+
+-- 2. CONFIGURAÇÃO E VERSÃO
 create table if not exists public.app_config (
     key text primary key,
     value text
 );
 
--- Inserir versão sem falhar se já existir
-insert into public.app_config (key, value) values ('sql_version', 'v3.0.23')
-on conflict (key) do update set value = 'v3.0.23';
+insert into public.app_config (key, value) values ('sql_version', 'v3.0.24')
+on conflict (key) do update set value = 'v3.0.24';
 
--- 2. PERFIS E UTILIZADORES
+-- 3. PERFIS E UTILIZADORES
 create table if not exists public.profiles (
     id uuid references auth.users on delete cascade primary key,
     email text unique not null,
@@ -33,7 +49,7 @@ create table if not exists public.profiles (
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 3. CARGOS E PERMISSÕES
+-- 4. CARGOS E PERMISSÕES
 create table if not exists public.roles (
     name text primary key,
     description text,
@@ -48,7 +64,7 @@ insert into public.roles (name, description) values
 ('aluno', 'Acesso a cursos e materiais')
 on conflict (name) do nothing;
 
--- 4. CURSOS
+-- 5. CURSOS, TURMAS E MATERIAIS
 create table if not exists public.courses (
     id uuid default gen_random_uuid() primary key,
     title text not null,
@@ -63,7 +79,6 @@ create table if not exists public.courses (
     price text
 );
 
--- 5. TURMAS E INSCRIÇÕES
 create table if not exists public.classes (
     id uuid default gen_random_uuid() primary key,
     course_id uuid references public.courses(id) on delete cascade,
@@ -85,7 +100,6 @@ create table if not exists public.enrollments (
     primary key (user_id, course_id)
 );
 
--- 6. MATERIAIS
 create table if not exists public.class_materials (
     id uuid default gen_random_uuid() primary key,
     class_id uuid references public.classes(id) on delete cascade,
@@ -145,7 +159,7 @@ create table if not exists public.student_grades (
     unique(assessment_id, student_id)
 );
 
--- 8. ACESSOS E LOGS
+-- 6. ACESSOS E LOGS
 create table if not exists public.user_invites (
     email text primary key,
     role text not null,
@@ -161,32 +175,34 @@ create table if not exists public.access_logs (
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 9. STORAGE
+-- 7. STORAGE
 insert into storage.buckets (id, name, public) values ('course-images', 'course-images', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('class-files', 'class-files', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 
 -- ==============================================================================
--- 10. SEGURANÇA E POLÍTICAS
+-- 8. SEGURANÇA E POLÍTICAS (REPARAÇÃO DE RLS)
 -- ==============================================================================
 
--- 10.1 PERFIS
+-- 8.1 PERFIS (Limpar tudo e permitir leitura global)
 alter table public.profiles enable row level security;
 
--- Limpeza robusta de policies antigas
+-- Drop de TODAS as políticas possíveis para evitar conflitos/recursividade
 do $$ begin
   drop policy if exists "Ver Perfis Públicos" on public.profiles;
   drop policy if exists "Editar Próprio Perfil" on public.profiles;
   drop policy if exists "Leitura Universal de Perfis" on public.profiles;
   drop policy if exists "Criar Próprio Perfil" on public.profiles;
   drop policy if exists "Acesso Total a Perfis" on public.profiles;
+  drop policy if exists "Profiles are viewable by everyone" on public.profiles;
+  drop policy if exists "Users can insert their own profile" on public.profiles;
+  drop policy if exists "Users can update own profile" on public.profiles;
 end $$;
 
--- Policy Global de Acesso a Perfis (Necessário para a app funcionar)
 create policy "Acesso Total a Perfis" on public.profiles
 for all using (true) with check (true);
 
--- 10.2 APP CONFIG (CORREÇÃO CRÍTICA PARA VERSÃO DB)
+-- 8.2 APP CONFIG (Usa a função is_admin para evitar loop)
 alter table public.app_config enable row level security;
 
 do $$ begin
@@ -197,17 +213,16 @@ end $$;
 create policy "Leitura Publica Config" on public.app_config
 for select using (true);
 
+-- AQUI ESTÁ A CORREÇÃO: Usar a função security definer
 create policy "Admin Gere Config" on public.app_config
-for all using (
-    (select role from public.profiles where id = auth.uid()) = 'admin'
-);
+for all using ( public.is_admin() );
 
--- 10.3 CURSOS
+-- 8.3 CURSOS
 alter table public.courses enable row level security;
 drop policy if exists "Ver Cursos" on public.courses;
 create policy "Ver Cursos" on public.courses for select using (true);
 
--- 11. TRIGGERS E FUNÇÕES
+-- 9. TRIGGERS E FUNÇÕES DE SISTEMA
 
 create or replace function public.handle_new_user() 
 returns trigger as $$
@@ -263,7 +278,6 @@ begin
       return true;
   end if;
 
-  -- Para users normais, cria perfil se não existir
   insert into public.profiles (id, email, full_name, role)
   values (my_id, user_email, 'Utilizador', 'aluno')
   on conflict (id) do nothing;
@@ -280,7 +294,7 @@ end;
 $$ language plpgsql security definer;
 
 -- ==============================================================================
--- 12. SCRIPT DE RESGATE IMEDIATO (NUCLEAR OPTION)
+-- 10. SCRIPT DE RESGATE IMEDIATO (NUCLEAR OPTION)
 -- ==============================================================================
 DO $$
 DECLARE
