@@ -192,7 +192,11 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                         <div className="flex-1">
                                             <div className="font-bold text-indigo-900">{item.title}</div>
                                             {activeModule === 'announcements' && <div className="text-xs opacity-60" dangerouslySetInnerHTML={{ __html: item.content?.substring(0,50) }} />}
-                                            {activeModule === 'assessments' && <div className="text-xs font-bold text-indigo-500">Entrega: {formatShortDate(item.due_date)}</div>}
+                                            {activeModule === 'assessments' && (
+                                                <div className="text-xs font-bold text-indigo-500">
+                                                    Entrega: {item.due_date ? formatShortDate(item.due_date) : 'Sem data'}
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="flex gap-2">
                                             <button onClick={() => { setEditingItem(item); setShowForm(true); }} className="p-1 text-indigo-600 hover:text-indigo-800">✎</button>
