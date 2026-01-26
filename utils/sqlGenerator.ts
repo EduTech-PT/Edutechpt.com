@@ -5,12 +5,12 @@ export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
 -- Data: 2024
--- AÇÃO: CORREÇÃO DE RECURSIVIDADE INFINITA (RLS) USANDO SECURITY DEFINER
+-- AÇÃO: CONFIGURAÇÃO INICIAL ROBUSTA (SECURITY DEFINER)
 -- ==============================================================================
 
 -- 1. FUNÇÃO DE SEGURANÇA (SECURITY DEFINER)
--- Esta função executa com permissões de superadmin, ignorando RLS, 
--- para verificar o cargo sem criar loops infinitos.
+-- CRÍTICO: Esta função deve ser criada ANTES das policies que a utilizam.
+-- Ela permite verificar se é admin sem causar loops infinitos de permissões.
 create or replace function public.is_admin()
 returns boolean
 language plpgsql
@@ -187,10 +187,9 @@ insert into storage.buckets (id, name, public) values ('avatars', 'avatars', tru
 -- 8. SEGURANÇA E POLÍTICAS (REPARAÇÃO DE RLS)
 -- ==============================================================================
 
--- 8.1 PERFIS (Limpar tudo e permitir leitura global)
+-- 8.1 PERFIS
 alter table public.profiles enable row level security;
 
--- Drop de TODAS as políticas possíveis para evitar conflitos/recursividade
 do $$ begin
   drop policy if exists "Ver Perfis Públicos" on public.profiles;
   drop policy if exists "Editar Próprio Perfil" on public.profiles;
@@ -213,10 +212,11 @@ do $$ begin
   drop policy if exists "Admin Gere Config" on public.app_config;
 end $$;
 
+-- Permitir leitura pública para que a app consiga ver a versão DB sem estar logada
 create policy "Leitura Publica Config" on public.app_config
 for select using (true);
 
--- AQUI ESTÁ A CORREÇÃO: Usar a função security definer
+-- Permitir escrita apenas a admins (usando a função segura)
 create policy "Admin Gere Config" on public.app_config
 for all using ( public.is_admin() );
 
