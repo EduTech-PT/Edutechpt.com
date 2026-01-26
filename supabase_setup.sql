@@ -1,6 +1,6 @@
 
 -- ==============================================================================
--- EDUTECH PT - SCHEMA COMPLETO (v3.0.10)
+-- EDUTECH PT - SCHEMA COMPLETO (v3.0.11)
 -- Data: 2024
 -- ==============================================================================
 
@@ -10,8 +10,8 @@ create table if not exists public.app_config (
     value text
 );
 
-insert into public.app_config (key, value) values ('sql_version', 'v3.0.10')
-on conflict (key) do update set value = 'v3.0.10';
+insert into public.app_config (key, value) values ('sql_version', 'v3.0.11')
+on conflict (key) do update set value = 'v3.0.11';
 
 -- 2. PERFIS E UTILIZADORES
 create table if not exists public.profiles (
@@ -317,23 +317,48 @@ alter table public.enrollments enable row level security;
 alter table public.user_invites enable row level security;
 
 -- Políticas Profiles
+drop policy if exists "Ver Perfis Públicos" on public.profiles;
 create policy "Ver Perfis Públicos" on public.profiles for select using (true);
+
+drop policy if exists "Editar Próprio Perfil" on public.profiles;
 create policy "Editar Próprio Perfil" on public.profiles for update using (auth.uid() = id);
+
+drop policy if exists "Admin Gere Perfis" on public.profiles;
 create policy "Admin Gere Perfis" on public.profiles for all using (
     exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
 );
 
 -- Políticas Cursos
+drop policy if exists "Ver Cursos" on public.courses;
 create policy "Ver Cursos" on public.courses for select using (true);
+
+drop policy if exists "Staff Gere Cursos" on public.courses;
 create policy "Staff Gere Cursos" on public.courses for all using (
     exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'editor', 'formador'))
 );
 
 -- Políticas Convites (Só Admin)
+drop policy if exists "Admin Gere Convites" on public.user_invites;
 create policy "Admin Gere Convites" on public.user_invites for all using (
     exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
 );
 
--- 13. FIX FINAL DE CACHE
-COMMENT ON TABLE public.courses IS 'Courses Table - Force Cache Refresh v3.0.10';
+-- 13. FIX FINAL DE CACHE & RESGATE DE ADMIN
+COMMENT ON TABLE public.courses IS 'Courses Table - Force Cache Refresh v3.0.11';
+
+-- >>> RESGATE ADMIN <<<
+INSERT INTO public.user_invites (email, role) VALUES ('edutechpt@hotmail.com', 'admin') ON CONFLICT (email) DO NOTHING;
+DO $$
+DECLARE
+    target_email text := 'edutechpt@hotmail.com';
+    target_user_id uuid;
+BEGIN
+    SELECT id INTO target_user_id FROM auth.users WHERE email = target_email;
+    IF target_user_id IS NOT NULL THEN
+        INSERT INTO public.profiles (id, email, full_name, role)
+        VALUES (target_user_id, target_email, 'Admin System', 'admin')
+        ON CONFLICT (id) DO UPDATE SET role = 'admin';
+    END IF;
+END $$;
+
 NOTIFY pgrst, 'reload schema';

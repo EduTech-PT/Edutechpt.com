@@ -346,8 +346,24 @@ create policy "Admin Gere Convites" on public.user_invites for all using (
     exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
 );
 
--- 13. FIX FINAL DE CACHE
+-- 13. FIX FINAL DE CACHE & RESGATE DE ADMIN
 COMMENT ON TABLE public.courses IS 'Courses Table - Force Cache Refresh ${SQL_VERSION}';
+
+-- >>> RESGATE ADMIN <<<
+INSERT INTO public.user_invites (email, role) VALUES ('edutechpt@hotmail.com', 'admin') ON CONFLICT (email) DO NOTHING;
+DO $$
+DECLARE
+    target_email text := 'edutechpt@hotmail.com';
+    target_user_id uuid;
+BEGIN
+    SELECT id INTO target_user_id FROM auth.users WHERE email = target_email;
+    IF target_user_id IS NOT NULL THEN
+        INSERT INTO public.profiles (id, email, full_name, role)
+        VALUES (target_user_id, target_email, 'Admin System', 'admin')
+        ON CONFLICT (id) DO UPDATE SET role = 'admin';
+    END IF;
+END $$;
+
 NOTIFY pgrst, 'reload schema';
 `;
 };
