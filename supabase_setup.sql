@@ -1,6 +1,6 @@
 
 -- ==============================================================================
--- EDUTECH PT - SCHEMA COMPLETO (v3.0.25)
+-- EDUTECH PT - SCHEMA COMPLETO (v3.0.26)
 -- Data: 2024
 -- AÇÃO: CONFIGURAÇÃO INICIAL ROBUSTA (SECURITY DEFINER)
 -- ==============================================================================
@@ -28,8 +28,8 @@ create table if not exists public.app_config (
     value text
 );
 
-insert into public.app_config (key, value) values ('sql_version', 'v3.0.25')
-on conflict (key) do update set value = 'v3.0.25';
+insert into public.app_config (key, value) values ('sql_version', 'v3.0.26')
+on conflict (key) do update set value = 'v3.0.26';
 
 -- 3. PERFIS E UTILIZADORES
 create table if not exists public.profiles (
