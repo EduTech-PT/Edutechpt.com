@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Profile, UserRole, SupabaseSession, UserPermissions, OnlineUser } from '../types';
 import { Sidebar } from '../components/Sidebar';
@@ -244,6 +245,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       onLogout();
   };
 
+  const handleManualRecovery = async () => {
+      setLoading(true);
+      try {
+          const success = await userService.claimInvite();
+          if (success) {
+              alert("Conta recuperada com sucesso! A página será recarregada.");
+              window.location.reload();
+          } else {
+              alert("Não foi possível recuperar automaticamente. Por favor, contacte o suporte.");
+          }
+      } catch (e: any) {
+          alert("Erro na recuperação: " + e.message);
+      } finally {
+          setLoading(false);
+      }
+  };
+
   // Clock
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -326,7 +344,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
               </p>
               
               <div className="space-y-3">
-                  <button onClick={onLogout} className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-md">
+                  <button 
+                      onClick={handleManualRecovery}
+                      className="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-md animate-pulse"
+                  >
+                      Verificar Permissões (Auto-Fix)
+                  </button>
+                  <button onClick={onLogout} className="w-full px-6 py-3 bg-white text-indigo-600 border border-indigo-200 rounded-lg font-bold hover:bg-indigo-50">
                       Sair / Tentar Outra Conta
                   </button>
               </div>

@@ -196,26 +196,24 @@ insert into storage.buckets (id, name, public) values ('avatars', 'avatars', tru
 
 -- 11. FUNÇÕES E TRIGGERS (AUTOMATIZAÇÃO)
 
--- Trigger: Criar Perfil ao Registar Auth
+-- Trigger: Criar Perfil ao Registar Auth (PERMISSIVO v3.0.13)
 create or replace function public.handle_new_user() 
 returns trigger as $$
 declare
   invite_record record;
-  assigned_role text := 'aluno'; -- Default fallback
+  assigned_role text := 'aluno'; -- Default role for open registration
 begin
-  -- 1. Verifica se existe convite (CASE INSENSITIVE para evitar erros)
+  -- 1. Verifica se existe convite (CASE INSENSITIVE)
   select * into invite_record from public.user_invites where lower(email) = lower(new.email);
   
   if invite_record is not null then
       assigned_role := invite_record.role;
   else
-      -- Se não houver convite, verifica se é o primeiro utilizador (Admin)
+      -- Se não houver convite, verifica se é o PRIMEIRO utilizador (Admin)
       if not exists (select 1 from public.profiles) then
           assigned_role := 'admin';
-      else
-          -- BLOQUEIO DE SEGURANÇA
-          raise exception 'ACESSO NEGADO: Email não convidado. Contacte o administrador.';
       end if;
+      -- REMOVIDO: Bloqueio de Segurança (raise exception). Agora o registo é livre.
   end if;
 
   -- 2. Cria o Perfil
@@ -250,7 +248,7 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- Função: Reclamar Convite (Para users criados manualmente antes do convite)
+-- Função: Reclamar Convite (Melhorada para detetar sessão)
 create or replace function public.claim_invite()
 returns boolean as $$
 declare
@@ -259,7 +257,18 @@ declare
   my_id uuid;
 begin
   my_id := auth.uid();
-  select email into user_email from public.profiles where id = my_id;
+  
+  -- Tentar obter email do token JWT (Sessão Ativa)
+  begin
+    user_email := current_setting('request.jwt.claim.email', true);
+  exception when others then
+    user_email := null;
+  end;
+
+  -- Fallback: Tentar ler do perfil (caso exista mas esteja com role errada)
+  if user_email is null then
+      select email into user_email from public.profiles where id = my_id;
+  end if;
   
   if user_email is null then return false; end if;
 
