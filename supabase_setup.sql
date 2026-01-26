@@ -1,7 +1,8 @@
 
 -- ==============================================================================
--- EDUTECH PT - SCHEMA COMPLETO (v3.0.16)
+-- EDUTECH PT - SCHEMA COMPLETO (v3.0.17)
 -- Data: 2024
+-- REVERSÃO: MODO PÚBLICO (CORREÇÃO DE ACESSO NEGADO)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -10,8 +11,8 @@ create table if not exists public.app_config (
     value text
 );
 
-insert into public.app_config (key, value) values ('sql_version', 'v3.0.16')
-on conflict (key) do update set value = 'v3.0.16';
+insert into public.app_config (key, value) values ('sql_version', 'v3.0.17')
+on conflict (key) do update set value = 'v3.0.17';
 
 -- 2. PERFIS E UTILIZADORES
 create table if not exists public.profiles (
@@ -66,22 +67,16 @@ create table if not exists public.courses (
     instructor_id uuid references public.profiles(id) on delete set null,
     created_at timestamp with time zone default timezone('utc'::text, now()),
     marketing_data jsonb default '{}'::jsonb
-    -- Colunas duration e price adicionadas via alter table abaixo para garantir cache refresh
+    -- Colunas duration e price mantidas para não quebrar UI existente, mas opcionais
 );
 
--- CORREÇÃO CRÍTICA DE CACHE: Adicionar colunas 'duration' e 'price' explicitamente
 do $$
 begin
     if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'duration') then
         alter table public.courses add column duration text;
-    else
-        comment on column public.courses.duration is 'Duration Field Refresh';
     end if;
-
     if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'price') then
         alter table public.courses add column price text;
-    else
-        comment on column public.courses.price is 'Price Field Refresh';
     end if;
 end $$;
 
@@ -191,55 +186,47 @@ insert into storage.buckets (id, name, public) values ('course-images', 'course-
 insert into storage.buckets (id, name, public) values ('class-files', 'class-files', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 
--- 11. FUNÇÕES E TRIGGERS (AUTOMATIZAÇÃO)
+-- 11. FUNÇÕES E TRIGGERS (AUTOMATIZAÇÃO REVERTIDA PARA PÚBLICO)
 
--- Trigger: Criar Perfil ao Registar Auth (STRICT MODE v3.0.16)
--- CONVITE PERMANENTE PARA ADMIN
+-- Trigger: Criar Perfil ao Registar Auth (MODO PERMISSIVO)
 create or replace function public.handle_new_user() 
 returns trigger as $$
 declare
   invite_record record;
+  assigned_role text := 'aluno'; -- Role padrão se não houver convite
 begin
   -- 1. Verifica se existe convite (CASE INSENSITIVE)
   select * into invite_record from public.user_invites where lower(email) = lower(new.email);
   
-  -- 2. Verifica se é o PRIMEIRO utilizador (Admin Bootstrap)
-  if invite_record is null and not exists (select 1 from public.profiles) then
-      insert into public.profiles (id, email, full_name, role, avatar_url)
-      values (
-        new.id, 
-        new.email, 
-        new.raw_user_meta_data->>'full_name', 
-        'admin', 
-        new.raw_user_meta_data->>'avatar_url'
-      );
-      return new;
+  -- 2. Define Role
+  if invite_record is not null then
+      assigned_role := invite_record.role;
   end if;
 
-  -- 3. BLOQUEIO DE SEGURANÇA SE NÃO HOUVER CONVITE
-  if invite_record is null then
-      raise exception 'REGISTO BLOQUEADO: Este sistema é exclusivo para convidados. Contacte o administrador (edutechpt@hotmail.com).';
+  -- 3. Super Admin Override
+  if lower(new.email) = 'edutechpt@hotmail.com' then
+      assigned_role := 'admin';
   end if;
 
-  -- 4. Cria o Perfil Autorizado
+  -- 4. Cria o Perfil
   insert into public.profiles (id, email, full_name, role, avatar_url)
   values (
     new.id, 
     new.email, 
     new.raw_user_meta_data->>'full_name', 
-    invite_record.role, 
+    assigned_role, 
     new.raw_user_meta_data->>'avatar_url'
   );
 
-  -- 5. Processa Inscrição Automática
-  if invite_record.course_id is not null then
-      insert into public.enrollments (user_id, course_id, class_id)
-      values (new.id, invite_record.course_id, invite_record.class_id)
-      on conflict do nothing;
-  end if;
-  
-  -- 6. Apaga o convite usado (EXCETO SE FOR O SUPER ADMIN)
-  if lower(invite_record.email) != 'edutechpt@hotmail.com' then
+  -- 5. Processa Inscrição Automática (Se houver convite)
+  if invite_record is not null then
+      if invite_record.course_id is not null then
+          insert into public.enrollments (user_id, course_id, class_id)
+          values (new.id, invite_record.course_id, invite_record.class_id)
+          on conflict do nothing;
+      end if;
+      
+      -- Apaga o convite (limpeza)
       delete from public.user_invites where email = invite_record.email;
   end if;
 
@@ -253,22 +240,22 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- Função: Reclamar Convite (STRICT MODE v3.0.16)
--- CONVITE PERMANENTE PARA ADMIN
+-- Função: Reclamar Convite / Reparar Perfil
 create or replace function public.claim_invite()
 returns boolean as $$
 declare
   invite_record record;
   user_email text;
   my_id uuid;
-  my_role text;
+  my_role text := 'aluno';
   full_name_claim text;
   avatar_claim text;
+  existing_profile_id uuid;
 begin
   my_id := auth.uid();
   if my_id is null then return false; end if;
   
-  -- Tentar obter dados
+  -- Obter email do JWT ou Auth
   begin
     user_email := current_setting('request.jwt.claim.email', true);
     full_name_claim := current_setting('request.jwt.claim.user_metadata', true)::json->>'full_name';
@@ -285,6 +272,9 @@ begin
   
   if user_email is null then return false; end if;
 
+  -- Verificar se já tem perfil
+  select id into existing_profile_id from public.profiles where id = my_id;
+
   -- 1. Verificar Convites
   select * into invite_record from public.user_invites where lower(email) = lower(user_email);
 
@@ -293,16 +283,17 @@ begin
       my_role := 'admin';
   elsif invite_record is not null then
       my_role := invite_record.role;
-  else
-      -- SEM CONVITE E NÃO É ADMIN -> FALHA
-      return false; 
   end if;
 
   -- 2. Criar ou Atualizar Perfil
   insert into public.profiles (id, email, full_name, role, avatar_url)
   values (my_id, user_email, coalesce(full_name_claim, split_part(user_email, '@', 1)), my_role, avatar_claim)
   on conflict (id) do update 
-  set role = case when public.profiles.role = 'admin' then 'admin' else excluded.role end;
+  set role = case 
+      when public.profiles.role = 'admin' then 'admin' 
+      when excluded.role = 'admin' then 'admin'
+      else excluded.role 
+  end;
 
   -- 3. Processar Inscrição
   if invite_record is not null then
@@ -311,11 +302,7 @@ begin
           values (my_id, invite_record.course_id, invite_record.class_id)
           on conflict (user_id, course_id) do update set class_id = excluded.class_id;
       end if;
-      
-      -- NÃO APAGAR CONVITE DO ADMIN
-      if lower(invite_record.email) != 'edutechpt@hotmail.com' then
-          delete from public.user_invites where email = invite_record.email;
-      end if;
+      delete from public.user_invites where email = invite_record.email;
   end if;
 
   return true;
@@ -385,7 +372,7 @@ create policy "Admin Gere Convites" on public.user_invites for all using (
 );
 
 -- 13. FIX FINAL DE CACHE & RESGATE DE ADMIN
-COMMENT ON TABLE public.courses IS 'Courses Table - Force Cache Refresh v3.0.16';
+COMMENT ON TABLE public.courses IS 'Courses Table - Public Mode v3.0.17';
 
 -- >>> RESGATE ADMIN (EDUTECH PT) <<<
 DO $$
@@ -393,11 +380,7 @@ DECLARE
     target_email text := 'edutechpt@hotmail.com';
     target_user_id uuid;
 BEGIN
-    -- 1. Garantir convite de Admin (PERMANENTE)
-    INSERT INTO public.user_invites (email, role) VALUES (target_email, 'admin')
-    ON CONFLICT (email) DO UPDATE SET role = 'admin';
-
-    -- 2. Tentar reparar perfil imediatamente se auth.user existir
+    -- 1. Tentar reparar perfil imediatamente se auth.user existir
     SELECT id INTO target_user_id FROM auth.users WHERE lower(email) = lower(target_email);
     
     IF target_user_id IS NOT NULL THEN
@@ -408,9 +391,9 @@ BEGIN
             'Administrador', 
             'admin'
         )
-        ON CONFLICT (id) DO UPDATE SET role = 'admin', email = target_email;
+        ON CONFLICT (id) DO UPDATE SET role = 'admin';
         
-        RAISE NOTICE 'Admin recuperado: %', target_email;
+        RAISE NOTICE 'Admin recuperado e permissões restauradas: %', target_email;
     END IF;
 END $$;
 
