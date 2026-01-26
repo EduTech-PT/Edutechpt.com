@@ -1,6 +1,6 @@
 
 -- ==============================================================================
--- EDUTECH PT - SCHEMA COMPLETO (v3.0.11)
+-- EDUTECH PT - SCHEMA COMPLETO (v3.0.12)
 -- Data: 2024
 -- ==============================================================================
 
@@ -10,8 +10,8 @@ create table if not exists public.app_config (
     value text
 );
 
-insert into public.app_config (key, value) values ('sql_version', 'v3.0.11')
-on conflict (key) do update set value = 'v3.0.11';
+insert into public.app_config (key, value) values ('sql_version', 'v3.0.12')
+on conflict (key) do update set value = 'v3.0.12';
 
 -- 2. PERFIS E UTILIZADORES
 create table if not exists public.profiles (
@@ -200,8 +200,8 @@ declare
   invite_record record;
   assigned_role text := 'aluno'; -- Default fallback
 begin
-  -- 1. Verifica se existe convite
-  select * into invite_record from public.user_invites where email = new.email;
+  -- 1. Verifica se existe convite (CASE INSENSITIVE para evitar erros)
+  select * into invite_record from public.user_invites where lower(email) = lower(new.email);
   
   if invite_record is not null then
       assigned_role := invite_record.role;
@@ -210,9 +210,8 @@ begin
       if not exists (select 1 from public.profiles) then
           assigned_role := 'admin';
       else
-          -- BLOQUEIO DE SEGURANÇA: Se não houver convite e não for o primeiro, nega acesso.
-          -- Comentar esta linha se quiser registo livre.
-          raise exception 'ACESSO NEGADO: Email não convidado.';
+          -- BLOQUEIO DE SEGURANÇA
+          raise exception 'ACESSO NEGADO: Email não convidado. Contacte o administrador.';
       end if;
   end if;
 
@@ -227,13 +226,15 @@ begin
   );
 
   -- 3. Processa Inscrição Automática (Se vier do convite)
-  if invite_record is not null and invite_record.course_id is not null then
-      insert into public.enrollments (user_id, course_id, class_id)
-      values (new.id, invite_record.course_id, invite_record.class_id)
-      on conflict do nothing;
+  if invite_record is not null then
+      if invite_record.course_id is not null then
+          insert into public.enrollments (user_id, course_id, class_id)
+          values (new.id, invite_record.course_id, invite_record.class_id)
+          on conflict do nothing;
+      end if;
       
       -- Apaga o convite usado
-      delete from public.user_invites where email = new.email;
+      delete from public.user_invites where email = invite_record.email;
   end if;
 
   return new;
@@ -259,7 +260,7 @@ begin
   
   if user_email is null then return false; end if;
 
-  select * into invite_record from public.user_invites where email = user_email;
+  select * into invite_record from public.user_invites where lower(email) = lower(user_email);
 
   if invite_record is not null then
       -- Atualizar Role
@@ -273,7 +274,7 @@ begin
       end if;
 
       -- Apagar convite
-      delete from public.user_invites where email = user_email;
+      delete from public.user_invites where email = invite_record.email;
       return true;
   end if;
 
@@ -344,7 +345,7 @@ create policy "Admin Gere Convites" on public.user_invites for all using (
 );
 
 -- 13. FIX FINAL DE CACHE & RESGATE DE ADMIN
-COMMENT ON TABLE public.courses IS 'Courses Table - Force Cache Refresh v3.0.11';
+COMMENT ON TABLE public.courses IS 'Courses Table - Force Cache Refresh v3.0.12';
 
 -- >>> RESGATE ADMIN (EDUTECH PT) <<<
 DO $$
@@ -357,7 +358,7 @@ BEGIN
     ON CONFLICT (email) DO UPDATE SET role = 'admin';
 
     -- 2. Se o user já existir na Auth, forçar criação do Perfil
-    SELECT id INTO target_user_id FROM auth.users WHERE email = target_email;
+    SELECT id INTO target_user_id FROM auth.users WHERE lower(email) = lower(target_email);
     
     IF target_user_id IS NOT NULL THEN
         INSERT INTO public.profiles (id, email, full_name, role)
@@ -367,7 +368,7 @@ BEGIN
             'Administrador', 
             'admin'
         )
-        ON CONFLICT (id) DO UPDATE SET role = 'admin';
+        ON CONFLICT (id) DO UPDATE SET role = 'admin', email = target_email;
         
         RAISE NOTICE 'Admin recuperado: %', target_email;
     END IF;
