@@ -5,6 +5,7 @@ import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
 import { CourseList } from './courses/CourseList';
 import { CourseForm } from './courses/CourseForm';
+import { CourseHeader } from './courses/CourseHeader';
 
 interface Props {
   profile: Profile;
@@ -18,6 +19,7 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [initialData, setInitialData] = useState<Partial<Course>>({});
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     loadCourses();
@@ -73,20 +75,29 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
       } catch (err: any) { alert(err.message); }
   };
 
+  // Filter Logic
+  const filteredCourses = courses.filter(c => 
+      c.title.toLowerCase().includes(search.toLowerCase()) || 
+      (c.description && c.description.toLowerCase().includes(search.toLowerCase()))
+  );
+
   return (
     <div className="space-y-6 animate-in slide-in-from-right duration-300">
-         <div className="flex justify-between items-center">
-             <h2 className="text-2xl font-bold text-indigo-900">Gestão de Cursos</h2>
-             {!showForm && (
-                 <button onClick={handleCreate} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow-md hover:bg-indigo-700">
-                     + Novo Curso
-                 </button>
-             )}
-         </div>
+         
+         {!showForm && (
+             <CourseHeader 
+                search={search} 
+                onSearchChange={setSearch} 
+                onCreate={handleCreate} 
+             />
+         )}
          
          {showForm ? (
              <GlassCard>
-                 <h3 className="font-bold text-lg text-indigo-900 mb-4">{isEditing ? 'Editar Curso' : 'Criar Novo Curso'}</h3>
+                 <div className="flex justify-between items-center mb-4 border-b border-indigo-100 pb-2">
+                    <h3 className="font-bold text-xl text-indigo-900">{isEditing ? 'Editar Curso' : 'Criar Novo Curso'}</h3>
+                    <button onClick={closeForm} className="text-indigo-400 hover:text-indigo-800">✕</button>
+                 </div>
                  <CourseForm 
                     initialData={initialData} 
                     isEditing={!!isEditing}
@@ -96,12 +107,21 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
              </GlassCard>
          ) : (
              <>
-                {loading ? <p className="text-center text-indigo-500">A carregar...</p> : (
-                    <CourseList 
-                        courses={courses} 
-                        onEdit={handleEdit} 
-                        onDelete={handleDelete} 
-                    />
+                {loading ? <p className="text-center text-indigo-500 py-12">A carregar...</p> : (
+                    <>
+                        {filteredCourses.length === 0 ? (
+                            <GlassCard className="text-center py-12 opacity-60">
+                                <span className="text-4xl mb-2">🔍</span>
+                                <p className="font-bold text-indigo-900">Nenhum curso encontrado.</p>
+                            </GlassCard>
+                        ) : (
+                            <CourseList 
+                                courses={filteredCourses} 
+                                onEdit={handleEdit} 
+                                onDelete={handleDelete} 
+                            />
+                        )}
+                    </>
                 )}
              </>
          )}
