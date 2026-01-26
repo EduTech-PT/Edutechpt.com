@@ -40,26 +40,35 @@ export const driveService = {
 
           if (!url) return 'not_configured';
 
-          // Usa text/plain também aqui para garantir consistência
-          const response = await fetch(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'text/plain' },
-              body: JSON.stringify({ action: 'check_health' })
-          });
+          // Adicionado Timeout de 5s para evitar hanging
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-          const contentType = response.headers.get("content-type");
-          if (contentType && contentType.includes("text/html")) {
-              return 'error_html'; // Script não publicado como "Qualquer pessoa" ou erro do Google
-          }
+          try {
+              const response = await fetch(url, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'text/plain' },
+                  body: JSON.stringify({ action: 'check_health' }),
+                  signal: controller.signal
+              });
+              clearTimeout(timeoutId);
 
-          const result = await response.json();
-          
-          // Se o script for antigo, ele devolve {} (sem version) ou erro
-          if (result.status === 'success' && result.version) {
-              return result.version;
+              const contentType = response.headers.get("content-type");
+              if (contentType && contentType.includes("text/html")) {
+                  return 'error_html'; // Script não publicado como "Qualquer pessoa" ou erro do Google
+              }
+
+              const result = await response.json();
+              
+              if (result.status === 'success' && result.version) {
+                  return result.version;
+              }
+              
+              return 'outdated_unknown';
+          } catch (e: any) {
+              if (e.name === 'AbortError') return 'connection_error'; // Timeout
+              throw e;
           }
-          
-          return 'outdated_unknown';
       } catch (e) {
           console.error("Health Check Failed:", e);
           return 'connection_error';

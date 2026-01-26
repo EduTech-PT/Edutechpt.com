@@ -177,6 +177,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                   }
               } catch (cfgErr) {
                   console.error("Config load failed", cfgErr);
+                  // Update UI to reflect error state instead of eternal loading
+                  if (userProfile.role === UserRole.ADMIN) {
+                      setDbVersion('Erro (Ver Definições)');
+                      setGasStatus({ match: false, remote: 'erro', local: GAS_VERSION });
+                  }
               }
 
               // AUTO-CREATE DRIVE FOLDER FOR TRAINERS

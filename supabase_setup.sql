@@ -1,8 +1,8 @@
 
 -- ==============================================================================
--- EDUTECH PT - SCHEMA COMPLETO (v3.0.22)
+-- EDUTECH PT - SCHEMA COMPLETO (v3.0.23)
 -- Data: 2024
--- AÇÃO: CORREÇÃO DE ERRO 42710 (POLICY EXISTS) + REPARAÇÃO ADMIN
+-- AÇÃO: DESBLOQUEIO DE LEITURA DE CONFIGURAÇÃO (APP_CONFIG)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -11,8 +11,9 @@ create table if not exists public.app_config (
     value text
 );
 
-insert into public.app_config (key, value) values ('sql_version', 'v3.0.22')
-on conflict (key) do update set value = 'v3.0.22';
+-- Inserir versão sem falhar se já existir
+insert into public.app_config (key, value) values ('sql_version', 'v3.0.23')
+on conflict (key) do update set value = 'v3.0.23';
 
 -- 2. PERFIS E UTILIZADORES
 create table if not exists public.profiles (
@@ -166,32 +167,47 @@ insert into storage.buckets (id, name, public) values ('class-files', 'class-fil
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 
 -- ==============================================================================
--- 10. SEGURANÇA E POLÍTICAS (CORREÇÃO DE ERRO)
+-- 10. SEGURANÇA E POLÍTICAS
 -- ==============================================================================
 
--- Reset total das policies de Perfis
+-- 10.1 PERFIS
 alter table public.profiles enable row level security;
 
--- 1. APAGAR TODAS AS POLÍTICAS ANTIGAS POSSÍVEIS (Evita o erro "policy already exists")
-drop policy if exists "Ver Perfis Públicos" on public.profiles;
-drop policy if exists "Editar Próprio Perfil" on public.profiles;
-drop policy if exists "Profiles are viewable by everyone" on public.profiles;
-drop policy if exists "Users can insert their own profile" on public.profiles;
-drop policy if exists "Users can update own profile" on public.profiles;
-drop policy if exists "Leitura Universal de Perfis" on public.profiles;
-drop policy if exists "Criar Próprio Perfil" on public.profiles;
-drop policy if exists "Acesso Total a Perfis" on public.profiles;
+-- Limpeza robusta de policies antigas
+do $$ begin
+  drop policy if exists "Ver Perfis Públicos" on public.profiles;
+  drop policy if exists "Editar Próprio Perfil" on public.profiles;
+  drop policy if exists "Leitura Universal de Perfis" on public.profiles;
+  drop policy if exists "Criar Próprio Perfil" on public.profiles;
+  drop policy if exists "Acesso Total a Perfis" on public.profiles;
+end $$;
 
--- 2. CRIAR POLICY "GOD MODE" (Permissiva para desbloqueio)
+-- Policy Global de Acesso a Perfis (Necessário para a app funcionar)
 create policy "Acesso Total a Perfis" on public.profiles
 for all using (true) with check (true);
 
--- Políticas Genéricas para Outras Tabelas
+-- 10.2 APP CONFIG (CORREÇÃO CRÍTICA PARA VERSÃO DB)
+alter table public.app_config enable row level security;
+
+do $$ begin
+  drop policy if exists "Leitura Publica Config" on public.app_config;
+  drop policy if exists "Admin Gere Config" on public.app_config;
+end $$;
+
+create policy "Leitura Publica Config" on public.app_config
+for select using (true);
+
+create policy "Admin Gere Config" on public.app_config
+for all using (
+    (select role from public.profiles where id = auth.uid()) = 'admin'
+);
+
+-- 10.3 CURSOS
 alter table public.courses enable row level security;
 drop policy if exists "Ver Cursos" on public.courses;
 create policy "Ver Cursos" on public.courses for select using (true);
 
--- 11. TRIGGERS E FUNÇÕES (ATUALIZADO)
+-- 11. TRIGGERS E FUNÇÕES
 
 create or replace function public.handle_new_user() 
 returns trigger as $$
