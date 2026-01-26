@@ -10,7 +10,6 @@ export const courseService = {
     async getAll() {
         try {
             // Tenta selecionar explicitamente as colunas novas + base
-            // Evitamos select('*') para não trazer colunas fantasma da cache antiga
             const { data, error } = await supabase
                 .from('courses')
                 .select(`${BASE_COLUMNS}, duration, price`)
@@ -19,8 +18,7 @@ export const courseService = {
             if (error) throw error;
             return data as Course[];
         } catch (error: any) {
-            console.warn("Recuperação automática de erro de DB (getAll):", error.message);
-            // Fallback incondicional: Se falhar, carrega o site na mesma com dados básicos
+            // Silently fall back to base columns to avoid UI clutter
             const { data } = await supabase
                 .from('courses')
                 .select(BASE_COLUMNS)
@@ -29,7 +27,7 @@ export const courseService = {
         }
     },
 
-    // Buscar apenas cursos públicos (vitrine) - CRÍTICO PARA LANDING PAGE
+    // Buscar apenas cursos públicos (vitrine)
     async getPublicCourses(limit?: number) {
         try {
             let query = supabase
@@ -45,8 +43,6 @@ export const courseService = {
             
             return data as Course[];
         } catch (error: any) {
-            console.warn("Recuperação automática de erro de DB (getPublicCourses):", error.message);
-            // Fallback robusto: Ignora erros de cache e carrega o que é possível
             let fallbackQuery = supabase
                 .from('courses')
                 .select(BASE_COLUMNS)
@@ -68,11 +64,11 @@ export const courseService = {
                 .from('enrollments')
                 .select(`
                     *,
-                    course:courses (${BASE_COLUMNS}, duration, price),
-                    class:classes (
+                    course:courses(${BASE_COLUMNS}, duration, price),
+                    class:classes(
                         *,
-                        instructors:class_instructors (
-                            profile:profiles (id, full_name, email)
+                        instructors:class_instructors(
+                            profile:profiles(id, full_name, email)
                         )
                     )
                 `)
@@ -81,14 +77,13 @@ export const courseService = {
             if (error) throw error;
             return data;
         } catch (e: any) {
-            console.warn("Recuperação automática de erro de DB (Enrollments):", e.message);
             // Fallback para query simplificada
             const { data } = await supabase
                 .from('enrollments')
                 .select(`
                     *,
-                    course:courses (${BASE_COLUMNS}),
-                    class:classes (*)
+                    course:courses(${BASE_COLUMNS}),
+                    class:classes(*)
                 `)
                 .eq('user_id', userId);
             return data || [];
