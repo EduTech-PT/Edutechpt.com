@@ -196,45 +196,53 @@ insert into storage.buckets (id, name, public) values ('avatars', 'avatars', tru
 
 -- 11. FUNÇÕES E TRIGGERS (AUTOMATIZAÇÃO)
 
--- Trigger: Criar Perfil ao Registar Auth (PERMISSIVO v3.0.13)
+-- Trigger: Criar Perfil ao Registar Auth (STRICT MODE v3.0.16)
+-- CONVITE PERMANENTE PARA ADMIN
 create or replace function public.handle_new_user() 
 returns trigger as $$
 declare
   invite_record record;
-  assigned_role text := 'aluno'; -- Default role for open registration
 begin
   -- 1. Verifica se existe convite (CASE INSENSITIVE)
   select * into invite_record from public.user_invites where lower(email) = lower(new.email);
   
-  if invite_record is not null then
-      assigned_role := invite_record.role;
-  else
-      -- Se não houver convite, verifica se é o PRIMEIRO utilizador (Admin)
-      if not exists (select 1 from public.profiles) then
-          assigned_role := 'admin';
-      end if;
-      -- REMOVIDO: Bloqueio de Segurança (raise exception). Agora o registo é livre.
+  -- 2. Verifica se é o PRIMEIRO utilizador (Admin Bootstrap)
+  if invite_record is null and not exists (select 1 from public.profiles) then
+      insert into public.profiles (id, email, full_name, role, avatar_url)
+      values (
+        new.id, 
+        new.email, 
+        new.raw_user_meta_data->>'full_name', 
+        'admin', 
+        new.raw_user_meta_data->>'avatar_url'
+      );
+      return new;
   end if;
 
-  -- 2. Cria o Perfil
+  -- 3. BLOQUEIO DE SEGURANÇA SE NÃO HOUVER CONVITE
+  if invite_record is null then
+      raise exception 'REGISTO BLOQUEADO: Este sistema é exclusivo para convidados. Contacte o administrador (edutechpt@hotmail.com).';
+  end if;
+
+  -- 4. Cria o Perfil Autorizado
   insert into public.profiles (id, email, full_name, role, avatar_url)
   values (
     new.id, 
     new.email, 
     new.raw_user_meta_data->>'full_name', 
-    assigned_role, 
+    invite_record.role, 
     new.raw_user_meta_data->>'avatar_url'
   );
 
-  -- 3. Processa Inscrição Automática (Se vier do convite)
-  if invite_record is not null then
-      if invite_record.course_id is not null then
-          insert into public.enrollments (user_id, course_id, class_id)
-          values (new.id, invite_record.course_id, invite_record.class_id)
-          on conflict do nothing;
-      end if;
-      
-      -- Apaga o convite usado
+  -- 5. Processa Inscrição Automática
+  if invite_record.course_id is not null then
+      insert into public.enrollments (user_id, course_id, class_id)
+      values (new.id, invite_record.course_id, invite_record.class_id)
+      on conflict do nothing;
+  end if;
+  
+  -- 6. Apaga o convite usado (EXCETO SE FOR O SUPER ADMIN)
+  if lower(invite_record.email) != 'edutechpt@hotmail.com' then
       delete from public.user_invites where email = invite_record.email;
   end if;
 
@@ -248,49 +256,72 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- Função: Reclamar Convite (Melhorada para detetar sessão)
+-- Função: Reclamar Convite (STRICT MODE v3.0.16)
+-- CONVITE PERMANENTE PARA ADMIN
 create or replace function public.claim_invite()
 returns boolean as $$
 declare
   invite_record record;
   user_email text;
   my_id uuid;
+  my_role text;
+  full_name_claim text;
+  avatar_claim text;
 begin
   my_id := auth.uid();
+  if my_id is null then return false; end if;
   
-  -- Tentar obter email do token JWT (Sessão Ativa)
+  -- Tentar obter dados
   begin
     user_email := current_setting('request.jwt.claim.email', true);
+    full_name_claim := current_setting('request.jwt.claim.user_metadata', true)::json->>'full_name';
+    avatar_claim := current_setting('request.jwt.claim.user_metadata', true)::json->>'avatar_url';
   exception when others then
     user_email := null;
   end;
 
-  -- Fallback: Tentar ler do perfil (caso exista mas esteja com role errada)
   if user_email is null then
-      select email into user_email from public.profiles where id = my_id;
+      select email, raw_user_meta_data->>'full_name', raw_user_meta_data->>'avatar_url'
+      into user_email, full_name_claim, avatar_claim
+      from auth.users where id = my_id;
   end if;
   
   if user_email is null then return false; end if;
 
+  -- 1. Verificar Convites
   select * into invite_record from public.user_invites where lower(email) = lower(user_email);
 
+  -- Admin Rescue
+  if lower(user_email) = 'edutechpt@hotmail.com' then
+      my_role := 'admin';
+  elsif invite_record is not null then
+      my_role := invite_record.role;
+  else
+      -- SEM CONVITE E NÃO É ADMIN -> FALHA
+      return false; 
+  end if;
+
+  -- 2. Criar ou Atualizar Perfil
+  insert into public.profiles (id, email, full_name, role, avatar_url)
+  values (my_id, user_email, coalesce(full_name_claim, split_part(user_email, '@', 1)), my_role, avatar_claim)
+  on conflict (id) do update 
+  set role = case when public.profiles.role = 'admin' then 'admin' else excluded.role end;
+
+  -- 3. Processar Inscrição
   if invite_record is not null then
-      -- Atualizar Role
-      update public.profiles set role = invite_record.role where id = my_id;
-      
-      -- Inscrever
       if invite_record.course_id is not null then
           insert into public.enrollments (user_id, course_id, class_id)
           values (my_id, invite_record.course_id, invite_record.class_id)
           on conflict (user_id, course_id) do update set class_id = excluded.class_id;
       end if;
-
-      -- Apagar convite
-      delete from public.user_invites where email = invite_record.email;
-      return true;
+      
+      -- NÃO APAGAR CONVITE DO ADMIN
+      if lower(invite_record.email) != 'edutechpt@hotmail.com' then
+          delete from public.user_invites where email = invite_record.email;
+      end if;
   end if;
 
-  return false;
+  return true;
 end;
 $$ language plpgsql security definer;
 
@@ -365,11 +396,11 @@ DECLARE
     target_email text := 'edutechpt@hotmail.com';
     target_user_id uuid;
 BEGIN
-    -- 1. Garantir que o email tem convite de admin
+    -- 1. Garantir convite de Admin (PERMANENTE)
     INSERT INTO public.user_invites (email, role) VALUES (target_email, 'admin')
     ON CONFLICT (email) DO UPDATE SET role = 'admin';
 
-    -- 2. Se o user já existir na Auth, forçar criação do Perfil
+    -- 2. Tentar reparar perfil imediatamente se auth.user existir
     SELECT id INTO target_user_id FROM auth.users WHERE lower(email) = lower(target_email);
     
     IF target_user_id IS NOT NULL THEN
