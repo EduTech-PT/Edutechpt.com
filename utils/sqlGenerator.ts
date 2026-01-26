@@ -5,7 +5,7 @@ export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
 -- Data: 2024
--- AÇÃO: POLÍTICAS PERMISSIVAS + CORREÇÃO TOTAL ADMIN
+-- AÇÃO: CORREÇÃO DE ERRO 42710 (POLICY EXISTS) + REPARAÇÃO ADMIN
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -169,13 +169,13 @@ insert into storage.buckets (id, name, public) values ('class-files', 'class-fil
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 
 -- ==============================================================================
--- 10. SEGURANÇA E POLÍTICAS (REPARAÇÃO CRÍTICA)
+-- 10. SEGURANÇA E POLÍTICAS (CORREÇÃO DE ERRO)
 -- ==============================================================================
 
--- Reset total das policies de Perfis para garantir acesso
+-- Reset total das policies de Perfis
 alter table public.profiles enable row level security;
 
--- Removemos todas as restrições antigas
+-- 1. APAGAR TODAS AS POLÍTICAS ANTIGAS POSSÍVEIS (Evita o erro "policy already exists")
 drop policy if exists "Ver Perfis Públicos" on public.profiles;
 drop policy if exists "Editar Próprio Perfil" on public.profiles;
 drop policy if exists "Profiles are viewable by everyone" on public.profiles;
@@ -183,9 +183,9 @@ drop policy if exists "Users can insert their own profile" on public.profiles;
 drop policy if exists "Users can update own profile" on public.profiles;
 drop policy if exists "Leitura Universal de Perfis" on public.profiles;
 drop policy if exists "Criar Próprio Perfil" on public.profiles;
+drop policy if exists "Acesso Total a Perfis" on public.profiles;
 
--- CRIAR POLICY "GOD MODE" PARA PERFIS (PERMISSIVA PARA TODOS AUTENTICADOS)
--- Isto é necessário para desbloquear o acesso.
+-- 2. CRIAR POLICY "GOD MODE" (Permissiva para desbloqueio)
 create policy "Acesso Total a Perfis" on public.profiles
 for all using (true) with check (true);
 
@@ -268,27 +268,22 @@ $$ language plpgsql security definer;
 
 -- ==============================================================================
 -- 12. SCRIPT DE RESGATE IMEDIATO (NUCLEAR OPTION)
--- Força a limpeza e recriação do perfil Admin se já houver lixo na BD
 -- ==============================================================================
 DO $$
 DECLARE
     target_email text := 'edutechpt@hotmail.com';
     target_user_id uuid;
 BEGIN
-    -- 1. Encontrar o ID do utilizador na tabela de autenticação
     SELECT id INTO target_user_id FROM auth.users WHERE lower(email) = lower(target_email);
 
     IF target_user_id IS NOT NULL THEN
-        -- 2. Inserir ou Atualizar Forçosamente
         INSERT INTO public.profiles (id, email, full_name, role)
         VALUES (target_user_id, target_email, 'Administrador', 'admin')
         ON CONFLICT (id) DO UPDATE SET 
             role = 'admin',
-            email = target_email; -- Garantir consistência
+            email = target_email; 
         
-        RAISE NOTICE 'SUCESSO: Admin % restaurado com permissões totais.', target_email;
-    ELSE
-        RAISE NOTICE 'INFO: O utilizador % ainda não fez login. O Trigger tratará dele.', target_email;
+        RAISE NOTICE 'SUCESSO: Admin % restaurado.', target_email;
     END IF;
 END $$;
 

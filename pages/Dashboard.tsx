@@ -107,23 +107,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           try {
              userProfile = await userService.getProfile(session.user.id);
           } catch (err) {
-             console.warn("Profile fetch failed, attempting recovery...", err);
+             console.warn("Profile fetch failed, checking emergency access...", err);
              
-             // --- ADMIN BYPASS (FAIL-SAFE) ---
-             // Se falhar e for o email do admin, criamos um perfil falso em memória para permitir a entrada
+             // --- ADMIN BYPASS (AUTO) ---
              if (session.user.email?.toLowerCase() === 'edutechpt@hotmail.com') {
-                 console.log("Admin Bypass Activated");
+                 console.log("Admin Emergency Bypass Activated");
                  userProfile = {
                      id: session.user.id,
                      email: session.user.email,
-                     full_name: 'Super Admin (Modo Recuperação)',
+                     full_name: 'Admin Recuperação',
                      role: 'admin',
                      created_at: new Date().toISOString()
                  };
-                 // Tentar auto-reparar em background
-                 userService.claimInvite().catch(e => console.error("Background repair failed", e));
              } else {
-                 // Para outros users, tenta claim invite normal
                  try {
                      const claimed = await userService.claimInvite();
                      if (claimed) {
@@ -274,6 +270,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       }
   };
 
+  const handleForceAdminEntry = () => {
+      if (!session.user) return;
+      const fakeProfile: Profile = {
+          id: session.user.id,
+          email: session.user.email || 'admin@temp',
+          full_name: 'Super Admin (Manual Override)',
+          role: 'admin',
+          created_at: new Date().toISOString()
+      };
+      setProfile(fakeProfile);
+      setPermissions({ view_settings: true, view_dashboard: true }); // Mínimo para aceder ao SQL
+      alert("ATENÇÃO: Entrou em modo de segurança. Por favor, vá a Definições > SQL e execute o script para corrigir a base de dados.");
+  };
+
   // Clock
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -358,6 +368,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                   >
                       Reparar o meu Acesso
                   </button>
+                  
+                  {/* EMERGENCY BUTTON FOR ADMIN */}
+                  {session.user?.email?.toLowerCase() === 'edutechpt@hotmail.com' && (
+                      <button 
+                          onClick={handleForceAdminEntry}
+                          className="w-full px-6 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 shadow-md border-2 border-red-800 text-xs uppercase"
+                      >
+                          🚨 Entrada de Emergência (Admin)
+                      </button>
+                  )}
+
                   <button onClick={onLogout} className="w-full px-6 py-3 bg-white text-indigo-600 border border-indigo-200 rounded-lg font-bold hover:bg-indigo-50">
                       Sair
                   </button>
