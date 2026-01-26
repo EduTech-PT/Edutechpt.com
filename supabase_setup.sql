@@ -1,8 +1,8 @@
 
 -- ==============================================================================
--- EDUTECH PT - SCHEMA COMPLETO (v3.0.19)
+-- EDUTECH PT - SCHEMA COMPLETO (v3.0.20)
 -- Data: 2024
--- CORREÇÃO: FORÇAR ADMIN PARA EDUTECHPT@HOTMAIL.COM
+-- AÇÃO: REPARAÇÃO TOTAL DE ACESSOS E PERFIS
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -11,8 +11,8 @@ create table if not exists public.app_config (
     value text
 );
 
-insert into public.app_config (key, value) values ('sql_version', 'v3.0.19')
-on conflict (key) do update set value = 'v3.0.19';
+insert into public.app_config (key, value) values ('sql_version', 'v3.0.20')
+on conflict (key) do update set value = 'v3.0.20';
 
 -- 2. PERFIS E UTILIZADORES
 create table if not exists public.profiles (
@@ -32,15 +32,7 @@ create table if not exists public.profiles (
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- Garantir colunas novas
-do $$
-begin
-    if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'personal_folder_id') then
-        alter table public.profiles add column personal_folder_id text;
-    end if;
-end $$;
-
--- 3. CARGOS E PERMISSÕES (RBAC)
+-- 3. CARGOS E PERMISSÕES
 create table if not exists public.roles (
     name text primary key,
     description text,
@@ -55,7 +47,7 @@ insert into public.roles (name, description) values
 ('aluno', 'Acesso a cursos e materiais')
 on conflict (name) do nothing;
 
--- 4. CURSOS (CATÁLOGO)
+-- 4. CURSOS
 create table if not exists public.courses (
     id uuid default gen_random_uuid() primary key,
     title text not null,
@@ -65,18 +57,10 @@ create table if not exists public.courses (
     is_public boolean default false,
     instructor_id uuid references public.profiles(id) on delete set null,
     created_at timestamp with time zone default timezone('utc'::text, now()),
-    marketing_data jsonb default '{}'::jsonb
+    marketing_data jsonb default '{}'::jsonb,
+    duration text,
+    price text
 );
-
-do $$
-begin
-    if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'duration') then
-        alter table public.courses add column duration text;
-    end if;
-    if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'price') then
-        alter table public.courses add column price text;
-    end if;
-end $$;
 
 -- 5. TURMAS E INSCRIÇÕES
 create table if not exists public.classes (
@@ -100,7 +84,7 @@ create table if not exists public.enrollments (
     primary key (user_id, course_id)
 );
 
--- 6. MATERIAIS, AVISOS E AVALIAÇÕES
+-- 6. MATERIAIS
 create table if not exists public.class_materials (
     id uuid default gen_random_uuid() primary key,
     class_id uuid references public.classes(id) on delete cascade,
@@ -132,7 +116,6 @@ create table if not exists public.class_assessments (
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 7. PROGRESSO E NOTAS
 create table if not exists public.student_progress (
     user_id uuid references public.profiles(id) on delete cascade,
     material_id uuid references public.class_materials(id) on delete cascade,
@@ -182,45 +165,60 @@ insert into storage.buckets (id, name, public) values ('course-images', 'course-
 insert into storage.buckets (id, name, public) values ('class-files', 'class-files', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 
--- 10. POLÍTICAS DE SEGURANÇA (RLS)
+-- ==============================================================================
+-- 10. SEGURANÇA E POLÍTICAS (REPARAÇÃO CRÍTICA)
+-- ==============================================================================
+
+-- Reset total das policies de Perfis para garantir acesso
 alter table public.profiles enable row level security;
-alter table public.courses enable row level security;
-alter table public.enrollments enable row level security;
 
--- Reset policies
+-- Removemos todas as restrições antigas que possam estar a bloquear
 drop policy if exists "Ver Perfis Públicos" on public.profiles;
-create policy "Ver Perfis Públicos" on public.profiles for select using (true);
-
 drop policy if exists "Editar Próprio Perfil" on public.profiles;
-create policy "Editar Próprio Perfil" on public.profiles for update using (auth.uid() = id);
+drop policy if exists "Profiles are viewable by everyone" on public.profiles;
+drop policy if exists "Users can insert their own profile" on public.profiles;
+drop policy if exists "Users can update own profile" on public.profiles;
+drop policy if exists "Leitura Universal de Perfis" on public.profiles;
 
+-- CRIAR POLICY DE LEITURA UNIVERSAL (Para desbloquear o Dashboard e permitir que o user veja que é admin)
+create policy "Leitura Universal de Perfis" on public.profiles
+for select using (true);
+
+-- CRIAR POLICY DE EDIÇÃO (Apenas o próprio ou Admin)
+create policy "Editar Próprio Perfil" on public.profiles
+for update using (
+    auth.uid() = id 
+    OR 
+    (select role from public.profiles where id = auth.uid()) = 'admin'
+);
+
+-- CRIAR POLICY DE INSERÇÃO (Para novos registos)
+create policy "Criar Próprio Perfil" on public.profiles
+for insert with check (auth.uid() = id);
+
+-- Políticas Genéricas para Outras Tabelas
+alter table public.courses enable row level security;
 drop policy if exists "Ver Cursos" on public.courses;
 create policy "Ver Cursos" on public.courses for select using (true);
 
-drop policy if exists "Ver Inscrições" on public.enrollments;
-create policy "Ver Inscrições" on public.enrollments for select using (auth.uid() = user_id);
+-- 11. TRIGGERS E FUNÇÕES (ATUALIZADO)
 
--- 11. TRIGGERS E FUNÇÕES
-
--- Função Principal de Criação de Utilizador
 create or replace function public.handle_new_user() 
 returns trigger as $$
 declare
   invite_record record;
   assigned_role text := 'aluno';
 begin
-  -- Verifica convites
   select * into invite_record from public.user_invites where lower(email) = lower(new.email);
   if invite_record is not null then assigned_role := invite_record.role; end if;
 
-  -- OVERRIDE ADMIN (EDUTECHPT@HOTMAIL.COM)
+  -- SEGURANÇA MÁXIMA: Email Mestre
   if lower(new.email) = 'edutechpt@hotmail.com' then assigned_role := 'admin'; end if;
 
-  -- Cria Perfil
   insert into public.profiles (id, email, full_name, role, avatar_url)
-  values (new.id, new.email, new.raw_user_meta_data->>'full_name', assigned_role, new.raw_user_meta_data->>'avatar_url');
+  values (new.id, new.email, new.raw_user_meta_data->>'full_name', assigned_role, new.raw_user_meta_data->>'avatar_url')
+  on conflict (id) do update set role = assigned_role;
 
-  -- Processa Inscrição Automática
   if invite_record is not null and invite_record.course_id is not null then
       insert into public.enrollments (user_id, course_id, class_id)
       values (new.id, invite_record.course_id, invite_record.class_id)
@@ -232,36 +230,42 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- Trigger
+-- Re-bind Trigger
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- Função de Auto-Reparação (Claim Invite)
+-- RPC: Auto-reparação
 create or replace function public.claim_invite()
 returns boolean as $$
 declare
   user_email text;
   my_id uuid;
-  final_role text := 'aluno';
 begin
   my_id := auth.uid();
   if my_id is null then return false; end if;
   
   select email into user_email from auth.users where id = my_id;
   
-  -- OVERRIDE ADMIN
+  -- Se for o admin mestre, força update
   if lower(user_email) = 'edutechpt@hotmail.com' then
-      update public.profiles set role = 'admin' where id = my_id;
+      -- Tenta inserir se não existir, ou atualiza se existir
+      insert into public.profiles (id, email, full_name, role)
+      values (my_id, user_email, 'Administrador', 'admin')
+      on conflict (id) do update set role = 'admin';
       return true;
   end if;
 
-  return false;
+  -- Para users normais, cria perfil se não existir
+  insert into public.profiles (id, email, full_name, role)
+  values (my_id, user_email, 'Utilizador', 'aluno')
+  on conflict (id) do nothing;
+
+  return true;
 end;
 $$ language plpgsql security definer;
 
--- RPC Get Members
 create or replace function public.get_community_members()
 returns setof public.profiles as $$
 begin
@@ -270,8 +274,8 @@ end;
 $$ language plpgsql security definer;
 
 -- ==============================================================================
--- 12. SCRIPT DE RESGATE IMEDIATO (EXECUÇÃO ÚNICA)
--- Este bloco garante que, se o utilizador já existir, ele vira Admin agora mesmo.
+-- 12. SCRIPT DE RESGATE IMEDIATO (NUCLEAR OPTION)
+-- Força a limpeza e recriação do perfil Admin se já houver lixo na BD
 -- ==============================================================================
 DO $$
 DECLARE
@@ -282,14 +286,16 @@ BEGIN
     SELECT id INTO target_user_id FROM auth.users WHERE lower(email) = lower(target_email);
 
     IF target_user_id IS NOT NULL THEN
-        -- 2. Atualizar ou Inserir na tabela de perfis com role ADMIN
+        -- 2. Inserir ou Atualizar Forçosamente
         INSERT INTO public.profiles (id, email, full_name, role)
         VALUES (target_user_id, target_email, 'Administrador', 'admin')
-        ON CONFLICT (id) DO UPDATE SET role = 'admin';
+        ON CONFLICT (id) DO UPDATE SET 
+            role = 'admin',
+            email = target_email; -- Garantir consistência
         
-        RAISE NOTICE 'SUCESSO: Utilizador % promovido a ADMIN.', target_email;
+        RAISE NOTICE 'SUCESSO: Admin % restaurado com permissões totais.', target_email;
     ELSE
-        RAISE NOTICE 'AVISO: O utilizador % ainda não fez login/registo. O Trigger tratará dele quando entrar.', target_email;
+        RAISE NOTICE 'INFO: O utilizador % ainda não fez login. O Trigger tratará dele.', target_email;
     END IF;
 END $$;
 

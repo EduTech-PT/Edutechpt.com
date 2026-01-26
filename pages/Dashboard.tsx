@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Profile, UserRole, SupabaseSession, UserPermissions, OnlineUser } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { GlassCard } from '../components/GlassCard';
-import { Footer } from '../components/Footer'; // NOVO IMPORT
+import { Footer } from '../components/Footer';
 import { userService } from '../services/users';
 import { adminService } from '../services/admin';
 import { SQL_VERSION, APP_VERSION } from '../constants';
@@ -68,7 +68,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [gasStatus, setGasStatus] = useState<{ match: boolean; remote: string; local: string } | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // NEW: Critical Error State (Missing Tables)
+  // Critical Error State (Missing Tables)
   const [criticalDbError, setCriticalDbError] = useState(false);
   const [dbErrorDetail, setDbErrorDetail] = useState<string>("");
   
@@ -101,48 +101,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       try {
           if (!session.user) return;
           
-          // 0. HEALTH CHECK (Critical DB Tables) - CHECK ESPECÍFICO
-          const tablesToCheck = ['classes', 'class_instructors', 'enrollments', 'class_materials'];
-          
-          for (const table of tablesToCheck) {
-              // Tentamos selecionar 1 linha. Se der erro 42P01, a tabela falta.
-              // Usamos 'count' para ser leve.
-              const { error } = await supabase.from(table).select('count', { count: 'exact', head: true });
-              
-              if (error && error.code === '42P01') { // undefined_table
-                  setCriticalDbError(true);
-                  setDbErrorDetail(`Tabela em falta: public.${table}`);
-                  console.error(`CRITICAL DB ERROR: Missing table ${table}`);
-                  break; // Para no primeiro erro encontrado
-              }
-          }
-
           let userProfile: Profile | null = null;
           
+          // 1. Tentar obter perfil
           try {
              userProfile = await userService.getProfile(session.user.id);
           } catch (err) {
-             console.log("Profile missing, attempting auto-recovery...");
+             console.warn("Profile fetch failed, attempting auto-repair...", err);
+             // 2. Se falhar, tentar auto-reparação imediata (SQL Claim Invite)
              try {
                  const claimed = await userService.claimInvite();
                  if (claimed) {
                      userProfile = await userService.getProfile(session.user.id);
                  }
              } catch (claimErr) {
-                 console.warn("Auto-claim failed", claimErr);
+                 console.error("Auto-repair failed", claimErr);
              }
           }
 
           if (userProfile) {
               setProfile(userProfile);
               
-              // LOG LOGIN (Uma vez por sessão de memória)
+              // LOG LOGIN (Uma vez por sessão)
               if (!sessionStorage.getItem('session_logged')) {
                   adminService.logAccess(userProfile.id, 'login');
                   sessionStorage.setItem('session_logged', 'true');
               }
 
-              // INICIAR PRESENÇA REALTIME E ESCUTA DE EVENTOS (FORCE LOGOUT)
               initPresence(userProfile);
 
               // Carregar permissões
@@ -163,6 +148,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                   if (userProfile.role === UserRole.ADMIN) {
                       setDbVersion(config.sqlVersion || 'Unknown');
                       
+                      // Check for missing tables (Admin Only)
+                      checkTables();
+
                       if (config.googleScriptUrl) {
                           driveService.checkScriptVersion(config.googleScriptUrl).then(remoteVer => {
                               setGasStatus({
@@ -193,29 +181,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       }
   };
 
+  const checkTables = async () => {
+      const tablesToCheck = ['classes', 'class_instructors', 'enrollments', 'class_materials'];
+      for (const table of tablesToCheck) {
+          const { error } = await supabase.from(table).select('count', { count: 'exact', head: true });
+          if (error && error.code === '42P01') { // undefined_table
+              setCriticalDbError(true);
+              setDbErrorDetail(`Tabela em falta: public.${table}`);
+              break;
+          }
+      }
+  };
+
   const initPresence = (userProfile: Profile) => {
       const channel = supabase.channel('online-users');
       
-      // 1. Monitorizar Quem está Online (Presence)
       channel
         .on('presence', { event: 'sync' }, () => {
             const newState = channel.presenceState();
             const users: OnlineUser[] = [];
-            
             for (const id in newState) {
                 const presenceList = newState[id] as any[];
                 if (presenceList && presenceList.length > 0) {
-                    users.push(presenceList[0]); // Pega a info mais recente de cada user
+                    users.push(presenceList[0]);
                 }
             }
             setOnlineUsers(users);
         })
-        // 2. Escutar Comandos de Admin (Force Logout)
         .on('broadcast', { event: 'force_logout' }, (payload) => {
-            // Se o ID recebido no evento for o meu ID, faço logout
             if (payload.payload?.userId === userProfile.id) {
                 alert("A sua sessão foi terminada pelo Administrador.");
-                handleLogoutAction(); // Usa a função que limpa e sai
+                handleLogoutAction();
             }
         })
         .subscribe(async (status) => {
@@ -231,7 +227,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
             }
         });
 
-      // Cleanup function to leave channel on unmount
       return () => {
           supabase.removeChannel(channel);
       };
@@ -239,7 +234,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   const handleLogoutAction = async () => {
       if (profile) {
-          // Log logout event before clearing session
           await adminService.logAccess(profile.id, 'logout');
       }
       onLogout();
@@ -253,7 +247,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
               alert("Conta recuperada com sucesso! A página será recarregada.");
               window.location.reload();
           } else {
-              alert("Não foi possível recuperar automaticamente. Por favor, contacte o suporte.");
+              // Se claim_invite falhar mas user existe, pode ser problema de permissões. 
+              // Tentar forçar reload na mesma.
+              window.location.reload();
           }
       } catch (e: any) {
           alert("Erro na recuperação: " + e.message);
@@ -271,14 +267,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const handleSetView = (newView: string) => {
       setCurrentView(newView);
       setSelectedUserToEdit(null);
-      // Clear classroom state ONLY if leaving it
       if (newView !== 'student_classroom') {
           setSelectedCourseForClassroom(undefined);
       }
       
       const params = new URLSearchParams(window.location.search);
       params.set('view', newView);
-      // Clear course_id if leaving classroom
       if (newView !== 'student_classroom') {
           params.delete('course_id');
       }
@@ -314,12 +308,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
   };
 
-  // Função para abrir a sala de aula do aluno
   const handleOpenClassroom = (courseId: string) => {
       setSelectedCourseForClassroom(courseId);
       setCurrentView('student_classroom');
       
-      // PERSIST IN URL
       const params = new URLSearchParams(window.location.search);
       params.set('view', 'student_classroom');
       params.set('course_id', courseId);
@@ -327,31 +319,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       window.history.pushState({ path: newUrl }, '', newUrl);
   };
 
-  // Footer Navigation Handler
   const handleFooterNavigate = (view: 'privacy' | 'terms' | 'faq') => {
       handleSetView(view);
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-indigo-600">A carregar EduTech PT...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-indigo-600">A iniciar EduTech PT...</div>;
 
+  // ESTADO DE ERRO DE ACESSO (PERFIL NÃO ENCONTRADO)
   if (!profile) return (
       <div className="min-h-screen flex items-center justify-center p-8 bg-indigo-50">
           <GlassCard className="text-center max-w-md w-full">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">⚠️</div>
-              <h2 className="text-2xl font-bold text-indigo-900 mb-2">Acesso Negado</h2>
-              <p className="text-indigo-700 mb-6">
-                  A sua conta não tem um perfil associado ou o convite não foi processado corretamente.
+              <h2 className="text-2xl font-bold text-indigo-900 mb-2">Acesso Pendente</h2>
+              <p className="text-indigo-700 mb-6 text-sm">
+                  Estamos a configurar o seu perfil. Se este ecrã persistir, clique no botão abaixo.
               </p>
               
               <div className="space-y-3">
                   <button 
                       onClick={handleManualRecovery}
-                      className="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-md animate-pulse"
+                      className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-md animate-pulse"
                   >
-                      Verificar Permissões (Auto-Fix)
+                      Reparar o meu Acesso
                   </button>
                   <button onClick={onLogout} className="w-full px-6 py-3 bg-white text-indigo-600 border border-indigo-200 rounded-lg font-bold hover:bg-indigo-50">
-                      Sair / Tentar Outra Conta
+                      Sair
                   </button>
               </div>
           </GlassCard>
@@ -415,7 +407,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           case 'settings_legal': return <Settings dbVersion={dbVersion} initialTab="legal" profile={profile} />;
           case 'settings': return <Settings dbVersion={dbVersion} initialTab="geral" profile={profile} />;
           
-          // LEGAL PAGES (EMBEDDED)
+          // LEGAL PAGES
           case 'privacy': return <PrivacyPolicy onBack={() => handleSetView('dashboard')} isEmbedded={true} />;
           case 'terms': return <TermsOfService onBack={() => handleSetView('dashboard')} isEmbedded={true} />;
           case 'faq': return <FAQPage onBack={() => handleSetView('dashboard')} isEmbedded={true} />;
@@ -431,7 +423,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       if (view === 'manage_courses') return 'Gestão de Cursos';
       if (view === 'manage_classes') return 'Gestão de Turmas';
       if (view === 'manage_student_allocation') return 'Alocação de Alunos';
-      if (view === 'didactic_portal') return 'Recursos da Sala de Aula'; // ALTERADO AQUI
+      if (view === 'didactic_portal') return 'Recursos da Sala de Aula'; 
       if (view === 'student_classroom') return 'Sala de Aula';
       if (view === 'courses') return 'Meus Cursos e Oferta';
       if (view === 'calendar') return 'Minha Agenda';
@@ -442,7 +434,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       return view.replace('_', ' ');
   };
 
-  // Calcular se o sistema precisa de atualizações
   const systemNeedsUpdate = (profile.role === UserRole.ADMIN) && 
                             ((dbVersion !== SQL_VERSION) || (gasStatus !== null && !gasStatus.match));
 
