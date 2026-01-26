@@ -107,19 +107,43 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           try {
              userProfile = await userService.getProfile(session.user.id);
           } catch (err) {
-             console.warn("Profile fetch failed, checking emergency access...", err);
-             
-             // --- ADMIN BYPASS (AUTO) ---
-             if (session.user.email?.toLowerCase() === 'edutechpt@hotmail.com') {
-                 console.log("Admin Emergency Bypass Activated");
-                 userProfile = {
-                     id: session.user.id,
-                     email: session.user.email,
-                     full_name: 'Admin Recuperação',
-                     role: 'admin',
-                     created_at: new Date().toISOString()
-                 };
-             } else {
+             console.warn("Profile fetch failed, attempting recovery...", err);
+          }
+
+          // 2. RECUPERAÇÃO DE EMERGÊNCIA (MASTER KEY)
+          // Se for o email mestre, forçamos o role 'admin' e permissões totais, 
+          // independentemente do que a BD diga ou se deu erro.
+          if (session.user.email?.toLowerCase() === 'edutechpt@hotmail.com') {
+              console.log("🔓 MASTER ADMIN DETECTADO: Forçando permissões.");
+              
+              userProfile = {
+                  id: session.user.id,
+                  email: session.user.email,
+                  full_name: userProfile?.full_name || 'Administrador (Master)',
+                  role: 'admin', // FORÇA ADMIN
+                  created_at: new Date().toISOString(),
+                  avatar_url: userProfile?.avatar_url
+              };
+
+              // FORÇAR PERMISSÕES TOTAIS
+              setPermissions({
+                  view_dashboard: true,
+                  view_my_profile: true,
+                  view_community: true,
+                  view_courses: true,
+                  manage_courses: true,
+                  manage_classes: true,
+                  manage_allocations: true,
+                  view_didactic_portal: true,
+                  view_drive: true,
+                  view_users: true,
+                  view_settings: true, // CRÍTICO: Permite ver o menu Definições
+                  view_calendar: true,
+                  view_availability: true
+              });
+          } else {
+              // Para outros utilizadores, se falhou o fetch, tenta claimInvite normal
+              if (!userProfile) {
                  try {
                      const claimed = await userService.claimInvite();
                      if (claimed) {
@@ -128,7 +152,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                  } catch (claimErr) {
                      console.error("Auto-repair failed", claimErr);
                  }
-             }
+              }
           }
 
           if (userProfile) {
@@ -142,14 +166,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
               initPresence(userProfile);
 
-              // Carregar permissões
-              try {
-                  const roleDef = await adminService.getRoleByName(userProfile.role);
-                  if (roleDef && roleDef.permissions) {
-                      setPermissions(roleDef.permissions);
+              // Carregar permissões (se não for Master Admin que já tem forçadas)
+              if (session.user.email?.toLowerCase() !== 'edutechpt@hotmail.com') {
+                  try {
+                      const roleDef = await adminService.getRoleByName(userProfile.role);
+                      if (roleDef && roleDef.permissions) {
+                          setPermissions(roleDef.permissions);
+                      }
+                  } catch (permErr) {
+                      console.warn("Failed to load permissions", permErr);
                   }
-              } catch (permErr) {
-                  console.warn("Failed to load permissions", permErr);
               }
 
               // Load App Config

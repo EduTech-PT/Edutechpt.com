@@ -49,7 +49,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
   };
 
   const hasAccess = (permissionKey: string, fallbackRoles: string[]) => {
-    // 1. Admin Supremo (Bypass)
+    // 0. MASTER KEY BYPASS (Hardcoded Email Safety Net)
+    if (profile?.email === 'edutechpt@hotmail.com') return true;
+
+    // 1. Admin Supremo (Bypass by Role)
     if (role === UserRole.ADMIN) return true;
 
     // 2. Permissões Dinâmicas (Se existirem, têm prioridade absoluta)
