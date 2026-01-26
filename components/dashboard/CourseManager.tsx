@@ -28,9 +28,13 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
   const loadCourses = async () => {
       try {
           const data = await courseService.getAll();
-          setCourses(data);
-      } catch (err) { console.error(err); } 
-      finally { setLoading(false); }
+          setCourses(data || []);
+      } catch (err) { 
+          console.error("Erro ao carregar cursos:", err); 
+          setCourses([]); 
+      } finally { 
+          setLoading(false); 
+      }
   };
 
   const handleSave = async (data: Partial<Course>) => {
@@ -75,9 +79,9 @@ export const CourseManager: React.FC<Props> = ({ profile }) => {
       } catch (err: any) { alert(err.message); }
   };
 
-  // Filter Logic
+  // Filter Logic (Safeguarded against null titles)
   const filteredCourses = courses.filter(c => 
-      c.title.toLowerCase().includes(search.toLowerCase()) || 
+      (c.title || '').toLowerCase().includes(search.toLowerCase()) || 
       (c.description && c.description.toLowerCase().includes(search.toLowerCase()))
   );
 

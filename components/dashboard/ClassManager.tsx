@@ -30,34 +30,43 @@ export const ClassManager: React.FC = () => {
         if (selectedCourseId) {
             loadClasses(selectedCourseId);
         } else if (courses.length > 0) {
+            // Se houver cursos mas nenhum selecionado, selecionar o primeiro
+            setSelectedCourseId(courses[0].id);
+        } else {
             setClasses([]);
         }
-    }, [selectedCourseId]);
+    }, [selectedCourseId, courses.length]);
 
     const loadCourses = async () => {
         try {
             setLoading(true);
             const coursesData = await courseService.getAll();
-            setCourses(coursesData);
+            setCourses(coursesData || []);
             
-            // Auto-select first course if available
-            if (coursesData.length > 0) {
+            // Auto-select first course if available and none selected
+            if (coursesData && coursesData.length > 0 && !selectedCourseId) {
                 setSelectedCourseId(coursesData[0].id);
+            } else {
+                setLoading(false); // Stop loading if no courses found
             }
         } catch (err) {
             console.error(err);
-        } finally {
             setLoading(false);
         }
     };
 
     const loadClasses = async (courseId: string) => {
+        if (!courseId) return;
         setLoading(true);
         try {
             const data = await courseService.getClasses(courseId);
-            setClasses(data);
-        } catch (err) { console.error(err); } 
-        finally { setLoading(false); }
+            setClasses(data || []);
+        } catch (err) { 
+            console.error(err);
+            setClasses([]);
+        } finally { 
+            setLoading(false); 
+        }
     };
 
     const handleCreate = () => {

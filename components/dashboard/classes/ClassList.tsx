@@ -15,7 +15,7 @@ export const ClassList: React.FC<Props> = ({ classes, loading, onEdit, onDelete 
     
     if (loading) return <div className="text-center py-10 opacity-50 font-bold text-indigo-500">A carregar turmas...</div>;
 
-    if (classes.length === 0) return (
+    if (!classes || classes.length === 0) return (
         <GlassCard className="text-center py-12 flex flex-col items-center opacity-60">
             <span className="text-4xl mb-3">📭</span>
             <p className="text-indigo-900 font-bold text-lg">Sem turmas para este curso.</p>
@@ -35,7 +35,7 @@ export const ClassList: React.FC<Props> = ({ classes, loading, onEdit, onDelete 
                         </div>
                     </div>
                     
-                    <h3 className="text-lg font-bold text-indigo-900 mb-1 leading-tight">{cls.name}</h3>
+                    <h3 className="text-lg font-bold text-indigo-900 mb-1 leading-tight">{cls.name || 'Sem Nome'}</h3>
                     
                     <div className="flex items-center gap-2 text-xs text-indigo-500 font-medium mb-4">
                         <span>📅 Criada a: {formatShortDate(cls.created_at)}</span>
@@ -45,7 +45,7 @@ export const ClassList: React.FC<Props> = ({ classes, loading, onEdit, onDelete 
                         <span className="bg-indigo-50 text-indigo-700 px-2 py-1 rounded font-bold">
                             {cls.instructors?.length || 0} Formadores
                         </span>
-                        <span className="text-indigo-400 font-bold">ID: ...{cls.id.slice(-4)}</span>
+                        <span className="text-indigo-400 font-bold">ID: ...{(cls.id || '').slice(-4)}</span>
                     </div>
                 </GlassCard>
             ))}
