@@ -5,12 +5,19 @@ export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
 -- Data: 2024
--- AÇÃO: CONFIGURAÇÃO INICIAL ROBUSTA (SECURITY DEFINER)
+-- AÇÃO: REPARAÇÃO CRÍTICA DE VISIBILIDADE DE PERFIS (RESET POLICIES)
 -- ==============================================================================
 
--- 1. FUNÇÃO DE SEGURANÇA (SECURITY DEFINER)
--- CRÍTICO: Esta função deve ser criada ANTES das policies que a utilizam.
--- Ela permite verificar se é admin sem causar loops infinitos de permissões.
+-- 1. CONFIGURAÇÃO E VERSÃO
+create table if not exists public.app_config (
+    key text primary key,
+    value text
+);
+
+insert into public.app_config (key, value) values ('sql_version', '${SQL_VERSION}')
+on conflict (key) do update set value = '${SQL_VERSION}';
+
+-- 2. FUNÇÃO DE SEGURANÇA (SECURITY DEFINER)
 create or replace function public.is_admin()
 returns boolean
 language plpgsql
@@ -24,15 +31,6 @@ begin
   );
 end;
 $$;
-
--- 2. CONFIGURAÇÃO E VERSÃO
-create table if not exists public.app_config (
-    key text primary key,
-    value text
-);
-
-insert into public.app_config (key, value) values ('sql_version', '${SQL_VERSION}')
-on conflict (key) do update set value = '${SQL_VERSION}';
 
 -- 3. PERFIS E UTILIZADORES
 create table if not exists public.profiles (
@@ -67,12 +65,12 @@ insert into public.roles (name, description) values
 ('aluno', 'Acesso a cursos e materiais')
 on conflict (name) do nothing;
 
--- 5. CURSOS, TURMAS E MATERIAIS
+-- 5. CURSOS E TABELAS AUXILIARES (Estrutura Base)
 create table if not exists public.courses (
     id uuid default gen_random_uuid() primary key,
     title text not null,
     description text,
-    level text check (level in ('iniciante', 'intermedio', 'avancado')),
+    level text,
     image_url text,
     is_public boolean default false,
     instructor_id uuid references public.profiles(id) on delete set null,
@@ -103,66 +101,6 @@ create table if not exists public.enrollments (
     primary key (user_id, course_id)
 );
 
-create table if not exists public.class_materials (
-    id uuid default gen_random_uuid() primary key,
-    class_id uuid references public.classes(id) on delete cascade,
-    title text not null,
-    url text not null,
-    type text check (type in ('file', 'link', 'drive')),
-    created_at timestamp with time zone default timezone('utc'::text, now())
-);
-
-create table if not exists public.class_announcements (
-    id uuid default gen_random_uuid() primary key,
-    class_id uuid references public.classes(id) on delete cascade,
-    title text not null,
-    content text,
-    created_by uuid references public.profiles(id) on delete set null,
-    created_at timestamp with time zone default timezone('utc'::text, now())
-);
-
-create table if not exists public.class_assessments (
-    id uuid default gen_random_uuid() primary key,
-    class_id uuid references public.classes(id) on delete cascade,
-    title text not null,
-    description text,
-    due_date timestamp with time zone,
-    resource_url text,
-    resource_type text,
-    resource_title text,
-    quiz_data jsonb,
-    created_at timestamp with time zone default timezone('utc'::text, now())
-);
-
-create table if not exists public.student_progress (
-    user_id uuid references public.profiles(id) on delete cascade,
-    material_id uuid references public.class_materials(id) on delete cascade,
-    completed_at timestamp with time zone default timezone('utc'::text, now()),
-    primary key (user_id, material_id)
-);
-
-create table if not exists public.class_attendance (
-    id uuid default gen_random_uuid() primary key,
-    class_id uuid references public.classes(id) on delete cascade,
-    student_id uuid references public.profiles(id) on delete cascade,
-    date date not null,
-    status text check (status in ('present', 'absent', 'late', 'excused')),
-    notes text,
-    created_at timestamp with time zone default timezone('utc'::text, now()),
-    unique(class_id, student_id, date)
-);
-
-create table if not exists public.student_grades (
-    id uuid default gen_random_uuid() primary key,
-    assessment_id uuid references public.class_assessments(id) on delete cascade,
-    student_id uuid references public.profiles(id) on delete cascade,
-    grade text,
-    feedback text,
-    graded_at timestamp with time zone default timezone('utc'::text, now()),
-    unique(assessment_id, student_id)
-);
-
--- 6. ACESSOS E LOGS
 create table if not exists public.user_invites (
     email text primary key,
     role text not null,
@@ -178,19 +116,28 @@ create table if not exists public.access_logs (
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 7. STORAGE
+-- Tabelas de Recursos (Simplificadas para o script de setup)
+create table if not exists public.class_materials ( id uuid default gen_random_uuid() primary key, class_id uuid references public.classes(id) on delete cascade, title text, url text, type text, created_at timestamp default now() );
+create table if not exists public.class_announcements ( id uuid default gen_random_uuid() primary key, class_id uuid references public.classes(id) on delete cascade, title text, content text, created_by uuid references public.profiles(id), created_at timestamp default now() );
+create table if not exists public.class_assessments ( id uuid default gen_random_uuid() primary key, class_id uuid references public.classes(id) on delete cascade, title text, description text, due_date timestamp, resource_url text, resource_type text, resource_title text, quiz_data jsonb, created_at timestamp default now() );
+create table if not exists public.student_progress ( user_id uuid references public.profiles(id) on delete cascade, material_id uuid references public.class_materials(id) on delete cascade, completed_at timestamp default now(), primary key (user_id, material_id) );
+create table if not exists public.class_attendance ( id uuid default gen_random_uuid() primary key, class_id uuid references public.classes(id) on delete cascade, student_id uuid references public.profiles(id) on delete cascade, date date, status text, notes text, created_at timestamp default now(), unique(class_id, student_id, date) );
+create table if not exists public.student_grades ( id uuid default gen_random_uuid() primary key, assessment_id uuid references public.class_assessments(id) on delete cascade, student_id uuid references public.profiles(id) on delete cascade, grade text, feedback text, graded_at timestamp default now(), unique(assessment_id, student_id) );
+
+-- STORAGE
 insert into storage.buckets (id, name, public) values ('course-images', 'course-images', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('class-files', 'class-files', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 
 -- ==============================================================================
--- 8. SEGURANÇA E POLÍTICAS (REPARAÇÃO DE RLS)
+-- 8. SEGURANÇA E POLÍTICAS (REPARAÇÃO NUCLEAR)
 -- ==============================================================================
 
--- 8.1 PERFIS
+-- 8.1 PERFIS - O problema está aqui. Vamos limpar tudo e permitir acesso total autenticado.
 alter table public.profiles enable row level security;
 
 do $$ begin
+  -- Remove TODAS as variantes de políticas antigas
   drop policy if exists "Ver Perfis Públicos" on public.profiles;
   drop policy if exists "Editar Próprio Perfil" on public.profiles;
   drop policy if exists "Leitura Universal de Perfis" on public.profiles;
@@ -201,31 +148,25 @@ do $$ begin
   drop policy if exists "Users can update own profile" on public.profiles;
 end $$;
 
-create policy "Acesso Total a Perfis" on public.profiles
+-- Política ÚNICA e GLOBAL para desbloquear visualização
+create policy "Acesso Total v3" on public.profiles
 for all using (true) with check (true);
 
--- 8.2 APP CONFIG (Usa a função is_admin para evitar loop)
+-- 8.2 APP CONFIG
 alter table public.app_config enable row level security;
-
 do $$ begin
   drop policy if exists "Leitura Publica Config" on public.app_config;
   drop policy if exists "Admin Gere Config" on public.app_config;
 end $$;
-
--- Permitir leitura pública para que a app consiga ver a versão DB sem estar logada
-create policy "Leitura Publica Config" on public.app_config
-for select using (true);
-
--- Permitir escrita apenas a admins (usando a função segura)
-create policy "Admin Gere Config" on public.app_config
-for all using ( public.is_admin() );
+create policy "Leitura Publica Config" on public.app_config for select using (true);
+create policy "Admin Gere Config" on public.app_config for all using ( public.is_admin() );
 
 -- 8.3 CURSOS
 alter table public.courses enable row level security;
 drop policy if exists "Ver Cursos" on public.courses;
 create policy "Ver Cursos" on public.courses for select using (true);
 
--- 9. TRIGGERS E FUNÇÕES DE SISTEMA
+-- 9. TRIGGERS E FUNÇÕES DE SISTEMA (REPARAÇÃO DE LOGIN)
 
 create or replace function public.handle_new_user() 
 returns trigger as $$
@@ -233,16 +174,19 @@ declare
   invite_record record;
   assigned_role text := 'aluno';
 begin
+  -- 1. Tenta encontrar convite
   select * into invite_record from public.user_invites where lower(email) = lower(new.email);
   if invite_record is not null then assigned_role := invite_record.role; end if;
 
-  -- SEGURANÇA MÁXIMA: Email Mestre
+  -- 2. SEGURANÇA MÁXIMA: Email Mestre (Edutech) é SEMPRE Admin
   if lower(new.email) = 'edutechpt@hotmail.com' then assigned_role := 'admin'; end if;
 
+  -- 3. Inserir Perfil
   insert into public.profiles (id, email, full_name, role, avatar_url)
   values (new.id, new.email, new.raw_user_meta_data->>'full_name', assigned_role, new.raw_user_meta_data->>'avatar_url')
   on conflict (id) do update set role = assigned_role;
 
+  -- 4. Processar Matrícula Automática se houver convite
   if invite_record is not null and invite_record.course_id is not null then
       insert into public.enrollments (user_id, course_id, class_id)
       values (new.id, invite_record.course_id, invite_record.class_id)
@@ -260,7 +204,7 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- RPC: Auto-reparação
+-- RPC: Auto-reparação manual (Chamado pelo botão "Reparar Acesso")
 create or replace function public.claim_invite()
 returns boolean as $$
 declare
@@ -272,9 +216,7 @@ begin
   
   select email into user_email from auth.users where id = my_id;
   
-  -- Se for o admin mestre, força update
   if lower(user_email) = 'edutechpt@hotmail.com' then
-      -- Tenta inserir se não existir, ou atualiza se existir
       insert into public.profiles (id, email, full_name, role)
       values (my_id, user_email, 'Administrador', 'admin')
       on conflict (id) do update set role = 'admin';
@@ -297,7 +239,7 @@ end;
 $$ language plpgsql security definer;
 
 -- ==============================================================================
--- 10. SCRIPT DE RESGATE IMEDIATO (NUCLEAR OPTION)
+-- 10. SCRIPT DE RESGATE IMEDIATO (EXECUÇÃO ONE-SHOT)
 -- ==============================================================================
 DO $$
 DECLARE
@@ -307,13 +249,12 @@ BEGIN
     SELECT id INTO target_user_id FROM auth.users WHERE lower(email) = lower(target_email);
 
     IF target_user_id IS NOT NULL THEN
+        -- Garante que o admin tem perfil e cargo correto
         INSERT INTO public.profiles (id, email, full_name, role)
         VALUES (target_user_id, target_email, 'Administrador', 'admin')
-        ON CONFLICT (id) DO UPDATE SET 
-            role = 'admin',
-            email = target_email; 
+        ON CONFLICT (id) DO UPDATE SET role = 'admin';
         
-        RAISE NOTICE 'SUCESSO: Admin % restaurado.', target_email;
+        RAISE NOTICE 'SUCESSO: Permissões de % restauradas.', target_email;
     END IF;
 END $$;
 
