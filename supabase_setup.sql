@@ -2,7 +2,7 @@
 -- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (v3.0.18)
 -- Data: 2024
--- CORREÇÃO: RESGATE DE ADMINISTRADOR & MODO PÚBLICO
+-- CORREÇÃO CRÍTICA: MODO PÚBLICO RESTAURADO & RESGATE DE ADMIN
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -32,7 +32,7 @@ create table if not exists public.profiles (
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- Garantir colunas novas em Profiles (caso a tabela já exista)
+-- Garantir colunas (sem quebrar se já existirem)
 do $$
 begin
     if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'personal_folder_id') then
@@ -48,7 +48,7 @@ create table if not exists public.roles (
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- Inserir cargos padrão se não existirem
+-- Inserir cargos padrão
 insert into public.roles (name, description) values 
 ('admin', 'Acesso total ao sistema'),
 ('editor', 'Gestão de conteúdos e pedagógica'),
@@ -69,6 +69,8 @@ create table if not exists public.courses (
     marketing_data jsonb default '{}'::jsonb
 );
 
+-- Mantemos as colunas como opcionais para não quebrar o frontend atual, 
+-- mas a lógica de negócio volta ao básico.
 do $$
 begin
     if not exists (select 1 from information_schema.columns where table_name = 'courses' and column_name = 'duration') then
@@ -87,7 +89,6 @@ create table if not exists public.classes (
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- Tabela de ligação Formadores <-> Turmas (Many-to-Many)
 create table if not exists public.class_instructors (
     class_id uuid references public.classes(id) on delete cascade,
     profile_id uuid references public.profiles(id) on delete cascade,
@@ -185,33 +186,46 @@ insert into storage.buckets (id, name, public) values ('course-images', 'course-
 insert into storage.buckets (id, name, public) values ('class-files', 'class-files', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 
--- 11. FUNÇÕES E TRIGGERS (AUTOMATIZAÇÃO REVERTIDA PARA PÚBLICO)
+-- 11. FUNÇÕES E TRIGGERS (MODO PÚBLICO RESTAURADO)
 
--- Trigger: Criar Perfil ao Registar Auth (MODO PERMISSIVO)
+-- Trigger: Criar Perfil ao Registar Auth
 create or replace function public.handle_new_user() 
 returns trigger as $$
 declare
   invite_record record;
-  assigned_role text := 'aluno';
+  assigned_role text := 'aluno'; -- DEFAULT: ALUNO (Público)
 begin
-  -- Verifica convite
+  -- 1. Verifica se existe convite (Apenas para role upgrade ou associação de turma)
   select * into invite_record from public.user_invites where lower(email) = lower(new.email);
-  if invite_record is not null then assigned_role := invite_record.role; end if;
+  
+  if invite_record is not null then
+      assigned_role := invite_record.role;
+  end if;
 
-  -- Super Admin Override (Garante que edutechpt@hotmail.com é sempre admin)
-  if lower(new.email) = 'edutechpt@hotmail.com' then assigned_role := 'admin'; end if;
+  -- 2. Super Admin Override (Segurança Máxima)
+  if lower(new.email) = 'edutechpt@hotmail.com' then
+      assigned_role := 'admin';
+  end if;
 
-  -- Cria o Perfil
+  -- 3. Cria o Perfil
   insert into public.profiles (id, email, full_name, role, avatar_url)
-  values (new.id, new.email, new.raw_user_meta_data->>'full_name', assigned_role, new.raw_user_meta_data->>'avatar_url');
+  values (
+    new.id, 
+    new.email, 
+    new.raw_user_meta_data->>'full_name', 
+    assigned_role, 
+    new.raw_user_meta_data->>'avatar_url'
+  );
 
-  -- Processa Inscrição
+  -- 4. Processa Inscrição Automática (Se houver convite com turma)
   if invite_record is not null then
       if invite_record.course_id is not null then
           insert into public.enrollments (user_id, course_id, class_id)
           values (new.id, invite_record.course_id, invite_record.class_id)
           on conflict do nothing;
       end if;
+      
+      -- Apaga o convite usado
       delete from public.user_invites where email = invite_record.email;
   end if;
 
@@ -239,24 +253,29 @@ begin
   my_id := auth.uid();
   if my_id is null then return false; end if;
   
-  -- Tentar obter email da sessão atual
+  -- Tentar obter email
   select email, raw_user_meta_data->>'full_name', raw_user_meta_data->>'avatar_url'
   into user_email, full_name_claim, avatar_claim
   from auth.users where id = my_id;
   
   if user_email is null then return false; end if;
 
-  -- Lógica de Roles
+  -- Verificar convites
   select * into invite_record from public.user_invites where lower(email) = lower(user_email);
   if invite_record is not null then final_role := invite_record.role; end if;
   
-  -- FORÇAR ADMIN
+  -- FORÇAR ADMIN (Correção de Acesso)
   if lower(user_email) = 'edutechpt@hotmail.com' then final_role := 'admin'; end if;
 
   -- Upsert Profile
   insert into public.profiles (id, email, full_name, role, avatar_url)
   values (my_id, user_email, coalesce(full_name_claim, 'Utilizador'), final_role, avatar_claim)
-  on conflict (id) do update set role = case when excluded.role = 'admin' then 'admin' else public.profiles.role end;
+  on conflict (id) do update 
+  set role = case 
+      when public.profiles.role = 'admin' then 'admin' -- Nunca perde admin
+      when excluded.role = 'admin' then 'admin'
+      else excluded.role 
+  end;
 
   if invite_record is not null then
       delete from public.user_invites where email = invite_record.email;
@@ -266,20 +285,21 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- Função: Obter Membros (RPC)
+-- Função: Obter Membros
 create or replace function public.get_community_members()
 returns setof public.profiles as $$
 begin
+    -- Retorna todos (Versão Simplificada/Aberta)
     return query select * from public.profiles order by full_name;
 end;
 $$ language plpgsql security definer;
 
--- 12. RLS POLICIES (PERMISSIVE)
+-- 12. RLS POLICIES (PERMISSIVE - FIX ACCESS DENIED)
 alter table public.profiles enable row level security;
 alter table public.courses enable row level security;
 alter table public.enrollments enable row level security;
 
--- Policies mais abertas para evitar bloqueios
+-- Policies mais abertas para garantir leitura
 drop policy if exists "Ver Perfis Públicos" on public.profiles;
 create policy "Ver Perfis Públicos" on public.profiles for select using (true);
 
@@ -289,7 +309,10 @@ create policy "Editar Próprio Perfil" on public.profiles for update using (auth
 drop policy if exists "Ver Cursos" on public.courses;
 create policy "Ver Cursos" on public.courses for select using (true);
 
--- 13. RESGATE ADMIN (EDUTECH PT)
+drop policy if exists "Ver Inscrições" on public.enrollments;
+create policy "Ver Inscrições" on public.enrollments for select using (auth.uid() = user_id);
+
+-- 13. SCRIPT DE RESGATE IMEDIATO DE ADMIN
 DO $$
 DECLARE
     target_email text := 'edutechpt@hotmail.com';
