@@ -42,34 +42,77 @@ export const SettingsAccess: React.FC = () => {
         }
     };
 
+    // Helper Component para Legenda
+    const VariablesLegend = ({ vars }: { vars: string[] }) => (
+        <div className="mt-2 p-2 bg-indigo-50 rounded-lg border border-indigo-100 text-xs text-indigo-700 flex flex-wrap items-center gap-2">
+            <span className="font-bold">Variáveis Disponíveis:</span>
+            {vars.map(v => (
+                <code key={v} className="bg-white px-1.5 py-0.5 rounded border border-indigo-200 font-mono text-indigo-600 select-all cursor-pointer hover:bg-indigo-100" title="Clique para selecionar">
+                    {v}
+                </code>
+            ))}
+        </div>
+    );
+
     return (
         <div className="space-y-6 animate-in fade-in">
+             
+             {/* 1. PEDIDO DE ACESSO */}
              <GlassCard>
                  <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2"><span>🔑</span> Pedido de Acesso (Ecrã Login)</h3>
-                 <p className="text-sm text-indigo-700 mb-4 opacity-80">Configuração do botão "Pedir Acesso" na caixa de login.</p>
+                 <p className="text-sm text-indigo-700 mb-4 opacity-80">Configuração do botão "Pedir Acesso" na caixa de login. (Texto estático para o utilizador preencher).</p>
                  <div className="space-y-4">
                      <div><label className="block text-sm text-indigo-800 font-bold mb-1">Email Destino</label><input type="email" value={config.requestAccessEmail || ''} onChange={e => setConfig({...config, requestAccessEmail: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60"/></div>
                      <div><label className="block text-sm text-indigo-800 font-bold mb-1">Assunto</label><input type="text" value={config.requestAccessSubject || ''} onChange={e => setConfig({...config, requestAccessSubject: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60"/></div>
-                     <div><label className="block text-sm text-indigo-800 font-bold mb-1">Corpo</label><textarea value={config.requestAccessBody || ''} onChange={e => setConfig({...config, requestAccessBody: e.target.value})} className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 text-sm"/></div>
+                     <div>
+                         <label className="block text-sm text-indigo-800 font-bold mb-1">Corpo</label>
+                         <textarea value={config.requestAccessBody || ''} onChange={e => setConfig({...config, requestAccessBody: e.target.value})} className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 text-sm"/>
+                         <p className="text-xs text-indigo-400 mt-1 italic">Este texto aparecerá pré-preenchido no cliente de email do utilizador.</p>
+                     </div>
                  </div>
              </GlassCard>
 
+             {/* 2. CONVITES */}
+             <GlassCard>
+                 <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2"><span>✉️</span> Convites de Utilizadores</h3>
+                 <div className="space-y-4">
+                     <div><label className="block text-sm text-indigo-800 font-bold mb-1">Assunto</label><input type="text" value={config.inviteSubject || ''} onChange={e => setConfig({...config, inviteSubject: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60"/></div>
+                     <div>
+                         <label className="block text-sm text-indigo-800 font-bold mb-1">Corpo</label>
+                         <textarea value={config.inviteBody || ''} onChange={e => setConfig({...config, inviteBody: e.target.value})} className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 text-sm"/>
+                         <VariablesLegend vars={['{link}']} />
+                     </div>
+                 </div>
+             </GlassCard>
+
+             {/* 3. ENTREGA DE TRABALHOS */}
              <GlassCard>
                  <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2"><span>📤</span> Entrega de Trabalhos</h3>
+                 <p className="text-sm text-indigo-700 mb-4 opacity-80">Modelo para os alunos usarem ao enviar trabalhos por email.</p>
                  <div className="space-y-4">
                      <div><label className="block text-sm text-indigo-800 font-bold mb-1">Assunto</label><input type="text" value={config.submissionSubject || ''} onChange={e => setConfig({...config, submissionSubject: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60"/></div>
-                     <div><label className="block text-sm text-indigo-800 font-bold mb-1">Corpo</label><textarea value={config.submissionBody || ''} onChange={e => setConfig({...config, submissionBody: e.target.value})} className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 text-sm"/></div>
+                     <div>
+                         <label className="block text-sm text-indigo-800 font-bold mb-1">Corpo</label>
+                         <textarea value={config.submissionBody || ''} onChange={e => setConfig({...config, submissionBody: e.target.value})} className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 text-sm"/>
+                         <VariablesLegend vars={['[Nome do Aluno]', '[Nome da Tarefa]', '[Nome da Turma]', '[Link do Trabalho]']} />
+                     </div>
                  </div>
              </GlassCard>
              
+             {/* 4. CANDIDATURA */}
              <GlassCard>
                  <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2"><span>🙋</span> Candidatura Espontânea</h3>
                  <div className="space-y-4">
                      <div><label className="block text-sm text-indigo-800 font-bold mb-1">Assunto</label><input type="text" value={config.applicationSubject || ''} onChange={e => setConfig({...config, applicationSubject: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60"/></div>
-                     <div><label className="block text-sm text-indigo-800 font-bold mb-1">Corpo</label><textarea value={config.applicationBody || ''} onChange={e => setConfig({...config, applicationBody: e.target.value})} className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 text-sm"/></div>
+                     <div>
+                         <label className="block text-sm text-indigo-800 font-bold mb-1">Corpo</label>
+                         <textarea value={config.applicationBody || ''} onChange={e => setConfig({...config, applicationBody: e.target.value})} className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 text-sm"/>
+                         <VariablesLegend vars={['[Nome do Candidato]', '[Interesse]']} />
+                     </div>
                  </div>
              </GlassCard>
 
+             {/* 5. ACESSO NEGADO */}
              <GlassCard>
                  <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2"><span>⛔</span> Acesso Negado</h3>
                  <div className="space-y-4">
