@@ -5,7 +5,7 @@ export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
 -- Data: 2024
--- AÇÃO: ADICIONAR TABELA DE CHAT (CLASS_COMMENTS)
+-- AÇÃO: CORREÇÃO DE POLÍTICAS DUPLICADAS
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -124,7 +124,7 @@ create table if not exists public.student_progress ( user_id uuid references pub
 create table if not exists public.class_attendance ( id uuid default gen_random_uuid() primary key, class_id uuid references public.classes(id) on delete cascade, student_id uuid references public.profiles(id) on delete cascade, date date, status text, notes text, created_at timestamp default now(), unique(class_id, student_id, date) );
 create table if not exists public.student_grades ( id uuid default gen_random_uuid() primary key, assessment_id uuid references public.class_assessments(id) on delete cascade, student_id uuid references public.profiles(id) on delete cascade, grade text, feedback text, graded_at timestamp default now(), unique(assessment_id, student_id) );
 
--- NOVO: Chat da Turma
+-- Chat da Turma
 create table if not exists public.class_comments (
     id uuid default gen_random_uuid() primary key,
     class_id uuid references public.classes(id) on delete cascade,
@@ -176,6 +176,8 @@ create policy "Admin Gere Config" on public.app_config for all using ( public.is
 -- 8.4 CURSOS
 alter table public.courses enable row level security;
 drop policy if exists "Ver Cursos" on public.courses;
+drop policy if exists "Admin Gere Cursos" on public.courses; -- ADICIONADO PARA CORREÇÃO
+
 create policy "Ver Cursos" on public.courses for select using (true);
 create policy "Admin Gere Cursos" on public.courses for all using ( public.is_admin() OR exists (select 1 from public.profiles where id = auth.uid() and role = 'formador') );
 
