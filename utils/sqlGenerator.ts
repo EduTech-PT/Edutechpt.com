@@ -324,3 +324,5 @@ create trigger on_chat_moderation before insert or update on public.class_commen
 -- 10. RECARREGAMENTO DE SCHEMA
 -- ==============================================================================
 NOTIFY pgrst, 'reload schema';
+`;
+};
