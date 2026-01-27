@@ -25,7 +25,6 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
     const audioContextRef = useRef<AudioContext | null>(null);
 
     // 0. Unlock Audio Context on first interaction
-    // Esta é a parte crítica para navegadores: requer interação do utilizador para iniciar o áudio.
     useEffect(() => {
         const initAudio = () => {
             if (!audioContextRef.current) {
@@ -34,14 +33,13 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
             // Tentar resumir imediatamente se já foi criado
             if (audioContextRef.current.state === 'suspended') {
                 audioContextRef.current.resume().then(() => {
-                    console.log("AudioContext Resumed by interaction");
+                    // Audio context resumed successfully
                 }).catch(e => console.warn("Audio resume failed", e));
             }
         };
 
         const unlockAudio = () => {
             initAudio();
-            // Remove listeners após a primeira tentativa bem sucedida
             if (audioContextRef.current && audioContextRef.current.state === 'running') {
                 window.removeEventListener('click', unlockAudio);
                 window.removeEventListener('touchstart', unlockAudio);
@@ -148,98 +146,130 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
             }
             
             const ctx = audioContextRef.current;
-            
-            // Tenta resumir sempre, por segurança
-            if (ctx.state === 'suspended') {
-                ctx.resume().catch((e) => console.warn("Cannot play sound, context suspended:", e));
-            }
+            if (ctx.state === 'suspended') ctx.resume();
 
-            const now = ctx.currentTime;
-            const gainNode = ctx.createGain();
-            gainNode.connect(ctx.destination);
+            const t = ctx.currentTime;
+            const masterGain = ctx.createGain();
+            masterGain.connect(ctx.destination);
+            masterGain.gain.setValueAtTime(0.4, t); // Volume Mestre
 
             if (type === 'glass') {
-                const oscillator = ctx.createOscillator();
-                oscillator.connect(gainNode);
-                oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(800, now);
-                oscillator.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
-                gainNode.gain.setValueAtTime(0.3, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-                oscillator.start(now);
-                oscillator.stop(now + 0.5);
-            } 
-            else if (type === 'digital') {
-                const oscillator = ctx.createOscillator();
-                oscillator.connect(gainNode);
-                oscillator.type = 'square';
-                oscillator.frequency.setValueAtTime(600, now);
-                oscillator.frequency.setValueAtTime(800, now + 0.1);
-                gainNode.gain.setValueAtTime(0.1, now);
-                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.2);
-                oscillator.start(now);
-                oscillator.stop(now + 0.2);
-            } 
-            else if (type === 'retro') {
-                // Som "Coin" 8-bit
-                const oscillator = ctx.createOscillator();
-                oscillator.connect(gainNode);
-                oscillator.type = 'square';
-                oscillator.frequency.setValueAtTime(987, now); // B5
-                oscillator.frequency.setValueAtTime(1318, now + 0.08); // E6
-                gainNode.gain.setValueAtTime(0.1, now);
-                gainNode.gain.setValueAtTime(0.1, now + 0.3);
-                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.4);
-                oscillator.start(now);
-                oscillator.stop(now + 0.4);
-            }
-            else if (type === 'arcade') {
-                // Som de "Salto"
-                const oscillator = ctx.createOscillator();
-                oscillator.connect(gainNode);
-                oscillator.type = 'sawtooth';
-                oscillator.frequency.setValueAtTime(150, now);
-                oscillator.frequency.linearRampToValueAtTime(600, now + 0.2);
-                gainNode.gain.setValueAtTime(0.1, now);
-                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.2);
-                oscillator.start(now);
-                oscillator.stop(now + 0.2);
-            }
-            else if (type === 'sonar') {
-                // Som "Ping"
-                const oscillator = ctx.createOscillator();
-                oscillator.connect(gainNode);
-                oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(1200, now);
-                gainNode.gain.setValueAtTime(0, now);
-                gainNode.gain.linearRampToValueAtTime(0.3, now + 0.05);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-                oscillator.start(now);
-                oscillator.stop(now + 0.6);
+                // Som de Vidro Premium (Complexo)
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(masterGain);
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, t); // A5
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.5, t + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
                 
-                // Echo
+                osc.start(t);
+                osc.stop(t + 1.5);
+
+                // Harmónico
                 const osc2 = ctx.createOscillator();
                 const gain2 = ctx.createGain();
                 osc2.connect(gain2);
-                gain2.connect(ctx.destination);
+                gain2.connect(masterGain);
                 osc2.type = 'sine';
-                osc2.frequency.setValueAtTime(1200, now + 0.2);
-                gain2.gain.setValueAtTime(0, now + 0.2);
-                gain2.gain.linearRampToValueAtTime(0.1, now + 0.25);
-                gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
-                osc2.start(now + 0.2);
-                osc2.stop(now + 0.7);
+                osc2.frequency.setValueAtTime(1760, t); // A6
+                gain2.gain.setValueAtTime(0, t);
+                gain2.gain.linearRampToValueAtTime(0.1, t + 0.05);
+                gain2.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
+                osc2.start(t);
+                osc2.stop(t + 1.5);
+            } 
+            else if (type === 'digital') {
+                // Som Digital Suave
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(masterGain);
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(600, t);
+                osc.frequency.linearRampToValueAtTime(800, t + 0.1);
+                
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.3, t + 0.05);
+                gain.gain.linearRampToValueAtTime(0, t + 0.3);
+
+                osc.start(t);
+                osc.stop(t + 0.3);
+            } 
+            else if (type === 'retro') {
+                // Coin 8-bit Suavizado
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(masterGain);
+
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(987, t); 
+                osc.frequency.setValueAtTime(1318, t + 0.08);
+                
+                gain.gain.setValueAtTime(0.05, t);
+                gain.gain.linearRampToValueAtTime(0.05, t + 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+                
+                osc.start(t);
+                osc.stop(t + 0.4);
+            }
+            else if (type === 'arcade') {
+                // Salto (Jump)
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(masterGain);
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(200, t);
+                osc.frequency.linearRampToValueAtTime(600, t + 0.2);
+                
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.3, t + 0.05);
+                gain.gain.linearRampToValueAtTime(0, t + 0.3);
+
+                osc.start(t);
+                osc.stop(t + 0.3);
+            }
+            else if (type === 'sonar') {
+                // Ping Submarino
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(masterGain);
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1200, t);
+                
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.3, t + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+                
+                osc.start(t);
+                osc.stop(t + 0.6);
             }
             else {
-                // Default Pop
-                const oscillator = ctx.createOscillator();
-                oscillator.connect(gainNode);
-                oscillator.type = 'triangle';
-                oscillator.frequency.setValueAtTime(400, now);
-                gainNode.gain.setValueAtTime(0.2, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-                oscillator.start(now);
-                oscillator.stop(now + 0.3);
+                // Default Pop (Moderno)
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(masterGain);
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, t);
+                osc.frequency.exponentialRampToValueAtTime(600, t + 0.1);
+                
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.5, t + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+
+                osc.start(t);
+                osc.stop(t + 0.3);
             }
         } catch (e) {
             console.error("Audio Playback Error", e);
@@ -279,8 +309,8 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
                     onClick={() => handleClick(notif)}
                     className="
                         pointer-events-auto cursor-pointer
-                        bg-white/80 backdrop-blur-xl
-                        border border-indigo-100
+                        bg-white/90 backdrop-blur-xl
+                        border border-indigo-200
                         shadow-[0_8px_30px_rgba(0,0,0,0.12)] rounded-2xl
                         p-4 w-80
                         transform transition-all duration-500
@@ -288,10 +318,10 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
                         hover:scale-105 hover:bg-white
                         flex items-start gap-3
                         group
-                        ring-1 ring-indigo-50
+                        ring-2 ring-indigo-50
                     "
                 >
-                    <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white shrink-0 shadow-md">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shrink-0 shadow-lg text-lg">
                         💬
                     </div>
                     <div className="flex-1 min-w-0">
