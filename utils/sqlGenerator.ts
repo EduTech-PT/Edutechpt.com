@@ -5,7 +5,7 @@ export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
 -- Data: 2024
--- AÇÃO: CORREÇÃO CRÍTICA DE RECURSIVIDADE (INFINITE RECURSION FIX)
+-- AÇÃO: ADICIONAR TABELA DE CHAT (CLASS_COMMENTS)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -17,9 +17,7 @@ create table if not exists public.app_config (
 insert into public.app_config (key, value) values ('sql_version', '${SQL_VERSION}')
 on conflict (key) do update set value = '${SQL_VERSION}';
 
--- 2. FUNÇÃO DE SEGURANÇA (REDEFINIDA PARA EVITAR RECURSIVIDADE)
--- O 'security definer' é essencial aqui para que a função execute com privilégios de 
--- sistema e não trigger as políticas RLS da tabela profiles novamente.
+-- 2. FUNÇÃO DE SEGURANÇA
 create or replace function public.is_admin()
 returns boolean
 language plpgsql
@@ -126,18 +124,25 @@ create table if not exists public.student_progress ( user_id uuid references pub
 create table if not exists public.class_attendance ( id uuid default gen_random_uuid() primary key, class_id uuid references public.classes(id) on delete cascade, student_id uuid references public.profiles(id) on delete cascade, date date, status text, notes text, created_at timestamp default now(), unique(class_id, student_id, date) );
 create table if not exists public.student_grades ( id uuid default gen_random_uuid() primary key, assessment_id uuid references public.class_assessments(id) on delete cascade, student_id uuid references public.profiles(id) on delete cascade, grade text, feedback text, graded_at timestamp default now(), unique(assessment_id, student_id) );
 
+-- NOVO: Chat da Turma
+create table if not exists public.class_comments (
+    id uuid default gen_random_uuid() primary key,
+    class_id uuid references public.classes(id) on delete cascade,
+    user_id uuid references public.profiles(id) on delete cascade,
+    content text not null,
+    created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
 -- STORAGE
 insert into storage.buckets (id, name, public) values ('course-images', 'course-images', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('class-files', 'class-files', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 
 -- ==============================================================================
--- 8. SEGURANÇA E POLÍTICAS (REPARAÇÃO NUCLEAR)
+-- 8. SEGURANÇA E POLÍTICAS
 -- ==============================================================================
 
--- 8.1 PERFIS - LIMPEZA TOTAL DE POLÍTICAS ANTIGAS
--- Usamos um bloco DO para remover dinamicamente todas as policies da tabela profiles
--- Isto garante que nenhuma policy antiga (ex: "Ver Perfis Públicos") continue ativa a causar conflitos.
+-- 8.1 PERFIS
 DO $$ 
 DECLARE 
   pol record; 
@@ -149,24 +154,15 @@ BEGIN
 END $$;
 
 alter table public.profiles enable row level security;
-
--- Política ÚNICA para perfis (Acesso Total para utilizadores autenticados)
--- Usar (true) em vez de uma função previne a recursividade de leitura.
 create policy "Acesso Total Perfis v4" on public.profiles
 for all using ( auth.role() = 'authenticated' ) with check ( auth.role() = 'authenticated' );
 
--- 8.2 ROLES - POLÍTICAS
+-- 8.2 ROLES
 alter table public.roles enable row level security;
 drop policy if exists "Admin Gere Roles" on public.roles;
 drop policy if exists "Todos Veem Roles" on public.roles;
-
--- Admins podem fazer tudo na tabela roles
-create policy "Admin Gere Roles" on public.roles
-for all using ( public.is_admin() );
-
--- Todos podem LER os cargos (necessário para o formulário de user admin carregar a lista)
-create policy "Todos Veem Roles" on public.roles
-for select using ( true );
+create policy "Admin Gere Roles" on public.roles for all using ( public.is_admin() );
+create policy "Todos Veem Roles" on public.roles for select using ( true );
 
 -- 8.3 APP CONFIG
 alter table public.app_config enable row level security;
@@ -183,7 +179,17 @@ drop policy if exists "Ver Cursos" on public.courses;
 create policy "Ver Cursos" on public.courses for select using (true);
 create policy "Admin Gere Cursos" on public.courses for all using ( public.is_admin() OR exists (select 1 from public.profiles where id = auth.uid() and role = 'formador') );
 
--- 9. TRIGGERS E FUNÇÕES DE SISTEMA (REPARAÇÃO DE LOGIN)
+-- 8.5 CHAT (COMENTÁRIOS)
+alter table public.class_comments enable row level security;
+drop policy if exists "Ver Comentarios" on public.class_comments;
+drop policy if exists "Criar Comentarios" on public.class_comments;
+drop policy if exists "Gerir Comentarios" on public.class_comments;
+
+create policy "Ver Comentarios" on public.class_comments for select using (true);
+create policy "Criar Comentarios" on public.class_comments for insert with check (auth.uid() = user_id);
+create policy "Gerir Comentarios" on public.class_comments for delete using (auth.uid() = user_id OR public.is_admin());
+
+-- 9. TRIGGERS E FUNÇÕES DE SISTEMA
 
 create or replace function public.handle_new_user() 
 returns trigger as $$
@@ -191,19 +197,15 @@ declare
   invite_record record;
   assigned_role text := 'aluno';
 begin
-  -- 1. Tenta encontrar convite
   select * into invite_record from public.user_invites where lower(email) = lower(new.email);
   if invite_record is not null then assigned_role := invite_record.role; end if;
 
-  -- 2. SEGURANÇA MÁXIMA: Email Mestre (Edutech) é SEMPRE Admin
   if lower(new.email) = 'edutechpt@hotmail.com' then assigned_role := 'admin'; end if;
 
-  -- 3. Inserir Perfil
   insert into public.profiles (id, email, full_name, role, avatar_url)
   values (new.id, new.email, new.raw_user_meta_data->>'full_name', assigned_role, new.raw_user_meta_data->>'avatar_url')
   on conflict (id) do update set role = assigned_role;
 
-  -- 4. Processar Matrícula Automática
   if invite_record is not null and invite_record.course_id is not null then
       insert into public.enrollments (user_id, course_id, class_id)
       values (new.id, invite_record.course_id, invite_record.class_id)
@@ -215,7 +217,6 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- Re-bind Trigger
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
