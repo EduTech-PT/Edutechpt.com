@@ -377,6 +377,16 @@ export const courseService = {
         if (error) return [];
         return data as ClassComment[];
     },
+    // NEW: Buscar mensagem única para Realtime Update
+    async getCommentById(id: string) {
+        const { data, error } = await supabase
+            .from('class_comments')
+            .select(`*, user:profiles(*)`)
+            .eq('id', id)
+            .single();
+        if (error) return null;
+        return data as ClassComment;
+    },
     async sendComment(classId: string, userId: string, content: string) {
         const { error } = await supabase.from('class_comments').insert([{
             class_id: classId,

@@ -4,6 +4,7 @@ import { courseService } from '../../../services/courses';
 import { Profile, ClassComment, OnlineUser } from '../../../types';
 import { formatTime } from '../../../utils/formatters';
 import { useToast } from '../../ui/ToastProvider';
+import { supabase } from '../../../lib/supabaseClient';
 
 interface Props {
     classId: string;
@@ -21,14 +22,48 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
 
     useEffect(() => {
         loadComments();
-        // Set up simple polling for "realtime" feel without WebSocket complexity
-        const timer = setInterval(loadComments, 10000); 
-        return () => clearInterval(timer);
+
+        // Configurar Supabase Realtime
+        const channel = supabase
+            .channel(`chat:${classId}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'class_comments',
+                filter: `class_id=eq.${classId}`
+            }, async (payload) => {
+                // Quando entra uma nova mensagem, buscamos os dados completos (com nome do user)
+                const newComment = await courseService.getCommentById(payload.new.id);
+                if (newComment) {
+                    setComments(prev => [...prev, newComment]);
+                }
+            })
+            .on('postgres_changes', {
+                event: 'DELETE',
+                schema: 'public',
+                table: 'class_comments',
+                filter: `class_id=eq.${classId}`
+            }, (payload) => {
+                // Quando apaga uma mensagem, removemos do estado local
+                setComments(prev => prev.filter(c => c.id !== payload.old.id));
+            })
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log('Chat Realtime: Conectado');
+                }
+            });
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [classId]);
 
     useEffect(() => {
-        if (!loading) scrollToBottom();
-    }, [comments, loading]);
+        // Scroll to bottom on new message or initial load
+        if (comments.length > 0) {
+            scrollToBottom();
+        }
+    }, [comments]);
 
     const scrollToBottom = () => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -52,8 +87,7 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
         try {
             await courseService.sendComment(classId, profile.id, newMessage.trim());
             setNewMessage('');
-            loadComments();
-            toast.success("Mensagem enviada!");
+            // Não precisamos de reload manual, o Realtime trata disso
         } catch (e: any) {
             toast.error("Erro ao enviar: " + e.message);
         } finally {
@@ -65,8 +99,7 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
         if (!window.confirm("Apagar mensagem?")) return;
         try {
             await courseService.deleteComment(id);
-            setComments(prev => prev.filter(c => c.id !== id));
-            toast.info("Mensagem apagada.");
+            // Realtime tratará da atualização da UI
         } catch (e: any) {
             toast.error("Erro ao apagar: " + e.message);
         }
@@ -80,7 +113,7 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
                 {/* Messages Area */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-white/30 rounded-xl border border-indigo-50 mb-4">
                     {loading ? (
-                        <div className="text-center py-10 opacity-50">A carregar conversa...</div>
+                        <div className="text-center py-10 opacity-50">A conectar ao chat...</div>
                     ) : comments.length === 0 ? (
                         <div className="text-center py-20 opacity-50 flex flex-col items-center">
                             <span className="text-4xl mb-2">💬</span>

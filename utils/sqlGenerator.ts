@@ -5,7 +5,7 @@ export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
 -- Data: 2024
--- AÇÃO: CORREÇÃO DE POLÍTICAS DUPLICADAS
+-- AÇÃO: ATIVAÇÃO DE REALTIME CHAT
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -191,7 +191,18 @@ create policy "Ver Comentarios" on public.class_comments for select using (true)
 create policy "Criar Comentarios" on public.class_comments for insert with check (auth.uid() = user_id);
 create policy "Gerir Comentarios" on public.class_comments for delete using (auth.uid() = user_id OR public.is_admin());
 
--- 9. TRIGGERS E FUNÇÕES DE SISTEMA
+-- ==============================================================================
+-- 9. CONFIGURAÇÃO REALTIME
+-- ==============================================================================
+-- Adiciona a tabela de comentários à publicação do Supabase Realtime
+-- Isto permite que o frontend subscreva a eventos (INSERT, DELETE)
+begin;
+  drop publication if exists supabase_realtime;
+  create publication supabase_realtime;
+commit;
+alter publication supabase_realtime add table public.class_comments;
+
+-- 10. TRIGGERS E FUNÇÕES DE SISTEMA
 
 create or replace function public.handle_new_user() 
 returns trigger as $$
@@ -257,7 +268,7 @@ end;
 $$ language plpgsql security definer;
 
 -- ==============================================================================
--- 10. SCRIPT DE RESGATE IMEDIATO (EXECUÇÃO ONE-SHOT)
+-- 11. SCRIPT DE RESGATE IMEDIATO (EXECUÇÃO ONE-SHOT)
 -- ==============================================================================
 DO $$
 DECLARE
