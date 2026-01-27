@@ -6,6 +6,6 @@
 export const SUPABASE_URL = "https://zeedhuzljsbaoqafpfom.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ZOMCawahrL7OImeWeT6Fug_U_WMN0H1";
 
-export const APP_VERSION = "v3.1.1"; 
-export const SQL_VERSION = "v3.1.0"; // Update: Enable Realtime for Chat
+export const APP_VERSION = "v3.1.2"; 
+export const SQL_VERSION = "v3.1.2"; // Update: Auto-Cleanup Chat
 export const APP_NAME = "EduTech PT";

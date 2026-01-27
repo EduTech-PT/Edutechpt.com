@@ -111,7 +111,15 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
             {/* LEFT: Chat Area */}
             <div className="flex-1 flex flex-col h-full min-w-0">
                 {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-white/30 rounded-xl border border-indigo-50 mb-4">
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-white/30 rounded-xl border border-indigo-50 mb-4 relative">
+                    
+                    {/* Aviso de Retenção */}
+                    <div className="sticky top-0 z-10 flex justify-center mb-4 pointer-events-none">
+                        <span className="bg-indigo-50/90 text-indigo-400 text-[10px] px-3 py-1 rounded-full border border-indigo-100 shadow-sm backdrop-blur-sm">
+                            ℹ️ As conversas com mais de 90 dias são eliminadas automaticamente.
+                        </span>
+                    </div>
+
                     {loading ? (
                         <div className="text-center py-10 opacity-50">A conectar ao chat...</div>
                     ) : comments.length === 0 ? (

@@ -5,7 +5,7 @@ export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
 -- Data: 2024
--- AÇÃO: ATIVAÇÃO DE REALTIME CHAT
+-- AÇÃO: ATIVAÇÃO DE LIMPEZA AUTOMÁTICA (CHAT 90 DIAS)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -176,7 +176,7 @@ create policy "Admin Gere Config" on public.app_config for all using ( public.is
 -- 8.4 CURSOS
 alter table public.courses enable row level security;
 drop policy if exists "Ver Cursos" on public.courses;
-drop policy if exists "Admin Gere Cursos" on public.courses; -- ADICIONADO PARA CORREÇÃO
+drop policy if exists "Admin Gere Cursos" on public.courses;
 
 create policy "Ver Cursos" on public.courses for select using (true);
 create policy "Admin Gere Cursos" on public.courses for all using ( public.is_admin() OR exists (select 1 from public.profiles where id = auth.uid() and role = 'formador') );
@@ -192,17 +192,34 @@ create policy "Criar Comentarios" on public.class_comments for insert with check
 create policy "Gerir Comentarios" on public.class_comments for delete using (auth.uid() = user_id OR public.is_admin());
 
 -- ==============================================================================
--- 9. CONFIGURAÇÃO REALTIME
+-- 9. CONFIGURAÇÃO REALTIME & LIMPEZA AUTOMÁTICA
 -- ==============================================================================
 -- Adiciona a tabela de comentários à publicação do Supabase Realtime
--- Isto permite que o frontend subscreva a eventos (INSERT, DELETE)
 begin;
   drop publication if exists supabase_realtime;
   create publication supabase_realtime;
 commit;
 alter publication supabase_realtime add table public.class_comments;
 
+-- TRIGGER DE LIMPEZA (90 DIAS)
+-- Esta função corre sempre que uma nova mensagem é inserida.
+-- Ela apaga silenciosamente qualquer mensagem com mais de 90 dias.
+create or replace function public.cleanup_old_comments()
+returns trigger as $$
+begin
+  delete from public.class_comments where created_at < now() - interval '90 days';
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists on_comment_cleanup on public.class_comments;
+create trigger on_comment_cleanup
+  after insert on public.class_comments
+  for each statement execute procedure public.cleanup_old_comments();
+
+-- ==============================================================================
 -- 10. TRIGGERS E FUNÇÕES DE SISTEMA
+-- ==============================================================================
 
 create or replace function public.handle_new_user() 
 returns trigger as $$
@@ -235,7 +252,6 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- RPC: Auto-reparação manual
 create or replace function public.claim_invite()
 returns boolean as $$
 declare
@@ -268,7 +284,7 @@ end;
 $$ language plpgsql security definer;
 
 -- ==============================================================================
--- 11. SCRIPT DE RESGATE IMEDIATO (EXECUÇÃO ONE-SHOT)
+-- 11. SCRIPT DE RESGATE IMEDIATO
 -- ==============================================================================
 DO $$
 DECLARE
