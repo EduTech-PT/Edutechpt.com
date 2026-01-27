@@ -121,7 +121,7 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                              <h3 className="font-bold text-indigo-900 text-lg mb-1 leading-tight">{course.title}</h3>
                              <div className="flex gap-2 mb-4 text-xs font-medium uppercase tracking-wide">
                                 <span className="text-indigo-500">{course.level}</span>
-                                {course.duration && <span className="text-indigo-400">• {course.duration}</span>}
+                                {course.duration && <span className="text-indigo-400">• {course.duration} horas</span>}
                              </div>
                              
                              <div className="mt-auto pt-4 border-t border-indigo-100 flex justify-between items-center">
@@ -168,14 +168,14 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                                 )}
                                 {course.price && (
                                     <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
-                                        {course.price}
+                                        {course.price} €
                                     </div>
                                 )}
                             </div>
                             <h4 className="font-bold text-indigo-900 text-sm mb-1 line-clamp-2">{course.title}</h4>
                             <div className="flex gap-2 mb-2 text-[10px] uppercase font-bold text-indigo-400">
                                 <span>{course.level}</span>
-                                {course.duration && <span>• {course.duration}</span>}
+                                {course.duration && <span>• {course.duration} horas</span>}
                             </div>
                             
                             <p className="text-xs text-indigo-700 opacity-70 line-clamp-3 mb-4 flex-grow">

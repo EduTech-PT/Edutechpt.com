@@ -144,7 +144,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                                  </span>
                                  {course.price && (
                                      <span className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-bold shadow-lg">
-                                        {course.price}
+                                        {course.price} €
                                      </span>
                                  )}
                              </div>
@@ -152,7 +152,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                         
                         <div className="p-6 flex flex-col flex-grow">
                             <h3 className="text-xl font-bold text-indigo-900 mb-1 leading-tight group-hover:text-indigo-600 transition-colors">{course.title}</h3>
-                            {course.duration && <span className="text-xs font-bold text-indigo-400 uppercase mb-3 block">{course.duration}</span>}
+                            {course.duration && <span className="text-xs font-bold text-indigo-400 uppercase mb-3 block">{course.duration} horas</span>}
                             
                             <div className="text-indigo-800 opacity-80 text-sm flex-grow mb-6 line-clamp-3 leading-relaxed">
                                {course.description?.replace(/<[^>]*>?/gm, '') || 'Sem descrição.'}

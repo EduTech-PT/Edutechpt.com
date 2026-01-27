@@ -158,6 +158,8 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
            
            <div className="mt-8 pt-6 border-t border-indigo-200 flex flex-wrap gap-4 text-sm text-indigo-700 opacity-80">
                <span>📅 Publicado a: <b>{formatShortDate(course.created_at)}</b></span>
+               {course.duration && <span>⏱️ Duração: <b>{course.duration} horas</b></span>}
+               {course.price && <span>💰 Custo: <b>{course.price} €</b></span>}
            </div>
         </div>
 
@@ -165,22 +167,17 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
         <div className="p-6 bg-white/60 border-t border-white/50 backdrop-blur-md flex justify-between items-center gap-4 shrink-0">
             <button 
                 onClick={onClose}
-                className="px-6 py-3 text-indigo-700 font-bold hover:bg-indigo-50 rounded-xl transition-colors"
+                className="px-6 py-3 text-indigo-700 font-bold hover:bg-indigo-50 rounded-lg transition-colors"
             >
                 Fechar
             </button>
             <button 
                 onClick={onAction}
-                className={`px-8 py-3 rounded-xl font-bold shadow-lg transform transition-transform hover:scale-105 active:scale-95 ${
-                    isEnrolled 
-                    ? 'bg-green-600 text-white hover:bg-green-700' 
-                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                }`}
+                className="px-8 py-3 bg-indigo-600 text-white text-lg font-bold rounded-xl shadow-lg hover:bg-indigo-700 transform hover:-translate-y-1 transition-all"
             >
-                {hasMarketingData && mData.cta ? mData.cta : actionLabel}
+                {actionLabel}
             </button>
         </div>
-
       </GlassCard>
     </div>
   );

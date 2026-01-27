@@ -124,16 +124,73 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                      <h4 className="font-bold text-indigo-900">Detalhes de Apresentação (Marketing)</h4>
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <MarketingInput label="1. Título Magnético" value={marketingData.headline} onChange={v => setMarketingData({...marketingData, headline: v})} placeholder={formData.title} />
-                     <MarketingInput label="2. Promessa Única" value={marketingData.promise} onChange={v => setMarketingData({...marketingData, promise: v})} placeholder="Ex: Domine o TypeScript em 30 dias." />
-                     <MarketingInput label="3. Público-Alvo" value={marketingData.target} onChange={v => setMarketingData({...marketingData, target: v})} multiline />
-                     <MarketingInput label="4. Benefícios" value={marketingData.benefits} onChange={v => setMarketingData({...marketingData, benefits: v})} multiline />
-                     <MarketingInput label="5. Currículo" value={marketingData.curriculum} onChange={v => setMarketingData({...marketingData, curriculum: v})} multiline />
-                     <MarketingInput label="6. Prova Social" value={marketingData.social} onChange={v => setMarketingData({...marketingData, social: v})} multiline />
-                     <MarketingInput label="7. Autoridade" value={marketingData.authority} onChange={v => setMarketingData({...marketingData, authority: v})} />
-                     <MarketingInput label="8. Garantia" value={marketingData.guarantee} onChange={v => setMarketingData({...marketingData, guarantee: v})} />
-                     <MarketingInput label="9. Bónus" value={marketingData.bonuses} onChange={v => setMarketingData({...marketingData, bonuses: v})} />
-                     <MarketingInput label="10. CTA" value={marketingData.cta} onChange={v => setMarketingData({...marketingData, cta: v})} placeholder="Inscrever Agora" />
+                     <MarketingInput 
+                        label="1. Título Magnético" 
+                        help="O nome comercial que aparece em destaque na página de vendas (H1)."
+                        value={marketingData.headline} 
+                        onChange={v => setMarketingData({...marketingData, headline: v})} 
+                        placeholder={formData.title} 
+                     />
+                     <MarketingInput 
+                        label="2. Promessa Única" 
+                        help="Subtítulo que resume a grande transformação (ex: 'Domine X em 30 dias')."
+                        value={marketingData.promise} 
+                        onChange={v => setMarketingData({...marketingData, promise: v})} 
+                        placeholder="Ex: Domine o TypeScript em 30 dias." 
+                     />
+                     <MarketingInput 
+                        label="3. Público-Alvo" 
+                        help="Para quem é este curso? Defina o perfil do aluno ideal."
+                        value={marketingData.target} 
+                        onChange={v => setMarketingData({...marketingData, target: v})} 
+                        multiline 
+                     />
+                     <MarketingInput 
+                        label="4. Benefícios" 
+                        help="O que o aluno ganha com isto? Liste as vantagens principais."
+                        value={marketingData.benefits} 
+                        onChange={v => setMarketingData({...marketingData, benefits: v})} 
+                        multiline 
+                     />
+                     <MarketingInput 
+                        label="5. Currículo" 
+                        help="Resumo dos módulos e tópicos abordados no curso."
+                        value={marketingData.curriculum} 
+                        onChange={v => setMarketingData({...marketingData, curriculum: v})} 
+                        multiline 
+                     />
+                     <MarketingInput 
+                        label="6. Prova Social" 
+                        help="Testemunhos curtos ou frases de alunos anteriores."
+                        value={marketingData.social} 
+                        onChange={v => setMarketingData({...marketingData, social: v})} 
+                        multiline 
+                     />
+                     <MarketingInput 
+                        label="7. Autoridade" 
+                        help="Breve biografia do formador e a sua experiência."
+                        value={marketingData.authority} 
+                        onChange={v => setMarketingData({...marketingData, authority: v})} 
+                     />
+                     <MarketingInput 
+                        label="8. Garantia" 
+                        help="Política de risco zero (ex: 'Satisfação ou reembolso')."
+                        value={marketingData.guarantee} 
+                        onChange={v => setMarketingData({...marketingData, guarantee: v})} 
+                     />
+                     <MarketingInput 
+                        label="9. Bónus" 
+                        help="Materiais extra incluídos (ex: 'Ebook', 'Comunidade')."
+                        value={marketingData.bonuses} 
+                        onChange={v => setMarketingData({...marketingData, bonuses: v})} 
+                     />
+                     <MarketingInput 
+                        label="10. CTA (Botão)" 
+                        help="Texto do botão de ação (ex: 'Inscrever Agora')."
+                        value={marketingData.cta} 
+                        onChange={v => setMarketingData({...marketingData, cta: v})} 
+                        placeholder="Inscrever Agora" 
+                     />
                  </div>
              </div>
 
@@ -162,12 +219,12 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                      </select>
                  </div>
                  <div>
-                     <label className="block text-sm mb-1 text-indigo-900 font-bold">Duração</label>
-                     <input type="text" value={formData.duration || ''} onChange={e => setFormData({...formData, duration: e.target.value})} placeholder="Ex: 40h" className="w-full p-2 rounded bg-white/50 border border-white/60 outline-none"/>
+                     <label className="block text-sm mb-1 text-indigo-900 font-bold">Duração (Horas)</label>
+                     <input type="text" value={formData.duration || ''} onChange={e => setFormData({...formData, duration: e.target.value})} placeholder="Ex: 40" className="w-full p-2 rounded bg-white/50 border border-white/60 outline-none"/>
                  </div>
                  <div>
-                     <label className="block text-sm mb-1 text-indigo-900 font-bold">Custo</label>
-                     <input type="text" value={formData.price || ''} onChange={e => setFormData({...formData, price: e.target.value})} placeholder="Ex: 250€" className="w-full p-2 rounded bg-white/50 border border-white/60 outline-none"/>
+                     <label className="block text-sm mb-1 text-indigo-900 font-bold">Custo (Valor)</label>
+                     <input type="text" value={formData.price || ''} onChange={e => setFormData({...formData, price: e.target.value})} placeholder="Ex: 250" className="w-full p-2 rounded bg-white/50 border border-white/60 outline-none"/>
                  </div>
                  <div className="flex items-center gap-3 pb-2">
                     <input type="checkbox" checked={formData.is_public || false} onChange={(e) => setFormData({...formData, is_public: e.target.checked})} className="h-5 w-5 text-indigo-600 rounded"/>
@@ -182,9 +239,12 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
     );
 };
 
-const MarketingInput = ({ label, value, onChange, placeholder, multiline = false }: any) => (
+const MarketingInput = ({ label, help, value, onChange, placeholder, multiline = false }: any) => (
     <div className="flex flex-col">
-        <label className="text-xs font-bold text-indigo-900 mb-1">{label}</label>
+        <label className="text-xs font-bold text-indigo-900 mb-1 flex items-center flex-wrap">
+            {label}
+            {help && <span className="font-normal text-indigo-500 ml-2 opacity-80 text-[10px]">({help})</span>}
+        </label>
         {multiline ? (
             <textarea value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="w-full p-2 rounded-lg bg-white border border-indigo-100 focus:ring-2 focus:ring-indigo-400 outline-none text-sm min-h-[80px]" />
         ) : (

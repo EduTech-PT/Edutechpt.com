@@ -29,8 +29,8 @@ export const CourseList: React.FC<Props> = ({ courses, onEdit, onDelete }) => {
                      <div className="flex justify-between items-center text-xs opacity-70 mt-auto border-t border-indigo-100 pt-2">
                          <span className="uppercase font-bold text-indigo-600">{course.level}</span>
                          <div className="flex gap-2">
-                             {course.duration && <span className="font-bold text-indigo-800">{course.duration}</span>}
-                             {course.price && <span className="font-bold text-green-700 bg-green-50 px-1 rounded">{course.price}</span>}
+                             {course.duration && <span className="font-bold text-indigo-800">{course.duration} horas</span>}
+                             {course.price && <span className="font-bold text-green-700 bg-green-50 px-1 rounded">{course.price} €</span>}
                          </div>
                      </div>
                  </GlassCard>
