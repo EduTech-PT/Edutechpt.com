@@ -52,6 +52,7 @@ export interface UserPermissions {
   view_settings?: boolean;
   view_calendar?: boolean; // Agenda Google
   view_availability?: boolean; // Novo: Mapa de Disponibilidade
+  manage_online_status?: boolean; // NOVO: Controlar visibilidade online (Modo Fantasma)
   [key: string]: boolean | undefined;
 }
 

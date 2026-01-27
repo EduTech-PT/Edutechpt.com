@@ -144,7 +144,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                   view_users: true,
                   view_settings: true, 
                   view_calendar: true,
-                  view_availability: true
+                  view_availability: true,
+                  manage_online_status: true
               });
           } else {
               // Para outros utilizadores, se falhou o fetch, tenta claimInvite normal
@@ -492,6 +493,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                         profile={profile} 
                         initialCourseId={selectedCourseForClassroom} 
                         onBack={() => handleSetView('courses')}
+                        onlineUsers={onlineUsers} // PASS ONLINE USERS
                     />
                 );
 

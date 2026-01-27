@@ -14,11 +14,12 @@ const PERMISSIONS_CONFIG = [
     { key: 'manage_classes', label: 'Gerir Turmas', desc: 'Criar e editar Turmas associadas a Cursos' },
     { key: 'manage_allocations', label: 'Alocar Formadores', desc: 'Atribuir Formadores a Turmas Específicas' },
     { key: 'view_didactic_portal', label: 'Gestor de Recursos', desc: 'Acesso à gestão de materiais da turma' },
-    { key: 'view_drive', label: 'Aceder Arquivos Drive', desc: 'Ver pasta pessoal (Formadores) ou Raiz (Admin)' }, // NOVO
+    { key: 'view_drive', label: 'Aceder Arquivos Drive', desc: 'Ver pasta pessoal (Formadores) ou Raiz (Admin)' },
     { key: 'view_users', label: 'Gerir Utilizadores', desc: 'Aceder menu de Utilizadores' },
     { key: 'view_settings', label: 'Aceder Definições', desc: 'Acesso total à configuração' },
     { key: 'view_calendar', label: 'Ver Agenda Google', desc: 'Aceder ao Calendário' },
     { key: 'view_availability', label: 'Ver Disponibilidade', desc: 'Aceder ao Mapa de Disponibilidade Mensal' },
+    { key: 'manage_online_status', label: 'Gerir Estado Online', desc: 'Pode ficar invisível (Modo Fantasma)' }, // NOVO
 ];
 
 const SYSTEM_ROLES = ['admin', 'editor', 'formador', 'aluno'];
@@ -261,7 +262,7 @@ export const RoleManager: React.FC = () => {
                                                             <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                                                         ) : (
                                                             <input 
-                                                                type="checkbox"
+                                                                type="checkbox" 
                                                                 checked={isChecked}
                                                                 disabled={isLocked}
                                                                 onChange={() => handleToggleTablePermission(role.name, perm.key, isChecked)}

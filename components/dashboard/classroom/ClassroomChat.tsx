@@ -1,16 +1,17 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { courseService } from '../../../services/courses';
-import { Profile, ClassComment } from '../../../types';
+import { Profile, ClassComment, OnlineUser } from '../../../types';
 import { formatTime } from '../../../utils/formatters';
 import { useToast } from '../../ui/ToastProvider';
 
 interface Props {
     classId: string;
     profile: Profile;
+    onlineUsers?: OnlineUser[];
 }
 
-export const ClassroomChat: React.FC<Props> = ({ classId, profile }) => {
+export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers = [] }) => {
     const [comments, setComments] = useState<ClassComment[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const [loading, setLoading] = useState(true);
@@ -72,81 +73,116 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile }) => {
     };
 
     return (
-        <div className="flex flex-col h-[500px] animate-in fade-in">
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-white/30 rounded-xl border border-indigo-50 mb-4">
-                {loading ? (
-                    <div className="text-center py-10 opacity-50">A carregar conversa...</div>
-                ) : comments.length === 0 ? (
-                    <div className="text-center py-20 opacity-50 flex flex-col items-center">
-                        <span className="text-4xl mb-2">💬</span>
-                        <p className="text-sm font-bold text-indigo-900">Ainda não há mensagens.</p>
-                        <p className="text-xs">Sê o primeiro a escrever algo!</p>
-                    </div>
-                ) : (
-                    comments.map((msg) => {
-                        const isMe = msg.user_id === profile.id;
-                        const isAdmin = msg.user?.role === 'admin' || msg.user?.role === 'formador';
-                        
-                        return (
-                            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[80%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        {!isMe && (
-                                            <div className="w-5 h-5 rounded-full bg-indigo-200 overflow-hidden flex items-center justify-center text-[8px] font-bold">
-                                                {msg.user?.avatar_url ? <img src={msg.user.avatar_url} className="w-full h-full object-cover"/> : msg.user?.full_name?.[0]}
-                                            </div>
-                                        )}
-                                        <span className={`text-[10px] font-bold ${isMe ? 'text-indigo-600' : 'text-gray-600'}`}>
-                                            {isMe ? 'Eu' : msg.user?.full_name}
-                                        </span>
-                                        {isAdmin && !isMe && <span className="text-[8px] bg-indigo-100 text-indigo-700 px-1 rounded uppercase font-bold">{msg.user?.role}</span>}
-                                        <span className="text-[9px] text-gray-400 opacity-80">{formatTime(msg.created_at)}</span>
+        <div className="flex h-[500px] animate-in fade-in gap-4">
+            
+            {/* LEFT: Chat Area */}
+            <div className="flex-1 flex flex-col h-full min-w-0">
+                {/* Messages Area */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-white/30 rounded-xl border border-indigo-50 mb-4">
+                    {loading ? (
+                        <div className="text-center py-10 opacity-50">A carregar conversa...</div>
+                    ) : comments.length === 0 ? (
+                        <div className="text-center py-20 opacity-50 flex flex-col items-center">
+                            <span className="text-4xl mb-2">💬</span>
+                            <p className="text-sm font-bold text-indigo-900">Ainda não há mensagens.</p>
+                            <p className="text-xs">Sê o primeiro a escrever algo!</p>
+                        </div>
+                    ) : (
+                        comments.map((msg) => {
+                            const isMe = msg.user_id === profile.id;
+                            const isAdmin = msg.user?.role === 'admin' || msg.user?.role === 'formador';
+                            
+                            return (
+                                <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-[80%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            {!isMe && (
+                                                <div className="w-5 h-5 rounded-full bg-indigo-200 overflow-hidden flex items-center justify-center text-[8px] font-bold">
+                                                    {msg.user?.avatar_url ? <img src={msg.user.avatar_url} className="w-full h-full object-cover"/> : msg.user?.full_name?.[0]}
+                                                </div>
+                                            )}
+                                            <span className={`text-[10px] font-bold ${isMe ? 'text-indigo-600' : 'text-gray-600'}`}>
+                                                {isMe ? 'Eu' : msg.user?.full_name}
+                                            </span>
+                                            {isAdmin && !isMe && <span className="text-[8px] bg-indigo-100 text-indigo-700 px-1 rounded uppercase font-bold">{msg.user?.role}</span>}
+                                            <span className="text-[9px] text-gray-400 opacity-80">{formatTime(msg.created_at)}</span>
+                                        </div>
+                                        
+                                        <div className={`
+                                            p-3 rounded-xl text-sm relative group
+                                            ${isMe 
+                                                ? 'bg-indigo-600 text-white rounded-tr-none shadow-md' 
+                                                : 'bg-white text-gray-800 border border-gray-200 rounded-tl-none shadow-sm'}
+                                        `}>
+                                            {msg.content}
+                                            {(isMe || profile.role === 'admin') && (
+                                                <button 
+                                                    onClick={() => handleDelete(msg.id)}
+                                                    className={`absolute -left-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-xs ${isMe ? 'text-red-300' : 'text-red-500'}`}
+                                                    title="Apagar"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                    
-                                    <div className={`
-                                        p-3 rounded-xl text-sm relative group
-                                        ${isMe 
-                                            ? 'bg-indigo-600 text-white rounded-tr-none shadow-md' 
-                                            : 'bg-white text-gray-800 border border-gray-200 rounded-tl-none shadow-sm'}
-                                    `}>
-                                        {msg.content}
-                                        {(isMe || profile.role === 'admin') && (
-                                            <button 
-                                                onClick={() => handleDelete(msg.id)}
-                                                className={`absolute -left-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-xs ${isMe ? 'text-red-300' : 'text-red-500'}`}
-                                                title="Apagar"
-                                            >
-                                                🗑️
-                                            </button>
-                                        )}
+                                </div>
+                            );
+                        })
+                    )}
+                    <div ref={bottomRef} />
+                </div>
+
+                {/* Input Area */}
+                <form onSubmit={handleSend} className="flex gap-2">
+                    <input 
+                        type="text" 
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Escreve uma mensagem para a turma..."
+                        className="flex-1 p-3 rounded-xl border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none bg-white/80 backdrop-blur-sm"
+                        disabled={sending}
+                    />
+                    <button 
+                        type="submit" 
+                        disabled={sending || !newMessage.trim()}
+                        className="px-6 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-md disabled:opacity-50 transition-all flex items-center justify-center min-w-[60px]"
+                    >
+                        {sending ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : '➤'}
+                    </button>
+                </form>
+            </div>
+
+            {/* RIGHT: Online Users Sidebar (Hidden on Mobile) */}
+            <div className="w-60 bg-white/30 rounded-xl border border-indigo-100 hidden md:flex flex-col overflow-hidden">
+                <div className="p-3 bg-indigo-50/50 border-b border-indigo-100 flex justify-between items-center">
+                    <h4 className="font-bold text-indigo-900 text-sm">Online</h4>
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">{onlineUsers.length}</span>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2">
+                    {onlineUsers.length === 0 ? (
+                        <p className="text-center text-xs text-gray-400 py-4">Ninguém online.</p>
+                    ) : (
+                        onlineUsers.map((user, idx) => (
+                            <div key={`${user.user_id}-${idx}`} className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/50 transition-colors group relative">
+                                <div className="relative">
+                                    <div className="w-8 h-8 rounded-full bg-indigo-200 border border-white overflow-hidden flex items-center justify-center text-xs font-bold text-indigo-700">
+                                        {user.avatar_url ? <img src={user.avatar_url} className="w-full h-full object-cover"/> : user.full_name?.[0]}
+                                    </div>
+                                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="text-xs font-bold text-indigo-900 truncate">{user.full_name}</div>
+                                    <div className="text-[9px] text-gray-500 flex items-center gap-1">
+                                        <span>👁️ {formatTime(user.online_at)}</span>
                                     </div>
                                 </div>
                             </div>
-                        );
-                    })
-                )}
-                <div ref={bottomRef} />
+                        ))
+                    )}
+                </div>
             </div>
-
-            {/* Input Area */}
-            <form onSubmit={handleSend} className="flex gap-2">
-                <input 
-                    type="text" 
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Escreve uma mensagem para a turma..."
-                    className="flex-1 p-3 rounded-xl border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none bg-white/80 backdrop-blur-sm"
-                    disabled={sending}
-                />
-                <button 
-                    type="submit" 
-                    disabled={sending || !newMessage.trim()}
-                    className="px-6 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-md disabled:opacity-50 transition-all flex items-center justify-center min-w-[60px]"
-                >
-                    {sending ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : '➤'}
-                </button>
-            </form>
         </div>
     );
 };

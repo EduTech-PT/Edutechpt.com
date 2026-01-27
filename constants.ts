@@ -6,6 +6,6 @@
 export const SUPABASE_URL = "https://zeedhuzljsbaoqafpfom.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ZOMCawahrL7OImeWeT6Fug_U_WMN0H1";
 
-export const APP_VERSION = "v3.0.30"; 
+export const APP_VERSION = "v3.1.0"; 
 export const SQL_VERSION = "v3.0.30"; // Fix: Drop existing policies before creation
 export const APP_NAME = "EduTech PT";

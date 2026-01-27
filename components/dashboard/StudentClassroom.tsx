@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
-import { Profile, Class, Course, ClassMaterial, ClassAnnouncement, ClassAssessment, UserRole } from '../../types';
+import { Profile, Class, Course, ClassMaterial, ClassAnnouncement, ClassAssessment, UserRole, OnlineUser } from '../../types';
 import { CertificateGenerator } from '../CertificateGenerator';
 import { useToast } from '../ui/ToastProvider';
 
@@ -15,11 +15,12 @@ interface Props {
     profile: Profile;
     initialCourseId?: string;
     onBack: () => void;
+    onlineUsers?: OnlineUser[]; // NOVO
 }
 
 type ModuleType = 'home' | 'materials' | 'announcements' | 'assessments' | 'forum';
 
-export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, onBack }) => {
+export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, onBack, onlineUsers }) => {
     // Internal State for Course ID (handles auto-select)
     const [activeCourseId, setActiveCourseId] = useState<string | undefined>(initialCourseId);
     const ignoreLoadRef = useRef(false);
@@ -241,7 +242,7 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                     )}
 
                     {activeModule === 'forum' && (
-                        <ClassroomChat classId={activeClass.id} profile={profile} />
+                        <ClassroomChat classId={activeClass.id} profile={profile} onlineUsers={onlineUsers} />
                     )}
                 </div>
             </GlassCard>

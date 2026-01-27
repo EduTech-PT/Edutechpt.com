@@ -225,6 +225,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
     );
   };
 
+  const canManageOnlineStatus = hasAccess('manage_online_status', [UserRole.ADMIN]);
+
   return (
     // FIX: md:overflow-visible allows flyouts to render outside the card
     <GlassCard className="h-full flex flex-col w-64 md:rounded-l-none md:rounded-r-2xl md:border-l-0 rounded-none border-0 md:border md:border-l-0 min-h-screen md:min-h-[80vh] p-0 relative shadow-2xl md:shadow-lg overflow-hidden md:overflow-visible z-50">
@@ -294,8 +296,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
             </div>
         )}
 
-        {/* ONLINE/OFFLINE TOGGLE FOR ADMINS */}
-        {(profile?.role === UserRole.ADMIN || profile?.role === UserRole.TRAINER) && toggleOnlineVisibility && (
+        {/* ONLINE/OFFLINE TOGGLE (PERMISSION BASED) */}
+        {canManageOnlineStatus && toggleOnlineVisibility && (
             <div className="flex items-center justify-between text-xs font-bold text-indigo-800 bg-white/40 p-2 rounded-lg border border-white/50">
                 <span>Estado Online</span>
                 <button 
