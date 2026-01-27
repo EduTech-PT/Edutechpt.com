@@ -350,7 +350,17 @@ export const courseService = {
         if (error) return [];
         return data as AttendanceRecord[];
     },
-    // NOVO: Histórico individual do aluno
+    // NOVO: Histórico completo da turma (para exportação)
+    async getFullClassAttendance(classId: string) {
+        const { data, error } = await supabase
+            .from('class_attendance')
+            .select('*')
+            .eq('class_id', classId)
+            .order('date', { ascending: true });
+        if (error) return [];
+        return data as AttendanceRecord[];
+    },
+    // Histórico individual do aluno
     async getStudentAttendance(classId: string, studentId: string) {
         const { data, error } = await supabase
             .from('class_attendance')

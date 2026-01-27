@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Profile, AttendanceRecord } from '../../../types';
 import { courseService } from '../../../services/courses';
+import * as XLSX from 'xlsx';
 
 interface Props {
     classId: string;
@@ -13,6 +14,7 @@ export const AttendanceSheet: React.FC<Props> = ({ classId, students }) => {
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [exporting, setExporting] = useState(false);
 
     useEffect(() => {
         loadAttendance();
@@ -63,15 +65,92 @@ export const AttendanceSheet: React.FC<Props> = ({ classId, students }) => {
         }
     };
 
+    const handleExport = async () => {
+        if (students.length === 0) return;
+        setExporting(true);
+        try {
+            // 1. Fetch full history for this class
+            const allRecords = await courseService.getFullClassAttendance(classId);
+            
+            // 2. Extract unique dates sorted
+            const uniqueDates = Array.from(new Set(allRecords.map(r => r.date))).sort();
+            
+            // 3. Prepare Header Row
+            const header = ["Aluno", "Email", "Total Presenças", "Total Faltas", "% Assiduidade", ...uniqueDates];
+            
+            // 4. Build Data Rows
+            const data = students.map(student => {
+                const studentRecords = allRecords.filter(r => r.student_id === student.id);
+                const presentCount = studentRecords.filter(r => r.status === 'present' || r.status === 'late').length;
+                const absentCount = studentRecords.filter(r => r.status === 'absent').length;
+                const totalClasses = uniqueDates.length;
+                
+                // Calculate Percentage (based on total classes recorded)
+                const percentage = totalClasses > 0 ? Math.round((presentCount / totalClasses) * 100) + '%' : '0%';
+
+                const row = [
+                    student.full_name || 'Desconhecido',
+                    student.email || '-',
+                    presentCount,
+                    absentCount,
+                    percentage
+                ];
+
+                // Add status for each date column
+                uniqueDates.forEach(date => {
+                    const rec = studentRecords.find(r => r.date === date);
+                    let statusSymbol = '-';
+                    if (rec) {
+                        if (rec.status === 'present') statusSymbol = 'P';
+                        else if (rec.status === 'absent') statusSymbol = 'F';
+                        else if (rec.status === 'late') statusSymbol = 'A';
+                        else if (rec.status === 'excused') statusSymbol = 'J';
+                    }
+                    row.push(statusSymbol);
+                });
+
+                return row;
+            });
+
+            // 5. Generate Excel
+            const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+            
+            // Auto-width adjustment (basic)
+            const wscols = header.map(() => ({ wch: 15 }));
+            wscols[0] = { wch: 30 }; // Nome larger
+            wscols[1] = { wch: 25 }; // Email larger
+            ws['!cols'] = wscols;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Assiduidade");
+            XLSX.writeFile(wb, `Assiduidade_Turma_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+        } catch (e: any) {
+            alert("Erro ao exportar: " + e.message);
+        } finally {
+            setExporting(false);
+        }
+    };
+
     return (
         <div className="flex-1 flex flex-col animate-in fade-in">
-            <div className="flex justify-between items-center mb-6">
-                <h4 className="font-bold text-lg text-indigo-900">Registo de Assiduidade</h4>
+            <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                <div className="flex items-center gap-4">
+                    <h4 className="font-bold text-lg text-indigo-900">Registo de Assiduidade</h4>
+                    <button 
+                        onClick={handleExport}
+                        disabled={exporting || students.length === 0}
+                        className="px-3 py-1 bg-white border border-green-200 text-green-700 text-xs font-bold rounded-lg hover:bg-green-50 shadow-sm flex items-center gap-1 transition-colors disabled:opacity-50"
+                    >
+                        {exporting ? 'Wait...' : '📊 Exportar Excel'}
+                    </button>
+                </div>
+                
                 <input 
                     type="date" 
                     value={attendanceDate}
                     onChange={(e) => setAttendanceDate(e.target.value)}
-                    className="p-2 border border-indigo-200 rounded-lg text-indigo-900 font-bold"
+                    className="p-2 border border-indigo-200 rounded-lg text-indigo-900 font-bold outline-none focus:ring-2 focus:ring-indigo-400"
                 />
             </div>
 
