@@ -37,7 +37,7 @@ export interface Profile {
   // Drive Integration
   personal_folder_id?: string;
   // Notificações (v3.1.4)
-  notification_sound?: 'pop' | 'glass' | 'digital' | 'retro' | 'arcade' | 'sonar' | 'none';
+  notification_sound?: 'pop' | 'glass' | 'digital' | 'happy' | 'sonar' | 'none';
   // Notificações Globais (v3.1.5)
   global_notifications?: boolean; 
 }

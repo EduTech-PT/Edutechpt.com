@@ -19,10 +19,7 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
     const { toast } = useToast();
 
     useEffect(() => {
-        // Carregar Config Global
         adminService.getAppConfig().then(setConfig).catch(console.error);
-        
-        // Carregar Preferência do Utilizador
         getCurrentUserPreferences();
     }, []);
 
@@ -32,7 +29,6 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
             const currentProfile = await userService.getProfile(user.id);
             if (currentProfile) {
                 if (currentProfile.notification_sound) setUserSound(currentProfile.notification_sound);
-                // Default to true if undefined
                 setGlobalNotif(currentProfile.global_notifications !== false);
             }
         }
@@ -71,135 +67,73 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
                 global_notifications: globalNotif
             });
             toast.success("Preferências pessoais atualizadas!");
-            // Não tocamos o som aqui para não ser redundante com o botão de teste
         } catch (e: any) {
-            toast.error("Erro ao guardar preferências: " + e.message);
+            // Tratamento específico para o erro de coluna em falta
+            if (e.message && e.message.includes("Could not find the 'global_notifications' column")) {
+                toast.error("Erro de Esquema: A Base de Dados precisa de ser atualizada.");
+                alert("AÇÃO NECESSÁRIA:\n1. Vá a 'Definições' > 'Base de Dados'\n2. Copie o Script SQL\n3. Execute no Supabase para criar as colunas em falta.");
+            } else {
+                toast.error("Erro ao guardar preferências: " + e.message);
+            }
         }
     };
 
     const testSound = (type: string) => {
         if (type === 'none') return;
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        
-        if (audioContext.state === 'suspended') {
-            audioContext.resume();
-        }
+        if (audioContext.state === 'suspended') audioContext.resume();
 
         const t = audioContext.currentTime;
         const masterGain = audioContext.createGain();
         masterGain.connect(audioContext.destination);
-        masterGain.gain.setValueAtTime(0.4, t);
+        masterGain.gain.setValueAtTime(0.5, t);
+
+        const createOsc = (freq: number, type: 'sine' | 'square' | 'triangle', startTime: number, duration: number) => {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, startTime);
+            
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(0.5, startTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+            
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+        };
 
         if (type === 'glass') {
-            const osc = audioContext.createOscillator();
-            const gain = audioContext.createGain();
-            osc.connect(gain);
-            gain.connect(masterGain);
-
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(880, t); // A5
-            gain.gain.setValueAtTime(0, t);
-            gain.gain.linearRampToValueAtTime(0.5, t + 0.05);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
-            
-            osc.start(t);
-            osc.stop(t + 1.5);
-
-            const osc2 = audioContext.createOscillator();
-            const gain2 = audioContext.createGain();
-            osc2.connect(gain2);
-            gain2.connect(masterGain);
-            osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(1760, t); // A6
-            gain2.gain.setValueAtTime(0, t);
-            gain2.gain.linearRampToValueAtTime(0.1, t + 0.05);
-            gain2.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
-            osc2.start(t);
-            osc2.stop(t + 1.5);
+            createOsc(1200, 'sine', t, 0.8);
+            createOsc(1800, 'sine', t, 0.6);
         } 
         else if (type === 'digital') {
-            const osc = audioContext.createOscillator();
-            const gain = audioContext.createGain();
-            osc.connect(gain);
-            gain.connect(masterGain);
-
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(600, t);
-            osc.frequency.linearRampToValueAtTime(800, t + 0.1);
-            
-            gain.gain.setValueAtTime(0, t);
-            gain.gain.linearRampToValueAtTime(0.3, t + 0.05);
-            gain.gain.linearRampToValueAtTime(0, t + 0.3);
-
-            osc.start(t);
-            osc.stop(t + 0.3);
+            createOsc(800, 'sine', t, 0.1);
+            createOsc(1200, 'sine', t + 0.1, 0.1);
         } 
-        else if (type === 'retro') {
-            const osc = audioContext.createOscillator();
-            const gain = audioContext.createGain();
-            osc.connect(gain);
-            gain.connect(masterGain);
-
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(987, t); 
-            osc.frequency.setValueAtTime(1318, t + 0.08);
-            
-            gain.gain.setValueAtTime(0.05, t);
-            gain.gain.linearRampToValueAtTime(0.05, t + 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-            
-            osc.start(t);
-            osc.stop(t + 0.4);
-        } 
-        else if (type === 'arcade') {
-            const osc = audioContext.createOscillator();
-            const gain = audioContext.createGain();
-            osc.connect(gain);
-            gain.connect(masterGain);
-
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(200, t);
-            osc.frequency.linearRampToValueAtTime(600, t + 0.2);
-            
-            gain.gain.setValueAtTime(0, t);
-            gain.gain.linearRampToValueAtTime(0.3, t + 0.05);
-            gain.gain.linearRampToValueAtTime(0, t + 0.3);
-
-            osc.start(t);
-            osc.stop(t + 0.3);
-        } 
+        else if (type === 'happy') {
+            createOsc(523.25, 'sine', t, 0.2); 
+            createOsc(659.25, 'sine', t + 0.1, 0.2); 
+            createOsc(783.99, 'sine', t + 0.2, 0.4); 
+        }
         else if (type === 'sonar') {
+            createOsc(600, 'sine', t, 0.5);
+            setTimeout(() => createOsc(600, 'sine', audioContext.currentTime, 0.3), 300);
+        }
+        else {
             const osc = audioContext.createOscillator();
             const gain = audioContext.createGain();
             osc.connect(gain);
             gain.connect(masterGain);
-
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(1200, t);
-            
-            gain.gain.setValueAtTime(0, t);
-            gain.gain.linearRampToValueAtTime(0.3, t + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-            
-            osc.start(t);
-            osc.stop(t + 0.6);
-        } else {
-            // Pop (Default)
-            const osc = audioContext.createOscillator();
-            const gain = audioContext.createGain();
-            osc.connect(gain);
-            gain.connect(masterGain);
-
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(400, t);
+            osc.frequency.setValueAtTime(300, t);
             osc.frequency.exponentialRampToValueAtTime(600, t + 0.1);
-            
             gain.gain.setValueAtTime(0, t);
-            gain.gain.linearRampToValueAtTime(0.5, t + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-
+            gain.gain.linearRampToValueAtTime(0.8, t + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
             osc.start(t);
-            osc.stop(t + 0.3);
+            osc.stop(t + 0.2);
         }
     };
 
@@ -219,16 +153,15 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
                                 value={userSound} 
                                 onChange={(e) => {
                                     setUserSound(e.target.value);
-                                    testSound(e.target.value); // Preview imediato ao selecionar
+                                    testSound(e.target.value); 
                                 }}
                                 className="w-full p-2 rounded bg-white/50 border border-purple-200 text-indigo-900 focus:ring-2 focus:ring-purple-400 outline-none"
                              >
-                                 <option value="pop">Pop (Suave)</option>
-                                 <option value="glass">Vidro (Premium)</option>
+                                 <option value="pop">Pop (Padrão)</option>
+                                 <option value="glass">Glass (Elegante)</option>
                                  <option value="digital">Digital (Subtil)</option>
-                                 <option value="retro">Retro (8-bit)</option>
-                                 <option value="arcade">Arcade (Jump)</option>
-                                 <option value="sonar">Sonar (Ping)</option>
+                                 <option value="happy">Happy (Acorde)</option>
+                                 <option value="sonar">Sonar (Eco)</option>
                                  <option value="none">Silencioso</option>
                              </select>
                          </div>
@@ -256,7 +189,7 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
 
                      <div className="flex gap-2 justify-end pt-2">
                          <button onClick={() => testSound(userSound)} className="px-4 py-2 bg-white text-purple-600 border border-purple-200 rounded-lg font-bold hover:bg-purple-50 text-sm flex items-center gap-2">
-                             <span>🔊</span> Testar Som
+                             <span>🔊</span> Testar
                          </button>
                          <button onClick={handleSavePreferences} className="px-6 py-2 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700 shadow-md text-sm">
                              Guardar Preferências

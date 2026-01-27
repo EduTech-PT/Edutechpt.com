@@ -30,11 +30,8 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
             if (!audioContextRef.current) {
                 audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
             }
-            // Tentar resumir imediatamente se já foi criado
             if (audioContextRef.current.state === 'suspended') {
-                audioContextRef.current.resume().then(() => {
-                    // Audio context resumed successfully
-                }).catch(e => console.warn("Audio resume failed", e));
+                audioContextRef.current.resume().catch(e => console.warn("Audio resume failed", e));
             }
         };
 
@@ -144,135 +141,68 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
             if (!audioContextRef.current) {
                 audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
             }
-            
             const ctx = audioContextRef.current;
             if (ctx.state === 'suspended') ctx.resume();
 
             const t = ctx.currentTime;
             const masterGain = ctx.createGain();
             masterGain.connect(ctx.destination);
-            masterGain.gain.setValueAtTime(0.4, t); // Volume Mestre
+            masterGain.gain.setValueAtTime(0.5, t);
+
+            const createOsc = (freq: number, type: 'sine' | 'square' | 'triangle', startTime: number, duration: number) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(masterGain);
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, startTime);
+                
+                gain.gain.setValueAtTime(0, startTime);
+                gain.gain.linearRampToValueAtTime(0.5, startTime + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+                
+                osc.start(startTime);
+                osc.stop(startTime + duration);
+            };
 
             if (type === 'glass') {
-                // Som de Vidro Premium (Complexo)
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(masterGain);
-
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(880, t); // A5
-                gain.gain.setValueAtTime(0, t);
-                gain.gain.linearRampToValueAtTime(0.5, t + 0.05);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
-                
-                osc.start(t);
-                osc.stop(t + 1.5);
-
-                // Harmónico
-                const osc2 = ctx.createOscillator();
-                const gain2 = ctx.createGain();
-                osc2.connect(gain2);
-                gain2.connect(masterGain);
-                osc2.type = 'sine';
-                osc2.frequency.setValueAtTime(1760, t); // A6
-                gain2.gain.setValueAtTime(0, t);
-                gain2.gain.linearRampToValueAtTime(0.1, t + 0.05);
-                gain2.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
-                osc2.start(t);
-                osc2.stop(t + 1.5);
+                // Glass: High pitched sine with multiple harmonics
+                createOsc(1200, 'sine', t, 0.8);
+                createOsc(1800, 'sine', t, 0.6);
             } 
             else if (type === 'digital') {
-                // Som Digital Suave
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(masterGain);
-
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(600, t);
-                osc.frequency.linearRampToValueAtTime(800, t + 0.1);
-                
-                gain.gain.setValueAtTime(0, t);
-                gain.gain.linearRampToValueAtTime(0.3, t + 0.05);
-                gain.gain.linearRampToValueAtTime(0, t + 0.3);
-
-                osc.start(t);
-                osc.stop(t + 0.3);
+                // Digital: Subtle blip
+                createOsc(800, 'sine', t, 0.1);
+                createOsc(1200, 'sine', t + 0.1, 0.1);
             } 
-            else if (type === 'retro') {
-                // Coin 8-bit Suavizado
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(masterGain);
-
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(987, t); 
-                osc.frequency.setValueAtTime(1318, t + 0.08);
-                
-                gain.gain.setValueAtTime(0.05, t);
-                gain.gain.linearRampToValueAtTime(0.05, t + 0.1);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-                
-                osc.start(t);
-                osc.stop(t + 0.4);
-            }
-            else if (type === 'arcade') {
-                // Salto (Jump)
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(masterGain);
-
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(200, t);
-                osc.frequency.linearRampToValueAtTime(600, t + 0.2);
-                
-                gain.gain.setValueAtTime(0, t);
-                gain.gain.linearRampToValueAtTime(0.3, t + 0.05);
-                gain.gain.linearRampToValueAtTime(0, t + 0.3);
-
-                osc.start(t);
-                osc.stop(t + 0.3);
+            else if (type === 'happy') {
+                // Happy: Major chord arpeggio
+                createOsc(523.25, 'sine', t, 0.2); // C5
+                createOsc(659.25, 'sine', t + 0.1, 0.2); // E5
+                createOsc(783.99, 'sine', t + 0.2, 0.4); // G5
             }
             else if (type === 'sonar') {
-                // Ping Submarino
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(masterGain);
-
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(1200, t);
-                
-                gain.gain.setValueAtTime(0, t);
-                gain.gain.linearRampToValueAtTime(0.3, t + 0.02);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-                
-                osc.start(t);
-                osc.stop(t + 0.6);
+                // Sonar: Deep ping with echo
+                createOsc(600, 'sine', t, 0.5);
+                setTimeout(() => createOsc(600, 'sine', ctx.currentTime, 0.3), 300);
             }
             else {
-                // Default Pop (Moderno)
+                // Default Pop: Short bubble sound
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 osc.connect(gain);
                 gain.connect(masterGain);
-
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(400, t);
+                osc.frequency.setValueAtTime(300, t);
                 osc.frequency.exponentialRampToValueAtTime(600, t + 0.1);
-                
                 gain.gain.setValueAtTime(0, t);
-                gain.gain.linearRampToValueAtTime(0.5, t + 0.02);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-
+                gain.gain.linearRampToValueAtTime(0.8, t + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
                 osc.start(t);
-                osc.stop(t + 0.3);
+                osc.stop(t + 0.2);
             }
         } catch (e) {
-            console.error("Audio Playback Error", e);
+            console.error("Audio Error", e);
         }
     };
 
