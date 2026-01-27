@@ -6,6 +6,6 @@
 export const SUPABASE_URL = "https://zeedhuzljsbaoqafpfom.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ZOMCawahrL7OImeWeT6Fug_U_WMN0H1";
 
-export const APP_VERSION = "v3.1.3"; 
-export const SQL_VERSION = "v3.1.3"; // Update: Profanity Filter Trigger
+export const APP_VERSION = "v3.1.4"; 
+export const SQL_VERSION = "v3.1.4"; // Update: Notification Sound Field
 export const APP_NAME = "EduTech PT";

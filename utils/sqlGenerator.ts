@@ -5,7 +5,7 @@ export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
 -- Data: 2024
--- AÇÃO: ATIVAÇÃO DE MODERAÇÃO DE CHAT (PALAVRAS PROIBIDAS)
+-- AÇÃO: ATUALIZAÇÃO PARA NOTIFICAÇÕES SONORAS
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -47,8 +47,17 @@ create table if not exists public.profiles (
     birth_date date,
     visibility_settings jsonb default '{}'::jsonb,
     personal_folder_id text,
+    notification_sound text default 'pop', -- NOVO CAMPO v3.1.4
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
+
+-- Garantir que a coluna existe (para migrations)
+do $$ 
+begin
+  if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='notification_sound') then
+    alter table public.profiles add column notification_sound text default 'pop';
+  end if;
+end $$;
 
 -- 4. CARGOS E PERMISSÕES
 create table if not exists public.roles (
@@ -215,9 +224,8 @@ create trigger on_comment_cleanup
   for each statement execute procedure public.cleanup_old_comments();
 
 -- ==============================================================================
--- 9.1 MODERAÇÃO DE CHAT (NOVO v3.1.3)
+-- 9.1 MODERAÇÃO DE CHAT (v3.1.3)
 -- ==============================================================================
--- Este trigger corre ANTES da inserção e substitui palavras proibidas
 create or replace function public.moderate_chat()
 returns trigger as $$
 declare
@@ -225,22 +233,12 @@ declare
   bad_word text;
   cleaned_content text;
 begin
-  -- Obter lista de palavras proibidas do config
   select value::jsonb into bad_words_json from public.app_config where key = 'forbidden_words';
-  
-  -- Se não houver configuração ou não for um array, aceita a mensagem como está
-  if bad_words_json is null or jsonb_typeof(bad_words_json) != 'array' then
-    return new;
-  end if;
-
+  if bad_words_json is null or jsonb_typeof(bad_words_json) != 'array' then return new; end if;
   cleaned_content := new.content;
-
-  -- Iterar sobre cada palavra e substituir
   for bad_word in select * from jsonb_array_elements_text(bad_words_json) loop
-    -- Substituição case-insensitive
     cleaned_content := regexp_replace(cleaned_content, bad_word, '****', 'gi');
   end loop;
-
   new.content := cleaned_content;
   return new;
 end;

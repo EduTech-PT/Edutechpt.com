@@ -12,6 +12,7 @@ import { driveService, GAS_VERSION } from '../services/drive';
 import { supabase } from '../lib/supabaseClient';
 import { useToast } from '../components/ui/ToastProvider';
 import { Skeleton } from '../components/ui/Skeleton';
+import { NotificationSystem } from '../components/dashboard/NotificationSystem'; // IMPORTADO
 
 // Views - Eager Load Critical Views
 import { Overview } from '../components/dashboard/Overview';
@@ -119,8 +120,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
           // 2. RECUPERAÇÃO DE EMERGÊNCIA (MASTER KEY)
           if (session.user.email?.toLowerCase() === 'edutechpt@hotmail.com') {
-              console.log("🔓 MASTER ADMIN DETECTADO: Forçando permissões.");
-              
               userProfile = {
                   id: session.user.id,
                   email: session.user.email,
@@ -516,6 +515,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 case 'settings_access': return <Settings dbVersion={dbVersion} initialTab="access" profile={profile} />;
                 case 'settings_allocation': return <Settings dbVersion={dbVersion} initialTab="allocation" profile={profile} />; 
                 case 'settings_legal': return <Settings dbVersion={dbVersion} initialTab="legal" profile={profile} />;
+                case 'settings_moderation': return <Settings dbVersion={dbVersion} initialTab="moderation" profile={profile} />;
                 case 'settings': return <Settings dbVersion={dbVersion} initialTab="geral" profile={profile} />;
                 
                 // LEGAL PAGES
@@ -554,6 +554,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 relative overflow-hidden font-sans">
       
+      {/* NOTIFICATION SYSTEM (Global) */}
+      <NotificationSystem profile={profile} onOpenClassroom={handleOpenClassroom} />
+
       {/* CRITICAL DB ERROR OVERLAY */}
       {criticalDbError && profile.role === 'admin' && (
           <div className="fixed top-0 left-0 right-0 z-[100] bg-red-600 text-white p-4 shadow-xl flex flex-col md:flex-row items-center justify-center gap-4 animate-in slide-in-from-top duration-500">

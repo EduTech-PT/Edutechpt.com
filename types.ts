@@ -36,6 +36,8 @@ export interface Profile {
   visibility_settings?: ProfileVisibility;
   // Drive Integration
   personal_folder_id?: string;
+  // Notificações (v3.1.4)
+  notification_sound?: 'pop' | 'glass' | 'digital' | 'none';
 }
 
 export interface UserPermissions {
