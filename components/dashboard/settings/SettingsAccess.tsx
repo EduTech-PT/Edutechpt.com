@@ -68,7 +68,6 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
             });
             toast.success("Preferências pessoais atualizadas!");
         } catch (e: any) {
-            // Tratamento específico para o erro de coluna em falta
             if (e.message && e.message.includes("Could not find the 'global_notifications' column")) {
                 toast.error("Erro de Esquema: A Base de Dados precisa de ser atualizada.");
                 alert("AÇÃO NECESSÁRIA:\n1. Vá a 'Definições' > 'Base de Dados'\n2. Copie o Script SQL\n3. Execute no Supabase para criar as colunas em falta.");
@@ -121,6 +120,28 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
             createOsc(600, 'sine', t, 0.5);
             setTimeout(() => createOsc(600, 'sine', audioContext.currentTime, 0.3), 300);
         }
+        else if (type === 'magic') {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, t);
+            osc.frequency.exponentialRampToValueAtTime(1500, t + 0.4);
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.linearRampToValueAtTime(0.4, t + 0.1);
+            gain.gain.linearRampToValueAtTime(0, t + 0.4);
+            osc.start(t);
+            osc.stop(t + 0.4);
+        }
+        else if (type === 'success') {
+            createOsc(440, 'sine', t, 0.4); 
+            createOsc(554, 'sine', t, 0.4);
+        }
+        else if (type === 'ping') {
+            createOsc(2000, 'sine', t, 0.1);
+            setTimeout(() => createOsc(2000, 'sine', audioContext.currentTime, 0.2), 150);
+        }
         else {
             const osc = audioContext.createOscillator();
             const gain = audioContext.createGain();
@@ -162,6 +183,9 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
                                  <option value="digital">Digital (Subtil)</option>
                                  <option value="happy">Happy (Acorde)</option>
                                  <option value="sonar">Sonar (Eco)</option>
+                                 <option value="magic">Magic (Brilho)</option>
+                                 <option value="success">Success (Triunfo)</option>
+                                 <option value="ping">Ping (Agudo)</option>
                                  <option value="none">Silencioso</option>
                              </select>
                          </div>

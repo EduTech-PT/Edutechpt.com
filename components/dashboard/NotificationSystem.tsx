@@ -30,13 +30,21 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
             if (!audioContextRef.current) {
                 audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
             }
+            // Aways check state
             if (audioContextRef.current.state === 'suspended') {
-                audioContextRef.current.resume().catch(e => console.warn("Audio resume failed", e));
+                audioContextRef.current.resume().catch(e => console.warn("Audio resume failed (auto)", e));
             }
         };
 
         const unlockAudio = () => {
             initAudio();
+            // Try to resume on explicit user action
+            if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+                audioContextRef.current.resume().then(() => {
+                    console.log("Audio Context unlocked by interaction");
+                });
+            }
+            
             if (audioContextRef.current && audioContextRef.current.state === 'running') {
                 window.removeEventListener('click', unlockAudio);
                 window.removeEventListener('touchstart', unlockAudio);
@@ -142,6 +150,7 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
                 audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
             }
             const ctx = audioContextRef.current;
+            // Force resume
             if (ctx.state === 'suspended') ctx.resume();
 
             const t = ctx.currentTime;
@@ -166,28 +175,49 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
             };
 
             if (type === 'glass') {
-                // Glass: High pitched sine with multiple harmonics
                 createOsc(1200, 'sine', t, 0.8);
                 createOsc(1800, 'sine', t, 0.6);
             } 
             else if (type === 'digital') {
-                // Digital: Subtle blip
                 createOsc(800, 'sine', t, 0.1);
                 createOsc(1200, 'sine', t + 0.1, 0.1);
             } 
             else if (type === 'happy') {
-                // Happy: Major chord arpeggio
                 createOsc(523.25, 'sine', t, 0.2); // C5
                 createOsc(659.25, 'sine', t + 0.1, 0.2); // E5
                 createOsc(783.99, 'sine', t + 0.2, 0.4); // G5
             }
             else if (type === 'sonar') {
-                // Sonar: Deep ping with echo
                 createOsc(600, 'sine', t, 0.5);
                 setTimeout(() => createOsc(600, 'sine', ctx.currentTime, 0.3), 300);
             }
+            else if (type === 'magic') {
+                // Magic Sparkle
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(masterGain);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, t);
+                osc.frequency.exponentialRampToValueAtTime(1500, t + 0.4);
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.4, t + 0.1);
+                gain.gain.linearRampToValueAtTime(0, t + 0.4);
+                osc.start(t);
+                osc.stop(t + 0.4);
+            }
+            else if (type === 'success') {
+                // Success Chord (Simultaneous)
+                createOsc(440, 'sine', t, 0.4); // A4
+                createOsc(554, 'sine', t, 0.4); // C#5
+            }
+            else if (type === 'ping') {
+                // Sharp Ping
+                createOsc(2000, 'sine', t, 0.1);
+                setTimeout(() => createOsc(2000, 'sine', ctx.currentTime, 0.2), 150);
+            }
             else {
-                // Default Pop: Short bubble sound
+                // Default Pop
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 osc.connect(gain);

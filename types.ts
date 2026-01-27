@@ -36,8 +36,8 @@ export interface Profile {
   visibility_settings?: ProfileVisibility;
   // Drive Integration
   personal_folder_id?: string;
-  // Notificações (v3.1.4)
-  notification_sound?: 'pop' | 'glass' | 'digital' | 'happy' | 'sonar' | 'none';
+  // Notificações (v3.1.6)
+  notification_sound?: 'pop' | 'glass' | 'digital' | 'happy' | 'sonar' | 'magic' | 'success' | 'ping' | 'none';
   // Notificações Globais (v3.1.5)
   global_notifications?: boolean; 
 }
