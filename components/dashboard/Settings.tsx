@@ -9,12 +9,13 @@ import { SettingsDrive } from './settings/SettingsDrive';
 import { SettingsAccess } from './settings/SettingsAccess';
 import { SettingsAvatars } from './settings/SettingsAvatars';
 import { SettingsLegal } from './settings/SettingsLegal';
+import { SettingsModeration } from './settings/SettingsModeration';
 import { RoleManager } from './RoleManager';
 import { ClassAllocation } from './ClassAllocation';
 
 interface Props {
   dbVersion: string;
-  initialTab?: 'geral' | 'sql' | 'drive' | 'avatars' | 'access' | 'roles' | 'allocation' | 'legal';
+  initialTab?: 'geral' | 'sql' | 'drive' | 'avatars' | 'access' | 'roles' | 'allocation' | 'legal' | 'moderation';
   profile: Profile;
 }
 
@@ -31,6 +32,7 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral', pro
             <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide shrink-0">
                 {[
                     { id: 'geral', label: 'Geral', icon: '⚙️' },
+                    { id: 'moderation', label: 'Moderação', icon: '🛡️' },
                     { id: 'legal', label: 'Conteúdo Legal', icon: '⚖️' }, 
                     { id: 'drive', label: 'Drive & Integrações', icon: '☁️' },
                     { id: 'avatars', label: 'Avatares', icon: '🖼️' },
@@ -67,6 +69,8 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral', pro
                     />
                 )}
                 
+                {tab === 'moderation' && <SettingsModeration />}
+
                 {tab === 'sql' && <SettingsSQL />}
                 
                 {tab === 'drive' && <SettingsDrive />}

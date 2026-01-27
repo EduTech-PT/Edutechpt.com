@@ -5,7 +5,7 @@ export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
 -- Data: 2024
--- AÇÃO: ATIVAÇÃO DE LIMPEZA AUTOMÁTICA (CHAT 90 DIAS)
+-- AÇÃO: ATIVAÇÃO DE MODERAÇÃO DE CHAT (PALAVRAS PROIBIDAS)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -194,7 +194,6 @@ create policy "Gerir Comentarios" on public.class_comments for delete using (aut
 -- ==============================================================================
 -- 9. CONFIGURAÇÃO REALTIME & LIMPEZA AUTOMÁTICA
 -- ==============================================================================
--- Adiciona a tabela de comentários à publicação do Supabase Realtime
 begin;
   drop publication if exists supabase_realtime;
   create publication supabase_realtime;
@@ -202,8 +201,6 @@ commit;
 alter publication supabase_realtime add table public.class_comments;
 
 -- TRIGGER DE LIMPEZA (90 DIAS)
--- Esta função corre sempre que uma nova mensagem é inserida.
--- Ela apaga silenciosamente qualquer mensagem com mais de 90 dias.
 create or replace function public.cleanup_old_comments()
 returns trigger as $$
 begin
@@ -216,6 +213,43 @@ drop trigger if exists on_comment_cleanup on public.class_comments;
 create trigger on_comment_cleanup
   after insert on public.class_comments
   for each statement execute procedure public.cleanup_old_comments();
+
+-- ==============================================================================
+-- 9.1 MODERAÇÃO DE CHAT (NOVO v3.1.3)
+-- ==============================================================================
+-- Este trigger corre ANTES da inserção e substitui palavras proibidas
+create or replace function public.moderate_chat()
+returns trigger as $$
+declare
+  bad_words_json jsonb;
+  bad_word text;
+  cleaned_content text;
+begin
+  -- Obter lista de palavras proibidas do config
+  select value::jsonb into bad_words_json from public.app_config where key = 'forbidden_words';
+  
+  -- Se não houver configuração ou não for um array, aceita a mensagem como está
+  if bad_words_json is null or jsonb_typeof(bad_words_json) != 'array' then
+    return new;
+  end if;
+
+  cleaned_content := new.content;
+
+  -- Iterar sobre cada palavra e substituir
+  for bad_word in select * from jsonb_array_elements_text(bad_words_json) loop
+    -- Substituição case-insensitive
+    cleaned_content := regexp_replace(cleaned_content, bad_word, '****', 'gi');
+  end loop;
+
+  new.content := cleaned_content;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists on_chat_moderation on public.class_comments;
+create trigger on_chat_moderation
+  before insert or update on public.class_comments
+  for each row execute procedure public.moderate_chat();
 
 -- ==============================================================================
 -- 10. TRIGGERS E FUNÇÕES DE SISTEMA
