@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { Profile, UserRole, SupabaseSession, UserPermissions, OnlineUser } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { GlassCard } from '../components/GlassCard';
@@ -82,6 +82,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   // Realtime Presence State
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+  const [isOnlineVisible, setIsOnlineVisible] = useState(true);
+  const channelRef = useRef<any>(null); // Keep reference to channel to allow unsubscribe
 
   // Load Initial Data
   useEffect(() => {
@@ -168,7 +170,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                   toast.success(`Bem-vindo, ${userProfile.full_name?.split(' ')[0]}!`);
               }
 
-              initPresence(userProfile);
+              // Inicia presença (se visível)
+              if (isOnlineVisible) {
+                  initPresence(userProfile);
+              }
 
               // Carregar permissões (se não for Master Admin que já tem forçadas)
               if (session.user.email?.toLowerCase() !== 'edutechpt@hotmail.com') {
@@ -244,7 +249,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   const initPresence = (userProfile: Profile) => {
+      // Cleanup previous channel if exists
+      if (channelRef.current) {
+          supabase.removeChannel(channelRef.current);
+      }
+
       const channel = supabase.channel('online-users');
+      channelRef.current = channel;
       
       channel
         .on('presence', { event: 'sync' }, () => {
@@ -276,15 +287,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 });
             }
         });
+  };
 
-      return () => {
-          supabase.removeChannel(channel);
-      };
+  // Toggle Visibility Logic
+  const handleToggleOnline = async () => {
+      if (!profile) return;
+      
+      const newStatus = !isOnlineVisible;
+      setIsOnlineVisible(newStatus);
+
+      if (newStatus) {
+          // Ligar
+          initPresence(profile);
+          toast.info("Agora estás VISÍVEL para outros utilizadores.");
+      } else {
+          // Desligar
+          if (channelRef.current) {
+              await channelRef.current.untrack();
+              // Não fazemos removeChannel completo para poder continuar a receber 'force_logout'
+              // Mas paramos de enviar a nossa presença.
+              // Para simplificar, o untrack é o suficiente para sair da lista.
+              toast.info("Agora estás INVISÍVEL (Modo Fantasma).");
+          }
+      }
   };
 
   const handleLogoutAction = async () => {
       if (profile) {
           await adminService.logAccess(profile.id, 'logout');
+          if (channelRef.current) supabase.removeChannel(channelRef.current);
       }
       onLogout();
   };
@@ -571,6 +602,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 onMobileClose={() => setMobileMenuOpen(false)}
                 logoUrl={logoUrl}
                 hasUpdates={systemNeedsUpdate}
+                isOnlineVisible={isOnlineVisible}
+                toggleOnlineVisibility={handleToggleOnline}
             />
         </div>
         

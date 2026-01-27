@@ -12,7 +12,10 @@ interface SidebarProps {
   onLogout: () => void;
   onMobileClose?: () => void;
   logoUrl?: string;
-  hasUpdates?: boolean; // Novo prop para indicar atualizações de sistema
+  hasUpdates?: boolean;
+  // Props para Toggle Online
+  isOnlineVisible?: boolean;
+  toggleOnlineVisibility?: () => void;
 }
 
 interface MenuItem {
@@ -29,7 +32,7 @@ interface MenuGroup {
   items: MenuItem[];
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appVersion, currentView, setView, onLogout, onMobileClose, logoUrl, hasUpdates = false }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appVersion, currentView, setView, onLogout, onMobileClose, logoUrl, hasUpdates = false, isOnlineVisible, toggleOnlineVisibility }) => {
   const role = profile?.role || UserRole.STUDENT;
   
   // Estado para controlar Mobile Accordion (Desktop usa Hover/CSS)
@@ -288,6 +291,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
                      </div>
                      <span className="text-[9px] text-indigo-900/40 font-mono mt-0.5">{appVersion}</span>
                 </div>
+            </div>
+        )}
+
+        {/* ONLINE/OFFLINE TOGGLE FOR ADMINS */}
+        {(profile?.role === UserRole.ADMIN || profile?.role === UserRole.TRAINER) && toggleOnlineVisibility && (
+            <div className="flex items-center justify-between text-xs font-bold text-indigo-800 bg-white/40 p-2 rounded-lg border border-white/50">
+                <span>Estado Online</span>
+                <button 
+                    onClick={toggleOnlineVisibility}
+                    className={`w-10 h-5 rounded-full p-1 transition-colors relative ${isOnlineVisible ? 'bg-green-500' : 'bg-gray-300'}`}
+                    title={isOnlineVisible ? "Visível para outros" : "Invisível (Modo Fantasma)"}
+                >
+                    <div className={`w-3 h-3 bg-white rounded-full shadow-sm transform transition-transform ${isOnlineVisible ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                </button>
             </div>
         )}
 
