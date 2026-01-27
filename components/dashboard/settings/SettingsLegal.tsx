@@ -4,10 +4,24 @@ import { GlassCard } from '../../GlassCard';
 import { adminService } from '../../../services/admin';
 import { RichTextEditor } from '../../RichTextEditor';
 
+interface FaqItem {
+    q: string;
+    a: string;
+}
+
+interface FaqCategory {
+    id: string;
+    title: string;
+    items: FaqItem[];
+    isOpen?: boolean; // UI state only
+}
+
 export const SettingsLegal: React.FC = () => {
     const [config, setConfig] = useState<any>({});
     const [isSaving, setIsSaving] = useState(false);
-    const [faqList, setFaqList] = useState<{q: string, a: string}[]>([]);
+    
+    // State para FAQ Categorizado
+    const [categories, setCategories] = useState<FaqCategory[]>([]);
     
     // State para controlo das abas
     const [activeTab, setActiveTab] = useState<'faq' | 'privacy' | 'terms'>('faq');
@@ -15,8 +29,29 @@ export const SettingsLegal: React.FC = () => {
     useEffect(() => {
         adminService.getAppConfig().then(cfg => {
             setConfig(cfg);
-            if (cfg.faqJson && Array.isArray(cfg.faqJson)) {
-                setFaqList(cfg.faqJson);
+            if (cfg.faqJson) {
+                try {
+                    const parsed = typeof cfg.faqJson === 'string' ? JSON.parse(cfg.faqJson) : cfg.faqJson;
+                    
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        // Migração: Se o primeiro item tiver 'q', é o formato antigo (Flat List)
+                        if ('q' in parsed[0]) {
+                            setCategories([{
+                                id: 'default-cat',
+                                title: 'Geral',
+                                items: parsed as FaqItem[],
+                                isOpen: true
+                            }]);
+                        } else {
+                            // Formato Novo (Categorias)
+                            setCategories(parsed.map((c: any) => ({ ...c, isOpen: false })));
+                        }
+                    } else {
+                        setCategories([]);
+                    }
+                } catch (e) {
+                    setCategories([]);
+                }
             }
         }).catch(console.error);
     }, []);
@@ -26,7 +61,11 @@ export const SettingsLegal: React.FC = () => {
         try {
             await adminService.updateAppConfig('legal_privacy_policy', config.privacyPolicyContent || '');
             await adminService.updateAppConfig('legal_terms_service', config.termsServiceContent || '');
-            await adminService.updateAppConfig('legal_faq_json', JSON.stringify(faqList));
+            
+            // Removemos o estado de UI (isOpen) antes de salvar
+            const cleanCategories = categories.map(({ isOpen, ...rest }) => rest);
+            await adminService.updateAppConfig('legal_faq_json', JSON.stringify(cleanCategories));
+            
             alert('Conteúdo legal e FAQ atualizados!');
         } catch (e: any) {
             alert(e.message);
@@ -35,12 +74,60 @@ export const SettingsLegal: React.FC = () => {
         }
     };
 
-    const addFaqItem = () => setFaqList([...faqList, { q: '', a: '' }]);
-    const removeFaqItem = (index: number) => { if (window.confirm('Remover esta pergunta?')) setFaqList(faqList.filter((_, i) => i !== index)); };
-    const updateFaqItem = (index: number, field: 'q' | 'a', value: string) => {
-        const newList = [...faqList];
-        newList[index][field] = value;
-        setFaqList(newList);
+    // --- Category Actions ---
+    const addCategory = () => {
+        const newCat: FaqCategory = {
+            id: Date.now().toString(),
+            title: 'Nova Categoria',
+            items: [],
+            isOpen: true
+        };
+        setCategories([...categories, newCat]);
+    };
+
+    const deleteCategory = (catId: string) => {
+        if (window.confirm('Eliminar esta categoria e todas as suas perguntas?')) {
+            setCategories(categories.filter(c => c.id !== catId));
+        }
+    };
+
+    const updateCategoryTitle = (catId: string, newTitle: string) => {
+        setCategories(categories.map(c => c.id === catId ? { ...c, title: newTitle } : c));
+    };
+
+    const toggleCategory = (catId: string) => {
+        setCategories(categories.map(c => c.id === catId ? { ...c, isOpen: !c.isOpen } : c));
+    };
+
+    // --- Item Actions ---
+    const addItemToCategory = (catId: string) => {
+        setCategories(categories.map(c => {
+            if (c.id === catId) {
+                return { ...c, items: [...c.items, { q: '', a: '' }], isOpen: true };
+            }
+            return c;
+        }));
+    };
+
+    const deleteItemFromCategory = (catId: string, itemIndex: number) => {
+        if (!window.confirm('Remover esta pergunta?')) return;
+        setCategories(categories.map(c => {
+            if (c.id === catId) {
+                return { ...c, items: c.items.filter((_, i) => i !== itemIndex) };
+            }
+            return c;
+        }));
+    };
+
+    const updateItem = (catId: string, itemIndex: number, field: 'q' | 'a', value: string) => {
+        setCategories(categories.map(c => {
+            if (c.id === catId) {
+                const newItems = [...c.items];
+                newItems[itemIndex][field] = value;
+                return { ...c, items: newItems };
+            }
+            return c;
+        }));
     };
 
     const TabButton = ({ id, label, icon }: { id: 'faq' | 'privacy' | 'terms', label: string, icon: string }) => (
@@ -73,61 +160,107 @@ export const SettingsLegal: React.FC = () => {
                     {/* ABA: FAQ EDITOR */}
                     {activeTab === 'faq' && (
                         <div className="space-y-6">
-                            <div className="flex justify-between items-center">
-                                <h3 className="font-bold text-xl text-indigo-900">Editor de Perguntas Frequentes</h3>
+                            <div className="flex justify-between items-center bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                                <div>
+                                    <h3 className="font-bold text-xl text-indigo-900">Editor de FAQ</h3>
+                                    <p className="text-xs text-indigo-500">Organize as perguntas por categorias.</p>
+                                </div>
                                 <button 
-                                    onClick={addFaqItem} 
-                                    className="px-4 py-2 bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 hover:bg-indigo-200 text-xs transition-colors"
+                                    onClick={addCategory} 
+                                    className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md transition-all flex items-center gap-2"
                                 >
-                                    + Adicionar Pergunta
+                                    <span>+</span> Nova Categoria
                                 </button>
                             </div>
 
-                            {faqList.length === 0 ? (
+                            {categories.length === 0 ? (
                                 <div className="text-center py-12 opacity-50 border-2 border-dashed border-indigo-100 rounded-xl">
-                                    <p>Nenhuma pergunta configurada.</p>
+                                    <p>Nenhuma categoria configurada.</p>
+                                    <button onClick={addCategory} className="mt-2 text-indigo-600 font-bold underline">Criar a primeira</button>
                                 </div>
                             ) : (
-                                <div className="space-y-6">
-                                    {faqList.map((item, index) => (
-                                        <div key={index} className="bg-white/50 p-4 rounded-xl border border-indigo-100 flex flex-col gap-3 shadow-sm">
-                                            <div className="flex justify-between items-center border-b border-indigo-50 pb-2">
-                                                <span className="text-xs font-bold text-indigo-400 uppercase tracking-wide">Item #{index + 1}</span>
-                                                <button onClick={() => removeFaqItem(index)} className="text-red-500 text-xs font-bold hover:bg-red-50 px-2 py-1 rounded transition-colors">🗑️ Remover</button>
-                                            </div>
-                                            
-                                            <div>
-                                                <label className="block text-xs font-bold text-indigo-800 mb-1 uppercase">Pergunta</label>
+                                <div className="space-y-4">
+                                    {categories.map((cat) => (
+                                        <div key={cat.id} className="bg-white/40 border border-indigo-200 rounded-xl overflow-hidden shadow-sm transition-all">
+                                            {/* Category Header (Persiana) */}
+                                            <div className="flex items-center gap-3 p-3 bg-indigo-100/50 border-b border-indigo-200">
+                                                <button 
+                                                    onClick={() => toggleCategory(cat.id)}
+                                                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white text-indigo-600 transition-colors"
+                                                >
+                                                    <span className={`transform transition-transform duration-200 ${cat.isOpen ? 'rotate-90' : 'rotate-0'}`}>▶</span>
+                                                </button>
+                                                
                                                 <input 
                                                     type="text" 
-                                                    placeholder="Ex: Como obtenho o certificado?" 
-                                                    value={item.q} 
-                                                    onChange={e => updateFaqItem(index, 'q', e.target.value)} 
-                                                    className="w-full p-3 rounded-lg bg-white border border-indigo-200 font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                                    value={cat.title} 
+                                                    onChange={(e) => updateCategoryTitle(cat.id, e.target.value)}
+                                                    className="flex-1 bg-transparent font-bold text-indigo-900 outline-none border-b border-transparent focus:border-indigo-400 px-1 text-lg"
+                                                    placeholder="Nome da Categoria"
                                                 />
+
+                                                <span className="text-xs font-bold text-indigo-400 bg-white px-2 py-1 rounded-full">
+                                                    {cat.items.length} itens
+                                                </span>
+
+                                                <button 
+                                                    onClick={() => deleteCategory(cat.id)}
+                                                    className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded transition-colors"
+                                                    title="Eliminar Categoria"
+                                                >
+                                                    🗑️
+                                                </button>
                                             </div>
-                                            
-                                            <div>
-                                                <label className="block text-xs font-bold text-indigo-800 mb-1 uppercase">Resposta</label>
-                                                <RichTextEditor 
-                                                    value={item.a} 
-                                                    onChange={val => updateFaqItem(index, 'a', val)} 
-                                                    className="bg-white rounded-lg min-h-[150px]"
-                                                    placeholder="Escreva a resposta aqui..."
-                                                />
-                                            </div>
+
+                                            {/* Category Content */}
+                                            {cat.isOpen && (
+                                                <div className="p-4 bg-white/30 animate-in slide-in-from-top-2 duration-200">
+                                                    <div className="space-y-4">
+                                                        {cat.items.map((item, idx) => (
+                                                            <div key={idx} className="flex flex-col gap-2 p-3 bg-white rounded-lg border border-indigo-100 shadow-sm relative group">
+                                                                <div className="flex gap-2">
+                                                                    <div className="flex-1">
+                                                                        <label className="block text-[10px] font-bold text-indigo-400 uppercase mb-1">Pergunta</label>
+                                                                        <input 
+                                                                            type="text" 
+                                                                            value={item.q} 
+                                                                            onChange={e => updateItem(cat.id, idx, 'q', e.target.value)} 
+                                                                            className="w-full p-2 rounded border border-indigo-100 font-bold text-indigo-900 focus:ring-1 focus:ring-indigo-400 outline-none text-sm"
+                                                                            placeholder="Escreva a pergunta..."
+                                                                        />
+                                                                    </div>
+                                                                    <button 
+                                                                        onClick={() => deleteItemFromCategory(cat.id, idx)}
+                                                                        className="text-gray-300 hover:text-red-500 self-start p-1"
+                                                                        title="Remover Pergunta"
+                                                                    >
+                                                                        ✕
+                                                                    </button>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-[10px] font-bold text-indigo-400 uppercase mb-1">Resposta</label>
+                                                                    <RichTextEditor 
+                                                                        value={item.a} 
+                                                                        onChange={val => updateItem(cat.id, idx, 'a', val)} 
+                                                                        className="bg-white rounded min-h-[100px]"
+                                                                        placeholder="Escreva a resposta..."
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    
+                                                    <button 
+                                                        onClick={() => addItemToCategory(cat.id)} 
+                                                        className="w-full mt-4 py-2 border-2 border-dashed border-indigo-200 text-indigo-600 font-bold rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all text-sm"
+                                                    >
+                                                        + Adicionar Pergunta em "{cat.title}"
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
-                            )}
-                            
-                            {faqList.length > 3 && (
-                                <button 
-                                    onClick={addFaqItem} 
-                                    className="w-full py-3 bg-indigo-50 text-indigo-700 font-bold rounded-lg border-2 border-dashed border-indigo-200 hover:bg-indigo-100"
-                                >
-                                    + Adicionar Nova Pergunta
-                                </button>
                             )}
                         </div>
                     )}
