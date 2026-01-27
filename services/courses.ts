@@ -350,6 +350,17 @@ export const courseService = {
         if (error) return [];
         return data as AttendanceRecord[];
     },
+    // NOVO: Histórico individual do aluno
+    async getStudentAttendance(classId: string, studentId: string) {
+        const { data, error } = await supabase
+            .from('class_attendance')
+            .select('*')
+            .eq('class_id', classId)
+            .eq('student_id', studentId)
+            .order('date', { ascending: false });
+        if (error) return [];
+        return data as AttendanceRecord[];
+    },
     async saveAttendance(records: Partial<AttendanceRecord>[]) {
         const { error } = await supabase.from('class_attendance').upsert(records, { onConflict: 'class_id, student_id, date' });
         if (error) throw error;

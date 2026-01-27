@@ -10,6 +10,7 @@ import { useToast } from '../ui/ToastProvider';
 import { ClassroomHome } from './classroom/ClassroomHome';
 import { ClassroomResources } from './classroom/ClassroomResources';
 import { ClassroomChat } from './classroom/ClassroomChat';
+import { ClassroomAttendance } from './classroom/ClassroomAttendance';
 
 interface Props {
     profile: Profile;
@@ -18,7 +19,7 @@ interface Props {
     onlineUsers?: OnlineUser[]; // NOVO
 }
 
-type ModuleType = 'home' | 'materials' | 'announcements' | 'assessments' | 'forum';
+type ModuleType = 'home' | 'materials' | 'announcements' | 'assessments' | 'forum' | 'attendance';
 
 export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, onBack, onlineUsers }) => {
     // Internal State for Course ID (handles auto-select)
@@ -212,13 +213,14 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
             </div>
 
             <GlassCard className="flex-1 flex flex-col min-h-[500px]">
-                <div className="grid grid-cols-5 gap-2 mb-6 border-b border-indigo-100 pb-6 overflow-x-auto">
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-6 border-b border-indigo-100 pb-6 overflow-x-auto">
                     {[
                         { id: 'home', icon: '🏠', label: 'Resumo' }, 
                         { id: 'materials', icon: '📚', label: 'Materiais' }, 
                         { id: 'announcements', icon: '📢', label: 'Avisos' }, 
+                        { id: 'attendance', icon: '📅', label: 'Presenças' },
                         { id: 'assessments', icon: '📝', label: 'Avaliações' },
-                        { id: 'forum', icon: '💬', label: 'Fórum' } // New Tab
+                        { id: 'forum', icon: '💬', label: 'Fórum' }
                     ].map(mod => (
                         <button key={mod.id} onClick={() => setActiveModule(mod.id as ModuleType)} className={`p-3 rounded-xl flex flex-col items-center justify-center transition-all ${activeModule === mod.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-indigo-50 text-indigo-900 hover:bg-indigo-100'}`}>
                             <span className="text-2xl mb-1">{mod.icon}</span><span className="text-xs font-bold whitespace-nowrap">{mod.label}</span>
@@ -239,6 +241,10 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                             progressPercentage={progressPercentage}
                             isStaff={profile.role === UserRole.ADMIN} 
                         />
+                    )}
+
+                    {activeModule === 'attendance' && (
+                        <ClassroomAttendance classId={activeClass.id} profile={profile} />
                     )}
 
                     {activeModule === 'forum' && (
