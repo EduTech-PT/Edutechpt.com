@@ -96,7 +96,7 @@ export const ProfileContacts: React.FC<Props> = ({ user, formData, visibility, i
 
                 {/* Email Institucional (Read Only) */}
                 <div className="opacity-60 pt-4 mt-auto">
-                    <label className="block text-[10px] font-bold text-indigo-800 uppercase mb-1">Conta Institucional (Login)</label>
+                    <label className="block text-[10px] font-bold text-indigo-800 uppercase mb-1">Conta Pessoal (Login)</label>
                     <p className="text-xs font-mono text-indigo-900">{user.email}</p>
                 </div>
 
