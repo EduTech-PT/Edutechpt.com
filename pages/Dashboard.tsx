@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Profile, UserRole, SupabaseSession, UserPermissions, OnlineUser } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { GlassCard } from '../components/GlassCard';
@@ -10,24 +10,28 @@ import { SQL_VERSION, APP_VERSION } from '../constants';
 import { formatTime, formatDate } from '../utils/formatters';
 import { driveService, GAS_VERSION } from '../services/drive';
 import { supabase } from '../lib/supabaseClient';
+import { useToast } from '../components/ui/ToastProvider';
+import { Skeleton } from '../components/ui/Skeleton';
 
-// Views
+// Views - Eager Load Critical Views
 import { Overview } from '../components/dashboard/Overview';
-import { CourseManager } from '../components/dashboard/CourseManager';
 import { StudentCourses } from '../components/dashboard/StudentCourses'; 
-import { UserAdmin } from '../components/dashboard/UserAdmin';
-import { Settings } from '../components/dashboard/Settings';
-import { MediaManager } from '../components/dashboard/MediaManager';
-import { DriveManager } from '../components/dashboard/DriveManager';
-import { MyProfile } from '../components/dashboard/MyProfile';
-import { Community } from '../components/dashboard/Community';
-import { Calendar } from '../components/dashboard/Calendar';
-import { AvailabilityMap } from '../components/dashboard/AvailabilityMap';
-import { ClassManager } from '../components/dashboard/ClassManager'; 
-import { DidacticPortal } from '../components/dashboard/DidacticPortal';
-import { AccessLogs } from '../components/dashboard/AccessLogs'; 
-import { StudentAllocation } from '../components/dashboard/StudentAllocation';
 import { StudentClassroom } from '../components/dashboard/StudentClassroom';
+
+// Views - Lazy Load Heavy Views
+const CourseManager = React.lazy(() => import('../components/dashboard/CourseManager').then(m => ({ default: m.CourseManager })));
+const UserAdmin = React.lazy(() => import('../components/dashboard/UserAdmin').then(m => ({ default: m.UserAdmin })));
+const Settings = React.lazy(() => import('../components/dashboard/Settings').then(m => ({ default: m.Settings })));
+const MediaManager = React.lazy(() => import('../components/dashboard/MediaManager').then(m => ({ default: m.MediaManager })));
+const DriveManager = React.lazy(() => import('../components/dashboard/DriveManager').then(m => ({ default: m.DriveManager })));
+const MyProfile = React.lazy(() => import('../components/dashboard/MyProfile').then(m => ({ default: m.MyProfile })));
+const Community = React.lazy(() => import('../components/dashboard/Community').then(m => ({ default: m.Community })));
+const Calendar = React.lazy(() => import('../components/dashboard/Calendar').then(m => ({ default: m.Calendar })));
+const AvailabilityMap = React.lazy(() => import('../components/dashboard/AvailabilityMap').then(m => ({ default: m.AvailabilityMap })));
+const ClassManager = React.lazy(() => import('../components/dashboard/ClassManager').then(m => ({ default: m.ClassManager })));
+const DidacticPortal = React.lazy(() => import('../components/dashboard/DidacticPortal').then(m => ({ default: m.DidacticPortal })));
+const AccessLogs = React.lazy(() => import('../components/dashboard/AccessLogs').then(m => ({ default: m.AccessLogs })));
+const StudentAllocation = React.lazy(() => import('../components/dashboard/StudentAllocation').then(m => ({ default: m.StudentAllocation })));
 
 // Legal Pages (Embedded)
 import { PrivacyPolicy } from './PrivacyPolicy';
@@ -42,6 +46,7 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [permissions, setPermissions] = useState<UserPermissions | undefined>(undefined);
+  const { toast } = useToast();
   
   // URL STATE PERSISTENCE LOGIC
   const [currentView, setCurrentView] = useState(() => {
@@ -111,8 +116,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           }
 
           // 2. RECUPERAÇÃO DE EMERGÊNCIA (MASTER KEY)
-          // Se for o email mestre, forçamos o role 'admin' e permissões totais, 
-          // independentemente do que a BD diga ou se deu erro.
           if (session.user.email?.toLowerCase() === 'edutechpt@hotmail.com') {
               console.log("🔓 MASTER ADMIN DETECTADO: Forçando permissões.");
               
@@ -137,7 +140,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                   view_didactic_portal: true,
                   view_drive: true,
                   view_users: true,
-                  view_settings: true, // CRÍTICO: Permite ver o menu Definições
+                  view_settings: true, 
                   view_calendar: true,
                   view_availability: true
               });
@@ -162,6 +165,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
               if (!sessionStorage.getItem('session_logged')) {
                   adminService.logAccess(userProfile.id, 'login');
                   sessionStorage.setItem('session_logged', 'true');
+                  toast.success(`Bem-vindo, ${userProfile.full_name?.split(' ')[0]}!`);
               }
 
               initPresence(userProfile);
@@ -194,7 +198,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                   }
               }
 
-              // Check System Health (Admin Only) - Runs even if config failed
+              // Check System Health (Admin Only)
               if (userProfile.role === UserRole.ADMIN) {
                   await checkTables();
 
@@ -220,6 +224,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           }
       } catch (e) { 
           console.error("Critical Init Error", e); 
+          toast.error("Erro crítico ao iniciar aplicação.");
       } finally { 
           setLoading(false); 
       }
@@ -227,7 +232,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
   const checkTables = async () => {
       // Adicionado app_config à lista de verificação crítica
-      const tablesToCheck = ['app_config', 'classes', 'class_instructors', 'enrollments', 'class_materials'];
+      const tablesToCheck = ['app_config', 'classes', 'class_instructors', 'enrollments', 'class_materials', 'class_comments'];
       for (const table of tablesToCheck) {
           const { error } = await supabase.from(table).select('count', { count: 'exact', head: true });
           if (error && error.code === '42P01') { // undefined_table
@@ -255,7 +260,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
         })
         .on('broadcast', { event: 'force_logout' }, (payload) => {
             if (payload.payload?.userId === userProfile.id) {
-                alert("A sua sessão foi terminada pelo Administrador.");
+                toast.error("A sua sessão foi terminada pelo Administrador.");
                 handleLogoutAction();
             }
         })
@@ -292,8 +297,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
               alert("Conta recuperada com sucesso! A página será recarregada.");
               window.location.reload();
           } else {
-              // Se claim_invite falhar mas user existe, pode ser problema de permissões. 
-              // Tentar forçar reload na mesma.
               window.location.reload();
           }
       } catch (e: any) {
@@ -314,7 +317,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       };
       setProfile(fakeProfile);
       setPermissions({ view_settings: true, view_dashboard: true }); // Mínimo para aceder ao SQL
-      alert("ATENÇÃO: Entrou em modo de segurança. Por favor, vá a Definições > SQL e execute o script para corrigir a base de dados.");
+      toast.info("Modo de segurança ativado. Corrija o SQL.");
   };
 
   // Clock
@@ -421,69 +424,77 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   );
 
   const renderView = () => {
-      switch(currentView) {
-          case 'dashboard': return (
-            <Overview 
-                profile={profile} 
-                dbStatus={{mismatch: dbVersion !== SQL_VERSION, current: dbVersion, expected: SQL_VERSION}} 
-                gasStatus={gasStatus}
-                onFixDb={handleFixDb} 
-                onFixGas={handleFixGas}
-                isAdmin={profile.role === UserRole.ADMIN} 
-            />
-          );
-          case 'my_profile': return <MyProfile user={profile} refreshProfile={handleRefreshProfile} />;
-          case 'calendar': return <Calendar session={session.user} accessToken={session.provider_token} />;
-          case 'availability': return <AvailabilityMap session={session.user} />;
-          case 'admin_edit_profile': 
-            return selectedUserToEdit ? (
-                <MyProfile 
-                    user={selectedUserToEdit} 
-                    refreshProfile={handleRefreshProfile} 
-                    onBack={handleBackToUserList}
-                    isAdminMode={true}
-                />
-            ) : <UserAdmin currentUserRole={profile.role} onEditUser={handleAdminEditUser} />;
+      const fallback = <div className="p-6"><Skeleton className="h-64 w-full" /></div>;
 
-          case 'community': return <Community />;
-          
-          case 'courses': return <StudentCourses profile={profile} onOpenClassroom={handleOpenClassroom} />;
-          case 'student_classroom': return (
-              <StudentClassroom 
-                  profile={profile} 
-                  initialCourseId={selectedCourseForClassroom} 
-                  onBack={() => handleSetView('courses')}
-              />
-          );
+      return (
+        <Suspense fallback={fallback}>
+          {(() => {
+            switch(currentView) {
+                case 'dashboard': return (
+                    <Overview 
+                        profile={profile} 
+                        dbStatus={{mismatch: dbVersion !== SQL_VERSION, current: dbVersion, expected: SQL_VERSION}} 
+                        gasStatus={gasStatus}
+                        onFixDb={handleFixDb} 
+                        onFixGas={handleFixGas}
+                        isAdmin={profile.role === UserRole.ADMIN} 
+                    />
+                );
+                case 'my_profile': return <MyProfile user={profile} refreshProfile={handleRefreshProfile} />;
+                case 'calendar': return <Calendar session={session.user} accessToken={session.provider_token} />;
+                case 'availability': return <AvailabilityMap session={session.user} />;
+                case 'admin_edit_profile': 
+                    return selectedUserToEdit ? (
+                        <MyProfile 
+                            user={selectedUserToEdit} 
+                            refreshProfile={handleRefreshProfile} 
+                            onBack={handleBackToUserList}
+                            isAdminMode={true}
+                        />
+                    ) : <UserAdmin currentUserRole={profile.role} onEditUser={handleAdminEditUser} />;
 
-          case 'manage_courses': return <CourseManager profile={profile} />;
-          case 'manage_classes': return <ClassManager />;
-          case 'manage_student_allocation': return <StudentAllocation />;
-          case 'didactic_portal': return <DidacticPortal profile={profile} />;
+                case 'community': return <Community />;
+                
+                case 'courses': return <StudentCourses profile={profile} onOpenClassroom={handleOpenClassroom} />;
+                case 'student_classroom': return (
+                    <StudentClassroom 
+                        profile={profile} 
+                        initialCourseId={selectedCourseForClassroom} 
+                        onBack={() => handleSetView('courses')}
+                    />
+                );
 
-          case 'media': return <MediaManager />;
-          case 'drive': return <DriveManager profile={profile} />;
-          case 'users': return <UserAdmin currentUserRole={profile.role} onEditUser={handleAdminEditUser} />;
-          
-          // SETTINGS
-          case 'settings_logs': return <AccessLogs onlineUsers={onlineUsers} />;
-          case 'settings_geral': return <Settings dbVersion={dbVersion} initialTab="geral" profile={profile} />;
-          case 'settings_roles': return <Settings dbVersion={dbVersion} initialTab="roles" profile={profile} />;
-          case 'settings_sql': return <Settings dbVersion={dbVersion} initialTab="sql" profile={profile} />;
-          case 'settings_drive': return <Settings dbVersion={dbVersion} initialTab="drive" profile={profile} />;
-          case 'settings_avatars': return <Settings dbVersion={dbVersion} initialTab="avatars" profile={profile} />;
-          case 'settings_access': return <Settings dbVersion={dbVersion} initialTab="access" profile={profile} />;
-          case 'settings_allocation': return <Settings dbVersion={dbVersion} initialTab="allocation" profile={profile} />; 
-          case 'settings_legal': return <Settings dbVersion={dbVersion} initialTab="legal" profile={profile} />;
-          case 'settings': return <Settings dbVersion={dbVersion} initialTab="geral" profile={profile} />;
-          
-          // LEGAL PAGES
-          case 'privacy': return <PrivacyPolicy onBack={() => handleSetView('dashboard')} isEmbedded={true} />;
-          case 'terms': return <TermsOfService onBack={() => handleSetView('dashboard')} isEmbedded={true} />;
-          case 'faq': return <FAQPage onBack={() => handleSetView('dashboard')} isEmbedded={true} />;
+                case 'manage_courses': return <CourseManager profile={profile} />;
+                case 'manage_classes': return <ClassManager />;
+                case 'manage_student_allocation': return <StudentAllocation />;
+                case 'didactic_portal': return <DidacticPortal profile={profile} />;
 
-          default: return <GlassCard><h2>Em Construção: {currentView}</h2></GlassCard>;
-      }
+                case 'media': return <MediaManager />;
+                case 'drive': return <DriveManager profile={profile} />;
+                case 'users': return <UserAdmin currentUserRole={profile.role} onEditUser={handleAdminEditUser} />;
+                
+                // SETTINGS
+                case 'settings_logs': return <AccessLogs onlineUsers={onlineUsers} />;
+                case 'settings_geral': return <Settings dbVersion={dbVersion} initialTab="geral" profile={profile} />;
+                case 'settings_roles': return <Settings dbVersion={dbVersion} initialTab="roles" profile={profile} />;
+                case 'settings_sql': return <Settings dbVersion={dbVersion} initialTab="sql" profile={profile} />;
+                case 'settings_drive': return <Settings dbVersion={dbVersion} initialTab="drive" profile={profile} />;
+                case 'settings_avatars': return <Settings dbVersion={dbVersion} initialTab="avatars" profile={profile} />;
+                case 'settings_access': return <Settings dbVersion={dbVersion} initialTab="access" profile={profile} />;
+                case 'settings_allocation': return <Settings dbVersion={dbVersion} initialTab="allocation" profile={profile} />; 
+                case 'settings_legal': return <Settings dbVersion={dbVersion} initialTab="legal" profile={profile} />;
+                case 'settings': return <Settings dbVersion={dbVersion} initialTab="geral" profile={profile} />;
+                
+                // LEGAL PAGES
+                case 'privacy': return <PrivacyPolicy onBack={() => handleSetView('dashboard')} isEmbedded={true} />;
+                case 'terms': return <TermsOfService onBack={() => handleSetView('dashboard')} isEmbedded={true} />;
+                case 'faq': return <FAQPage onBack={() => handleSetView('dashboard')} isEmbedded={true} />;
+
+                default: return <GlassCard><h2>Em Construção: {currentView}</h2></GlassCard>;
+            }
+          })()}
+        </Suspense>
+      );
   };
 
   const getPageTitle = (view: string) => {

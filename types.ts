@@ -157,6 +157,16 @@ export interface StudentGrade {
     feedback?: string;
     graded_at: string;
 }
+
+// NOVO (v4.0)
+export interface ClassComment {
+    id: string;
+    class_id: string;
+    user_id: string;
+    content: string;
+    created_at: string;
+    user?: Profile; // Join
+}
 // ----------------------------
 
 export interface SupabaseSession {

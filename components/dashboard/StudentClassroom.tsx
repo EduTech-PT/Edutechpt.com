@@ -4,10 +4,12 @@ import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
 import { Profile, Class, Course, ClassMaterial, ClassAnnouncement, ClassAssessment, UserRole } from '../../types';
 import { CertificateGenerator } from '../CertificateGenerator';
+import { useToast } from '../ui/ToastProvider';
 
 // Sub-components
 import { ClassroomHome } from './classroom/ClassroomHome';
 import { ClassroomResources } from './classroom/ClassroomResources';
+import { ClassroomChat } from './classroom/ClassroomChat';
 
 interface Props {
     profile: Profile;
@@ -15,7 +17,7 @@ interface Props {
     onBack: () => void;
 }
 
-type ModuleType = 'home' | 'materials' | 'announcements' | 'assessments';
+type ModuleType = 'home' | 'materials' | 'announcements' | 'assessments' | 'forum';
 
 export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, onBack }) => {
     // Internal State for Course ID (handles auto-select)
@@ -42,6 +44,9 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
     
     // Certificate
     const [showCertificate, setShowCertificate] = useState(false);
+    
+    // Toast
+    const { toast } = useToast();
 
     // 1. Initial Check: ID Provided vs Auto-Detect
     useEffect(() => {
@@ -144,7 +149,10 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
         const isCompleted = completedMaterials.includes(materialId);
         try {
             if (isCompleted) setCompletedMaterials(prev => prev.filter(id => id !== materialId));
-            else setCompletedMaterials(prev => [...prev, materialId]);
+            else {
+                setCompletedMaterials(prev => [...prev, materialId]);
+                toast.success("Progresso guardado!");
+            }
             await courseService.toggleMaterialProgress(profile.id, materialId, !isCompleted);
         } catch (e) { console.error(e); }
     };
@@ -186,14 +194,23 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
             </div>
 
             <GlassCard className="flex-1 flex flex-col min-h-[500px]">
-                <div className="grid grid-cols-4 gap-4 mb-6 border-b border-indigo-100 pb-6">
-                    {[{ id: 'home', icon: '🏠', label: 'Resumo' }, { id: 'materials', icon: '📚', label: 'Materiais' }, { id: 'announcements', icon: '📢', label: 'Avisos' }, { id: 'assessments', icon: '📝', label: 'Avaliações' }].map(mod => (
-                        <button key={mod.id} onClick={() => setActiveModule(mod.id as ModuleType)} className={`p-3 rounded-xl flex flex-col items-center justify-center transition-all ${activeModule === mod.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-indigo-50 text-indigo-900 hover:bg-indigo-100'}`}><span className="text-2xl mb-1">{mod.icon}</span><span className="text-xs font-bold">{mod.label}</span></button>
+                <div className="grid grid-cols-5 gap-2 mb-6 border-b border-indigo-100 pb-6 overflow-x-auto">
+                    {[
+                        { id: 'home', icon: '🏠', label: 'Resumo' }, 
+                        { id: 'materials', icon: '📚', label: 'Materiais' }, 
+                        { id: 'announcements', icon: '📢', label: 'Avisos' }, 
+                        { id: 'assessments', icon: '📝', label: 'Avaliações' },
+                        { id: 'forum', icon: '💬', label: 'Fórum' } // New Tab
+                    ].map(mod => (
+                        <button key={mod.id} onClick={() => setActiveModule(mod.id as ModuleType)} className={`p-3 rounded-xl flex flex-col items-center justify-center transition-all ${activeModule === mod.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-indigo-50 text-indigo-900 hover:bg-indigo-100'}`}>
+                            <span className="text-2xl mb-1">{mod.icon}</span><span className="text-xs font-bold whitespace-nowrap">{mod.label}</span>
+                        </button>
                     ))}
                 </div>
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
                     {activeModule === 'home' && <ClassroomHome progressPercentage={progressPercentage} completedCount={completedMaterials.length} totalCount={materials.length} announcements={announcements} onShowCertificate={() => setShowCertificate(true)} />}
+                    
                     {(activeModule === 'materials' || activeModule === 'announcements' || activeModule === 'assessments') && (
                         <ClassroomResources 
                             type={activeModule} 
@@ -202,8 +219,12 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                             onToggleProgress={handleToggleProgress}
                             onShowCertificate={() => setShowCertificate(true)}
                             progressPercentage={progressPercentage}
-                            isStaff={profile.role === UserRole.ADMIN} // Only hide cert button if staff
+                            isStaff={profile.role === UserRole.ADMIN} 
                         />
+                    )}
+
+                    {activeModule === 'forum' && (
+                        <ClassroomChat classId={activeClass.id} profile={profile} />
                     )}
                 </div>
             </GlassCard>

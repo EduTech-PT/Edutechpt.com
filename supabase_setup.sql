@@ -121,6 +121,15 @@ create table if not exists public.student_progress ( user_id uuid references pub
 create table if not exists public.class_attendance ( id uuid default gen_random_uuid() primary key, class_id uuid references public.classes(id) on delete cascade, student_id uuid references public.profiles(id) on delete cascade, date date, status text, notes text, created_at timestamp default now(), unique(class_id, student_id, date) );
 create table if not exists public.student_grades ( id uuid default gen_random_uuid() primary key, assessment_id uuid references public.class_assessments(id) on delete cascade, student_id uuid references public.profiles(id) on delete cascade, grade text, feedback text, graded_at timestamp default now(), unique(assessment_id, student_id) );
 
+-- NOVO (v4.0): CHAT DA TURMA
+create table if not exists public.class_comments (
+    id uuid default gen_random_uuid() primary key,
+    class_id uuid references public.classes(id) on delete cascade,
+    user_id uuid references public.profiles(id) on delete cascade,
+    content text not null,
+    created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
 -- STORAGE
 insert into storage.buckets (id, name, public) values ('course-images', 'course-images', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('class-files', 'class-files', true) on conflict (id) do nothing;
@@ -162,6 +171,16 @@ create policy "Admin Gere Config" on public.app_config for all using ( public.is
 alter table public.courses enable row level security;
 drop policy if exists "Ver Cursos" on public.courses;
 create policy "Ver Cursos" on public.courses for select using (true);
+
+-- 8.4 COMENTÁRIOS (CHAT)
+alter table public.class_comments enable row level security;
+drop policy if exists "Ver Comentarios" on public.class_comments;
+drop policy if exists "Criar Comentarios" on public.class_comments;
+drop policy if exists "Gerir Comentarios" on public.class_comments;
+
+create policy "Ver Comentarios" on public.class_comments for select using (true);
+create policy "Criar Comentarios" on public.class_comments for insert with check (auth.uid() = user_id);
+create policy "Gerir Comentarios" on public.class_comments for delete using (auth.uid() = user_id OR public.is_admin());
 
 -- 9. TRIGGERS E FUNÇÕES DE SISTEMA (REPARAÇÃO DE LOGIN)
 

@@ -5,17 +5,17 @@ import { LandingPage } from './pages/LandingPage';
 import { Dashboard } from './pages/Dashboard';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
-import { FAQPage } from './pages/FAQPage'; // NOVO IMPORT
+import { FAQPage } from './pages/FAQPage'; 
 import { AuthForm } from './components/AuthForm';
 import { SupabaseSession } from './types';
 import { adminService } from './services/admin';
+import { ToastProvider } from './components/ui/ToastProvider';
 
 function App() {
   const [session, setSession] = useState<SupabaseSession | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  // Estado para navegação pública (Landing vs Privacy vs Terms vs FAQ)
   const [publicView, setPublicView] = useState<'landing' | 'privacy' | 'terms' | 'faq'>(() => {
       const params = new URLSearchParams(window.location.search);
       const page = params.get('page');
@@ -25,7 +25,6 @@ function App() {
       return 'landing';
   });
 
-  // Função para gerir navegação e atualizar URL
   const handleNavigate = (view: 'landing' | 'privacy' | 'terms' | 'faq') => {
       setPublicView(view);
       if (view === 'privacy') {
@@ -39,7 +38,6 @@ function App() {
       }
   };
 
-  // Escuta o botão "Voltar" do browser
   useEffect(() => {
       const handlePopState = () => {
           const params = new URLSearchParams(window.location.search);
@@ -53,13 +51,10 @@ function App() {
       return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // GLOBAL CONFIG INJECTION (Favicon, Title, etc)
   useEffect(() => {
     const applyGlobalConfig = async () => {
         try {
             const config = await adminService.getAppConfig();
-            
-            // Apply Dynamic Favicon
             if (config.faviconUrl) {
                 let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
                 if (!link) {
@@ -76,30 +71,21 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // 1. Intercetar Erros de Acesso Negado via Hash do URL (Retornado pelo OAuth se o trigger falhar)
     const checkForAccessError = async () => {
-        // Verifica tanto no hash (#) como na query string (?) para garantir compatibilidade
         const hashStr = window.location.hash.substring(1);
         const queryStr = window.location.search.substring(1);
-        
         const params = new URLSearchParams(hashStr || queryStr);
         
         const errorDesc = decodeURIComponent(params.get('error_description') || '');
         const errorCode = params.get('error_code') || '';
         
-        // Verifica se é o erro específico do nosso Trigger SQL ("ACESSO NEGADO")
-        // OU se é um erro genérico de BD ("Database error saving new user") que ocorre quando o trigger bloqueia a inserção
-        // OU se é o código "unexpected_failure" comum nestes casos
         if (errorDesc.includes('ACESSO NEGADO') || errorDesc.includes('Database error saving new user') || errorCode === 'unexpected_failure') {
-            
-            // Limpa o URL para não re-disparar ao recarregar
             window.history.replaceState(null, '', window.location.pathname);
             
             const contact = window.confirm("ACESSO NEGADO: Este email não tem permissão para aceder à plataforma ou ocorreu um erro de validação.\n\nDeseja entrar em contacto com o Administrador?");
             
             if (contact) {
                 try {
-                    // Busca a config publica
                     const { data } = await supabase.from('app_config').select('*');
                     let email = 'edutechpt@hotmail.com';
                     let subject = 'Pedido de Acesso';
@@ -112,7 +98,6 @@ function App() {
                             if (item.key === 'access_denied_body') body = item.value;
                         });
                     }
-                    
                     window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
                 } catch (e) {
                     console.error("Erro ao obter config de email", e);
@@ -124,7 +109,6 @@ function App() {
 
     checkForAccessError();
 
-    // 2. Check active session (Supabase v2)
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setSession({
@@ -138,7 +122,6 @@ function App() {
       setLoading(false);
     });
 
-    // 3. Listen for auth changes (Supabase v2)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         setSession({
@@ -159,7 +142,7 @@ function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    handleNavigate('landing'); // Reset view on logout
+    handleNavigate('landing'); 
   };
 
   if (loading) {
@@ -171,42 +154,44 @@ function App() {
   }
 
   return (
-    <div className="text-gray-800">
-      {!session ? (
-        <>
-          {publicView === 'landing' ? (
-              <LandingPage 
-                  onLoginClick={() => setShowAuthModal(true)} 
-                  onPrivacyClick={() => handleNavigate('privacy')}
-                  onTermsClick={() => handleNavigate('terms')} 
-                  onFaqClick={() => handleNavigate('faq')} // NOVO PROP
-              />
-          ) : publicView === 'terms' ? (
-              <TermsOfService onBack={() => handleNavigate('landing')} />
-          ) : publicView === 'faq' ? (
-              <FAQPage onBack={() => handleNavigate('landing')} />
-          ) : (
-              <PrivacyPolicy onBack={() => handleNavigate('landing')} />
-          )}
-          
-          {showAuthModal && (
-              <AuthForm 
-                  onCancel={() => setShowAuthModal(false)} 
-                  onPrivacyClick={() => {
-                      setShowAuthModal(false);
-                      handleNavigate('privacy');
-                  }}
-                  onTermsClick={() => {
-                      setShowAuthModal(false);
-                      handleNavigate('terms');
-                  }}
-              />
-          )}
-        </>
-      ) : (
-        <Dashboard session={session} onLogout={handleLogout} />
-      )}
-    </div>
+    <ToastProvider>
+        <div className="text-gray-800">
+        {!session ? (
+            <>
+            {publicView === 'landing' ? (
+                <LandingPage 
+                    onLoginClick={() => setShowAuthModal(true)} 
+                    onPrivacyClick={() => handleNavigate('privacy')}
+                    onTermsClick={() => handleNavigate('terms')} 
+                    onFaqClick={() => handleNavigate('faq')} 
+                />
+            ) : publicView === 'terms' ? (
+                <TermsOfService onBack={() => handleNavigate('landing')} />
+            ) : publicView === 'faq' ? (
+                <FAQPage onBack={() => handleNavigate('landing')} />
+            ) : (
+                <PrivacyPolicy onBack={() => handleNavigate('landing')} />
+            )}
+            
+            {showAuthModal && (
+                <AuthForm 
+                    onCancel={() => setShowAuthModal(false)} 
+                    onPrivacyClick={() => {
+                        setShowAuthModal(false);
+                        handleNavigate('privacy');
+                    }}
+                    onTermsClick={() => {
+                        setShowAuthModal(false);
+                        handleNavigate('terms');
+                    }}
+                />
+            )}
+            </>
+        ) : (
+            <Dashboard session={session} onLogout={handleLogout} />
+        )}
+        </div>
+    </ToastProvider>
   );
 }
 

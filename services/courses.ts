@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabaseClient';
-import { Course, Class, Profile, ClassMaterial, ClassAnnouncement, ClassAssessment, CourseHierarchy, AttendanceRecord, StudentGrade } from '../types';
+import { Course, Class, Profile, ClassMaterial, ClassAnnouncement, ClassAssessment, CourseHierarchy, AttendanceRecord, StudentGrade, ClassComment } from '../types';
 
 // Colunas base que sabemos que existem garantidamente.
 // Se a cache falhar nas novas colunas, usamos apenas estas para o site não quebrar.
@@ -364,6 +364,29 @@ export const courseService = {
     },
     async saveGrades(grades: Partial<StudentGrade>[]) {
         const { error } = await supabase.from('student_grades').upsert(grades, { onConflict: 'assessment_id, student_id' });
+        if (error) throw error;
+    },
+
+    // --- CHAT (COMENTÁRIOS) ---
+    async getComments(classId: string) {
+        const { data, error } = await supabase
+            .from('class_comments')
+            .select(`*, user:profiles(*)`)
+            .eq('class_id', classId)
+            .order('created_at', { ascending: true }); // Mensagens antigas no topo
+        if (error) return [];
+        return data as ClassComment[];
+    },
+    async sendComment(classId: string, userId: string, content: string) {
+        const { error } = await supabase.from('class_comments').insert([{
+            class_id: classId,
+            user_id: userId,
+            content: content
+        }]);
+        if (error) throw error;
+    },
+    async deleteComment(commentId: string) {
+        const { error } = await supabase.from('class_comments').delete().eq('id', commentId);
         if (error) throw error;
     }
 };
