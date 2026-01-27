@@ -15,7 +15,7 @@ export interface ProfileVisibility {
   personal_email?: boolean;
   phone?: boolean;
   linkedin_url?: boolean;
-  github_url?: boolean;
+  tiktok_url?: boolean; // Substituído github_url
   twitter_url?: boolean;
   instagram_url?: boolean;
   facebook_url?: boolean;
@@ -36,7 +36,7 @@ export interface Profile {
   personal_email?: string;
   phone?: string;
   linkedin_url?: string;
-  github_url?: string;
+  tiktok_url?: string; // Substituído github_url
   twitter_url?: string;
   instagram_url?: string;
   facebook_url?: string;

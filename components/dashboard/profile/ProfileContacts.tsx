@@ -102,7 +102,7 @@ export const ProfileContacts: React.FC<Props> = ({ user, formData, visibility, i
                 {/* Redes Sociais */}
                 <div className="flex flex-wrap gap-4">
                     {renderSocialField('linkedin_url', 'LinkedIn', 'https://linkedin.com/in/...', '💼')}
-                    {renderSocialField('github_url', 'GitHub', 'https://github.com/...', '🐙')}
+                    {renderSocialField('tiktok_url', 'TikTok', 'https://tiktok.com/@...', '🎵')}
                     {renderSocialField('twitter_url', 'Twitter / X', 'https://x.com/...', '🐦')}
                     {renderSocialField('instagram_url', 'Instagram', 'https://instagram.com/...', '📸')}
                     {renderSocialField('facebook_url', 'Facebook', 'https://facebook.com/...', '📘')}

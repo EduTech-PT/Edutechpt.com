@@ -48,7 +48,7 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
       city: user.city,
       phone: user.phone,
       linkedin_url: user.linkedin_url,
-      github_url: user.github_url,
+      tiktok_url: user.tiktok_url, // Changed from github_url
       twitter_url: user.twitter_url,
       instagram_url: user.instagram_url,
       facebook_url: user.facebook_url,

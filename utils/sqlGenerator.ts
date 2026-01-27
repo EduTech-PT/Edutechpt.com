@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
--- AÇÃO: RATE LIMITING (3 TENTATIVAS / 10 MINUTOS) & SOCIAL MEDIA FIELDS
+-- AÇÃO: RATE LIMITING (3 TENTATIVAS / 10 MINUTOS) & TIKTOK FIELD
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -42,7 +42,7 @@ create table if not exists public.profiles (
     city text,
     phone text,
     linkedin_url text,
-    github_url text,
+    tiktok_url text,
     twitter_url text,
     instagram_url text,
     facebook_url text,
@@ -65,8 +65,8 @@ begin
     alter table public.profiles add column global_notifications boolean default true;
   end if;
   -- Social Media Migration
-  if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='github_url') then
-    alter table public.profiles add column github_url text;
+  if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='tiktok_url') then
+    alter table public.profiles add column tiktok_url text;
   end if;
   if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='twitter_url') then
     alter table public.profiles add column twitter_url text;
