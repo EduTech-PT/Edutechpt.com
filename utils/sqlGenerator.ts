@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
--- AÇÃO: CORREÇÃO DE COLUNAS EM FALTA E SONS MODERNOS
+-- AÇÃO: RATE LIMITING (3 TENTATIVAS / 10 MINUTOS)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -31,7 +31,7 @@ begin
 end;
 $$;
 
--- 3. PERFIS E UTILIZADORES (GARANTIR COLUNAS NOVAS)
+-- 3. PERFIS E UTILIZADORES
 create table if not exists public.profiles (
     id uuid references auth.users on delete cascade primary key,
     email text unique not null,
@@ -51,15 +51,12 @@ create table if not exists public.profiles (
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- MIGRATION SEGURA: Adicionar colunas se não existirem
+-- MIGRATION: Colunas novas
 do $$ 
 begin
-  -- Som de Notificação
   if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='notification_sound') then
     alter table public.profiles add column notification_sound text default 'pop';
   end if;
-  
-  -- Notificações Globais (Correção do Erro Reportado)
   if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='global_notifications') then
     alter table public.profiles add column global_notifications boolean default true;
   end if;
@@ -131,6 +128,52 @@ create table if not exists public.access_logs (
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
+-- ==============================================================================
+-- NOVO: SISTEMA DE RATE LIMITING
+-- ==============================================================================
+create table if not exists public.rate_limits (
+    id uuid default gen_random_uuid() primary key,
+    key text, 
+    action text,
+    created_at timestamp with time zone default timezone('utc'::text, now())
+);
+alter table public.rate_limits enable row level security;
+drop policy if exists "Admin ve rate limits" on public.rate_limits;
+create policy "Admin ve rate limits" on public.rate_limits for select using (public.is_admin());
+
+create or replace function public.check_rate_limit(
+    identifier text, 
+    action_type text, 
+    max_attempts int, 
+    window_minutes int
+) returns boolean as $$
+declare
+    count_recent int;
+begin
+    -- Auto-limpeza: Remove registos mais antigos que a janela de tempo para este user/ação
+    delete from public.rate_limits 
+    where key = identifier 
+    and action = action_type 
+    and created_at < now() - (window_minutes || ' minutes')::interval;
+    
+    -- Conta tentativas recentes
+    select count(*) into count_recent
+    from public.rate_limits
+    where key = identifier 
+    and action = action_type;
+
+    if count_recent >= max_attempts then
+        return false;
+    end if;
+
+    -- Regista nova tentativa
+    insert into public.rate_limits (key, action) values (identifier, action_type);
+    return true;
+end;
+$$ language plpgsql security definer;
+
+-- ==============================================================================
+
 -- Tabelas de Recursos
 create table if not exists public.class_materials ( id uuid default gen_random_uuid() primary key, class_id uuid references public.classes(id) on delete cascade, title text, url text, type text, created_at timestamp default now() );
 create table if not exists public.class_announcements ( id uuid default gen_random_uuid() primary key, class_id uuid references public.classes(id) on delete cascade, title text, content text, created_by uuid references public.profiles(id), created_at timestamp default now() );
@@ -138,26 +181,14 @@ create table if not exists public.class_assessments ( id uuid default gen_random
 create table if not exists public.student_progress ( user_id uuid references public.profiles(id) on delete cascade, material_id uuid references public.class_materials(id) on delete cascade, completed_at timestamp default now(), primary key (user_id, material_id) );
 create table if not exists public.class_attendance ( id uuid default gen_random_uuid() primary key, class_id uuid references public.classes(id) on delete cascade, student_id uuid references public.profiles(id) on delete cascade, date date, status text, notes text, created_at timestamp default now(), unique(class_id, student_id, date) );
 create table if not exists public.student_grades ( id uuid default gen_random_uuid() primary key, assessment_id uuid references public.class_assessments(id) on delete cascade, student_id uuid references public.profiles(id) on delete cascade, grade text, feedback text, graded_at timestamp default now(), unique(assessment_id, student_id) );
-
--- Chat da Turma
-create table if not exists public.class_comments (
-    id uuid default gen_random_uuid() primary key,
-    class_id uuid references public.classes(id) on delete cascade,
-    user_id uuid references public.profiles(id) on delete cascade,
-    content text not null,
-    created_at timestamp with time zone default timezone('utc'::text, now())
-);
+create table if not exists public.class_comments ( id uuid default gen_random_uuid() primary key, class_id uuid references public.classes(id) on delete cascade, user_id uuid references public.profiles(id) on delete cascade, content text not null, created_at timestamp default now() );
 
 -- STORAGE
 insert into storage.buckets (id, name, public) values ('course-images', 'course-images', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('class-files', 'class-files', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 
--- ==============================================================================
 -- 8. SEGURANÇA E POLÍTICAS
--- ==============================================================================
-
--- 8.1 PERFIS
 DO $$ 
 DECLARE 
   pol record; 
@@ -169,53 +200,77 @@ BEGIN
 END $$;
 
 alter table public.profiles enable row level security;
-create policy "Acesso Total Perfis v4" on public.profiles
-for all using ( auth.role() = 'authenticated' ) with check ( auth.role() = 'authenticated' );
+create policy "Acesso Total Perfis v4" on public.profiles for all using ( auth.role() = 'authenticated' ) with check ( auth.role() = 'authenticated' );
 
--- 8.2 ROLES
 alter table public.roles enable row level security;
 drop policy if exists "Admin Gere Roles" on public.roles;
 drop policy if exists "Todos Veem Roles" on public.roles;
 create policy "Admin Gere Roles" on public.roles for all using ( public.is_admin() );
 create policy "Todos Veem Roles" on public.roles for select using ( true );
 
--- 8.3 APP CONFIG
 alter table public.app_config enable row level security;
-do $$ begin
-  drop policy if exists "Leitura Publica Config" on public.app_config;
-  drop policy if exists "Admin Gere Config" on public.app_config;
-end $$;
+drop policy if exists "Leitura Publica Config" on public.app_config;
+drop policy if exists "Admin Gere Config" on public.app_config;
 create policy "Leitura Publica Config" on public.app_config for select using (true);
 create policy "Admin Gere Config" on public.app_config for all using ( public.is_admin() );
 
--- 8.4 CURSOS
 alter table public.courses enable row level security;
 drop policy if exists "Ver Cursos" on public.courses;
 drop policy if exists "Admin Gere Cursos" on public.courses;
-
 create policy "Ver Cursos" on public.courses for select using (true);
 create policy "Admin Gere Cursos" on public.courses for all using ( public.is_admin() OR exists (select 1 from public.profiles where id = auth.uid() and role = 'formador') );
 
--- 8.5 CHAT (COMENTÁRIOS)
 alter table public.class_comments enable row level security;
 drop policy if exists "Ver Comentarios" on public.class_comments;
 drop policy if exists "Criar Comentarios" on public.class_comments;
 drop policy if exists "Gerir Comentarios" on public.class_comments;
-
 create policy "Ver Comentarios" on public.class_comments for select using (true);
 create policy "Criar Comentarios" on public.class_comments for insert with check (auth.uid() = user_id);
 create policy "Gerir Comentarios" on public.class_comments for delete using (auth.uid() = user_id OR public.is_admin());
 
 -- ==============================================================================
--- 9. CONFIGURAÇÃO REALTIME & LIMPEZA AUTOMÁTICA
+-- 9. FUNÇÕES DE SISTEMA ATUALIZADAS
 -- ==============================================================================
-begin;
-  drop publication if exists supabase_realtime;
-  create publication supabase_realtime;
-commit;
-alter publication supabase_realtime add table public.class_comments;
 
--- TRIGGER DE LIMPEZA (90 DIAS)
+-- RPC: Auto-reparação manual (Com Rate Limit)
+create or replace function public.claim_invite()
+returns boolean as $$
+declare
+  user_email text;
+  my_id uuid;
+begin
+  my_id := auth.uid();
+  if my_id is null then return false; end if;
+  
+  select email into user_email from auth.users where id = my_id;
+  
+  -- RATE LIMIT CHECK: 3 tentativas em 10 minutos
+  if not public.check_rate_limit(user_email, 'claim_invite', 3, 10) then
+     raise exception 'Limite de tentativas excedido. Por favor, aguarde 10 minutos antes de tentar novamente.';
+  end if;
+  
+  if lower(user_email) = 'edutechpt@hotmail.com' then
+      insert into public.profiles (id, email, full_name, role)
+      values (my_id, user_email, 'Administrador', 'admin')
+      on conflict (id) do update set role = 'admin';
+      return true;
+  end if;
+
+  insert into public.profiles (id, email, full_name, role)
+  values (my_id, user_email, 'Utilizador', 'aluno')
+  on conflict (id) do nothing;
+
+  return true;
+end;
+$$ language plpgsql security definer;
+
+create or replace function public.get_community_members()
+returns setof public.profiles as $$
+begin
+    return query select * from public.profiles order by full_name;
+end;
+$$ language plpgsql security definer;
+
 create or replace function public.cleanup_old_comments()
 returns trigger as $$
 begin
@@ -225,11 +280,8 @@ end;
 $$ language plpgsql security definer;
 
 drop trigger if exists on_comment_cleanup on public.class_comments;
-create trigger on_comment_cleanup
-  after insert on public.class_comments
-  for each statement execute procedure public.cleanup_old_comments();
+create trigger on_comment_cleanup after insert on public.class_comments for each statement execute procedure public.cleanup_old_comments();
 
--- MODERAÇÃO DE CHAT
 create or replace function public.moderate_chat()
 returns trigger as $$
 declare
@@ -249,12 +301,10 @@ end;
 $$ language plpgsql security definer;
 
 drop trigger if exists on_chat_moderation on public.class_comments;
-create trigger on_chat_moderation
-  before insert or update on public.class_comments
-  for each row execute procedure public.moderate_chat();
+create trigger on_chat_moderation before insert or update on public.class_comments for each row execute procedure public.moderate_chat();
 
 -- ==============================================================================
--- 10. RECARREGAMENTO DE SCHEMA (CRÍTICO)
+-- 10. RECARREGAMENTO DE SCHEMA
 -- ==============================================================================
 NOTIFY pgrst, 'reload schema';
 `;
