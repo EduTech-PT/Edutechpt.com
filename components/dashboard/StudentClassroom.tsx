@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
 import { Profile, Class, Course, ClassMaterial, ClassAnnouncement, ClassAssessment, UserRole } from '../../types';
@@ -22,6 +22,7 @@ type ModuleType = 'home' | 'materials' | 'announcements' | 'assessments' | 'foru
 export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, onBack }) => {
     // Internal State for Course ID (handles auto-select)
     const [activeCourseId, setActiveCourseId] = useState<string | undefined>(initialCourseId);
+    const ignoreLoadRef = useRef(false);
     
     // Classroom Data
     const [course, setCourse] = useState<Course | null>(null);
@@ -61,6 +62,10 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
     // 2. Load Data when ID is set
     useEffect(() => {
         if (activeCourseId) {
+            if (ignoreLoadRef.current) {
+                ignoreLoadRef.current = false;
+                return;
+            }
             loadClassroomData(activeCourseId);
         }
     }, [activeCourseId]);
@@ -171,7 +176,19 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {myEnrollments.map((enr, idx) => (
-                            <GlassCard key={`${enr.course_id}-${enr.class_id || idx}`} hoverEffect={true} className="cursor-pointer group relative overflow-hidden" onClick={() => { setCourse(enr.course); setActiveClass(enr.class); setActiveCourseId(enr.course_id); setShowSelection(false); if (enr.class) loadResources(enr.class.id); }}>
+                            <GlassCard 
+                                key={`${enr.course_id}-${enr.class_id || idx}`} 
+                                hoverEffect={true} 
+                                className="cursor-pointer group relative overflow-hidden" 
+                                onClick={() => { 
+                                    ignoreLoadRef.current = true; // Prevent useEffect from overriding this selection
+                                    setCourse(enr.course); 
+                                    setActiveClass(enr.class); 
+                                    setActiveCourseId(enr.course_id); 
+                                    setShowSelection(false); 
+                                    if (enr.class) loadResources(enr.class.id); 
+                                }}
+                            >
                                 <div className="h-32 bg-indigo-100 rounded-lg mb-4 overflow-hidden relative">{enr.course?.image_url ? <img src={enr.course.image_url} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" /> : <div className="w-full h-full flex items-center justify-center text-4xl">📚</div>}</div>
                                 <h3 className="font-bold text-indigo-900 text-lg leading-tight mb-1">{enr.course?.title}</h3>
                                 <p className="text-xs text-indigo-500 uppercase font-bold">{enr.class?.name || 'Sem Turma'}</p>
