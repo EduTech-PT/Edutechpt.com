@@ -5,7 +5,7 @@ export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
 -- Data: 2024
--- AÇÃO: ATUALIZAÇÃO PARA NOTIFICAÇÕES SONORAS
+-- AÇÃO: ATUALIZAÇÃO PARA NOTIFICAÇÕES EMOJI & TOGGLE GLOBAL
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -47,15 +47,19 @@ create table if not exists public.profiles (
     birth_date date,
     visibility_settings jsonb default '{}'::jsonb,
     personal_folder_id text,
-    notification_sound text default 'pop', -- NOVO CAMPO v3.1.4
+    notification_sound text default 'pop',
+    global_notifications boolean default true, -- NOVO CAMPO v3.1.5
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- Garantir que a coluna existe (para migrations)
+-- Garantir que as colunas existem (para migrations)
 do $$ 
 begin
   if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='notification_sound') then
     alter table public.profiles add column notification_sound text default 'pop';
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='global_notifications') then
+    alter table public.profiles add column global_notifications boolean default true;
   end if;
 end $$;
 

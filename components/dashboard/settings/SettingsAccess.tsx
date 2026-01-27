@@ -5,10 +5,16 @@ import { adminService } from '../../../services/admin';
 import { userService } from '../../../services/users';
 import { useToast } from '../../ui/ToastProvider';
 import { supabase } from '../../../lib/supabaseClient';
+import { Profile, UserRole } from '../../../types';
 
-export const SettingsAccess: React.FC = () => {
+interface Props {
+    profile?: Profile;
+}
+
+export const SettingsAccess: React.FC<Props> = ({ profile }) => {
     const [config, setConfig] = useState<any>({});
     const [userSound, setUserSound] = useState<string>('pop');
+    const [globalNotif, setGlobalNotif] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
 
@@ -17,15 +23,17 @@ export const SettingsAccess: React.FC = () => {
         adminService.getAppConfig().then(setConfig).catch(console.error);
         
         // Carregar Preferência do Utilizador
-        getCurrentUserSound();
+        getCurrentUserPreferences();
     }, []);
 
-    const getCurrentUserSound = async () => {
+    const getCurrentUserPreferences = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-            const profile = await userService.getProfile(user.id);
-            if (profile && profile.notification_sound) {
-                setUserSound(profile.notification_sound);
+            const currentProfile = await userService.getProfile(user.id);
+            if (currentProfile) {
+                if (currentProfile.notification_sound) setUserSound(currentProfile.notification_sound);
+                // Default to true if undefined
+                setGlobalNotif(currentProfile.global_notifications !== false);
             }
         }
     };
@@ -33,7 +41,6 @@ export const SettingsAccess: React.FC = () => {
     const handleSaveGlobal = async () => {
         setIsSaving(true);
         try {
-            // Save logic existing
             await adminService.updateAppConfig('request_access_email', config.requestAccessEmail?.trim());
             await adminService.updateAppConfig('request_access_subject', config.requestAccessSubject);
             await adminService.updateAppConfig('request_access_body', config.requestAccessBody);
@@ -55,21 +62,23 @@ export const SettingsAccess: React.FC = () => {
         }
     };
 
-    const handleSaveSound = async () => {
+    const handleSavePreferences = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
         try {
-            await userService.updateProfile(user.id, { notification_sound: userSound as any });
-            toast.success("Preferência de som atualizada!");
-            testSound(userSound); // Toca para confirmar
+            await userService.updateProfile(user.id, { 
+                notification_sound: userSound as any,
+                global_notifications: globalNotif
+            });
+            toast.success("Preferências pessoais atualizadas!");
+            if (userSound !== 'none') testSound(userSound);
         } catch (e: any) {
-            toast.error("Erro ao guardar som: " + e.message);
+            toast.error("Erro ao guardar preferências: " + e.message);
         }
     };
 
     const testSound = (type: string) => {
         if (type === 'none') return;
-        // Simulador simples para teste imediato
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
@@ -103,40 +112,64 @@ export const SettingsAccess: React.FC = () => {
         }
     };
 
+    const canSeeGlobalToggle = profile?.role === UserRole.ADMIN || profile?.role === UserRole.EDITOR;
+
     return (
         <div className="space-y-6 animate-in fade-in">
              
-             {/* 0. SOM DE NOTIFICAÇÃO (PESSOAL) */}
+             {/* 0. PREFERÊNCIAS PESSOAIS */}
              <GlassCard className="border-l-4 border-l-purple-500">
                  <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2"><span>🔔</span> Minhas Notificações</h3>
-                 <div className="flex flex-col md:flex-row gap-4 items-end">
-                     <div className="flex-1 w-full">
-                         <label className="block text-sm text-indigo-800 font-bold mb-1">Som de Alerta</label>
-                         <select 
-                            value={userSound} 
-                            onChange={(e) => setUserSound(e.target.value)}
-                            className="w-full p-2 rounded bg-white/50 border border-purple-200 text-indigo-900 focus:ring-2 focus:ring-purple-400 outline-none"
-                         >
-                             <option value="pop">Pop (Padrão)</option>
-                             <option value="glass">Vidro (Suave)</option>
-                             <option value="digital">Digital (Beep)</option>
-                             <option value="none">Silencioso</option>
-                         </select>
-                         <p className="text-xs text-indigo-500 mt-1">Este som tocará quando receber mensagens no chat das turmas.</p>
+                 <div className="flex flex-col gap-4">
+                     <div className="flex flex-col md:flex-row gap-4">
+                         <div className="flex-1">
+                             <label className="block text-sm text-indigo-800 font-bold mb-1">Som de Alerta</label>
+                             <select 
+                                value={userSound} 
+                                onChange={(e) => setUserSound(e.target.value)}
+                                className="w-full p-2 rounded bg-white/50 border border-purple-200 text-indigo-900 focus:ring-2 focus:ring-purple-400 outline-none"
+                             >
+                                 <option value="pop">Pop (Padrão)</option>
+                                 <option value="glass">Vidro (Suave)</option>
+                                 <option value="digital">Digital (Beep)</option>
+                                 <option value="none">Silencioso</option>
+                             </select>
+                         </div>
+                         
+                         {canSeeGlobalToggle && (
+                             <div className="flex-1">
+                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Modo Monitorização (Global)</label>
+                                 <div className="flex items-center gap-3 p-2 bg-white/50 rounded border border-purple-200">
+                                     <label className="relative inline-flex items-center cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={globalNotif} 
+                                            onChange={(e) => setGlobalNotif(e.target.checked)}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                     </label>
+                                     <span className="text-xs text-indigo-600">
+                                         {globalNotif ? 'Receber de TODAS as turmas' : 'Apenas das minhas turmas'}
+                                     </span>
+                                 </div>
+                             </div>
+                         )}
                      </div>
-                     <div className="flex gap-2">
-                         <button onClick={() => testSound(userSound)} className="px-4 py-2 bg-white text-purple-600 border border-purple-200 rounded-lg font-bold hover:bg-purple-50">
-                             Testar 🔊
+
+                     <div className="flex gap-2 justify-end pt-2">
+                         <button onClick={() => testSound(userSound)} className="px-4 py-2 bg-white text-purple-600 border border-purple-200 rounded-lg font-bold hover:bg-purple-50 text-sm">
+                             Testar Som
                          </button>
-                         <button onClick={handleSaveSound} className="px-6 py-2 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700 shadow-md">
-                             Guardar Preferência
+                         <button onClick={handleSavePreferences} className="px-6 py-2 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700 shadow-md text-sm">
+                             Guardar Preferências
                          </button>
                      </div>
                  </div>
              </GlassCard>
 
              <div className="border-t border-indigo-200 my-6"></div>
-             <h4 className="text-sm font-bold text-gray-400 uppercase mb-4">Definições Globais do Sistema</h4>
+             <h4 className="text-sm font-bold text-gray-400 uppercase mb-4">Definições Globais do Sistema (Admin)</h4>
 
              {/* 1. PEDIDO DE ACESSO */}
              <GlassCard>

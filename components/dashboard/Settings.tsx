@@ -75,7 +75,7 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral', pro
                 
                 {tab === 'drive' && <SettingsDrive />}
                 
-                {tab === 'access' && <SettingsAccess />}
+                {tab === 'access' && <SettingsAccess profile={profile} />}
                 
                 {tab === 'avatars' && <SettingsAvatars />}
                 

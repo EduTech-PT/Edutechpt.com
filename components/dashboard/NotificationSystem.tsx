@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { courseService } from '../../services/courses';
-import { Profile } from '../../types';
+import { Profile, UserRole } from '../../types';
 
 interface NotificationData {
     id: string;
@@ -33,7 +33,6 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
             if (audioContextRef.current.state === 'suspended') {
                 audioContextRef.current.resume().catch(e => console.warn("Audio resume failed", e));
             }
-            // Remove listeners once attempted
             window.removeEventListener('click', unlockAudio);
             window.removeEventListener('touchstart', unlockAudio);
             window.removeEventListener('keydown', unlockAudio);
@@ -50,36 +49,39 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
         };
     }, []);
 
-    // 1. Carregar turmas do utilizador para filtrar mensagens
+    // 1. Carregar turmas para filtrar mensagens
     useEffect(() => {
         loadUserClasses();
-    }, [profile.id, profile.role]);
+    }, [profile.id, profile.role, profile.global_notifications]);
 
     const loadUserClasses = async () => {
         try {
             let classes: any[] = [];
-            
-            // Lógica de carregamento baseada no Role
-            if (profile.role === 'admin' || profile.role === 'editor') {
-                // Admin e Editor veem tudo (para monitorização)
+            const role = profile.role;
+            const globalMonitor = profile.global_notifications !== false; // Default true if undefined
+
+            // Lógica de Monitorização Global (Admins/Editores)
+            if ((role === UserRole.ADMIN || role === UserRole.EDITOR) && globalMonitor) {
                 const all = await courseService.getAllClassesWithDetails();
                 classes = all.map(c => ({ id: c.id, name: c.name, course_id: c.course_id }));
-            } 
-            else if (profile.role === 'formador') {
-                // Formador vê as suas turmas
-                const trainerClasses = await courseService.getTrainerClasses(profile.id);
-                classes = trainerClasses.map(c => ({ id: c.id, name: c.name, course_id: c.course_id }));
-            }
-            else {
-                // Aluno vê as suas inscrições
-                const enrollments = await courseService.getStudentEnrollments(profile.id);
-                classes = enrollments
-                    .filter((e: any) => e.class) // Garante que tem turma atribuída
-                    .map((e: any) => ({ 
-                        id: e.class.id, 
-                        name: e.class.name, 
-                        course_id: e.course_id 
-                    }));
+            } else {
+                // Lógica Combinada (Se monitorização desligada ou user normal)
+                // Procura turmas onde é formador E turmas onde é aluno
+                const classMap = new Map<string, any>();
+
+                // Se for formador ou admin com monitorização desligada
+                if (role === UserRole.TRAINER || role === UserRole.ADMIN || role === UserRole.EDITOR) {
+                    const trainerClasses = await courseService.getTrainerClasses(profile.id);
+                    trainerClasses.forEach(c => classMap.set(c.id, { id: c.id, name: c.name, course_id: c.course_id }));
+                }
+
+                // Sempre busca turmas de aluno (admin também pode ser aluno)
+                const studentEnrollments = await courseService.getStudentEnrollments(profile.id);
+                studentEnrollments
+                    .filter((e: any) => e.class)
+                    .forEach((e: any) => classMap.set(e.class.id, { id: e.class.id, name: e.class.name, course_id: e.course_id }));
+
+                classes = Array.from(classMap.values());
             }
             setMyClasses(classes);
         } catch (e) {
@@ -91,7 +93,6 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
     useEffect(() => {
         if (myClasses.length === 0) return;
 
-        // Cleanup anterior
         if (channelRef.current) supabase.removeChannel(channelRef.current);
 
         const channel = supabase
@@ -103,21 +104,14 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
             }, async (payload) => {
                 const newMsg = payload.new;
                 
-                // 2.1 Ignorar mensagens próprias
                 if (newMsg.user_id === profile.id) return;
 
-                // 2.2 Verificar se pertence a uma turma minha
                 const targetClass = myClasses.find(c => c.id === newMsg.class_id);
-                
-                // Se não pertencer a nenhuma turma visível, ignora
                 if (!targetClass) return;
 
-                // 2.3 Obter nome do remetente
-                // Para performance, fazemos fetch simples.
                 const { data: sender } = await supabase.from('profiles').select('full_name').eq('id', newMsg.user_id).single();
                 const senderName = sender?.full_name?.split(' ')[0] || 'Alguém';
 
-                // 2.4 Disparar Notificação
                 triggerNotification({
                     id: newMsg.id,
                     classId: targetClass.id,
@@ -146,8 +140,6 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
             }
             
             const ctx = audioContextRef.current;
-            
-            // Tenta resumir se estiver suspenso (pode falhar se não houve interação recente, mas tentamos)
             if (ctx.state === 'suspended') {
                 ctx.resume().catch(() => {});
             }
@@ -177,7 +169,6 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
                 oscillator.start(now);
                 oscillator.stop(now + 0.2);
             } else {
-                // Default Pop
                 oscillator.type = 'triangle';
                 oscillator.frequency.setValueAtTime(400, now);
                 gainNode.gain.setValueAtTime(0.2, now);
@@ -191,15 +182,12 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
     };
 
     const triggerNotification = (notif: NotificationData) => {
-        // Tocar Som
         if (profile.notification_sound && profile.notification_sound !== 'none') {
             playNotificationSound(profile.notification_sound);
         }
 
-        // Adicionar à lista visual
         setNotifications(prev => [...prev, notif]);
 
-        // Auto-remove após 6 segundos
         setTimeout(() => {
             removeNotification(notif.id);
         }, 6000);

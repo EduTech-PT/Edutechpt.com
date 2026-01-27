@@ -5,6 +5,7 @@ import { Profile, ClassComment, OnlineUser } from '../../../types';
 import { formatTime } from '../../../utils/formatters';
 import { useToast } from '../../ui/ToastProvider';
 import { supabase } from '../../../lib/supabaseClient';
+import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 
 interface Props {
     classId: string;
@@ -17,7 +18,10 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
     const [newMessage, setNewMessage] = useState('');
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    
     const bottomRef = useRef<HTMLDivElement>(null);
+    const emojiRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
 
     useEffect(() => {
@@ -32,7 +36,6 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
                 table: 'class_comments',
                 filter: `class_id=eq.${classId}`
             }, async (payload) => {
-                // Quando entra uma nova mensagem, buscamos os dados completos (com nome do user)
                 const newComment = await courseService.getCommentById(payload.new.id);
                 if (newComment) {
                     setComments(prev => [...prev, newComment]);
@@ -44,7 +47,6 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
                 table: 'class_comments',
                 filter: `class_id=eq.${classId}`
             }, (payload) => {
-                // Quando apaga uma mensagem, removemos do estado local
                 setComments(prev => prev.filter(c => c.id !== payload.old.id));
             })
             .subscribe((status) => {
@@ -59,11 +61,22 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
     }, [classId]);
 
     useEffect(() => {
-        // Scroll to bottom on new message or initial load
+        // Scroll to bottom on new message
         if (comments.length > 0) {
             scrollToBottom();
         }
     }, [comments]);
+
+    // Close emoji picker on click outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (emojiRef.current && !emojiRef.current.contains(event.target as Node)) {
+                setShowEmojiPicker(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     const scrollToBottom = () => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -84,10 +97,10 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
         if (!newMessage.trim()) return;
 
         setSending(true);
+        setShowEmojiPicker(false);
         try {
             await courseService.sendComment(classId, profile.id, newMessage.trim());
             setNewMessage('');
-            // Não precisamos de reload manual, o Realtime trata disso
         } catch (e: any) {
             toast.error("Erro ao enviar: " + e.message);
         } finally {
@@ -99,10 +112,15 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
         if (!window.confirm("Apagar mensagem?")) return;
         try {
             await courseService.deleteComment(id);
-            // Realtime tratará da atualização da UI
         } catch (e: any) {
             toast.error("Erro ao apagar: " + e.message);
         }
+    };
+
+    const onEmojiClick = (emojiData: EmojiClickData) => {
+        setNewMessage(prev => prev + emojiData.emoji);
+        // Opcional: Manter aberto para múltiplos emojis ou fechar
+        // setShowEmojiPicker(false); 
     };
 
     return (
@@ -113,7 +131,6 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
                 {/* Messages Area */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-white/30 rounded-xl border border-indigo-50 mb-4 relative">
                     
-                    {/* Aviso de Retenção */}
                     <div className="sticky top-0 z-10 flex justify-center mb-4 pointer-events-none">
                         <span className="bg-indigo-50/90 text-indigo-400 text-[10px] px-3 py-1 rounded-full border border-indigo-100 shadow-sm backdrop-blur-sm">
                             ℹ️ As conversas com mais de 90 dias são eliminadas automaticamente.
@@ -175,26 +192,49 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
                 </div>
 
                 {/* Input Area */}
-                <form onSubmit={handleSend} className="flex gap-2">
-                    <input 
-                        type="text" 
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Escreve uma mensagem para a turma..."
-                        className="flex-1 p-3 rounded-xl border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none bg-white/80 backdrop-blur-sm"
-                        disabled={sending}
-                    />
-                    <button 
-                        type="submit" 
-                        disabled={sending || !newMessage.trim()}
-                        className="px-6 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-md disabled:opacity-50 transition-all flex items-center justify-center min-w-[60px]"
-                    >
-                        {sending ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : '➤'}
-                    </button>
-                </form>
+                <div className="relative">
+                    {showEmojiPicker && (
+                        <div className="absolute bottom-16 left-0 z-50 shadow-2xl rounded-xl animate-in zoom-in-95" ref={emojiRef}>
+                            <EmojiPicker 
+                                onEmojiClick={onEmojiClick}
+                                autoFocusSearch={false}
+                                theme={Theme.LIGHT}
+                                width={300}
+                                height={400}
+                                previewConfig={{ showPreview: false }}
+                            />
+                        </div>
+                    )}
+                    
+                    <form onSubmit={handleSend} className="flex gap-2">
+                        <button 
+                            type="button" 
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            className="px-3 bg-white/80 rounded-xl border border-indigo-200 hover:bg-white text-xl transition-colors"
+                            title="Inserir Emoji"
+                        >
+                            😊
+                        </button>
+                        <input 
+                            type="text" 
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            placeholder="Escreve uma mensagem..."
+                            className="flex-1 p-3 rounded-xl border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none bg-white/80 backdrop-blur-sm"
+                            disabled={sending}
+                        />
+                        <button 
+                            type="submit" 
+                            disabled={sending || !newMessage.trim()}
+                            className="px-6 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-md disabled:opacity-50 transition-all flex items-center justify-center min-w-[60px]"
+                        >
+                            {sending ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : '➤'}
+                        </button>
+                    </form>
+                </div>
             </div>
 
-            {/* RIGHT: Online Users Sidebar (Hidden on Mobile) */}
+            {/* RIGHT: Online Users Sidebar */}
             <div className="w-60 bg-white/30 rounded-xl border border-indigo-100 hidden md:flex flex-col overflow-hidden">
                 <div className="p-3 bg-indigo-50/50 border-b border-indigo-100 flex justify-between items-center">
                     <h4 className="font-bold text-indigo-900 text-sm">Online</h4>

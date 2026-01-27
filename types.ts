@@ -38,6 +38,8 @@ export interface Profile {
   personal_folder_id?: string;
   // Notificações (v3.1.4)
   notification_sound?: 'pop' | 'glass' | 'digital' | 'none';
+  // Notificações Globais (v3.1.5)
+  global_notifications?: boolean; 
 }
 
 export interface UserPermissions {
