@@ -47,19 +47,38 @@ export const SettingsModeration: React.FC = () => {
 
     const handleAddWord = (e: React.FormEvent) => {
         e.preventDefault();
-        const word = newWord.trim().toLowerCase();
-        if (!word) return;
-        
-        if (forbiddenWords.includes(word)) {
-            toast.info("Essa palavra já está na lista.");
+        if (!newWord.trim()) return;
+
+        // Separar por vírgula e processar
+        const wordsToAdd = newWord
+            .split(',')
+            .map(w => w.trim().toLowerCase())
+            .filter(w => w.length > 0);
+
+        if (wordsToAdd.length === 0) return;
+
+        // Filtrar duplicados que já existem na lista
+        const uniqueNewWords = wordsToAdd.filter(w => !forbiddenWords.includes(w));
+
+        if (uniqueNewWords.length === 0) {
+            toast.info("As palavras inseridas já existem na lista.");
             setNewWord('');
             return;
         }
 
-        const updatedList = [...forbiddenWords, word];
+        // Criar nova lista garantindo unicidade
+        // Usamos Set para garantir que não há duplicados no próprio input
+        const updatedList = Array.from(new Set([...forbiddenWords, ...uniqueNewWords]));
+        
         setForbiddenWords(updatedList);
         setNewWord('');
         saveList(updatedList);
+
+        if (uniqueNewWords.length === 1) {
+            toast.success("Palavra adicionada.");
+        } else {
+            toast.success(`${uniqueNewWords.length} palavras adicionadas.`);
+        }
     };
 
     const handleRemoveWord = (wordToRemove: string) => {
@@ -84,7 +103,7 @@ export const SettingsModeration: React.FC = () => {
         try {
             // Guarda como string JSON no app_config
             await adminService.updateAppConfig('forbidden_words', JSON.stringify(list));
-            toast.success("Lista de moderação atualizada.");
+            // toast.success("Lista de moderação atualizada."); // Removido para evitar duplo toast no add
         } catch (e: any) {
             toast.error("Erro ao guardar: " + e.message);
         } finally {
@@ -111,7 +130,7 @@ export const SettingsModeration: React.FC = () => {
                     type="text" 
                     value={newWord}
                     onChange={(e) => setNewWord(e.target.value)}
-                    placeholder="Adicionar nova palavra..."
+                    placeholder="Adicionar palavras (separadas por vírgula)..."
                     className="flex-1 p-3 rounded-xl bg-white/50 border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900"
                 />
                 <button 
