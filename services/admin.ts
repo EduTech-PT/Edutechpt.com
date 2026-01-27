@@ -248,6 +248,11 @@ export const adminService = {
                 if (item.key === 'access_denied_subject') config.accessDeniedSubject = item.value;
                 if (item.key === 'access_denied_body') config.accessDeniedBody = item.value;
 
+                // Request Access Settings (New)
+                if (item.key === 'request_access_email') config.requestAccessEmail = item.value;
+                if (item.key === 'request_access_subject') config.requestAccessSubject = item.value;
+                if (item.key === 'request_access_body') config.requestAccessBody = item.value;
+
                 // Invite Settings
                 if (item.key === 'invite_email_subject') config.inviteSubject = item.value;
                 if (item.key === 'invite_email_body') config.inviteBody = item.value;

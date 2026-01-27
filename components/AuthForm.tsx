@@ -28,13 +28,26 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, on
     </ol>
   `);
 
+  // Request Access Config
+  const [requestAccessConfig, setRequestAccessConfig] = useState({
+      email: 'edutechpt@hotmail.com',
+      subject: 'Pedido de Acesso à Plataforma',
+      body: 'Olá,\n\nGostaria de solicitar acesso à plataforma EduTech PT.\n\nNome:\nMotivo:'
+  });
+
   useEffect(() => {
     adminService.getAppConfig().then(c => {
         if (c.logoUrl) setLogoUrl(c.logoUrl);
-        if (c.authWarningTitle) setWarningTitle(c.authWarningTitle); // NOVO
+        if (c.authWarningTitle) setWarningTitle(c.authWarningTitle);
         if (c.authWarningIntro) setWarningIntro(c.authWarningIntro);
         if (c.authWarningSummary) setWarningSummary(c.authWarningSummary);
         if (c.authWarningSteps) setWarningSteps(c.authWarningSteps);
+        
+        // Request Access Settings
+        if (c.requestAccessEmail) setRequestAccessConfig(prev => ({...prev, email: c.requestAccessEmail}));
+        if (c.requestAccessSubject) setRequestAccessConfig(prev => ({...prev, subject: c.requestAccessSubject}));
+        if (c.requestAccessBody) setRequestAccessConfig(prev => ({...prev, body: c.requestAccessBody}));
+
     }).catch(e => console.log('Config load error (Auth)', e));
   }, []);
 
@@ -101,7 +114,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, on
             Bem-vindo
           </h2>
           <p className="text-indigo-700 text-sm opacity-80 mb-4">
-            Entre na EduTech PT com a sua conta institucional ou pessoal.
+            Entre na EduTech PT com a sua conta pessoal.
           </p>
 
           {/* Aviso e Guia para Ecrã de Verificação Google */}
@@ -162,6 +175,13 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, on
                 </svg>
                 Continuar com Microsoft
             </button>
+
+            <a
+                href={`mailto:${requestAccessConfig.email}?subject=${encodeURIComponent(requestAccessConfig.subject)}&body=${encodeURIComponent(requestAccessConfig.body)}`}
+                className="w-full flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-2 rounded-xl transition-all font-bold text-sm border border-indigo-200"
+            >
+                <span>🔐</span> Pedir Acesso
+            </a>
         </div>
 
         <p className="mt-8 text-xs text-center text-indigo-900/60">
