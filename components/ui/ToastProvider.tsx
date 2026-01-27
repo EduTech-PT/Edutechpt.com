@@ -44,7 +44,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
         }}>
             {children}
-            {/* Container fixo no canto superior direito com Z-Index alto */}
+            {/* Container fixo no canto superior direito com Z-Index altíssimo para sobrepor tudo */}
             <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-3 pointer-events-none p-4 w-full max-w-sm">
                 {toasts.map(t => (
                     <div 

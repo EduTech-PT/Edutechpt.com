@@ -2,10 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../../GlassCard';
 import { adminService } from '../../../services/admin';
+import { useToast } from '../../ui/ToastProvider';
 
 export const SettingsAccess: React.FC = () => {
     const [config, setConfig] = useState<any>({});
     const [isSaving, setIsSaving] = useState(false);
+    const { toast } = useToast();
 
     useEffect(() => {
         adminService.getAppConfig().then(setConfig).catch(console.error);
@@ -34,9 +36,9 @@ export const SettingsAccess: React.FC = () => {
             await adminService.updateAppConfig('application_email_subject', config.applicationSubject);
             await adminService.updateAppConfig('application_email_body', config.applicationBody);
             
-            alert('Configurações de Acesso e Email guardadas!');
+            toast.success('Configurações de Acesso e Email guardadas!');
         } catch (e: any) {
-            alert(e.message);
+            toast.error(e.message);
         } finally {
             setIsSaving(false);
         }
@@ -44,13 +46,19 @@ export const SettingsAccess: React.FC = () => {
 
     // Helper Component para Legenda
     const VariablesLegend = ({ vars }: { vars: string[] }) => (
-        <div className="mt-2 p-2 bg-indigo-50 rounded-lg border border-indigo-100 text-xs text-indigo-700 flex flex-wrap items-center gap-2">
-            <span className="font-bold">Variáveis Disponíveis:</span>
-            {vars.map(v => (
-                <code key={v} className="bg-white px-1.5 py-0.5 rounded border border-indigo-200 font-mono text-indigo-600 select-all cursor-pointer hover:bg-indigo-100" title="Clique para selecionar">
-                    {v}
-                </code>
-            ))}
+        <div className="mt-2 p-3 bg-indigo-50/50 rounded-lg border border-indigo-100 flex flex-col gap-1">
+            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Variáveis Disponíveis (Copiar e Colar):</span>
+            <div className="flex flex-wrap gap-2">
+                {vars.map(v => (
+                    <code 
+                        key={v} 
+                        className="px-2 py-1 bg-white border border-indigo-200 rounded text-xs font-mono text-indigo-700 select-all cursor-pointer hover:bg-indigo-100 transition-colors shadow-sm" 
+                        title="Clique duas vezes para selecionar"
+                    >
+                        {v}
+                    </code>
+                ))}
+            </div>
         </div>
     );
 
