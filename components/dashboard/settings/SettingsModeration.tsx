@@ -4,6 +4,12 @@ import { GlassCard } from '../../GlassCard';
 import { adminService } from '../../../services/admin';
 import { useToast } from '../../ui/ToastProvider';
 
+const DEFAULT_WORDS = [
+    "merda", "porra", "caralho", "puta", "cabrao", "foda-se", 
+    "foder", "paneleiro", "corno", "bosta", "cona", "pila", 
+    "cu", "caralhes", "fodasse", "filho da puta"
+];
+
 export const SettingsModeration: React.FC = () => {
     const [forbiddenWords, setForbiddenWords] = useState<string[]>([]);
     const [newWord, setNewWord] = useState('');
@@ -62,6 +68,17 @@ export const SettingsModeration: React.FC = () => {
         saveList(updatedList);
     };
 
+    const handleLoadDefaults = () => {
+        if (!window.confirm("Isto irá adicionar palavras comuns (PT) à lista existente. Deseja continuar?")) return;
+        
+        // Unir listas sem duplicados
+        const uniqueSet = new Set([...forbiddenWords, ...DEFAULT_WORDS]);
+        const updatedList = Array.from(uniqueSet);
+        
+        setForbiddenWords(updatedList);
+        saveList(updatedList);
+    };
+
     const saveList = async (list: string[]) => {
         setSaving(true);
         try {
@@ -111,21 +128,39 @@ export const SettingsModeration: React.FC = () => {
             ) : (
                 <div className="bg-white/40 p-4 rounded-xl border border-indigo-100 min-h-[200px]">
                     {forbiddenWords.length === 0 ? (
-                        <p className="text-center text-gray-400 italic py-8">Nenhuma palavra proibida configurada.</p>
+                        <div className="flex flex-col items-center justify-center py-8 gap-4">
+                            <p className="text-center text-gray-400 italic">Nenhuma palavra proibida configurada.</p>
+                            <button 
+                                onClick={handleLoadDefaults}
+                                className="px-4 py-2 bg-white border border-indigo-200 text-indigo-600 rounded-lg text-sm font-bold hover:bg-indigo-50 shadow-sm transition-all"
+                            >
+                                Carregar Sugestões (PT)
+                            </button>
+                        </div>
                     ) : (
-                        <div className="flex flex-wrap gap-2">
-                            {forbiddenWords.map((word, idx) => (
-                                <div key={idx} className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium border border-red-200 animate-in zoom-in duration-200">
-                                    <span>{word}</span>
-                                    <button 
-                                        onClick={() => handleRemoveWord(word)}
-                                        className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-red-200 text-red-600 font-bold leading-none pb-0.5"
-                                        title="Remover"
-                                    >
-                                        &times;
-                                    </button>
-                                </div>
-                            ))}
+                        <div className="space-y-4">
+                            <div className="flex flex-wrap gap-2">
+                                {forbiddenWords.map((word, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium border border-red-200 animate-in zoom-in duration-200">
+                                        <span>{word}</span>
+                                        <button 
+                                            onClick={() => handleRemoveWord(word)}
+                                            className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-red-200 text-red-600 font-bold leading-none pb-0.5"
+                                            title="Remover"
+                                        >
+                                            &times;
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="pt-4 border-t border-indigo-100 flex justify-end">
+                                <button 
+                                    onClick={handleLoadDefaults}
+                                    className="text-xs text-indigo-500 hover:text-indigo-800 font-bold hover:underline"
+                                >
+                                    + Adicionar Sugestões Padrão
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
