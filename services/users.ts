@@ -56,6 +56,23 @@ export const userService = {
         return data as boolean; // Retorna true se encontrou e ativou convite, false se não encontrou
     },
 
+    // NOVO: Verificar Rate Limit antes de ações sensíveis (ex: enviar email)
+    async checkRateLimit(identifier: string, actionType: string, maxAttempts: number = 3, windowMinutes: number = 10) {
+        const { data, error } = await supabase.rpc('check_rate_limit', {
+            identifier,
+            action_type: actionType,
+            max_attempts: maxAttempts,
+            window_minutes: windowMinutes
+        });
+        
+        if (error) {
+            console.error("Rate limit check failed:", error);
+            return true; // Em caso de erro técnico, permite (fail-open) ou bloqueia (fail-closed) conforme preferência. Aqui permitimos para não bloquear user por erro de sistema.
+        }
+        
+        return data as boolean;
+    },
+
     async deleteUsers(ids: string[]) {
         const { error } = await supabase.from('profiles').delete().in('id', ids);
         if (error) throw error;
