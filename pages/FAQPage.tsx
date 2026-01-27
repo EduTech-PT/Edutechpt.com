@@ -33,8 +33,11 @@ export const FAQPage: React.FC<Props> = ({ onBack, isEmbedded = false }) => {
   // State for Categories
   const [categories, setCategories] = useState<FaqCategory[]>([]);
   
-  // State for Accordion (Using string "catId-itemIndex" for uniqueness)
+  // State for Accordion (Questions)
   const [openItem, setOpenItem] = useState<string | null>(null);
+
+  // State for Accordion (Categories)
+  const [openCategories, setOpenCategories] = useState<string[]>([]);
 
   useEffect(() => {
     adminService.getAppConfig().then(c => {
@@ -44,16 +47,23 @@ export const FAQPage: React.FC<Props> = ({ onBack, isEmbedded = false }) => {
             try {
                 const parsed = typeof c.faqJson === 'string' ? JSON.parse(c.faqJson) : c.faqJson;
                 if (Array.isArray(parsed) && parsed.length > 0) {
+                    let loadedCats: FaqCategory[] = [];
                     // Check Migration: If flat list (old format)
                     if ('q' in parsed[0]) {
-                        setCategories([{
+                        loadedCats = [{
                             id: 'default',
                             title: 'Questões Gerais',
                             items: parsed as FaqItem[]
-                        }]);
+                        }];
                     } else {
                         // New Format
-                        setCategories(parsed);
+                        loadedCats = parsed;
+                    }
+                    setCategories(loadedCats);
+                    
+                    // Open first category by default for better UX
+                    if (loadedCats.length > 0) {
+                        setOpenCategories([loadedCats[0].id]);
                     }
                 }
             } catch (e) {
@@ -65,8 +75,15 @@ export const FAQPage: React.FC<Props> = ({ onBack, isEmbedded = false }) => {
     }).catch(e => console.log('Config load error (FAQ)', e));
   }, []);
 
-  const toggleFaq = (id: string) => {
+  const toggleFaq = (id: string, e?: React.MouseEvent) => {
+      if (e) e.stopPropagation();
       setOpenItem(openItem === id ? null : id);
+  };
+
+  const toggleCategory = (id: string) => {
+      setOpenCategories(prev => 
+          prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+      );
   };
 
   const handleNavigate = (view: 'privacy' | 'terms' | 'faq') => {
@@ -86,45 +103,65 @@ export const FAQPage: React.FC<Props> = ({ onBack, isEmbedded = false }) => {
                     Encontre respostas organizadas por tema.
                 </p>
                 
-                <div className="space-y-8">
-                    {categories.map((cat, catIdx) => (
-                        <div key={cat.id || catIdx} className="space-y-4">
-                            {/* Category Header */}
-                            <h2 className="text-xl font-bold text-indigo-800 border-b-2 border-indigo-100 pb-2 flex items-center gap-2">
-                                <span className="text-indigo-500">#</span> {cat.title}
-                            </h2>
+                <div className="space-y-6">
+                    {categories.map((cat, catIdx) => {
+                        const isCatOpen = openCategories.includes(cat.id);
+                        return (
+                            <div key={cat.id || catIdx} className="space-y-2">
+                                {/* Category Header (Accordion) */}
+                                <div 
+                                    onClick={() => toggleCategory(cat.id)}
+                                    className={`
+                                        flex items-center justify-between cursor-pointer group select-none p-4 rounded-xl transition-all border
+                                        ${isCatOpen 
+                                            ? 'bg-indigo-50/80 border-indigo-200 shadow-sm' 
+                                            : 'bg-white/30 hover:bg-white/50 border-transparent hover:border-indigo-100'}
+                                    `}
+                                >
+                                    <h2 className="text-xl font-bold text-indigo-800 flex items-center gap-3">
+                                        <span className={`text-sm bg-indigo-100 text-indigo-600 px-2 py-1 rounded-lg transition-colors ${isCatOpen ? 'bg-indigo-200' : ''}`}>#</span> 
+                                        {cat.title}
+                                    </h2>
+                                    <span className={`text-indigo-400 transform transition-transform duration-300 text-xl font-bold ${isCatOpen ? 'rotate-180 text-indigo-600' : ''}`}>
+                                        ▼
+                                    </span>
+                                </div>
 
-                            <div className="space-y-3">
-                                {cat.items.map((item, itemIdx) => {
-                                    const uniqueId = `${cat.id}-${itemIdx}`;
-                                    const isOpen = openItem === uniqueId;
-                                    
-                                    return (
-                                        <GlassCard 
-                                            key={itemIdx} 
-                                            className="cursor-pointer hover:bg-white/50 transition-colors p-0 overflow-hidden"
-                                            onClick={() => toggleFaq(uniqueId)}
-                                        >
-                                            <div className="p-5 flex justify-between items-center">
-                                                <h3 className={`font-bold text-lg transition-colors ${isOpen ? 'text-indigo-600' : 'text-indigo-900'}`}>
-                                                    {item.q}
-                                                </h3>
-                                                <span className={`text-indigo-400 transform transition-transform duration-300 font-bold text-xl ${isOpen ? 'rotate-180' : 'rotate-0'}`}>
-                                                    ▼
-                                                </span>
-                                            </div>
-                                            <div className={`px-5 overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[1000px] pb-6 opacity-100' : 'max-h-0 opacity-0'}`}>
-                                                <div 
-                                                    className="text-indigo-800 text-sm leading-relaxed border-t border-indigo-50 pt-4 prose prose-indigo max-w-none"
-                                                    dangerouslySetInnerHTML={{ __html: item.a }}
-                                                />
-                                            </div>
-                                        </GlassCard>
-                                    );
-                                })}
+                                <div className={`
+                                    space-y-3 overflow-hidden transition-all duration-500 ease-in-out px-1
+                                    ${isCatOpen ? 'max-h-[3000px] opacity-100 pt-2 pb-4' : 'max-h-0 opacity-0'}
+                                `}>
+                                    {cat.items.map((item, itemIdx) => {
+                                        const uniqueId = `${cat.id}-${itemIdx}`;
+                                        const isOpen = openItem === uniqueId;
+                                        
+                                        return (
+                                            <GlassCard 
+                                                key={itemIdx} 
+                                                className="cursor-pointer hover:bg-white/60 transition-colors p-0 overflow-hidden border border-white/60"
+                                                onClick={(e) => toggleFaq(uniqueId, e)}
+                                            >
+                                                <div className="p-5 flex justify-between items-center">
+                                                    <h3 className={`font-bold text-lg transition-colors ${isOpen ? 'text-indigo-600' : 'text-indigo-900'}`}>
+                                                        {item.q}
+                                                    </h3>
+                                                    <span className={`text-indigo-400 transform transition-transform duration-300 font-bold text-xl ${isOpen ? 'rotate-180' : 'rotate-0'}`}>
+                                                        ▼
+                                                    </span>
+                                                </div>
+                                                <div className={`px-5 overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[1000px] pb-6 opacity-100' : 'max-h-0 opacity-0'}`}>
+                                                    <div 
+                                                        className="text-indigo-800 text-sm leading-relaxed border-t border-indigo-50 pt-4 prose prose-indigo max-w-none"
+                                                        dangerouslySetInnerHTML={{ __html: item.a }}
+                                                    />
+                                                </div>
+                                            </GlassCard>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 <div className="mt-12 pt-8 border-t border-indigo-200/50 text-center">
