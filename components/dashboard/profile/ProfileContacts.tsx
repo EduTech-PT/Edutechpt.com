@@ -29,10 +29,36 @@ export const ProfileContacts: React.FC<Props> = ({ user, formData, visibility, i
         </div>
     );
 
+    const renderSocialField = (key: keyof Profile, label: string, placeholder: string, icon: string) => (
+        <div className="flex-1 min-w-[200px]">
+            <label className="block text-xs font-bold text-indigo-800 uppercase mb-1 flex items-center gap-1">
+                <span>{icon}</span> {label}
+            </label>
+            {isEditing ? (
+                <div className="space-y-1">
+                    <input 
+                        type="url" 
+                        value={formData[key] as string || ''} 
+                        onChange={e => onUpdate(key, e.target.value)}
+                        placeholder={placeholder}
+                        className="w-full p-2 bg-white/50 border border-indigo-200 rounded focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 text-sm"
+                    />
+                    <VisibilityToggle field={key} />
+                </div>
+            ) : (
+                user[key] ? (
+                    <a href={user[key] as string} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline text-sm font-bold flex items-center gap-1 border-b border-white/20 pb-1">
+                        🔗 Ver Perfil
+                    </a>
+                ) : <span className="text-gray-400 italic border-b border-white/20 pb-1 block text-sm">Não definido</span>
+            )}
+        </div>
+    );
+
     return (
-        <GlassCard className="flex flex-col h-full">
-            <h3 className="text-lg font-bold text-indigo-900 mb-4 border-b border-indigo-100 pb-2">Contactos</h3>
-            <div className="space-y-5 flex-1">
+        <GlassCard className="flex flex-col h-full overflow-hidden">
+            <h3 className="text-lg font-bold text-indigo-900 mb-4 border-b border-indigo-100 pb-2">Contactos & Redes</h3>
+            <div className="space-y-5 flex-1 overflow-y-auto custom-scrollbar pr-2">
                 
                 {/* Email Pessoal */}
                 <div>
@@ -71,27 +97,15 @@ export const ProfileContacts: React.FC<Props> = ({ user, formData, visibility, i
                     )}
                 </div>
 
-                {/* LinkedIn */}
-                <div>
-                    <label className="block text-xs font-bold text-indigo-800 uppercase mb-1">LinkedIn URL</label>
-                    {isEditing ? (
-                        <div className="space-y-1">
-                            <input 
-                                type="url" 
-                                value={formData.linkedin_url || ''} 
-                                onChange={e => onUpdate('linkedin_url', e.target.value)}
-                                placeholder="https://linkedin.com/in/..."
-                                className="w-full p-2 bg-white/50 border border-indigo-200 rounded focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 text-sm"
-                            />
-                            <VisibilityToggle field="linkedin_url" />
-                        </div>
-                    ) : (
-                        user.linkedin_url ? (
-                            <a href={user.linkedin_url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline text-sm font-bold flex items-center gap-1 border-b border-white/20 pb-1">
-                                🔗 Ver Perfil
-                            </a>
-                        ) : <span className="text-gray-400 italic border-b border-white/20 pb-1 block">Não definido</span>
-                    )}
+                <div className="border-t border-indigo-100/50 pt-2"></div>
+
+                {/* Redes Sociais */}
+                <div className="flex flex-wrap gap-4">
+                    {renderSocialField('linkedin_url', 'LinkedIn', 'https://linkedin.com/in/...', '💼')}
+                    {renderSocialField('github_url', 'GitHub', 'https://github.com/...', '🐙')}
+                    {renderSocialField('twitter_url', 'Twitter / X', 'https://x.com/...', '🐦')}
+                    {renderSocialField('instagram_url', 'Instagram', 'https://instagram.com/...', '📸')}
+                    {renderSocialField('facebook_url', 'Facebook', 'https://facebook.com/...', '📘')}
                 </div>
 
                 {/* Email Institucional (Read Only) */}

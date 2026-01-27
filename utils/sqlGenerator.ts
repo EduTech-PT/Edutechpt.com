@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
--- AÇÃO: RATE LIMITING (3 TENTATIVAS / 10 MINUTOS)
+-- AÇÃO: RATE LIMITING (3 TENTATIVAS / 10 MINUTOS) & SOCIAL MEDIA FIELDS
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -42,6 +42,10 @@ create table if not exists public.profiles (
     city text,
     phone text,
     linkedin_url text,
+    github_url text,
+    twitter_url text,
+    instagram_url text,
+    facebook_url text,
     personal_email text,
     birth_date date,
     visibility_settings jsonb default '{}'::jsonb,
@@ -59,6 +63,19 @@ begin
   end if;
   if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='global_notifications') then
     alter table public.profiles add column global_notifications boolean default true;
+  end if;
+  -- Social Media Migration
+  if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='github_url') then
+    alter table public.profiles add column github_url text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='twitter_url') then
+    alter table public.profiles add column twitter_url text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='instagram_url') then
+    alter table public.profiles add column instagram_url text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='facebook_url') then
+    alter table public.profiles add column facebook_url text;
   end if;
 end $$;
 
@@ -307,5 +324,3 @@ create trigger on_chat_moderation before insert or update on public.class_commen
 -- 10. RECARREGAMENTO DE SCHEMA
 -- ==============================================================================
 NOTIFY pgrst, 'reload schema';
-`;
-};

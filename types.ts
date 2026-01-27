@@ -15,6 +15,10 @@ export interface ProfileVisibility {
   personal_email?: boolean;
   phone?: boolean;
   linkedin_url?: boolean;
+  github_url?: boolean;
+  twitter_url?: boolean;
+  instagram_url?: boolean;
+  facebook_url?: boolean;
   bio?: boolean;
   [key: string]: boolean | undefined;
 }
@@ -32,6 +36,10 @@ export interface Profile {
   personal_email?: string;
   phone?: string;
   linkedin_url?: string;
+  github_url?: string;
+  twitter_url?: string;
+  instagram_url?: string;
+  facebook_url?: string;
   bio?: string;
   visibility_settings?: ProfileVisibility;
   // Drive Integration
