@@ -80,13 +80,19 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
     const testSound = (type: string) => {
         if (type === 'none') return;
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
+        
+        // Resume context if suspended (Browser policy fix)
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+
         const gainNode = audioContext.createGain();
-        oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
         const now = audioContext.currentTime;
 
         if (type === 'glass') {
+            const oscillator = audioContext.createOscillator();
+            oscillator.connect(gainNode);
             oscillator.type = 'sine';
             oscillator.frequency.setValueAtTime(800, now);
             oscillator.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
@@ -95,6 +101,8 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
             oscillator.start(now);
             oscillator.stop(now + 0.5);
         } else if (type === 'digital') {
+            const oscillator = audioContext.createOscillator();
+            oscillator.connect(gainNode);
             oscillator.type = 'square';
             oscillator.frequency.setValueAtTime(600, now);
             oscillator.frequency.setValueAtTime(800, now + 0.1);
@@ -102,7 +110,41 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
             gainNode.gain.linearRampToValueAtTime(0.01, now + 0.2);
             oscillator.start(now);
             oscillator.stop(now + 0.2);
+        } else if (type === 'retro') {
+            const oscillator = audioContext.createOscillator();
+            oscillator.connect(gainNode);
+            oscillator.type = 'square';
+            oscillator.frequency.setValueAtTime(987, now); // B5
+            oscillator.frequency.setValueAtTime(1318, now + 0.08); // E6
+            gainNode.gain.setValueAtTime(0.1, now);
+            gainNode.gain.setValueAtTime(0.1, now + 0.3);
+            gainNode.gain.linearRampToValueAtTime(0.01, now + 0.4);
+            oscillator.start(now);
+            oscillator.stop(now + 0.4);
+        } else if (type === 'arcade') {
+            const oscillator = audioContext.createOscillator();
+            oscillator.connect(gainNode);
+            oscillator.type = 'sawtooth';
+            oscillator.frequency.setValueAtTime(150, now);
+            oscillator.frequency.linearRampToValueAtTime(600, now + 0.2);
+            gainNode.gain.setValueAtTime(0.1, now);
+            gainNode.gain.linearRampToValueAtTime(0.01, now + 0.2);
+            oscillator.start(now);
+            oscillator.stop(now + 0.2);
+        } else if (type === 'sonar') {
+            const oscillator = audioContext.createOscillator();
+            oscillator.connect(gainNode);
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(1200, now);
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.3, now + 0.05);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+            oscillator.start(now);
+            oscillator.stop(now + 0.6);
         } else {
+            // Pop
+            const oscillator = audioContext.createOscillator();
+            oscillator.connect(gainNode);
             oscillator.type = 'triangle';
             oscillator.frequency.setValueAtTime(400, now);
             gainNode.gain.setValueAtTime(0.2, now);
@@ -132,6 +174,9 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
                                  <option value="pop">Pop (Padrão)</option>
                                  <option value="glass">Vidro (Suave)</option>
                                  <option value="digital">Digital (Beep)</option>
+                                 <option value="retro">Retro (8-bit)</option>
+                                 <option value="arcade">Arcade (Salto)</option>
+                                 <option value="sonar">Sonar (Ping)</option>
                                  <option value="none">Silencioso</option>
                              </select>
                          </div>
@@ -159,7 +204,7 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
 
                      <div className="flex gap-2 justify-end pt-2">
                          <button onClick={() => testSound(userSound)} className="px-4 py-2 bg-white text-purple-600 border border-purple-200 rounded-lg font-bold hover:bg-purple-50 text-sm">
-                             Testar Som
+                             🔊 Testar Som
                          </button>
                          <button onClick={handleSavePreferences} className="px-6 py-2 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700 shadow-md text-sm">
                              Guardar Preferências

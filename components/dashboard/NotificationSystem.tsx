@@ -25,17 +25,28 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
     const audioContextRef = useRef<AudioContext | null>(null);
 
     // 0. Unlock Audio Context on first interaction
+    // Esta é a parte crítica para navegadores: requer interação do utilizador para iniciar o áudio.
     useEffect(() => {
-        const unlockAudio = () => {
+        const initAudio = () => {
             if (!audioContextRef.current) {
                 audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
             }
+            // Tentar resumir imediatamente se já foi criado
             if (audioContextRef.current.state === 'suspended') {
-                audioContextRef.current.resume().catch(e => console.warn("Audio resume failed", e));
+                audioContextRef.current.resume().then(() => {
+                    console.log("AudioContext Resumed by interaction");
+                }).catch(e => console.warn("Audio resume failed", e));
             }
-            window.removeEventListener('click', unlockAudio);
-            window.removeEventListener('touchstart', unlockAudio);
-            window.removeEventListener('keydown', unlockAudio);
+        };
+
+        const unlockAudio = () => {
+            initAudio();
+            // Remove listeners após a primeira tentativa bem sucedida
+            if (audioContextRef.current && audioContextRef.current.state === 'running') {
+                window.removeEventListener('click', unlockAudio);
+                window.removeEventListener('touchstart', unlockAudio);
+                window.removeEventListener('keydown', unlockAudio);
+            }
         };
 
         window.addEventListener('click', unlockAudio);
@@ -66,16 +77,13 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
                 classes = all.map(c => ({ id: c.id, name: c.name, course_id: c.course_id }));
             } else {
                 // Lógica Combinada (Se monitorização desligada ou user normal)
-                // Procura turmas onde é formador E turmas onde é aluno
                 const classMap = new Map<string, any>();
 
-                // Se for formador ou admin com monitorização desligada
                 if (role === UserRole.TRAINER || role === UserRole.ADMIN || role === UserRole.EDITOR) {
                     const trainerClasses = await courseService.getTrainerClasses(profile.id);
                     trainerClasses.forEach(c => classMap.set(c.id, { id: c.id, name: c.name, course_id: c.course_id }));
                 }
 
-                // Sempre busca turmas de aluno (admin também pode ser aluno)
                 const studentEnrollments = await courseService.getStudentEnrollments(profile.id);
                 studentEnrollments
                     .filter((e: any) => e.class)
@@ -140,19 +148,19 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
             }
             
             const ctx = audioContextRef.current;
+            
+            // Tenta resumir sempre, por segurança
             if (ctx.state === 'suspended') {
-                ctx.resume().catch(() => {});
+                ctx.resume().catch((e) => console.warn("Cannot play sound, context suspended:", e));
             }
 
-            const oscillator = ctx.createOscillator();
+            const now = ctx.currentTime;
             const gainNode = ctx.createGain();
-
-            oscillator.connect(gainNode);
             gainNode.connect(ctx.destination);
 
-            const now = ctx.currentTime;
-
             if (type === 'glass') {
+                const oscillator = ctx.createOscillator();
+                oscillator.connect(gainNode);
                 oscillator.type = 'sine';
                 oscillator.frequency.setValueAtTime(800, now);
                 oscillator.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
@@ -160,7 +168,10 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
                 gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
                 oscillator.start(now);
                 oscillator.stop(now + 0.5);
-            } else if (type === 'digital') {
+            } 
+            else if (type === 'digital') {
+                const oscillator = ctx.createOscillator();
+                oscillator.connect(gainNode);
                 oscillator.type = 'square';
                 oscillator.frequency.setValueAtTime(600, now);
                 oscillator.frequency.setValueAtTime(800, now + 0.1);
@@ -168,7 +179,61 @@ export const NotificationSystem: React.FC<Props> = ({ profile, onOpenClassroom }
                 gainNode.gain.linearRampToValueAtTime(0.01, now + 0.2);
                 oscillator.start(now);
                 oscillator.stop(now + 0.2);
-            } else {
+            } 
+            else if (type === 'retro') {
+                // Som "Coin" 8-bit
+                const oscillator = ctx.createOscillator();
+                oscillator.connect(gainNode);
+                oscillator.type = 'square';
+                oscillator.frequency.setValueAtTime(987, now); // B5
+                oscillator.frequency.setValueAtTime(1318, now + 0.08); // E6
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.setValueAtTime(0.1, now + 0.3);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.4);
+                oscillator.start(now);
+                oscillator.stop(now + 0.4);
+            }
+            else if (type === 'arcade') {
+                // Som de "Salto"
+                const oscillator = ctx.createOscillator();
+                oscillator.connect(gainNode);
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(150, now);
+                oscillator.frequency.linearRampToValueAtTime(600, now + 0.2);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                oscillator.start(now);
+                oscillator.stop(now + 0.2);
+            }
+            else if (type === 'sonar') {
+                // Som "Ping"
+                const oscillator = ctx.createOscillator();
+                oscillator.connect(gainNode);
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(1200, now);
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(0.3, now + 0.05);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                oscillator.start(now);
+                oscillator.stop(now + 0.6);
+                
+                // Echo
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(1200, now + 0.2);
+                gain2.gain.setValueAtTime(0, now + 0.2);
+                gain2.gain.linearRampToValueAtTime(0.1, now + 0.25);
+                gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                osc2.start(now + 0.2);
+                osc2.stop(now + 0.7);
+            }
+            else {
+                // Default Pop
+                const oscillator = ctx.createOscillator();
+                oscillator.connect(gainNode);
                 oscillator.type = 'triangle';
                 oscillator.frequency.setValueAtTime(400, now);
                 gainNode.gain.setValueAtTime(0.2, now);
