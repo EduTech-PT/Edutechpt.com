@@ -152,8 +152,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
     const isOpen = openGroups.includes(group.id);
     const hasActiveChild = accessibleItems.some(i => i.id === currentView);
     
-    // CORREÇÃO: Se for o grupo "definicoes", expande para cima (bottom-0), senão para baixo (top-0)
-    const isBottomGroup = group.id === 'definicoes';
+    // CORREÇÃO: Grupo "definicoes" fica centrado na vertical, outros no topo
+    const isSettings = group.id === 'definicoes';
 
     return (
       <div key={group.id} className="mb-2 relative group">
@@ -190,7 +190,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
             md:block md:invisible md:opacity-0 md:group-hover:visible md:group-hover:opacity-100
             md:absolute md:left-[calc(100%-10px)] md:w-60 md:z-50
             /* Lógica condicional de posicionamento para evitar cortes */
-            ${isBottomGroup ? 'md:bottom-0 md:top-auto' : 'md:top-0'}
+            ${isSettings ? 'md:top-1/2 md:-translate-y-1/2' : 'md:top-0'}
             
             md:pl-6 md:mt-0 md:border-l-0
             md:transform md:-translate-x-4 md:group-hover:translate-x-0
