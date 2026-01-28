@@ -2,13 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { GlassCard } from './GlassCard';
+import { Provider } from '@supabase/supabase-js'; 
 import { adminService } from '../services/admin';
-import { userService } from '../services/users'; // Import userService for rate limiting
+import { userService } from '../services/users'; 
 
 interface AuthFormProps {
   onCancel: () => void;
   onPrivacyClick?: () => void;
-  onTermsClick?: () => void; // NOVO PROP
+  onTermsClick?: () => void; 
 }
 
 export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, onTermsClick }) => {
@@ -58,42 +59,37 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, on
     }).catch(e => console.log('Config load error (Auth)', e));
   }, []);
 
-  const handleOAuthLogin = async (provider: string) => {
+  const handleOAuthLogin = async (provider: Provider) => {
     try {
       setLoading(true);
       setMessage(`A iniciar sessão com ${provider}...`);
       
-      let signInOptions: any = {
-        provider: provider as any,
-      };
-      
-      const redirectOption = {
-          redirectTo: window.location.origin
+      let options: any = {
+        redirectTo: window.location.origin,
       };
 
       // Configurações específicas para evitar erros comuns
       if (provider === 'google') {
-        signInOptions = {
-            ...signInOptions,
-            queryParams: {
-                access_type: 'offline',
-                prompt: 'consent', // Força o ecrã de seleção de conta
-            }
+        options.queryParams = {
+          access_type: 'offline',
+          prompt: 'consent', // Força o ecrã de seleção de conta
         };
         // Adicionado scope de Calendário (Read-only)
-        signInOptions.scopes = 'https://www.googleapis.com/auth/calendar.readonly';
+        options.scopes = 'https://www.googleapis.com/auth/calendar.readonly';
       }
 
       if (provider === 'azure') {
         // 'common' endpoint requer scopes específicos
-        signInOptions.scopes = 'openid profile email offline_access'; 
-        signInOptions.queryParams = {
+        options.scopes = 'openid profile email offline_access'; 
+        options.queryParams = {
           prompt: 'select_account', 
         };
       }
 
-      // Supabase v1 compatibility
-      const { error } = await (supabase.auth as any).signIn(signInOptions, redirectOption);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: provider,
+        options: options,
+      });
       
       if (error) throw error;
     } catch (error: any) {

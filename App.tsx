@@ -110,40 +110,36 @@ function App() {
 
     checkForAccessError();
 
-    // Supabase v1 Compatibility: Synchronous session check
-    const currentSession = (supabase.auth as any).session();
-    if (currentSession) {
-      setSession({
-        user: currentSession.user,
-        access_token: currentSession.access_token,
-        provider_token: currentSession.provider_token
-      });
-    } else {
-      setSession(null);
-    }
-    setLoading(false);
-
-    // Supabase v1 Compatibility: onAuthStateChange returns subscription object
-    const { data: authListener } = (supabase.auth as any).onAuthStateChange((_event: any, session: any) => {
-      if (session) {
-        setSession({
-          user: session.user,
-          access_token: session.access_token,
-          provider_token: session.provider_token
-        });
-        setShowAuthModal(false);
-      } else {
-        setSession(null);
-      }
+    // SUPABASE V2 LOGIC
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+            setSession({
+                user: session.user,
+                access_token: session.access_token,
+                provider_token: session.provider_token
+            });
+        }
+        setLoading(false);
     });
 
-    return () => {
-      authListener?.unsubscribe();
-    };
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session) {
+            setSession({
+                user: session.user,
+                access_token: session.access_token,
+                provider_token: session.provider_token
+            });
+            setShowAuthModal(false);
+        } else {
+            setSession(null);
+        }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleLogout = async () => {
-    await (supabase.auth as any).signOut();
+    await supabase.auth.signOut();
     handleNavigate('landing'); 
   };
 
