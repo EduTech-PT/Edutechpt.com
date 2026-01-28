@@ -24,6 +24,21 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
   // Verifica se temos dados estruturados válidos
   const hasMarketingData = mData && (mData.headline || mData.promise || mData.curriculum);
 
+  // Helper para estilos dos planos
+  const getPlanStyle = (label?: string) => {
+      const l = (label || '').toLowerCase();
+      if (l.includes('plus') || l.includes('extra') || l.includes('vip')) return 'bg-amber-50 border-amber-200 text-amber-900';
+      if (l.includes('premium') || l.includes('completo')) return 'bg-purple-50 border-purple-200 text-purple-900';
+      return 'bg-blue-50 border-blue-200 text-blue-900'; // Standard/Default
+  };
+
+  const getPlanIcon = (label?: string) => {
+      const l = (label || '').toLowerCase();
+      if (l.includes('plus') || l.includes('extra')) return '🥇';
+      if (l.includes('premium') || l.includes('completo')) return '🥈';
+      return '🥉';
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-indigo-900/60 backdrop-blur-sm animate-in fade-in duration-300">
       <GlassCard className="w-full max-w-4xl max-h-[90vh] flex flex-col p-0 relative overflow-hidden shadow-2xl ring-1 ring-white/50">
@@ -57,6 +72,11 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
                  {isEnrolled && (
                      <span className="px-3 py-1 bg-green-500 text-white text-xs font-bold uppercase rounded-full shadow-sm">
                         Inscrito
+                     </span>
+                 )}
+                 {course.format === 'self_paced' && (
+                     <span className="px-3 py-1 bg-blue-500 text-white text-xs font-bold uppercase rounded-full shadow-sm">
+                        Auto-Estudo
                      </span>
                  )}
              </div>
@@ -155,11 +175,40 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
                   dangerouslySetInnerHTML={{ __html: course.description || '<p>Sem descrição detalhada.</p>' }}
                />
            )}
+
+           {/* SECTION: PRICING PLANS (NEW) */}
+           {course.pricing_plans && course.pricing_plans.length > 0 && (
+               <div className="mt-8 mb-2">
+                   <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2 border-b border-indigo-100 pb-2">
+                       <span>💎</span> Opções de Acesso
+                   </h3>
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                       {course.pricing_plans.map((plan, idx) => (
+                           <div key={idx} className={`p-4 rounded-xl border-2 flex flex-col gap-2 ${getPlanStyle(plan.label)} shadow-sm relative overflow-hidden`}>
+                               <div className="flex items-center gap-2 mb-1 z-10">
+                                   <span className="text-2xl">{getPlanIcon(plan.label)}</span>
+                                   <h4 className="font-bold text-sm uppercase tracking-wide opacity-90">{plan.label || 'Plano'}</h4>
+                               </div>
+                               <div className="mt-auto z-10">
+                                   <div className="text-2xl font-extrabold tracking-tight">{plan.price} €</div>
+                                   <div className="text-xs font-bold opacity-75">
+                                       {plan.days === 0 || plan.days === null ? 'Acesso Vitalício' : `${plan.days} dias de acesso`}
+                                   </div>
+                               </div>
+                           </div>
+                       ))}
+                   </div>
+               </div>
+           )}
            
+           {/* Footer Metadata */}
            <div className="mt-8 pt-6 border-t border-indigo-200 flex flex-wrap gap-4 text-sm text-indigo-700 opacity-80">
                <span>📅 Publicado a: <b>{formatShortDate(course.created_at)}</b></span>
                {course.duration && <span>⏱️ Duração: <b>{course.duration} horas</b></span>}
-               {course.price && <span>💰 Custo: <b>{course.price} €</b></span>}
+               {/* Show Single Price ONLY if no plans exist */}
+               {(!course.pricing_plans || course.pricing_plans.length === 0) && course.price && (
+                   <span>💰 Custo: <b>{course.price} €</b></span>
+               )}
            </div>
         </div>
 
