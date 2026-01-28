@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Course, MarketingData, PricingPlan } from '../../../types';
 import { RichTextEditor } from '../../RichTextEditor';
@@ -261,20 +260,6 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                              <option value="avancado" className="dark:bg-slate-800">Avançado</option>
                          </select>
                      </div>
-
-                     {/* Se NÃO for LIVE, Duração aparece aqui */}
-                     {formData.format !== 'live' && (
-                         <div>
-                             <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Duração (Horas)</label>
-                             <input 
-                                type="text" 
-                                value={formData.duration || ''} 
-                                onChange={e => setFormData({...formData, duration: e.target.value})} 
-                                placeholder="Ex: 40" 
-                                className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 outline-none text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-500"
-                            />
-                         </div>
-                     )}
                  </div>
                  
                  {/* COLUNA DIREITA: Preço Calculado, Hora e Extras (Apenas LIVE) */}
