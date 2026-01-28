@@ -88,12 +88,19 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
         <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in">
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div>
-                     <label className="block text-sm mb-1 text-indigo-900 font-bold">Título do Curso</label>
-                     <input type="text" required value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Nome oficial do curso"/>
+                     <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Título do Curso</label>
+                     <input 
+                        type="text" 
+                        required 
+                        value={formData.title || ''} 
+                        onChange={e => setFormData({...formData, title: e.target.value})} 
+                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 focus:ring-2 focus:ring-indigo-500 outline-none text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-500" 
+                        placeholder="Nome oficial do curso"
+                    />
                  </div>
                  
                  <div>
-                     <label className="block text-sm mb-1 text-indigo-900 font-bold">Imagem de Capa</label>
+                     <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Imagem de Capa</label>
                      <div className="flex gap-2 items-center">
                          <div className="flex-1 relative">
                             <input 
@@ -101,7 +108,7 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                                 placeholder="https://... ou carregue ->" 
                                 value={formData.image_url || ''} 
                                 onChange={e => setFormData({...formData, image_url: e.target.value})} 
-                                className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none pr-10"
+                                className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 focus:ring-2 focus:ring-indigo-500 outline-none pr-10 text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-500"
                             />
                             {formData.image_url && (
                                 <div className="absolute right-2 top-2 w-6 h-6 rounded bg-indigo-100 overflow-hidden border border-indigo-200">
@@ -120,26 +127,26 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
              {/* CAMPOS DE CONFIGURAÇÃO (Formato e Acesso) */}
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div>
-                     <label className="block text-sm mb-1 text-indigo-900 font-bold">Formato do Curso</label>
+                     <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Formato do Curso</label>
                      <select 
                         value={formData.format || 'live'} 
                         onChange={e => setFormData({...formData, format: e.target.value as any})}
-                        className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 focus:ring-2 focus:ring-indigo-500 outline-none text-indigo-900 dark:text-white"
                      >
-                         <option value="live">🔴 Com Formador (Ao Vivo / Turma)</option>
-                         <option value="self_paced">▶️ Auto-Estudo (Vídeo-Aulas)</option>
+                         <option value="live" className="dark:bg-slate-800">🔴 Com Formador (Ao Vivo / Turma)</option>
+                         <option value="self_paced" className="dark:bg-slate-800">▶️ Auto-Estudo (Vídeo-Aulas)</option>
                      </select>
                  </div>
                  <div>
-                     <label className="block text-sm mb-1 text-indigo-900 font-bold">
+                     <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">
                          Dias de Acesso 
-                         <span className="text-xs font-normal text-indigo-500 ml-1">(Deixe vazio para vitalício)</span>
+                         <span className="text-xs font-normal text-indigo-500 dark:text-indigo-400 ml-1">(Deixe vazio para vitalício)</span>
                      </label>
                      <input 
                         type="number" 
                         value={formData.access_days || ''} 
                         onChange={e => setFormData({...formData, access_days: e.target.value ? parseInt(e.target.value) : undefined})} 
-                        className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 focus:ring-2 focus:ring-indigo-500 outline-none text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-500" 
                         placeholder="Ex: 180"
                      />
                  </div>
@@ -239,28 +246,44 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
 
              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div>
-                     <label className="block text-sm mb-1 text-indigo-900 font-bold">Nível</label>
-                     <select value={formData.level} onChange={e => setFormData({...formData, level: e.target.value as any})} className="w-full p-2 rounded bg-white/50 border border-white/60 outline-none">
-                         <option value="iniciante">Iniciante</option>
-                         <option value="intermedio">Intermédio</option>
-                         <option value="avancado">Avançado</option>
+                     <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Nível</label>
+                     <select 
+                        value={formData.level} 
+                        onChange={e => setFormData({...formData, level: e.target.value as any})} 
+                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 outline-none text-indigo-900 dark:text-white"
+                     >
+                         <option value="iniciante" className="dark:bg-slate-800">Iniciante</option>
+                         <option value="intermedio" className="dark:bg-slate-800">Intermédio</option>
+                         <option value="avancado" className="dark:bg-slate-800">Avançado</option>
                      </select>
                  </div>
                  <div>
-                     <label className="block text-sm mb-1 text-indigo-900 font-bold">Duração (Horas)</label>
-                     <input type="text" value={formData.duration || ''} onChange={e => setFormData({...formData, duration: e.target.value})} placeholder="Ex: 40" className="w-full p-2 rounded bg-white/50 border border-white/60 outline-none"/>
+                     <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Duração (Horas)</label>
+                     <input 
+                        type="text" 
+                        value={formData.duration || ''} 
+                        onChange={e => setFormData({...formData, duration: e.target.value})} 
+                        placeholder="Ex: 40" 
+                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 outline-none text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-500"
+                    />
                  </div>
                  <div>
-                     <label className="block text-sm mb-1 text-indigo-900 font-bold">Custo (Valor)</label>
-                     <input type="text" value={formData.price || ''} onChange={e => setFormData({...formData, price: e.target.value})} placeholder="Ex: 250" className="w-full p-2 rounded bg-white/50 border border-white/60 outline-none"/>
+                     <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Custo (Valor)</label>
+                     <input 
+                        type="text" 
+                        value={formData.price || ''} 
+                        onChange={e => setFormData({...formData, price: e.target.value})} 
+                        placeholder="Ex: 250" 
+                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 outline-none text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-500"
+                    />
                  </div>
                  <div className="flex items-center gap-3 pb-2">
                     <input type="checkbox" checked={formData.is_public || false} onChange={(e) => setFormData({...formData, is_public: e.target.checked})} className="h-5 w-5 text-indigo-600 rounded"/>
-                    <span className="text-sm font-bold text-indigo-900">Publicar</span>
+                    <span className="text-sm font-bold text-indigo-900 dark:text-indigo-200">Publicar</span>
                  </div>
              </div>
-             <div className="flex justify-end gap-2 pt-4 border-t border-white/50">
-                 <button type="button" onClick={onCancel} className="px-4 py-2 text-indigo-800 font-bold hover:bg-indigo-50 rounded">Cancelar</button>
+             <div className="flex justify-end gap-2 pt-4 border-t border-white/50 dark:border-white/10">
+                 <button type="button" onClick={onCancel} className="px-4 py-2 text-indigo-800 dark:text-indigo-200 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded">Cancelar</button>
                  <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-bold shadow-md">{isEditing ? 'Guardar' : 'Criar'}</button>
              </div>
         </form>
