@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 
 interface RichTextEditorProps {
@@ -76,15 +75,15 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   return (
     <div className={`flex flex-col ${className}`}>
-      {label && <label className="block text-sm font-medium text-indigo-900 mb-1">{label}</label>}
+      {label && <label className="block text-sm font-medium text-indigo-900 dark:text-indigo-200 mb-1">{label}</label>}
       
       <div className={`
-        bg-white/40 border transition-all duration-300 rounded-xl overflow-hidden shadow-sm flex flex-col
-        ${isFocused ? 'ring-2 ring-indigo-400 border-indigo-300 bg-white/60' : 'border-white/50 hover:bg-white/50'}
+        bg-white/40 dark:bg-slate-900/40 border transition-all duration-300 rounded-xl overflow-hidden shadow-sm flex flex-col
+        ${isFocused ? 'ring-2 ring-indigo-400 border-indigo-300 dark:border-indigo-500 bg-white/60 dark:bg-slate-800/60' : 'border-white/50 dark:border-white/10 hover:bg-white/50 dark:hover:bg-slate-800/50'}
       `}>
         
         {/* Toolbar Glassmorphism */}
-        <div className="flex flex-col gap-2 p-2 border-b border-indigo-100/50 bg-indigo-50/30 backdrop-blur-sm select-none">
+        <div className="flex flex-col gap-2 p-2 border-b border-indigo-100/50 dark:border-white/10 bg-indigo-50/30 dark:bg-slate-800/30 backdrop-blur-sm select-none">
            
            {/* Row 1: Main Structure & Fonts */}
            <div className="flex items-center gap-2 flex-wrap">
@@ -109,7 +108,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                {/* Font Selectors (UPDATED: Larger and more readable) */}
                <select 
                   onChange={(e) => execCommand('fontName', e.target.value)} 
-                  className="h-9 text-sm rounded border-indigo-200 bg-white/70 text-indigo-900 outline-none focus:ring-1 focus:ring-indigo-400 px-2 min-w-[120px] cursor-pointer hover:bg-white"
+                  className="h-9 text-sm rounded border-indigo-200 dark:border-slate-600 bg-white/70 dark:bg-slate-700 text-indigo-900 dark:text-white outline-none focus:ring-1 focus:ring-indigo-400 px-2 min-w-[120px] cursor-pointer hover:bg-white dark:hover:bg-slate-600"
                   defaultValue="Inter"
                >
                    <option value="Inter">Fonte Padrão</option>
@@ -122,7 +121,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
                <select 
                   onChange={(e) => execCommand('fontSize', e.target.value)} 
-                  className="h-9 text-sm rounded border-indigo-200 bg-white/70 text-indigo-900 outline-none focus:ring-1 focus:ring-indigo-400 px-2 min-w-[100px] cursor-pointer hover:bg-white"
+                  className="h-9 text-sm rounded border-indigo-200 dark:border-slate-600 bg-white/70 dark:bg-slate-700 text-indigo-900 dark:text-white outline-none focus:ring-1 focus:ring-indigo-400 px-2 min-w-[100px] cursor-pointer hover:bg-white dark:hover:bg-slate-600"
                   defaultValue="3"
                >
                    <option value="1">1 - Mini</option>
@@ -134,12 +133,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                    <option value="7">7 - XXL</option>
                </select>
 
-                <div className="flex gap-1 ml-1 items-center px-1 border border-indigo-100 rounded bg-white/30 h-9">
-                    <div className="relative w-6 h-6 overflow-hidden rounded-full cursor-pointer border border-indigo-200 shadow-sm" title="Cor do Texto">
+                <div className="flex gap-1 ml-1 items-center px-1 border border-indigo-100 dark:border-slate-700 rounded bg-white/30 dark:bg-slate-800/30 h-9">
+                    <div className="relative w-6 h-6 overflow-hidden rounded-full cursor-pointer border border-indigo-200 dark:border-slate-600 shadow-sm" title="Cor do Texto">
                         <input type="color" value={foreColor} onChange={(e) => handleColorChange(e, 'foreColor')} className="absolute -top-4 -left-4 w-16 h-16 cursor-pointer p-0 border-0" />
                         <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold pointer-events-none mix-blend-difference text-white">A</span>
                     </div>
-                    <div className="relative w-6 h-6 overflow-hidden rounded-sm cursor-pointer border border-indigo-200 shadow-sm" title="Cor de Fundo (Realce)">
+                    <div className="relative w-6 h-6 overflow-hidden rounded-sm cursor-pointer border border-indigo-200 dark:border-slate-600 shadow-sm" title="Cor de Fundo (Realce)">
                         <input type="color" value={hiliteColor} onChange={(e) => handleColorChange(e, 'hiliteColor')} className="absolute -top-4 -left-4 w-16 h-16 cursor-pointer p-0 border-0" />
                         <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold pointer-events-none mix-blend-difference text-white">Bg</span>
                     </div>
@@ -147,7 +146,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
            </div>
 
            {/* Row 2: Formatting & Tools */}
-           <div className="flex items-center gap-1 flex-wrap pt-1 border-t border-indigo-100/50">
+           <div className="flex items-center gap-1 flex-wrap pt-1 border-t border-indigo-100/50 dark:border-white/10">
                
                {/* Basic Formatting */}
                <div className="flex gap-0.5">
@@ -204,7 +203,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         {/* Content Editable Area */}
         <div 
             ref={editorRef}
-            className="prose prose-indigo prose-sm max-w-none focus:outline-none min-h-[250px] p-4 text-indigo-900 leading-relaxed overflow-y-auto"
+            className="prose prose-indigo dark:prose-invert prose-sm max-w-none focus:outline-none min-h-[250px] p-4 text-indigo-900 dark:text-indigo-100 leading-relaxed overflow-y-auto"
             contentEditable
             onInput={handleInput}
             onFocus={() => setIsFocused(true)}
@@ -236,6 +235,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 max-width: 100%;
                 margin: 1rem 0;
             }
+            /* Explicit Colors for Light Mode (Dark mode handled by prose-invert) */
             .prose h1 { color: #312e81; font-weight: 800; margin-top: 1.5em; margin-bottom: 0.5em; line-height: 1.1; }
             .prose h2 { color: #3730a3; font-weight: 700; margin-top: 1.2em; margin-bottom: 0.5em; line-height: 1.2; }
             .prose h3 { color: #4338ca; font-weight: 600; margin-top: 1em; margin-bottom: 0.5em; }
@@ -244,6 +244,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
             .prose ol { list-style-type: decimal; padding-left: 1.5em; }
             .prose sup { vertical-align: super; font-size: smaller; }
             .prose sub { vertical-align: sub; font-size: smaller; }
+            
+            /* Dark Mode Overrides for Specific Tags if prose-invert misses */
+            .dark .prose h1 { color: #e0e7ff; }
+            .dark .prose h2 { color: #c7d2fe; }
+            .dark .prose h3 { color: #a5b4fc; }
+            .dark .prose a { color: #818cf8; }
         `}</style>
       </div>
     </div>
@@ -251,7 +257,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 };
 
 // UI Components
-const Divider = () => <div className="w-px h-5 bg-indigo-200 mx-1.5 opacity-50"></div>;
+const Divider = () => <div className="w-px h-5 bg-indigo-200 dark:bg-slate-600 mx-1.5 opacity-50"></div>;
 
 const ToolbarButton: React.FC<{ 
   icon: React.ReactNode, 
@@ -269,7 +275,7 @@ const ToolbarButton: React.FC<{
       p-1 w-7 h-7 rounded-md transition-all flex items-center justify-center active:scale-95
       ${isActive 
         ? 'bg-indigo-600 text-white shadow-sm' 
-        : 'text-indigo-600 hover:bg-indigo-100 hover:text-indigo-900'}
+        : 'text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-slate-700 hover:text-indigo-900 dark:hover:text-white'}
     `}
     title={title}
   >
@@ -300,4 +306,3 @@ const IconOutdent = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="
 const IconSub = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 19 6-6"/><path d="m4 13 6 6"/><path d="M19 19a2 2 0 0 0 2-2v-1a2 2 0 0 0-2-2h-1v5"/></svg>;
 const IconSup = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 19 6-6"/><path d="m4 13 6 6"/><path d="M19 9a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1v5"/></svg>;
 const IconLorem = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
-

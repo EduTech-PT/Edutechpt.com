@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { GlassCard } from '../../GlassCard';
 import { RichTextEditor } from '../../RichTextEditor';
@@ -17,8 +16,8 @@ export const ProfileBio: React.FC<Props> = ({ user, formData, visibility, isEdit
     
     return (
         <GlassCard className="flex-1 flex flex-col min-h-[300px]">
-            <div className="flex justify-between items-center mb-4 border-b border-indigo-100 pb-2">
-                <h3 className="font-bold text-lg text-indigo-900">Sobre Mim (Biografia)</h3>
+            <div className="flex justify-between items-center mb-4 border-b border-indigo-100 dark:border-slate-700 pb-2">
+                <h3 className="font-bold text-lg text-indigo-900 dark:text-white">Sobre Mim (Biografia)</h3>
                 {isEditing && (
                     <div className="flex items-center gap-2">
                         <input 
@@ -26,9 +25,9 @@ export const ProfileBio: React.FC<Props> = ({ user, formData, visibility, isEdit
                             id="vis-bio"
                             checked={!!visibility.bio} 
                             onChange={(e) => onToggleVisibility('bio', e.target.checked)}
-                            className="w-3 h-3 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
+                            className="w-3 h-3 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300 dark:border-slate-600 dark:bg-slate-800"
                         />
-                        <label htmlFor="vis-bio" className="text-[10px] text-indigo-500 select-none cursor-pointer uppercase font-bold tracking-wide">
+                        <label htmlFor="vis-bio" className="text-[10px] text-indigo-500 dark:text-indigo-400 select-none cursor-pointer uppercase font-bold tracking-wide">
                             Público
                         </label>
                     </div>
@@ -44,14 +43,14 @@ export const ProfileBio: React.FC<Props> = ({ user, formData, visibility, isEdit
                         placeholder="Conte um pouco sobre a sua experiência profissional, interesses e objetivos..."
                     />
                 ) : (
-                    <div className="prose prose-indigo prose-sm max-w-none text-indigo-900">
+                    <div className="prose prose-indigo dark:prose-invert prose-sm max-w-none text-indigo-900 dark:text-indigo-100">
                         {user.bio ? (
                             <div dangerouslySetInnerHTML={{ __html: user.bio }} />
                         ) : (
                             <div className="text-center py-10 opacity-50 flex flex-col items-center">
                                 <span className="text-4xl mb-2">📝</span>
-                                <p>Ainda não escreveu nada sobre si.</p>
-                                <p className="text-xs">Clique em "Editar Perfil" para adicionar uma biografia.</p>
+                                <p className="dark:text-indigo-200">Ainda não escreveu nada sobre si.</p>
+                                <p className="text-xs dark:text-indigo-300">Clique em "Editar Perfil" para adicionar uma biografia.</p>
                             </div>
                         )}
                     </div>

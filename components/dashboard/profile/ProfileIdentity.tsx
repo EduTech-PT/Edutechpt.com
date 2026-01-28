@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { GlassCard } from '../../GlassCard';
 import { Profile } from '../../../types';
@@ -28,18 +27,18 @@ export const ProfileIdentity: React.FC<Props> = ({
                 {isAdminMode && <span className="bg-red-100 text-red-600 px-2 py-1 rounded text-[10px] font-bold uppercase border border-red-200">Admin Mode</span>}
             </div>
             {onBack && (
-                <button onClick={onBack} className="absolute top-4 right-4 z-20 text-indigo-400 hover:text-indigo-800 bg-white/50 p-1 rounded">↩</button>
+                <button onClick={onBack} className="absolute top-4 right-4 z-20 text-indigo-400 hover:text-indigo-800 dark:text-indigo-300 dark:hover:text-white bg-white/50 dark:bg-black/30 p-1 rounded">↩</button>
             )}
 
-            <h3 className="text-lg font-bold text-indigo-900 mb-6 uppercase tracking-wide border-b border-indigo-100 pb-2 w-full">Perfil</h3>
+            <h3 className="text-lg font-bold text-indigo-900 dark:text-white mb-6 uppercase tracking-wide border-b border-indigo-100 dark:border-slate-700 pb-2 w-full">Perfil</h3>
 
             {/* Avatar */}
             <div className="relative group mb-4">
-                <div className="w-32 h-32 rounded-full border-4 border-white shadow-lg bg-indigo-50 overflow-hidden flex items-center justify-center mx-auto">
+                <div className="w-32 h-32 rounded-full border-4 border-white dark:border-slate-600 shadow-lg bg-indigo-50 dark:bg-slate-800 overflow-hidden flex items-center justify-center mx-auto">
                     {user.avatar_url ? (
                         <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
-                        <span className="text-4xl text-indigo-300 font-bold">{user.full_name?.[0]?.toUpperCase() || 'U'}</span>
+                        <span className="text-4xl text-indigo-300 dark:text-indigo-500 font-bold">{user.full_name?.[0]?.toUpperCase() || 'U'}</span>
                     )}
                 </div>
 
@@ -57,11 +56,11 @@ export const ProfileIdentity: React.FC<Props> = ({
 
             {/* NOTA SOBRE A FOTO */}
             {isEditing && avatarConfig && avatarConfig.helpText && (
-                <div className="w-full text-xs text-indigo-700 bg-indigo-50 p-3 rounded-lg border border-indigo-100 mb-4 text-left">
-                    <strong className="block mb-1 text-indigo-900">ℹ️ Nota sobre a Foto:</strong>
+                <div className="w-full text-xs text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-slate-800/50 p-3 rounded-lg border border-indigo-100 dark:border-slate-700 mb-4 text-left">
+                    <strong className="block mb-1 text-indigo-900 dark:text-white">ℹ️ Nota sobre a Foto:</strong>
                     <div className="whitespace-pre-wrap opacity-90 leading-relaxed">{avatarConfig.helpText}</div>
                     {avatarConfig.resizerLink && (
-                        <a href={avatarConfig.resizerLink} target="_blank" rel="noopener noreferrer" className="block mt-2 font-bold text-indigo-600 underline">
+                        <a href={avatarConfig.resizerLink} target="_blank" rel="noopener noreferrer" className="block mt-2 font-bold text-indigo-600 dark:text-indigo-400 underline">
                             Ferramenta de Redimensionamento ↗
                         </a>
                     )}
@@ -70,8 +69,8 @@ export const ProfileIdentity: React.FC<Props> = ({
 
             {/* Nome e Role Display (Visual) */}
             <div className="mb-6">
-                <h2 className="text-xl font-bold text-indigo-900 leading-tight">{formData.full_name || user.full_name}</h2>
-                <span className="inline-block mt-2 px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-bold uppercase tracking-wide">
+                <h2 className="text-xl font-bold text-indigo-900 dark:text-white leading-tight">{formData.full_name || user.full_name}</h2>
+                <span className="inline-block mt-2 px-3 py-1 bg-indigo-100 dark:bg-slate-700 text-indigo-800 dark:text-indigo-200 rounded-full text-xs font-bold uppercase tracking-wide">
                     {user.role}
                 </span>
             </div>
@@ -88,7 +87,7 @@ export const ProfileIdentity: React.FC<Props> = ({
                         </button>
                         <button
                             onClick={onCancel}
-                            className="w-full py-2 bg-white text-gray-600 border border-gray-200 rounded-lg font-bold hover:bg-gray-50 transition-colors"
+                            className="w-full py-2 bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-slate-600 rounded-lg font-bold hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
                         >
                             Cancelar
                         </button>
@@ -96,7 +95,7 @@ export const ProfileIdentity: React.FC<Props> = ({
                 ) : (
                     <button
                         onClick={onToggleEdit}
-                        className="w-full py-2 bg-white text-indigo-600 border border-indigo-200 rounded-lg shadow-sm font-bold hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2"
+                        className="w-full py-2 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-slate-600 rounded-lg shadow-sm font-bold hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-center gap-2"
                     >
                         ✏️ Editar Perfil
                     </button>
