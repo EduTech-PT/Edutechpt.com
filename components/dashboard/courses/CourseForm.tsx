@@ -71,8 +71,16 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
             const rate = parseFloat(rStr) || 0;
             
             const total = hours * rate;
-            // Format to avoid long decimals, but keep integers clean
-            const totalFormatted = total % 1 !== 0 ? total.toFixed(2) : total.toString();
+            
+            let totalFormatted;
+            
+            // Logic Update: Show "Gratuito" if total is 0
+            if (total === 0) {
+                totalFormatted = 'Gratuito';
+            } else {
+                // Format to avoid long decimals, but keep integers clean
+                totalFormatted = total % 1 !== 0 ? total.toFixed(2) : total.toString();
+            }
 
             // Only update if value is different to avoid redundant renders (though React handles strict equality)
             if (formData.price !== totalFormatted) {
