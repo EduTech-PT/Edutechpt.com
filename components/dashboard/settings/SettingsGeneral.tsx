@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../../GlassCard';
 import { adminService } from '../../../services/admin';
@@ -19,8 +20,22 @@ interface Step {
     id: string;
     title: string;
     description: string;
-    badge: string; // O número ou ícone (ex: "1", "2", "🎓")
-    color: string; // indigo, purple, pink, etc
+    badge: string; 
+    color: string; 
+}
+
+interface Testimonial {
+    id: string;
+    name: string;
+    role: string;
+    text: string;
+    avatar_url?: string;
+}
+
+interface LandingVideo {
+    id: string;
+    title: string;
+    youtube_url: string;
 }
 
 const DEFAULT_STEPS: Step[] = [
@@ -44,8 +59,10 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
     // Test Tools
     const [showCertTest, setShowCertTest] = useState(false);
 
-    // Landing Page Steps State
+    // Landing Page Content State
     const [steps, setSteps] = useState<Step[]>(DEFAULT_STEPS);
+    const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+    const [videos, setVideos] = useState<LandingVideo[]>([]);
 
     useEffect(() => {
         loadConfig();
@@ -68,13 +85,26 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
             if (data.landing_how_it_works) {
                 try {
                     const parsedSteps = JSON.parse(data.landing_how_it_works);
-                    if (Array.isArray(parsedSteps) && parsedSteps.length > 0) {
-                        setSteps(parsedSteps);
-                    }
-                } catch (e) {
-                    console.warn("Erro ao ler passos da landing page", e);
-                }
+                    if (Array.isArray(parsedSteps)) setSteps(parsedSteps);
+                } catch (e) { console.warn("Erro steps", e); }
             }
+
+            // Load Testimonials
+            if (data.landing_testimonials) {
+                try {
+                    const parsedTests = JSON.parse(data.landing_testimonials);
+                    if (Array.isArray(parsedTests)) setTestimonials(parsedTests);
+                } catch (e) { console.warn("Erro testimonials", e); }
+            }
+
+            // Load Videos
+            if (data.landing_videos) {
+                try {
+                    const parsedVideos = JSON.parse(data.landing_videos);
+                    if (Array.isArray(parsedVideos)) setVideos(parsedVideos);
+                } catch (e) { console.warn("Erro videos", e); }
+            }
+
         } catch (e) {
             console.error(e);
         } finally {
@@ -100,10 +130,12 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
             await adminService.updateAppConfig('auth_warning_summary', config.authWarningSummary);
             await adminService.updateAppConfig('auth_warning_steps', config.authWarningSteps);
 
-            // Landing Page Steps
+            // Landing Page Content
             await adminService.updateAppConfig('landing_how_it_works', JSON.stringify(steps));
+            await adminService.updateAppConfig('landing_testimonials', JSON.stringify(testimonials));
+            await adminService.updateAppConfig('landing_videos', JSON.stringify(videos));
 
-            alert('Definições gerais, login e landing page guardadas.');
+            alert('Definições gerais e conteúdo da Landing Page guardados.');
         } catch (e: any) {
             alert('Erro ao guardar: ' + e.message);
         } finally {
@@ -145,37 +177,33 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
         } catch (err) { console.error(err); }
     };
 
-    // Steps Management
+    // --- Steps Management ---
     const addStep = () => {
-        const newStep: Step = {
-            id: Date.now().toString(),
-            title: 'Novo Passo',
-            description: 'Descrição do passo.',
-            badge: (steps.length + 1).toString(),
-            color: 'indigo'
-        };
+        const newStep: Step = { id: Date.now().toString(), title: 'Novo Passo', description: 'Descrição...', badge: (steps.length + 1).toString(), color: 'indigo' };
         setSteps([...steps, newStep]);
     };
-
-    const removeStep = (id: string) => {
-        if (window.confirm("Remover este passo?")) {
-            setSteps(steps.filter(s => s.id !== id));
-        }
-    };
-
-    const updateStep = (id: string, field: keyof Step, value: string) => {
-        setSteps(steps.map(s => s.id === id ? { ...s, [field]: value } : s));
-    };
-
+    const removeStep = (id: string) => { if (window.confirm("Remover?")) setSteps(steps.filter(s => s.id !== id)); };
+    const updateStep = (id: string, field: keyof Step, value: string) => { setSteps(steps.map(s => s.id === id ? { ...s, [field]: value } : s)); };
     const moveStep = (index: number, direction: 'up' | 'down') => {
         const newSteps = [...steps];
-        if (direction === 'up' && index > 0) {
-            [newSteps[index], newSteps[index - 1]] = [newSteps[index - 1], newSteps[index]];
-        } else if (direction === 'down' && index < newSteps.length - 1) {
-            [newSteps[index], newSteps[index + 1]] = [newSteps[index + 1], newSteps[index]];
-        }
+        if (direction === 'up' && index > 0) { [newSteps[index], newSteps[index - 1]] = [newSteps[index - 1], newSteps[index]]; } 
+        else if (direction === 'down' && index < newSteps.length - 1) { [newSteps[index], newSteps[index + 1]] = [newSteps[index + 1], newSteps[index]]; }
         setSteps(newSteps);
     };
+
+    // --- Testimonials Management ---
+    const addTestimonial = () => {
+        setTestimonials([...testimonials, { id: Date.now().toString(), name: 'Nome do Aluno', role: 'Curso de React', text: 'Opinião sobre o curso...' }]);
+    };
+    const removeTestimonial = (id: string) => { if (window.confirm("Remover testemunho?")) setTestimonials(testimonials.filter(t => t.id !== id)); };
+    const updateTestimonial = (id: string, field: keyof Testimonial, value: string) => { setTestimonials(testimonials.map(t => t.id === id ? { ...t, [field]: value } : t)); };
+
+    // --- Videos Management ---
+    const addVideo = () => {
+        setVideos([...videos, { id: Date.now().toString(), title: 'Apresentação', youtube_url: '' }]);
+    };
+    const removeVideo = (id: string) => { if (window.confirm("Remover vídeo?")) setVideos(videos.filter(v => v.id !== id)); };
+    const updateVideo = (id: string, field: keyof LandingVideo, value: string) => { setVideos(videos.map(v => v.id === id ? { ...v, [field]: value } : v)); };
 
     // MOCK DATA FOR CERTIFICATE TEST
     const testCourse: Course = {
@@ -231,14 +259,8 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                     <h3 className="font-bold text-xl text-indigo-900 dark:text-white flex items-center gap-2">
                         <span>🚀</span> Landing Page: Como Funciona
                     </h3>
-                    <button 
-                        onClick={addStep}
-                        className="px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 text-xs font-bold rounded-lg hover:bg-indigo-200"
-                    >
-                        + Adicionar Passo
-                    </button>
+                    <button onClick={addStep} className="px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 text-xs font-bold rounded-lg hover:bg-indigo-200">+ Adicionar Passo</button>
                 </div>
-                
                 <div className="space-y-4">
                     {steps.map((step, idx) => (
                         <div key={step.id} className="flex gap-4 p-4 bg-white/40 dark:bg-slate-800/40 border border-indigo-100 dark:border-slate-700 rounded-xl items-start">
@@ -246,55 +268,61 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                                 <button onClick={() => moveStep(idx, 'up')} disabled={idx === 0} className="text-gray-400 hover:text-indigo-600 disabled:opacity-20">▲</button>
                                 <button onClick={() => moveStep(idx, 'down')} disabled={idx === steps.length - 1} className="text-gray-400 hover:text-indigo-600 disabled:opacity-20">▼</button>
                             </div>
-                            
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-1">
-                                <div>
-                                    <label className="text-[10px] font-bold text-indigo-400 uppercase">Ícone/Nº</label>
-                                    <input 
-                                        type="text" 
-                                        value={step.badge} 
-                                        onChange={(e) => updateStep(step.id, 'badge', e.target.value)}
-                                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm font-bold text-center"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-bold text-indigo-400 uppercase">Cor</label>
-                                    <select 
-                                        value={step.color} 
-                                        onChange={(e) => updateStep(step.id, 'color', e.target.value)}
-                                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm"
-                                    >
-                                        <option value="indigo">Indigo (Azul)</option>
-                                        <option value="purple">Purple (Roxo)</option>
-                                        <option value="pink">Pink (Rosa)</option>
-                                        <option value="green">Green (Verde)</option>
-                                        <option value="yellow">Yellow (Amarelo)</option>
-                                        <option value="red">Red (Vermelho)</option>
-                                    </select>
-                                </div>
-                                <div className="md:col-span-2">
-                                    <label className="text-[10px] font-bold text-indigo-400 uppercase">Título</label>
-                                    <input 
-                                        type="text" 
-                                        value={step.title} 
-                                        onChange={(e) => updateStep(step.id, 'title', e.target.value)}
-                                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm font-bold"
-                                    />
-                                </div>
-                                <div className="md:col-span-4">
-                                    <label className="text-[10px] font-bold text-indigo-400 uppercase">Descrição</label>
-                                    <textarea 
-                                        value={step.description} 
-                                        onChange={(e) => updateStep(step.id, 'description', e.target.value)}
-                                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm"
-                                        rows={2}
-                                    />
-                                </div>
+                                <div><label className="text-[10px] font-bold text-indigo-400 uppercase">Ícone/Nº</label><input type="text" value={step.badge} onChange={(e) => updateStep(step.id, 'badge', e.target.value)} className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm font-bold text-center"/></div>
+                                <div><label className="text-[10px] font-bold text-indigo-400 uppercase">Cor</label><select value={step.color} onChange={(e) => updateStep(step.id, 'color', e.target.value)} className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm"><option value="indigo">Indigo</option><option value="purple">Purple</option><option value="pink">Pink</option><option value="green">Green</option><option value="yellow">Yellow</option><option value="red">Red</option></select></div>
+                                <div className="md:col-span-2"><label className="text-[10px] font-bold text-indigo-400 uppercase">Título</label><input type="text" value={step.title} onChange={(e) => updateStep(step.id, 'title', e.target.value)} className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm font-bold"/></div>
+                                <div className="md:col-span-4"><label className="text-[10px] font-bold text-indigo-400 uppercase">Descrição</label><textarea value={step.description} onChange={(e) => updateStep(step.id, 'description', e.target.value)} className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm" rows={2}/></div>
                             </div>
-
                             <button onClick={() => removeStep(step.id)} className="text-red-400 hover:text-red-600 p-2">✕</button>
                         </div>
                     ))}
+                </div>
+            </div>
+
+            {/* LANDING PAGE - TESTIMONIALS */}
+            <div className="border-t border-indigo-100 dark:border-white/10 pt-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-xl text-indigo-900 dark:text-white flex items-center gap-2">
+                        <span>💬</span> Landing Page: Testemunhos
+                    </h3>
+                    <button onClick={addTestimonial} className="px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 text-xs font-bold rounded-lg hover:bg-indigo-200">+ Adicionar</button>
+                </div>
+                <div className="space-y-4">
+                    {testimonials.map((test) => (
+                        <div key={test.id} className="p-4 bg-white/40 dark:bg-slate-800/40 border border-indigo-100 dark:border-slate-700 rounded-xl relative">
+                            <button onClick={() => removeTestimonial(test.id)} className="absolute top-2 right-2 text-red-400 hover:text-red-600">✕</button>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div><label className="text-[10px] font-bold text-indigo-400 uppercase">Nome</label><input type="text" value={test.name} onChange={(e) => updateTestimonial(test.id, 'name', e.target.value)} className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm font-bold"/></div>
+                                <div><label className="text-[10px] font-bold text-indigo-400 uppercase">Cargo/Curso</label><input type="text" value={test.role} onChange={(e) => updateTestimonial(test.id, 'role', e.target.value)} className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm"/></div>
+                                <div><label className="text-[10px] font-bold text-indigo-400 uppercase">Avatar URL (Opcional)</label><input type="text" value={test.avatar_url || ''} onChange={(e) => updateTestimonial(test.id, 'avatar_url', e.target.value)} placeholder="https://..." className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm"/></div>
+                                <div className="md:col-span-3"><label className="text-[10px] font-bold text-indigo-400 uppercase">Texto</label><textarea value={test.text} onChange={(e) => updateTestimonial(test.id, 'text', e.target.value)} className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm" rows={2}/></div>
+                            </div>
+                        </div>
+                    ))}
+                    {testimonials.length === 0 && <p className="text-sm text-gray-400 italic text-center">Nenhum testemunho configurado.</p>}
+                </div>
+            </div>
+
+            {/* LANDING PAGE - VIDEOS */}
+            <div className="border-t border-indigo-100 dark:border-white/10 pt-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-xl text-indigo-900 dark:text-white flex items-center gap-2">
+                        <span>🎬</span> Landing Page: Vídeos (Youtube)
+                    </h3>
+                    <button onClick={addVideo} className="px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 text-xs font-bold rounded-lg hover:bg-indigo-200">+ Adicionar</button>
+                </div>
+                <div className="space-y-4">
+                    {videos.map((vid) => (
+                        <div key={vid.id} className="p-4 bg-white/40 dark:bg-slate-800/40 border border-indigo-100 dark:border-slate-700 rounded-xl relative">
+                            <button onClick={() => removeVideo(vid.id)} className="absolute top-2 right-2 text-red-400 hover:text-red-600">✕</button>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div><label className="text-[10px] font-bold text-indigo-400 uppercase">Título</label><input type="text" value={vid.title} onChange={(e) => updateVideo(vid.id, 'title', e.target.value)} className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm font-bold"/></div>
+                                <div><label className="text-[10px] font-bold text-indigo-400 uppercase">Link YouTube</label><input type="text" value={vid.youtube_url} onChange={(e) => updateVideo(vid.id, 'youtube_url', e.target.value)} placeholder="https://www.youtube.com/watch?v=..." className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm"/></div>
+                            </div>
+                        </div>
+                    ))}
+                    {videos.length === 0 && <p className="text-sm text-gray-400 italic text-center">Nenhum vídeo configurado.</p>}
                 </div>
             </div>
 

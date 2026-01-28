@@ -23,6 +23,20 @@ interface Step {
     color: string;
 }
 
+interface Testimonial {
+    id: string;
+    name: string;
+    role: string;
+    text: string;
+    avatar_url?: string;
+}
+
+interface LandingVideo {
+    id: string;
+    title: string;
+    youtube_url: string;
+}
+
 const DEFAULT_STEPS: Step[] = [
     { id: '1', title: 'Escolha o Curso', description: 'Navegue pelo nosso catálogo e selecione a formação.', badge: '1', color: 'indigo' },
     { id: '2', title: 'Inscreva-se', description: 'Crie a sua conta de aluno para aceder à turma.', badge: '2', color: 'purple' },
@@ -34,7 +48,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
   const [loading, setLoading] = useState(true);
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  
+  // Dynamic Content
   const [steps, setSteps] = useState<Step[]>(DEFAULT_STEPS);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [videos, setVideos] = useState<LandingVideo[]>([]);
   
   const [appEmailConfig, setAppEmailConfig] = useState({
       subject: 'Candidatura EduTech PT',
@@ -67,12 +85,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
           if (configResult.landing_how_it_works) {
               try {
                   const parsed = JSON.parse(configResult.landing_how_it_works);
-                  if (Array.isArray(parsed) && parsed.length > 0) {
-                      setSteps(parsed);
-                  }
-              } catch (e) {
-                  console.warn("Erro a carregar passos dinâmicos:", e);
-              }
+                  if (Array.isArray(parsed) && parsed.length > 0) setSteps(parsed);
+              } catch (e) { console.warn("Erro parsing steps", e); }
+          }
+          // Load Testimonials
+          if (configResult.landing_testimonials) {
+              try {
+                  const parsed = JSON.parse(configResult.landing_testimonials);
+                  if (Array.isArray(parsed)) setTestimonials(parsed);
+              } catch (e) { console.warn("Erro parsing testimonials", e); }
+          }
+          // Load Videos
+          if (configResult.landing_videos) {
+              try {
+                  const parsed = JSON.parse(configResult.landing_videos);
+                  if (Array.isArray(parsed)) setVideos(parsed);
+              } catch (e) { console.warn("Erro parsing videos", e); }
           }
       }
     } catch (err) { console.error('Unexpected error:', err); } 
@@ -126,6 +154,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
           case 'red': return { bg: 'bg-red-600', border: 'border-red-50 dark:border-slate-800' };
           default: return { bg: 'bg-indigo-600', border: 'border-indigo-50 dark:border-slate-800' };
       }
+  };
+
+  // Extract YouTube ID
+  const getYoutubeId = (url: string) => {
+      if (!url) return null;
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+      const match = url.match(regExp);
+      return (match && match[2].length === 11) ? match[2] : null;
   };
 
   return (
@@ -250,6 +286,39 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
         )}
       </div>
 
+      {/* TESTIMONIALS SECTION (NEW) */}
+      {testimonials.length > 0 && (
+          <div className="py-16 bg-white/20 dark:bg-black/20 backdrop-blur-md border-y border-white/30 dark:border-white/10 relative z-10">
+              <div className="max-w-7xl mx-auto px-4">
+                  <h2 className="text-3xl font-bold text-indigo-900 dark:text-white mb-12 text-center">O Que Dizem os Alunos</h2>
+                  <div className="flex gap-6 overflow-x-auto pb-8 snap-x snap-mandatory custom-scrollbar">
+                      {testimonials.map((test) => (
+                          <div key={test.id} className="min-w-[300px] md:min-w-[400px] snap-center">
+                              <GlassCard className="h-full flex flex-col p-6 border border-white/50 dark:border-white/10 bg-white/40 dark:bg-slate-800/40">
+                                  <div className="flex items-center gap-4 mb-4">
+                                      <div className="w-12 h-12 rounded-full bg-indigo-200 dark:bg-slate-700 overflow-hidden border-2 border-white dark:border-slate-500 shadow-sm shrink-0">
+                                          {test.avatar_url ? (
+                                              <img src={test.avatar_url} alt="" className="w-full h-full object-cover" />
+                                          ) : (
+                                              <div className="w-full h-full flex items-center justify-center text-indigo-600 dark:text-indigo-300 font-bold text-lg">{test.name?.[0]}</div>
+                                          )}
+                                      </div>
+                                      <div>
+                                          <div className="font-bold text-indigo-900 dark:text-white">{test.name}</div>
+                                          <div className="text-xs text-indigo-500 dark:text-indigo-300 font-bold uppercase">{test.role}</div>
+                                      </div>
+                                  </div>
+                                  <div className="text-indigo-800 dark:text-indigo-200 text-sm leading-relaxed italic opacity-90">
+                                      "{test.text}"
+                                  </div>
+                              </GlassCard>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* METHODOLOGY SECTION (DYNAMIC) */}
       <div className="bg-gradient-to-b from-transparent to-white/30 dark:to-black/30 py-20 relative z-10">
           <div className="max-w-7xl mx-auto px-4">
@@ -270,6 +339,36 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
               </div>
           </div>
       </div>
+
+      {/* VIDEOS SECTION (NEW) */}
+      {videos.length > 0 && (
+          <div className="py-20 px-4 relative z-10">
+              <div className="max-w-7xl mx-auto">
+                  <h2 className="text-3xl font-bold text-indigo-900 dark:text-white mb-12 text-center">Conheça a Plataforma</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                      {videos.map((video) => {
+                          const videoId = getYoutubeId(video.youtube_url);
+                          return videoId ? (
+                              <GlassCard key={video.id} className="p-0 overflow-hidden border-2 border-white/50 dark:border-white/10 shadow-lg">
+                                  <div className="aspect-video w-full bg-black">
+                                      <iframe 
+                                          src={`https://www.youtube.com/embed/${videoId}`} 
+                                          title={video.title}
+                                          className="w-full h-full" 
+                                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                          allowFullScreen
+                                      ></iframe>
+                                  </div>
+                                  <div className="p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
+                                      <h3 className="font-bold text-indigo-900 dark:text-white text-sm">{video.title}</h3>
+                                  </div>
+                              </GlassCard>
+                          ) : null;
+                      })}
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* FINAL CTA SECTION */}
       <div className="py-20 px-4 relative z-10">
