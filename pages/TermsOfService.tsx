@@ -108,19 +108,22 @@ export const TermsOfService: React.FC<Props> = ({ onBack, isEmbedded = false }) 
       <>
         {/* 
             STYLE OVERRIDE: 
-            Garante que conteúdo colado (ex: do Word) não traz fundos brancos no modo escuro 
-            e força a cor do texto para claro.
+            Força a remoção de formatação de origem (background-color, color) no modo escuro.
         */}
         <style>{`
             .dark .terms-content * {
                 background-color: transparent !important;
-                color: inherit;
+                color: inherit !important;
             }
-            .dark .terms-content strong {
+            .dark .terms-content strong, .dark .terms-content b {
                 color: #fff !important;
+                font-weight: bold !important;
             }
             .dark .terms-content a {
                 color: #818cf8 !important;
+            }
+            .dark .terms-content h1, .dark .terms-content h2, .dark .terms-content h3 {
+                color: #fff !important;
             }
         `}</style>
         <GlassCard className="terms-content prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600 dark:text-indigo-100 dark:prose-invert dark:prose-headings:text-white dark:prose-p:text-indigo-100 dark:prose-a:text-indigo-300 dark:prose-strong:text-white dark:prose-li:text-indigo-100">
