@@ -10,6 +10,7 @@ import { AuthForm } from './components/AuthForm';
 import { SupabaseSession } from './types';
 import { adminService } from './services/admin';
 import { ToastProvider } from './components/ui/ToastProvider';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 function App() {
   const [session, setSession] = useState<SupabaseSession | null>(null);
@@ -147,51 +148,53 @@ function App() {
 
   if (loading) {
     return (
-        <div className="min-h-screen flex items-center justify-center bg-indigo-50">
+        <div className="min-h-screen flex items-center justify-center bg-indigo-50 dark:bg-slate-900 dark:text-white">
             <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-indigo-600"></div>
         </div>
     );
   }
 
   return (
-    <ToastProvider>
-        <div className="text-gray-800">
-        {!session ? (
-            <>
-            {publicView === 'landing' ? (
-                <LandingPage 
-                    onLoginClick={() => setShowAuthModal(true)} 
-                    onPrivacyClick={() => handleNavigate('privacy')}
-                    onTermsClick={() => handleNavigate('terms')} 
-                    onFaqClick={() => handleNavigate('faq')} 
-                />
-            ) : publicView === 'terms' ? (
-                <TermsOfService onBack={() => handleNavigate('landing')} />
-            ) : publicView === 'faq' ? (
-                <FAQPage onBack={() => handleNavigate('landing')} />
-            ) : (
-                <PrivacyPolicy onBack={() => handleNavigate('landing')} />
-            )}
-            
-            {showAuthModal && (
-                <AuthForm 
-                    onCancel={() => setShowAuthModal(false)} 
-                    onPrivacyClick={() => {
-                        setShowAuthModal(false);
-                        handleNavigate('privacy');
-                    }}
-                    onTermsClick={() => {
-                        setShowAuthModal(false);
-                        handleNavigate('terms');
-                    }}
-                />
-            )}
-            </>
-        ) : (
-            <Dashboard session={session} onLogout={handleLogout} />
-        )}
-        </div>
-    </ToastProvider>
+    <ThemeProvider>
+      <ToastProvider>
+          <div className="text-gray-800 dark:text-indigo-100 transition-colors duration-500">
+          {!session ? (
+              <>
+              {publicView === 'landing' ? (
+                  <LandingPage 
+                      onLoginClick={() => setShowAuthModal(true)} 
+                      onPrivacyClick={() => handleNavigate('privacy')}
+                      onTermsClick={() => handleNavigate('terms')} 
+                      onFaqClick={() => handleNavigate('faq')} 
+                  />
+              ) : publicView === 'terms' ? (
+                  <TermsOfService onBack={() => handleNavigate('landing')} />
+              ) : publicView === 'faq' ? (
+                  <FAQPage onBack={() => handleNavigate('landing')} />
+              ) : (
+                  <PrivacyPolicy onBack={() => handleNavigate('landing')} />
+              )}
+              
+              {showAuthModal && (
+                  <AuthForm 
+                      onCancel={() => setShowAuthModal(false)} 
+                      onPrivacyClick={() => {
+                          setShowAuthModal(false);
+                          handleNavigate('privacy');
+                      }}
+                      onTermsClick={() => {
+                          setShowAuthModal(false);
+                          handleNavigate('terms');
+                      }}
+                  />
+              )}
+              </>
+          ) : (
+              <Dashboard session={session} onLogout={handleLogout} />
+          )}
+          </div>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }
 
