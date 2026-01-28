@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { GlassCard } from './GlassCard';
-import { Provider } from '@supabase/supabase-js'; // Restored for v2
 import { adminService } from '../services/admin';
 import { userService } from '../services/users'; // Import userService for rate limiting
 
@@ -59,37 +58,42 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, on
     }).catch(e => console.log('Config load error (Auth)', e));
   }, []);
 
-  const handleOAuthLogin = async (provider: Provider) => {
+  const handleOAuthLogin = async (provider: string) => {
     try {
       setLoading(true);
       setMessage(`A iniciar sessão com ${provider}...`);
       
-      let options: any = {
-        redirectTo: window.location.origin,
+      let signInOptions: any = {
+        provider: provider as any,
+      };
+      
+      const redirectOption = {
+          redirectTo: window.location.origin
       };
 
       // Configurações específicas para evitar erros comuns
       if (provider === 'google') {
-        options.queryParams = {
-          access_type: 'offline',
-          prompt: 'consent', // Força o ecrã de seleção de conta
+        signInOptions = {
+            ...signInOptions,
+            queryParams: {
+                access_type: 'offline',
+                prompt: 'consent', // Força o ecrã de seleção de conta
+            }
         };
         // Adicionado scope de Calendário (Read-only)
-        options.scopes = 'https://www.googleapis.com/auth/calendar.readonly';
+        signInOptions.scopes = 'https://www.googleapis.com/auth/calendar.readonly';
       }
 
       if (provider === 'azure') {
         // 'common' endpoint requer scopes específicos
-        options.scopes = 'openid profile email offline_access'; 
-        options.queryParams = {
+        signInOptions.scopes = 'openid profile email offline_access'; 
+        signInOptions.queryParams = {
           prompt: 'select_account', 
         };
       }
 
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: provider,
-        options: options,
-      });
+      // Supabase v1 compatibility
+      const { error } = await (supabase.auth as any).signIn(signInOptions, redirectOption);
       
       if (error) throw error;
     } catch (error: any) {
@@ -148,49 +152,49 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, on
   if (showRequestModal) {
       return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-indigo-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <GlassCard className="w-full max-w-md relative">
+            <GlassCard className="w-full max-w-md relative bg-white/90 dark:bg-slate-900/90">
                 <button 
                     onClick={() => setShowRequestModal(false)}
-                    className="absolute top-4 right-4 text-indigo-400 hover:text-indigo-800"
+                    className="absolute top-4 right-4 text-indigo-400 hover:text-indigo-800 dark:hover:text-white"
                 >
                     ✕
                 </button>
                 
                 <div className="mb-6 text-center">
-                    <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-2xl mx-auto mb-3">🔐</div>
-                    <h3 className="text-xl font-bold text-indigo-900">Pedir Acesso</h3>
-                    <p className="text-sm text-indigo-600">Preencha os dados para solicitar uma conta.</p>
+                    <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center text-2xl mx-auto mb-3">🔐</div>
+                    <h3 className="text-xl font-bold text-indigo-900 dark:text-white">Pedir Acesso</h3>
+                    <p className="text-sm text-indigo-600 dark:text-indigo-300">Preencha os dados para solicitar uma conta.</p>
                 </div>
 
                 <form onSubmit={handleRequestSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-xs font-bold text-indigo-800 mb-1 uppercase">Nome Completo</label>
+                        <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 mb-1 uppercase">Nome Completo</label>
                         <input 
                             type="text" 
                             required
                             value={reqName}
                             onChange={e => setReqName(e.target.value)}
-                            className="w-full p-2 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none"
+                            className="w-full p-2 rounded bg-white dark:bg-slate-800 border border-indigo-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white"
                             placeholder="Seu nome"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-indigo-800 mb-1 uppercase">Email</label>
+                        <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 mb-1 uppercase">Email</label>
                         <input 
                             type="email" 
                             required
                             value={reqEmail}
                             onChange={e => setReqEmail(e.target.value)}
-                            className="w-full p-2 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none"
+                            className="w-full p-2 rounded bg-white dark:bg-slate-800 border border-indigo-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white"
                             placeholder="seu@email.com"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-indigo-800 mb-1 uppercase">Motivo (Opcional)</label>
+                        <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 mb-1 uppercase">Motivo (Opcional)</label>
                         <textarea 
                             value={reqReason}
                             onChange={e => setReqReason(e.target.value)}
-                            className="w-full p-2 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none h-20 text-sm"
+                            className="w-full p-2 rounded bg-white dark:bg-slate-800 border border-indigo-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-400 outline-none h-20 text-sm text-indigo-900 dark:text-white"
                             placeholder="Ex: Quero inscrever-me no curso de React..."
                         />
                     </div>
@@ -203,7 +207,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, on
                         >
                             {requestLoading ? 'A validar...' : 'Enviar Pedido ✉️'}
                         </button>
-                        <p className="text-[10px] text-center text-indigo-400 mt-2">
+                        <p className="text-[10px] text-center text-indigo-400 dark:text-indigo-300 mt-2">
                             Isto irá abrir o seu cliente de email padrão.
                         </p>
                     </div>
@@ -218,7 +222,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, on
       <GlassCard className="w-full max-w-sm relative animate-in fade-in zoom-in duration-300 p-8">
         <button 
           onClick={onCancel}
-          className="absolute top-4 right-4 text-indigo-900 hover:text-indigo-600 font-bold"
+          className="absolute top-4 right-4 text-indigo-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-300 font-bold"
         >
           ✕
         </button>
@@ -232,11 +236,11 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, on
                 className="h-20 mx-auto mb-6 object-contain drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] transform hover:scale-110 transition-transform duration-500" 
               />
           )}
-          <h2 className="text-2xl font-bold text-indigo-900 mb-2">
+          <h2 className="text-2xl font-bold text-indigo-900 dark:text-white mb-2">
             Bem-vindo
           </h2>
-          <p className="text-indigo-700 text-sm opacity-80 mb-4">
-            Entre na EduTech PT com a sua conta pessoal.
+          <p className="text-indigo-700 dark:text-indigo-200 text-sm opacity-80 mb-4 leading-relaxed">
+            O acesso é simplificado mas extremamente seguro. Utilize a sua conta Google (Gmail) ou Microsoft (Outlook/Hotmail) habitual. Não é necessário criar uma palavra-passe/senha específica para a EduTech PT.
           </p>
 
           {/* Aviso e Guia para Ecrã de Verificação Google */}
@@ -300,14 +304,14 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, on
 
             <button
                 onClick={() => setShowRequestModal(true)}
-                className="w-full flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-2 rounded-xl transition-all font-bold text-sm border border-indigo-200"
+                className="w-full flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-slate-700 dark:hover:bg-slate-600 text-indigo-700 dark:text-indigo-200 py-2 rounded-xl transition-all font-bold text-sm border border-indigo-200 dark:border-slate-600"
             >
                 <span>🔐</span> Pedir Acesso
             </button>
         </div>
 
-        <p className="mt-8 text-xs text-center text-indigo-900/60">
-           Ao continuar, aceita os <button onClick={onTermsClick} className="underline hover:text-indigo-900 font-bold">Termos de Uso</button> e a <button onClick={onPrivacyClick} className="underline hover:text-indigo-900 font-bold">Política de Privacidade</button>.
+        <p className="mt-8 text-xs text-center text-indigo-900/60 dark:text-indigo-200/60">
+           Ao continuar, aceita os <button onClick={onTermsClick} className="underline hover:text-indigo-900 dark:hover:text-white font-bold">Termos de Uso</button> e a <button onClick={onPrivacyClick} className="underline hover:text-indigo-900 dark:hover:text-white font-bold">Política de Privacidade</button>.
         </p>
       </GlassCard>
     </div>

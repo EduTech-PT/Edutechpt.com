@@ -24,7 +24,8 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
     }, []);
 
     const getCurrentUserPreferences = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
+        // Supabase v1 Compatibility: Synchronous user()
+        const user = (supabase.auth as any).user();
         if (user) {
             const currentProfile = await userService.getProfile(user.id);
             if (currentProfile) {
@@ -65,7 +66,8 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
     };
 
     const handleSavePreferences = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
+        // Supabase v1 Compatibility
+        const user = (supabase.auth as any).user();
         if (!user) return;
         try {
             await userService.updateProfile(user.id, { 
