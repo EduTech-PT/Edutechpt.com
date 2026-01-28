@@ -47,6 +47,7 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
       if (!price) return '';
       // Tenta converter para float, substituindo virgula por ponto se necessário
       const num = parseFloat(price.toString().replace(',', '.'));
+      // Se for zero (ou 0.00), retorna Gratuito. Caso contrário retorna o valor original com €
       return num === 0 ? 'Gratuito' : `${price} €`;
   };
 
