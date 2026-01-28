@@ -8,6 +8,8 @@ interface CourseDetailModalProps {
   onClose: () => void;
   onAction: () => void;
   actionLabel: string;
+  onSecondaryAction?: () => void;
+  secondaryLabel?: string;
   isEnrolled?: boolean;
 }
 
@@ -16,6 +18,8 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
   onClose, 
   onAction, 
   actionLabel,
+  onSecondaryAction,
+  secondaryLabel,
   isEnrolled = false
 }) => {
   const mData = course.marketing_data;
@@ -220,19 +224,29 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-6 bg-white/60 dark:bg-slate-900/60 border-t border-white/50 dark:border-white/10 backdrop-blur-md flex justify-between items-center gap-4 shrink-0">
+        <div className="p-6 bg-white/60 dark:bg-slate-900/60 border-t border-white/50 dark:border-white/10 backdrop-blur-md flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
             <button 
                 onClick={onClose}
-                className="px-6 py-3 text-indigo-700 dark:text-indigo-300 font-bold hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                className="px-6 py-3 text-indigo-700 dark:text-indigo-300 font-bold hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg transition-colors order-2 md:order-1 w-full md:w-auto"
             >
                 Fechar
             </button>
-            <button 
-                onClick={onAction}
-                className="px-8 py-3 bg-indigo-600 text-white text-lg font-bold rounded-xl shadow-lg hover:bg-indigo-700 transform hover:-translate-y-1 transition-all"
-            >
-                {actionLabel}
-            </button>
+            <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto order-1 md:order-2">
+                {onSecondaryAction && secondaryLabel && (
+                    <button 
+                        onClick={onSecondaryAction}
+                        className="px-8 py-3 bg-green-600 text-white text-lg font-bold rounded-xl shadow-lg hover:bg-green-700 transform hover:-translate-y-1 transition-all flex-1 md:flex-none"
+                    >
+                        {secondaryLabel}
+                    </button>
+                )}
+                <button 
+                    onClick={onAction}
+                    className={`px-8 py-3 bg-indigo-600 text-white text-lg font-bold rounded-xl shadow-lg hover:bg-indigo-700 transform hover:-translate-y-1 transition-all flex-1 md:flex-none`}
+                >
+                    {actionLabel}
+                </button>
+            </div>
         </div>
       </GlassCard>
     </div>

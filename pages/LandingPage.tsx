@@ -63,6 +63,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       if(el) el.scrollIntoView({behavior: 'smooth'});
   };
 
+  const handleEnrollment = () => {
+      // Cria um link mailto para inscrição no curso selecionado
+      if (!selectedCourse) return;
+      const subject = `Inscrição no Curso: ${selectedCourse.title}`;
+      const body = `Olá,\n\nGostaria de me inscrever no curso "${selectedCourse.title}".\n\nPor favor, enviem-me mais informações sobre como proceder.\n\nObrigado.`;
+      const mailto = `mailto:edutechpt@hotmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.location.href = mailto;
+  };
+
   return (
     <div className="min-h-screen flex flex-col font-sans dark:bg-slate-900 transition-colors duration-500">
       {/* Navbar */}
@@ -220,7 +229,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
             course={selectedCourse} 
             onClose={() => setSelectedCourse(null)} 
             onAction={() => { setSelectedCourse(null); onLoginClick(); }}
-            actionLabel="Aceder / Inscrever-se"
+            actionLabel="Aceder"
+            onSecondaryAction={handleEnrollment}
+            secondaryLabel="Inscrever"
             isEnrolled={false}
           />
       )}
