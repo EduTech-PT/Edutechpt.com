@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Profile, StudentGrade, ClassAssessment } from '../../../types';
 import { courseService } from '../../../services/courses';
+import { adminService } from '../../../services/admin';
 import { formatShortDate } from '../../../utils/formatters';
 
 interface Props {
@@ -13,6 +14,9 @@ export const Gradebook: React.FC<Props> = ({ classId, students }) => {
     const [grades, setGrades] = useState<StudentGrade[]>([]);
     const [assessments, setAssessments] = useState<ClassAssessment[]>([]);
     const [saving, setSaving] = useState(false);
+    
+    // Toggle para envio de notificação
+    const [notifyStudents, setNotifyStudents] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -55,8 +59,32 @@ export const Gradebook: React.FC<Props> = ({ classId, students }) => {
                 grade: g.grade,
                 graded_at: new Date().toISOString()
             }));
+            
             await courseService.saveGrades(gradesToSave);
-            alert("Notas guardadas!");
+            
+            // --- LÓGICA DE NOTIFICAÇÃO ASSÍNCRONA ---
+            if (notifyStudents) {
+                const recipients = students
+                    .map(s => s.email)
+                    .filter(email => email && email.includes('@'))
+                    .join(',');
+
+                if (recipients) {
+                    const subject = `EduTech PT: Atualização da Pauta de Avaliação`;
+                    const body = `
+                        <p>Olá,</p>
+                        <p>Foram lançadas novas notas ou atualizações na pauta de avaliação da tua turma.</p>
+                        <p>Por favor, acede à plataforma EduTech PT para conferires os teus resultados.</p>
+                        <br/>
+                        <p><em>Esta é uma mensagem automática.</em></p>
+                    `;
+                    
+                    // Chamada ao serviço Admin -> GAS
+                    adminService.sendEmailNotification(recipients, subject, body);
+                }
+            }
+
+            alert(notifyStudents ? "Notas guardadas e notificações enviadas!" : "Notas guardadas!");
             loadData();
         } catch (e: any) {
             alert("Erro: " + e.message);
@@ -67,7 +95,22 @@ export const Gradebook: React.FC<Props> = ({ classId, students }) => {
 
     return (
         <div className="flex-1 flex flex-col animate-in fade-in">
-            <h4 className="font-bold text-lg text-indigo-900 mb-4">Pauta de Avaliação</h4>
+            <div className="flex justify-between items-center mb-4">
+                <h4 className="font-bold text-lg text-indigo-900">Pauta de Avaliação</h4>
+                <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100">
+                    <input 
+                        type="checkbox" 
+                        id="notifyToggle"
+                        checked={notifyStudents}
+                        onChange={(e) => setNotifyStudents(e.target.checked)}
+                        className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
+                    />
+                    <label htmlFor="notifyToggle" className="text-xs font-bold text-indigo-700 cursor-pointer select-none">
+                        Notificar Alunos por Email 📧
+                    </label>
+                </div>
+            </div>
+
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left border-collapse">
                     <thead className="bg-indigo-50 text-indigo-900 font-bold text-xs">
@@ -106,7 +149,7 @@ export const Gradebook: React.FC<Props> = ({ classId, students }) => {
             </div>
             <div className="mt-4 flex justify-end">
                 <button onClick={saveGrades} disabled={saving} className="px-6 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-md">
-                    {saving ? 'A Guardar...' : 'Guardar Notas'}
+                    {saving ? 'A Guardar...' : (notifyStudents ? 'Guardar e Enviar 📤' : 'Guardar Notas')}
                 </button>
             </div>
         </div>

@@ -206,6 +206,35 @@ export const adminService = {
         if (error) throw error;
     },
 
+    // --- NOTIFICAÇÕES ASSÍNCRONAS (VIA GAS) ---
+    async sendEmailNotification(to: string, subject: string, htmlBody: string) {
+        const config = await this.getAppConfig();
+        
+        // Verifica se há integração
+        if (!config.googleScriptUrl || !config.googleScriptUrl.startsWith('http')) {
+            console.warn("Email não enviado: Google Script URL não configurado ou inválido.");
+            return false;
+        }
+
+        try {
+            // Chamada Fire-and-Forget (mas com await para apanhar erro de rede)
+            await fetch(config.googleScriptUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({
+                    action: 'sendEmail',
+                    to: to, // Suporta string única ou "email1, email2"
+                    subject: subject,
+                    body: htmlBody
+                })
+            });
+            return true;
+        } catch (e) {
+            console.error("Falha ao enviar email via GAS:", e);
+            return false;
+        }
+    },
+
     // --- CONFIG ---
 
     async getAppConfig() {

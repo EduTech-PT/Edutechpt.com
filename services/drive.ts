@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.5.1";
+export const GAS_VERSION = "v1.6.0";
 
 export interface DriveFile {
   id: string;
@@ -248,8 +248,9 @@ export const GAS_TEMPLATE_CODE = `
 function autorizarPermissoes() {
   const cals = CalendarApp.getAllCalendars();
   const drive = DriveApp.getRootFolder();
-  console.log("SUCESSO! Acesso confirmado para " + cals.length + " calendários.");
-  console.log("Drive Raiz: " + drive.getName());
+  const mail = MailApp.getRemainingDailyQuota();
+  console.log("SUCESSO! Acesso confirmado.");
+  console.log("Quota de Email Restante: " + mail);
 }
 
 // -----------------------------------------------------
@@ -283,6 +284,28 @@ function doPost(e) {
             version: '${GAS_VERSION}',
             timestamp: new Date().toISOString()
         };
+    }
+
+    else if (action === 'sendEmail') {
+        // Envio de Notificações Assíncronas
+        // Se 'to' tiver vírgulas, o MailApp interpreta como múltiplos destinatários (BCC ou To)
+        // Para privacidade, recomendamos usar noBcc se for lista, mas aqui usamos direto.
+        
+        const recipient = data.to;
+        const subject = data.subject;
+        const body = data.body;
+        
+        if(recipient) {
+            MailApp.sendEmail({
+                to: recipient,
+                subject: subject,
+                htmlBody: body,
+                name: 'EduTech PT Notificações'
+            });
+            result = { status: 'success', message: 'Email enviado.' };
+        } else {
+            throw new Error("Destinatário em falta.");
+        }
     }
 
     else if (action === 'getCalendarEvents') {
