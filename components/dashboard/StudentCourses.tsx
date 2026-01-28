@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
@@ -248,6 +249,10 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {publicCourses.map(course => {
                     const isEnrolled = enrollments.some(e => e.course_id === course.id);
+                    // Logic to determine if price should be shown
+                    const hasPlans = course.format === 'self_paced' && course.pricing_plans && course.pricing_plans.length > 0;
+                    const showPrice = hasPrice(course.price) && !hasPlans;
+
                     return (
                         <GlassCard key={course.id} className="flex flex-col h-full bg-white/40 dark:bg-slate-800/40 opacity-90 hover:opacity-100 transition-all group">
                             <div className="h-24 bg-gray-100 dark:bg-slate-700 rounded-lg mb-3 overflow-hidden relative grayscale group-hover:grayscale-0 transition-all">
@@ -256,7 +261,7 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-2xl">✨</div>
                                 )}
-                                {hasPrice(course.price) && (
+                                {showPrice && (
                                     <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
                                         {formatPrice(course.price)}
                                     </div>

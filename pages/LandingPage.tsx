@@ -194,52 +194,58 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
             </GlassCard>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {courses.map(course => (
-                    <GlassCard key={course.id} hoverEffect={true} className="flex flex-col h-full group p-0 overflow-hidden border-0 bg-white/40 dark:bg-slate-800/40">
-                        <div className="h-56 bg-indigo-100 dark:bg-slate-700 relative overflow-hidden">
-                             {course.image_url ? (
-                                <img src={course.image_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                             ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-400 to-purple-500"><span className="text-5xl">📚</span></div>
-                             )}
-                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
-                             
-                             <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
-                                 {/* Format Badge */}
-                                 {course.format === 'self_paced' ? (
-                                     <span className="px-3 py-1 bg-blue-500/90 backdrop-blur-md rounded-lg text-xs font-bold text-white uppercase shadow-lg tracking-wider">
-                                        ▶️ Vídeo
-                                     </span>
-                                 ) : (
-                                     <span className="px-3 py-1 bg-red-500/90 backdrop-blur-md rounded-lg text-xs font-bold text-white uppercase shadow-lg tracking-wider">
-                                        🔴 Ao Vivo
-                                     </span>
-                                 )}
+                {courses.map(course => {
+                    // Logic to determine if price should be shown
+                    const hasPlans = course.format === 'self_paced' && course.pricing_plans && course.pricing_plans.length > 0;
+                    const showPrice = hasPrice(course.price) && !hasPlans;
 
-                                 <span className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-lg text-xs font-bold text-indigo-900 uppercase shadow-lg tracking-wider">
-                                    {course.level}
-                                 </span>
-                                 {hasPrice(course.price) && (
-                                     <span className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-bold shadow-lg">
-                                        Custo: {formatPrice(course.price)}
-                                     </span>
-                                 )}
-                             </div>
-                        </div>
-                        
-                        <div className="p-6 flex flex-col flex-grow">
-                            <h3 className="text-xl font-bold text-indigo-900 dark:text-white mb-1 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{course.title}</h3>
-                            {course.duration && <span className="text-xs font-bold text-indigo-400 uppercase mb-3 block">{course.duration} horas</span>}
-                            
-                            <div className="text-indigo-800 dark:text-indigo-200 opacity-80 text-sm flex-grow mb-6 line-clamp-3 leading-relaxed">
-                               {course.description?.replace(/<[^>]*>?/gm, '') || 'Sem descrição.'}
+                    return (
+                        <GlassCard key={course.id} hoverEffect={true} className="flex flex-col h-full group p-0 overflow-hidden border-0 bg-white/40 dark:bg-slate-800/40">
+                            <div className="h-56 bg-indigo-100 dark:bg-slate-700 relative overflow-hidden">
+                                {course.image_url ? (
+                                    <img src={course.image_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-400 to-purple-500"><span className="text-5xl">📚</span></div>
+                                )}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
+                                
+                                <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
+                                    {/* Format Badge */}
+                                    {course.format === 'self_paced' ? (
+                                        <span className="px-3 py-1 bg-blue-500/90 backdrop-blur-md rounded-lg text-xs font-bold text-white uppercase shadow-lg tracking-wider">
+                                            ▶️ Vídeo
+                                        </span>
+                                    ) : (
+                                        <span className="px-3 py-1 bg-red-500/90 backdrop-blur-md rounded-lg text-xs font-bold text-white uppercase shadow-lg tracking-wider">
+                                            🔴 Ao Vivo
+                                        </span>
+                                    )}
+
+                                    <span className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-lg text-xs font-bold text-indigo-900 uppercase shadow-lg tracking-wider">
+                                        {course.level}
+                                    </span>
+                                    {showPrice && (
+                                        <span className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-bold shadow-lg">
+                                            Custo: {formatPrice(course.price)}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
-                            <button onClick={() => setSelectedCourse(course)} className="w-full py-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-xl font-bold hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 dark:hover:text-white transition-all shadow-sm flex items-center justify-center gap-2 group-hover:shadow-md">
-                                Ver Programa Completo <span>→</span>
-                            </button>
-                        </div>
-                    </GlassCard>
-                ))}
+                            
+                            <div className="p-6 flex flex-col flex-grow">
+                                <h3 className="text-xl font-bold text-indigo-900 dark:text-white mb-1 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{course.title}</h3>
+                                {course.duration && <span className="text-xs font-bold text-indigo-400 uppercase mb-3 block">{course.duration} horas</span>}
+                                
+                                <div className="text-indigo-800 dark:text-indigo-200 opacity-80 text-sm flex-grow mb-6 line-clamp-3 leading-relaxed">
+                                {course.description?.replace(/<[^>]*>?/gm, '') || 'Sem descrição.'}
+                                </div>
+                                <button onClick={() => setSelectedCourse(course)} className="w-full py-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-xl font-bold hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 dark:hover:text-white transition-all shadow-sm flex items-center justify-center gap-2 group-hover:shadow-md">
+                                    Ver Programa Completo <span>→</span>
+                                </button>
+                            </div>
+                        </GlassCard>
+                    );
+                })}
             </div>
         )}
       </div>
