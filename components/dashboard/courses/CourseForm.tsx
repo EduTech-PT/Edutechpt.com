@@ -11,6 +11,30 @@ interface Props {
     onCancel: () => void;
 }
 
+const STANDARD_PLAN_TYPES = [
+    { 
+        id: 'standard', 
+        label: 'Plano Standard (Básico)', 
+        color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+        icon: '🥉',
+        desc: 'Acesso essencial por tempo limitado.'
+    },
+    { 
+        id: 'premium', 
+        label: 'Plano Premium (Completo)', 
+        color: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800', 
+        icon: '🥈',
+        desc: 'Acesso recomendado com duração alargada.'
+    },
+    { 
+        id: 'plus', 
+        label: 'Plano Premium Plus (Extra)', 
+        color: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800', 
+        icon: '🥇',
+        desc: 'Acesso vitalício ou longa duração VIP.'
+    }
+];
+
 export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, onCancel }) => {
     const [formData, setFormData] = useState<Partial<Course>>(initialData);
     const [marketingData, setMarketingData] = useState<MarketingData>({
@@ -37,19 +61,26 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
         }
     }, [initialData]);
 
-    // Handle Plan Changes
-    const addPlan = () => {
-        setPricingPlans([...pricingPlans, { days: 30, price: '0', label: 'Plano Mensal' }]);
-    };
-
-    const removePlan = (index: number) => {
-        setPricingPlans(pricingPlans.filter((_, i) => i !== index));
-    };
-
-    const updatePlan = (index: number, field: keyof PricingPlan, value: any) => {
-        const updated = [...pricingPlans];
-        updated[index] = { ...updated[index], [field]: value };
-        setPricingPlans(updated);
+    const updateStandardPlan = (targetLabel: string, field: keyof PricingPlan, value: any) => {
+        setPricingPlans(prev => {
+            // Verifica se o plano já existe no array
+            const existingIndex = prev.findIndex(p => p.label === targetLabel);
+            
+            if (existingIndex >= 0) {
+                // Atualiza existente
+                const newPlans = [...prev];
+                newPlans[existingIndex] = { ...newPlans[existingIndex], [field]: value };
+                return newPlans;
+            } else {
+                // Cria novo se não existir (inicializando os outros campos)
+                const newPlan: PricingPlan = {
+                    label: targetLabel,
+                    days: field === 'days' ? value : 0,
+                    price: field === 'price' ? value : ''
+                };
+                return [...prev, newPlan];
+            }
+        });
     };
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -123,11 +154,17 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
             finalDescription = generateLegacyHtml(marketingData, formData.title || '');
         }
 
+        // Filter out incomplete plans (must have price and days defined to be saved)
+        // Note: We allow days=0 (lifetime), but price must be present.
+        const validPlans = formData.format === 'self_paced' 
+            ? pricingPlans.filter(p => p.price && p.price.trim() !== '') 
+            : undefined;
+
         await onSave({
             ...formData,
             description: finalDescription,
             marketing_data: marketingData,
-            pricing_plans: formData.format === 'self_paced' ? pricingPlans : undefined
+            pricing_plans: validPlans
         });
     };
 
@@ -214,68 +251,59 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                  )}
              </div>
 
-             {/* Se for SELF_PACED: Construtor de Planos */}
+             {/* Se for SELF_PACED: 3 Planos Standard */}
              {formData.format === 'self_paced' && (
-                 <div className="bg-indigo-50 dark:bg-slate-800/50 p-4 rounded-xl border border-indigo-100 dark:border-slate-700 animate-in fade-in">
-                     <div className="flex justify-between items-center mb-3">
+                 <div className="space-y-3 animate-in fade-in">
+                     <div className="flex justify-between items-end">
                          <h4 className="font-bold text-indigo-900 dark:text-white flex items-center gap-2">
                              <span>💰</span> Opções de Acesso (Planos)
                          </h4>
-                         <button 
-                            type="button" 
-                            onClick={addPlan}
-                            className="text-xs bg-indigo-600 text-white px-3 py-1 rounded-full hover:bg-indigo-700 font-bold shadow-sm"
-                         >
-                             + Adicionar Plano
-                         </button>
+                         <p className="text-[10px] text-indigo-500 dark:text-indigo-400 opacity-80">Preencha apenas os planos que deseja disponibilizar.</p>
                      </div>
                      
-                     {pricingPlans.length === 0 ? (
-                         <div className="text-center py-4 text-gray-400 text-sm">Sem planos definidos. O curso será gratuito ou indisponível.</div>
-                     ) : (
-                         <div className="space-y-2">
-                             {pricingPlans.map((plan, idx) => (
-                                 <div key={idx} className="flex flex-wrap md:flex-nowrap gap-2 items-end bg-white/60 dark:bg-slate-900/60 p-2 rounded-lg border border-indigo-100 dark:border-slate-700">
-                                     <div className="flex-1 min-w-[120px]">
-                                         <label className="text-[10px] uppercase font-bold text-indigo-400">Rótulo (Opcional)</label>
-                                         <input 
-                                            type="text" 
-                                            placeholder="Ex: Mensal" 
-                                            value={plan.label || ''} 
-                                            onChange={e => updatePlan(idx, 'label', e.target.value)}
-                                            className="w-full p-1 bg-transparent border-b border-indigo-200 dark:border-slate-600 outline-none text-sm text-indigo-900 dark:text-white"
-                                         />
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                         {STANDARD_PLAN_TYPES.map((planDef) => {
+                             // Encontrar valor atual do plano ou usar vazio
+                             const current = pricingPlans.find(p => p.label === planDef.label);
+                             const currentDays = current?.days ?? '';
+                             const currentPrice = current?.price || '';
+
+                             return (
+                                 <div key={planDef.id} className={`p-4 rounded-xl border-2 flex flex-col gap-3 transition-all hover:shadow-md ${planDef.color}`}>
+                                     <div className="flex items-center gap-2">
+                                         <span className="text-xl">{planDef.icon}</span>
+                                         <div>
+                                             <h5 className="font-bold text-sm text-indigo-900 dark:text-white leading-tight">{planDef.label}</h5>
+                                             <p className="text-[9px] text-indigo-600 dark:text-indigo-300 opacity-80">{planDef.desc}</p>
+                                         </div>
                                      </div>
-                                     <div className="w-24">
-                                         <label className="text-[10px] uppercase font-bold text-indigo-400">Dias (0=Vitalício)</label>
-                                         <input 
-                                            type="number" 
-                                            value={plan.days === null ? 0 : plan.days} 
-                                            onChange={e => updatePlan(idx, 'days', parseInt(e.target.value) || 0)}
-                                            className="w-full p-1 bg-transparent border-b border-indigo-200 dark:border-slate-600 outline-none text-sm text-indigo-900 dark:text-white"
-                                         />
+                                     
+                                     <div className="grid grid-cols-2 gap-2 mt-auto">
+                                         <div>
+                                             <label className="block text-[9px] font-bold uppercase text-indigo-500 dark:text-indigo-400 mb-1">Dias</label>
+                                             <input 
+                                                type="number" 
+                                                placeholder="0 = Vitalício"
+                                                value={currentDays}
+                                                onChange={e => updateStandardPlan(planDef.label, 'days', e.target.value === '' ? '' : parseInt(e.target.value))}
+                                                className="w-full p-1.5 rounded text-sm border border-indigo-100 dark:border-indigo-700 bg-white/80 dark:bg-slate-900/80 outline-none text-indigo-900 dark:text-white"
+                                             />
+                                         </div>
+                                         <div>
+                                             <label className="block text-[9px] font-bold uppercase text-indigo-500 dark:text-indigo-400 mb-1">Preço (€)</label>
+                                             <input 
+                                                type="text" 
+                                                placeholder="Ex: 25"
+                                                value={currentPrice}
+                                                onChange={e => updateStandardPlan(planDef.label, 'price', e.target.value)}
+                                                className="w-full p-1.5 rounded text-sm border border-indigo-100 dark:border-indigo-700 bg-white/80 dark:bg-slate-900/80 outline-none text-indigo-900 dark:text-white font-bold"
+                                             />
+                                         </div>
                                      </div>
-                                     <div className="w-24">
-                                         <label className="text-[10px] uppercase font-bold text-indigo-400">Preço (€)</label>
-                                         <input 
-                                            type="text" 
-                                            value={plan.price} 
-                                            onChange={e => updatePlan(idx, 'price', e.target.value)}
-                                            className="w-full p-1 bg-transparent border-b border-indigo-200 dark:border-slate-600 outline-none text-sm text-indigo-900 dark:text-white"
-                                         />
-                                     </div>
-                                     <button 
-                                        type="button" 
-                                        onClick={() => removePlan(idx)}
-                                        className="text-red-400 hover:text-red-600 p-1 font-bold"
-                                        title="Remover"
-                                     >
-                                         ✕
-                                     </button>
                                  </div>
-                             ))}
-                         </div>
-                     )}
+                             );
+                         })}
+                     </div>
                  </div>
              )}
 
