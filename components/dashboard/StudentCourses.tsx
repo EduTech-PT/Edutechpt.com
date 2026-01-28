@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
@@ -124,7 +123,7 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
       }
   };
 
-  if (loading) return <div className="p-8 text-center text-indigo-600 font-bold">A carregar cursos...</div>;
+  if (loading) return <div className="p-8 text-center text-indigo-600 dark:text-indigo-300 font-bold">A carregar cursos...</div>;
 
   return (
     <div className="space-y-10 animate-in slide-in-from-right duration-500">

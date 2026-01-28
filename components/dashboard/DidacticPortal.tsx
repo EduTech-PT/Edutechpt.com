@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
@@ -97,15 +96,15 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
 
     const activeClass = myClasses.find(c => c.id === activeTab);
 
-    if (loading) return <div className="p-10 text-center text-indigo-600 font-bold">A carregar turmas...</div>;
+    if (loading) return <div className="p-10 text-center text-indigo-600 dark:text-indigo-300 font-bold">A carregar turmas...</div>;
 
     if (myClasses.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-8">
                  <GlassCard className="text-center max-w-lg">
                     <div className="text-4xl mb-4">👨‍🏫</div>
-                    <h2 className="text-2xl font-bold text-indigo-900 mb-2">Sem Turmas Alocadas</h2>
-                    <p className="text-indigo-700">Ainda não foste alocado a nenhuma turma como formador.</p>
+                    <h2 className="text-2xl font-bold text-indigo-900 dark:text-white mb-2">Sem Turmas Alocadas</h2>
+                    <p className="text-indigo-700 dark:text-indigo-300">Ainda não foste alocado a nenhuma turma como formador.</p>
                  </GlassCard>
             </div>
         );
@@ -113,14 +112,14 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
 
     return (
         <div className="h-full flex flex-col animate-in slide-in-from-right duration-300">
-            <h2 className="text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-indigo-900 dark:text-white mb-6 flex items-center gap-2">
                 <span>🎒</span> Recursos da Sala de Aula {profile.role === UserRole.ADMIN && <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded border border-red-200 uppercase">Modo Admin</span>}
             </h2>
 
             {/* TABS (TURMAS) */}
             <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide shrink-0">
                 {myClasses.map(cls => (
-                    <button key={cls.id} onClick={() => setActiveTab(cls.id)} className={`whitespace-nowrap px-6 py-3 rounded-t-xl font-bold transition-all border-t border-l border-r relative top-[1px] ${activeTab === cls.id ? 'bg-white/80 text-indigo-900 border-white/50 shadow-sm z-10' : 'bg-white/30 text-indigo-600 border-transparent hover:bg-white/50'}`}>
+                    <button key={cls.id} onClick={() => setActiveTab(cls.id)} className={`whitespace-nowrap px-6 py-3 rounded-t-xl font-bold transition-all border-t border-l border-r relative top-[1px] ${activeTab === cls.id ? 'bg-white/80 dark:bg-slate-800/80 text-indigo-900 dark:text-white border-white/50 dark:border-slate-600 shadow-sm z-10' : 'bg-white/30 dark:bg-slate-900/30 text-indigo-600 dark:text-indigo-300 border-transparent hover:bg-white/50 dark:hover:bg-slate-800/50'}`}>
                         <span className="text-xs opacity-70 block font-normal">{cls.course?.title}</span>{cls.name}
                     </button>
                 ))}
@@ -128,16 +127,16 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
 
             {/* CONTEÚDO PRINCIPAL */}
             {activeClass && (
-                <GlassCard className="flex-1 rounded-tl-none border-t-0 shadow-xl min-h-[400px] flex flex-col">
+                <GlassCard className="flex-1 rounded-tl-none border-t-0 shadow-xl min-h-[400px] flex flex-col bg-white/80 dark:bg-slate-800/80">
                     
                     {/* Header */}
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-indigo-100 pb-4 mb-6 gap-4">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-indigo-100 dark:border-slate-700 pb-4 mb-6 gap-4">
                         <div>
-                             <h3 className="text-3xl font-bold text-indigo-900 mb-1">{activeClass.name}</h3>
-                             <p className="text-indigo-600 font-medium">{activeClass.course?.title}</p>
+                             <h3 className="text-3xl font-bold text-indigo-900 dark:text-white mb-1">{activeClass.name}</h3>
+                             <p className="text-indigo-600 dark:text-indigo-300 font-medium">{activeClass.course?.title}</p>
                         </div>
                         {activeModule !== 'home' && (
-                            <button onClick={() => { setActiveModule('home'); setShowForm(false); }} className="px-4 py-2 bg-indigo-100 text-indigo-800 rounded-lg font-bold hover:bg-indigo-200 transition-colors">⬅️ Voltar ao Painel</button>
+                            <button onClick={() => { setActiveModule('home'); setShowForm(false); }} className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 rounded-lg font-bold hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors">⬅️ Voltar ao Painel</button>
                         )}
                     </div>
 
@@ -151,8 +150,8 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                 { id: 'attendance', icon: '🙋', label: 'Presenças' },
                                 { id: 'grades', icon: '📊', label: 'Pauta (Notas)' }
                             ].map(mod => (
-                                <button key={mod.id} onClick={() => setActiveModule(mod.id as any)} className="p-4 rounded-xl bg-indigo-50 border border-indigo-100 flex flex-col items-center justify-center text-center hover:shadow-md transition-all hover:scale-105 group">
-                                     <span className="text-3xl mb-2">{mod.icon}</span><h4 className="font-bold text-indigo-900 text-sm">{mod.label}</h4>
+                                <button key={mod.id} onClick={() => setActiveModule(mod.id as any)} className="p-4 rounded-xl bg-indigo-50 dark:bg-slate-700/50 border border-indigo-100 dark:border-slate-600 flex flex-col items-center justify-center text-center hover:shadow-md transition-all hover:scale-105 group">
+                                     <span className="text-3xl mb-2">{mod.icon}</span><h4 className="font-bold text-indigo-900 dark:text-white text-sm">{mod.label}</h4>
                                 </button>
                             ))}
                         </div>
@@ -166,7 +165,7 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                     {(['materials', 'announcements', 'assessments'].includes(activeModule)) && (
                         <div className="flex-1 flex flex-col animate-in fade-in">
                              <div className="flex justify-between items-center mb-4">
-                                <h4 className="font-bold text-lg text-indigo-900 capitalize">{activeModule}</h4>
+                                <h4 className="font-bold text-lg text-indigo-900 dark:text-white capitalize">{activeModule}</h4>
                                 {isStaff && !showForm && (
                                     <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow hover:bg-indigo-700">
                                         + Adicionar Novo
@@ -187,20 +186,20 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
 
                             {/* Resource Lists */}
                             <div className="space-y-2">
-                                {loadingResources ? <p className="text-center opacity-50">A carregar...</p> : items.length === 0 ? <p className="text-center text-gray-400 py-8">Vazio.</p> : items.map(item => (
-                                    <div key={item.id} className="flex justify-between p-3 bg-white/50 border rounded-lg items-center">
+                                {loadingResources ? <p className="text-center opacity-50 dark:text-white">A carregar...</p> : items.length === 0 ? <p className="text-center text-gray-400 py-8">Vazio.</p> : items.map(item => (
+                                    <div key={item.id} className="flex justify-between p-3 bg-white/50 dark:bg-slate-700/50 border border-indigo-100 dark:border-slate-600 rounded-lg items-center">
                                         <div className="flex-1">
-                                            <div className="font-bold text-indigo-900">{item.title}</div>
-                                            {activeModule === 'announcements' && <div className="text-xs opacity-60" dangerouslySetInnerHTML={{ __html: item.content?.substring(0,50) }} />}
+                                            <div className="font-bold text-indigo-900 dark:text-white">{item.title}</div>
+                                            {activeModule === 'announcements' && <div className="text-xs opacity-60 dark:text-indigo-200" dangerouslySetInnerHTML={{ __html: item.content?.substring(0,50) }} />}
                                             {activeModule === 'assessments' && (
-                                                <div className="text-xs font-bold text-indigo-500">
+                                                <div className="text-xs font-bold text-indigo-500 dark:text-indigo-300">
                                                     Entrega: {item.due_date ? formatShortDate(item.due_date) : 'Sem data'}
                                                 </div>
                                             )}
                                         </div>
                                         <div className="flex gap-2">
-                                            <button onClick={() => { setEditingItem(item); setShowForm(true); }} className="p-1 text-indigo-600 hover:text-indigo-800">✎</button>
-                                            <button onClick={() => deleteItem(item.id)} className="p-1 text-red-500 hover:text-red-700">🗑️</button>
+                                            <button onClick={() => { setEditingItem(item); setShowForm(true); }} className="p-1 text-indigo-600 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-white">✎</button>
+                                            <button onClick={() => deleteItem(item.id)} className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">🗑️</button>
                                         </div>
                                     </div>
                                 ))}

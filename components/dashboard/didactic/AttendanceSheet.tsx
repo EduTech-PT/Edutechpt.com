@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Profile, AttendanceRecord } from '../../../types';
 import { courseService } from '../../../services/courses';
@@ -136,11 +135,11 @@ export const AttendanceSheet: React.FC<Props> = ({ classId, students }) => {
         <div className="flex-1 flex flex-col animate-in fade-in">
             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <div className="flex items-center gap-4">
-                    <h4 className="font-bold text-lg text-indigo-900">Registo de Assiduidade</h4>
+                    <h4 className="font-bold text-lg text-indigo-900 dark:text-white">Registo de Assiduidade</h4>
                     <button 
                         onClick={handleExport}
                         disabled={exporting || students.length === 0}
-                        className="px-3 py-1 bg-white border border-green-200 text-green-700 text-xs font-bold rounded-lg hover:bg-green-50 shadow-sm flex items-center gap-1 transition-colors disabled:opacity-50"
+                        className="px-3 py-1 bg-white dark:bg-slate-700 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-xs font-bold rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 shadow-sm flex items-center gap-1 transition-colors disabled:opacity-50"
                     >
                         {exporting ? 'Wait...' : '📊 Exportar Excel'}
                     </button>
@@ -150,26 +149,26 @@ export const AttendanceSheet: React.FC<Props> = ({ classId, students }) => {
                     type="date" 
                     value={attendanceDate}
                     onChange={(e) => setAttendanceDate(e.target.value)}
-                    className="p-2 border border-indigo-200 rounded-lg text-indigo-900 font-bold outline-none focus:ring-2 focus:ring-indigo-400"
+                    className="p-2 border border-indigo-200 dark:border-slate-700 rounded-lg text-indigo-900 dark:text-white dark:bg-slate-800 font-bold outline-none focus:ring-2 focus:ring-indigo-400"
                 />
             </div>
 
-            <div className="bg-white/50 border border-indigo-100 rounded-xl overflow-hidden">
+            <div className="bg-white/50 dark:bg-slate-800/50 border border-indigo-100 dark:border-slate-700 rounded-xl overflow-hidden">
                 <table className="w-full text-sm text-left">
-                    <thead className="bg-indigo-50 text-indigo-900 font-bold uppercase text-xs">
+                    <thead className="bg-indigo-50 dark:bg-slate-700 text-indigo-900 dark:text-indigo-200 font-bold uppercase text-xs">
                         <tr>
                             <th className="p-4">Aluno</th>
                             <th className="p-4 text-center">Estado</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {loading ? <tr><td colSpan={2} className="p-4 text-center">A carregar...</td></tr> : students.map(student => {
+                        {loading ? <tr><td colSpan={2} className="p-4 text-center dark:text-indigo-300">A carregar...</td></tr> : students.map(student => {
                             const record = records.find(r => r.student_id === student.id);
                             const status = record?.status;
 
                             return (
-                                <tr key={student.id} className="border-b border-indigo-50 hover:bg-white/80">
-                                    <td className="p-4 font-bold text-indigo-800">{student.full_name}</td>
+                                <tr key={student.id} className="border-b border-indigo-50 dark:border-slate-700 hover:bg-white/80 dark:hover:bg-slate-700/50">
+                                    <td className="p-4 font-bold text-indigo-800 dark:text-white">{student.full_name}</td>
                                     <td className="p-4 flex justify-center gap-2">
                                         {['present', 'late', 'absent', 'excused'].map(s => (
                                             <button
@@ -179,7 +178,7 @@ export const AttendanceSheet: React.FC<Props> = ({ classId, students }) => {
                                                     px-3 py-1 rounded-full text-xs font-bold uppercase transition-all
                                                     ${status === s 
                                                         ? (s === 'present' ? 'bg-green-500 text-white' : s === 'absent' ? 'bg-red-500 text-white' : 'bg-yellow-400 text-yellow-900') 
-                                                        : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                                        : 'bg-gray-100 dark:bg-slate-600 text-gray-400 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-500'
                                                     }
                                                 `}
                                             >

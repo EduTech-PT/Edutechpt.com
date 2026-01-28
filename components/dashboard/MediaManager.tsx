@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { storageService, StorageFile } from '../../services/storage';
@@ -99,7 +98,7 @@ export const MediaManager: React.FC = () => {
                                 key={file.id || file.name} 
                                 className={`
                                     relative group rounded-lg overflow-hidden border-2 cursor-pointer transition-all bg-white dark:bg-slate-800
-                                    ${selectedFiles.includes(file.name) ? 'border-indigo-600 ring-2 ring-indigo-400' : 'border-transparent hover:border-indigo-300'}
+                                    ${selectedFiles.includes(file.name) ? 'border-indigo-600 ring-2 ring-indigo-400' : 'border-transparent hover:border-indigo-300 dark:hover:border-indigo-600'}
                                 `}
                                 onClick={() => toggleSelection(file.name)}
                             >

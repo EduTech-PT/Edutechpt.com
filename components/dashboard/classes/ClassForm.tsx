@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../../GlassCard';
 import { Course, Class } from '../../../types';
@@ -26,45 +25,45 @@ export const ClassForm: React.FC<Props> = ({ isEditing, initialData, courses, on
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/40 backdrop-blur-sm p-4 animate-in fade-in">
-            <GlassCard className="w-full max-w-md relative flex flex-col">
+            <GlassCard className="w-full max-w-md relative flex flex-col bg-white dark:bg-slate-900">
                 <button onClick={onCancel} className="absolute top-4 right-4 text-indigo-400 hover:text-indigo-800 font-bold">✕</button>
                 
-                <h3 className="font-bold text-xl text-indigo-900 mb-6 border-b border-indigo-100 pb-2">
+                <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-6 border-b border-indigo-100 dark:border-slate-700 pb-2">
                     {isEditing ? 'Editar Turma' : 'Criar Nova Turma'}
                 </h3>
                 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
-                        <label className="block text-sm font-bold text-indigo-900 mb-1.5">Curso Associado</label>
+                        <label className="block text-sm font-bold text-indigo-900 dark:text-indigo-200 mb-1.5">Curso Associado</label>
                         <select 
                             value={formData.course_id} 
                             onChange={(e) => setFormData({...formData, course_id: e.target.value})}
-                            className="w-full p-3 rounded-xl bg-gray-100 border border-indigo-200 text-indigo-900 font-bold outline-none opacity-70 cursor-not-allowed"
+                            className="w-full p-3 rounded-xl bg-gray-100 dark:bg-slate-800 border border-indigo-200 dark:border-slate-600 text-indigo-900 dark:text-white font-bold outline-none opacity-70 cursor-not-allowed"
                             disabled={true} 
                         >
-                            {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                            {courses.map(c => <option key={c.id} value={c.id} className="dark:bg-slate-800">{c.title}</option>)}
                         </select>
-                        <p className="text-[10px] text-indigo-500 mt-1 pl-1">O curso é definido pelo filtro ativo na listagem.</p>
+                        <p className="text-[10px] text-indigo-500 dark:text-indigo-400 mt-1 pl-1">O curso é definido pelo filtro ativo na listagem.</p>
                     </div>
                     
                     <div>
-                        <label className="block text-sm font-bold text-indigo-900 mb-1.5">Nome da Turma</label>
+                        <label className="block text-sm font-bold text-indigo-900 dark:text-indigo-200 mb-1.5">Nome da Turma</label>
                         <input 
                             type="text" 
                             value={formData.name}
                             onChange={(e) => setFormData({...formData, name: e.target.value})}
                             placeholder="Ex: 2024-OUT-REACT"
-                            className="w-full p-3 rounded-xl bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 placeholder-indigo-300 font-medium"
+                            className="w-full p-3 rounded-xl bg-white dark:bg-slate-800 border border-indigo-200 dark:border-slate-600 focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-500 font-medium"
                             autoFocus
                             required
                         />
                     </div>
 
-                    <div className="flex gap-3 pt-4 border-t border-indigo-100">
+                    <div className="flex gap-3 pt-4 border-t border-indigo-100 dark:border-slate-700">
                         <button 
                             type="button" 
                             onClick={onCancel}
-                            className="flex-1 py-3 text-indigo-600 font-bold hover:bg-indigo-50 rounded-xl transition-colors"
+                            className="flex-1 py-3 text-indigo-600 dark:text-indigo-300 font-bold hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-xl transition-colors"
                         >
                             Cancelar
                         </button>

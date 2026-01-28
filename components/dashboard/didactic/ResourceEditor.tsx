@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { DriveFile, driveService } from '../../../services/drive';
 import { courseService } from '../../../services/courses';
@@ -71,15 +70,15 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
         const selectedUrl = fieldPrefix ? formData[`${fieldPrefix}url`] : formData.url;
         const selectedTitle = fieldPrefix ? formData[`${fieldPrefix}title`] : formData.title;
         return (
-            <div className="border border-indigo-200 rounded-lg p-3 bg-white/50">
-                <label className="block text-xs font-bold text-indigo-900 mb-2 cursor-pointer" onClick={initializeDrivePicker}>Selecione do seu Drive (Clique para carregar)</label>
-                {loadingDrive ? <div className="text-center text-xs">Carregando...</div> : driveFiles.length > 0 && (
+            <div className="border border-indigo-200 dark:border-slate-600 rounded-lg p-3 bg-white/50 dark:bg-slate-800/50">
+                <label className="block text-xs font-bold text-indigo-900 dark:text-white mb-2 cursor-pointer" onClick={initializeDrivePicker}>Selecione do seu Drive (Clique para carregar)</label>
+                {loadingDrive ? <div className="text-center text-xs dark:text-indigo-200">Carregando...</div> : driveFiles.length > 0 && (
                     <div className="space-y-2">
-                        <div className="flex items-center gap-1 text-xs text-indigo-600 mb-2 font-bold">
+                        <div className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-300 mb-2 font-bold">
                             {driveFolderStack.length > 0 && <button type="button" onClick={handleDriveBack} className="hover:underline mr-2">⬅ Voltar</button>}
                             <span>{profile.role === UserRole.ADMIN ? 'Raiz' : 'Pasta Pessoal'}</span>{driveFolderStack.map(f => <span key={f.id}> / {f.name}</span>)}
                         </div>
-                        <div className="max-h-40 overflow-y-auto custom-scrollbar border border-gray-200 rounded bg-white">
+                        <div className="max-h-40 overflow-y-auto custom-scrollbar border border-gray-200 dark:border-slate-600 rounded bg-white dark:bg-slate-900">
                             {driveFiles.map(file => {
                                 const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
                                 const isSelected = selectedUrl === file.url;
@@ -90,13 +89,13 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                                             if (fieldPrefix) setFormData({...formData, [`${fieldPrefix}url`]: file.url, [`${fieldPrefix}title`]: file.name, [`${fieldPrefix}type`]: 'drive'});
                                             else setFormData({...formData, url: file.url, title: file.name, type: 'drive'});
                                         }
-                                    }} className={`flex items-center gap-2 p-2 cursor-pointer text-xs hover:bg-indigo-50 ${isSelected ? 'bg-indigo-100 font-bold' : ''}`}>
+                                    }} className={`flex items-center gap-2 p-2 cursor-pointer text-xs hover:bg-indigo-50 dark:hover:bg-slate-800 dark:text-gray-300 ${isSelected ? 'bg-indigo-100 dark:bg-slate-700 font-bold' : ''}`}>
                                         <span>{isFolder ? '📁' : '📄'}</span><span className="truncate flex-1">{file.name}</span>
                                     </div>
                                 )
                             })}
                         </div>
-                        {selectedUrl && <div className="text-xs text-green-600 font-bold mt-1">Selecionado: {selectedTitle}</div>}
+                        {selectedUrl && <div className="text-xs text-green-600 dark:text-green-400 font-bold mt-1">Selecionado: {selectedTitle}</div>}
                     </div>
                 )}
             </div>
@@ -118,48 +117,48 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
     };
 
     return (
-        <form onSubmit={handleSubmit} className="bg-indigo-50 p-4 rounded-xl border border-indigo-200 mb-6 space-y-4">
-            <p className="text-sm font-bold text-indigo-800 capitalize">Editor de {type}</p>
+        <form onSubmit={handleSubmit} className="bg-indigo-50 dark:bg-slate-900/50 p-4 rounded-xl border border-indigo-200 dark:border-slate-700 mb-6 space-y-4">
+            <p className="text-sm font-bold text-indigo-800 dark:text-indigo-200 capitalize">Editor de {type}</p>
             
             {type === 'materials' && (
                 <div className="space-y-2">
-                    <input type="text" placeholder="Título" className="w-full p-2 rounded" value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} required />
-                    <select value={formData.type || 'file'} onChange={e => setFormData({...formData, type: e.target.value})} className="w-full p-2 rounded">
+                    <input type="text" placeholder="Título" className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} required />
+                    <select value={formData.type || 'file'} onChange={e => setFormData({...formData, type: e.target.value})} className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white">
                         <option value="file">Ficheiro</option><option value="link">Link</option><option value="drive">Drive</option>
                     </select>
-                    {formData.type === 'link' && <input type="url" placeholder="URL" className="w-full p-2 rounded" value={formData.url || ''} onChange={e => setFormData({...formData, url: e.target.value})} />}
-                    {formData.type === 'file' && <input type="file" onChange={(e) => handleFileUpload(e)} />}
+                    {formData.type === 'link' && <input type="url" placeholder="URL" className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.url || ''} onChange={e => setFormData({...formData, url: e.target.value})} />}
+                    {formData.type === 'file' && <input type="file" onChange={(e) => handleFileUpload(e)} className="dark:text-white" />}
                     {formData.type === 'drive' && <DrivePickerUI />}
                 </div>
             )}
 
             {type === 'announcements' && (
                 <div className="space-y-2">
-                    <input type="text" placeholder="Título" className="w-full p-2 rounded" value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} required />
-                    <textarea placeholder="Conteúdo (HTML suportado)" className="w-full p-2 rounded h-24" value={formData.content || ''} onChange={e => setFormData({...formData, content: e.target.value})} required />
+                    <input type="text" placeholder="Título" className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} required />
+                    <textarea placeholder="Conteúdo (HTML suportado)" className="w-full p-2 rounded h-24 bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.content || ''} onChange={e => setFormData({...formData, content: e.target.value})} required />
                 </div>
             )}
 
             {type === 'assessments' && (
                 <div className="space-y-2">
-                    <input type="text" placeholder="Título" className="w-full p-2 rounded" value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} required />
-                    <textarea placeholder="Descrição" className="w-full p-2 rounded h-20" value={formData.description || ''} onChange={e => setFormData({...formData, description: e.target.value})} />
-                    <label className="block text-xs font-bold text-indigo-900">Data de Entrega</label>
-                    <input type="datetime-local" className="w-full p-2 rounded" value={formData.due_date || ''} onChange={e => setFormData({...formData, due_date: e.target.value})} />
-                    <div className="pt-2 border-t border-indigo-200 mt-2">
-                        <p className="text-xs font-bold mb-1">Anexo do Enunciado (Opcional)</p>
-                        <select value={formData.resource_type || 'file'} onChange={e => setFormData({...formData, resource_type: e.target.value})} className="w-full p-2 rounded mb-2 text-xs">
+                    <input type="text" placeholder="Título" className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} required />
+                    <textarea placeholder="Descrição" className="w-full p-2 rounded h-20 bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.description || ''} onChange={e => setFormData({...formData, description: e.target.value})} />
+                    <label className="block text-xs font-bold text-indigo-900 dark:text-indigo-200">Data de Entrega</label>
+                    <input type="datetime-local" className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.due_date || ''} onChange={e => setFormData({...formData, due_date: e.target.value})} />
+                    <div className="pt-2 border-t border-indigo-200 dark:border-slate-700 mt-2">
+                        <p className="text-xs font-bold mb-1 dark:text-white">Anexo do Enunciado (Opcional)</p>
+                        <select value={formData.resource_type || 'file'} onChange={e => setFormData({...formData, resource_type: e.target.value})} className="w-full p-2 rounded mb-2 text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white">
                             <option value="file">Ficheiro</option><option value="link">Link</option><option value="drive">Drive</option>
                         </select>
-                        {formData.resource_type === 'link' && <input type="url" placeholder="URL Recurso" className="w-full p-2 rounded text-xs" value={formData.resource_url || ''} onChange={e => setFormData({...formData, resource_url: e.target.value})} />}
-                        {formData.resource_type === 'file' && <input type="file" className="text-xs" onChange={(e) => handleFileUpload(e, 'resource_')} />}
+                        {formData.resource_type === 'link' && <input type="url" placeholder="URL Recurso" className="w-full p-2 rounded text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.resource_url || ''} onChange={e => setFormData({...formData, resource_url: e.target.value})} />}
+                        {formData.resource_type === 'file' && <input type="file" className="text-xs dark:text-white" onChange={(e) => handleFileUpload(e, 'resource_')} />}
                         {formData.resource_type === 'drive' && <DrivePickerUI fieldPrefix="resource_" />}
                     </div>
                 </div>
             )}
 
             <div className="flex justify-end gap-2">
-                <button type="button" onClick={onCancel} className="px-3 py-1 text-gray-500 hover:bg-gray-100 rounded">Cancelar</button>
+                <button type="button" onClick={onCancel} className="px-3 py-1 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded">Cancelar</button>
                 <button type="submit" className="px-4 py-1 bg-green-600 text-white rounded font-bold hover:bg-green-700 disabled:opacity-50" disabled={uploading}>
                     {uploading ? '...' : 'Guardar'}
                 </button>

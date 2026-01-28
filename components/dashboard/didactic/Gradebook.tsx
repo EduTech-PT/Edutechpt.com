@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Profile, StudentGrade, ClassAssessment } from '../../../types';
 import { courseService } from '../../../services/courses';
@@ -96,8 +95,8 @@ export const Gradebook: React.FC<Props> = ({ classId, students }) => {
     return (
         <div className="flex-1 flex flex-col animate-in fade-in">
             <div className="flex justify-between items-center mb-4">
-                <h4 className="font-bold text-lg text-indigo-900">Pauta de Avaliação</h4>
-                <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100">
+                <h4 className="font-bold text-lg text-indigo-900 dark:text-white">Pauta de Avaliação</h4>
+                <div className="flex items-center gap-2 bg-indigo-50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 px-3 py-1 rounded-lg">
                     <input 
                         type="checkbox" 
                         id="notifyToggle"
@@ -105,7 +104,7 @@ export const Gradebook: React.FC<Props> = ({ classId, students }) => {
                         onChange={(e) => setNotifyStudents(e.target.checked)}
                         className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
                     />
-                    <label htmlFor="notifyToggle" className="text-xs font-bold text-indigo-700 cursor-pointer select-none">
+                    <label htmlFor="notifyToggle" className="text-xs font-bold text-indigo-700 dark:text-indigo-300 cursor-pointer select-none">
                         Notificar Alunos por Email 📧
                     </label>
                 </div>
@@ -113,30 +112,30 @@ export const Gradebook: React.FC<Props> = ({ classId, students }) => {
 
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left border-collapse">
-                    <thead className="bg-indigo-50 text-indigo-900 font-bold text-xs">
+                    <thead className="bg-indigo-50 dark:bg-slate-800 text-indigo-900 dark:text-white font-bold text-xs">
                         <tr>
-                            <th className="p-3 border border-indigo-100 min-w-[200px]">Aluno</th>
+                            <th className="p-3 border border-indigo-100 dark:border-slate-700 min-w-[200px]">Aluno</th>
                             {assessments.map(a => (
-                                <th key={a.id} className="p-3 border border-indigo-100 text-center min-w-[100px]">
+                                <th key={a.id} className="p-3 border border-indigo-100 dark:border-slate-700 text-center min-w-[100px]">
                                     <div className="truncate w-24 mx-auto" title={a.title}>{a.title}</div>
-                                    <div className="text-[9px] font-normal text-indigo-500">{formatShortDate(a.due_date || '')}</div>
+                                    <div className="text-[9px] font-normal text-indigo-500 dark:text-indigo-400">{formatShortDate(a.due_date || '')}</div>
                                 </th>
                             ))}
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="dark:text-indigo-100">
                         {students.map(student => (
-                            <tr key={student.id} className="hover:bg-white/50">
-                                <td className="p-3 border border-indigo-100 font-bold text-indigo-800">{student.full_name}</td>
+                            <tr key={student.id} className="hover:bg-white/50 dark:hover:bg-slate-700/50">
+                                <td className="p-3 border border-indigo-100 dark:border-slate-700 font-bold text-indigo-800 dark:text-white">{student.full_name}</td>
                                 {assessments.map(a => {
                                     const grade = grades.find(g => g.student_id === student.id && g.assessment_id === a.id);
                                     return (
-                                        <td key={a.id} className="p-2 border border-indigo-100 text-center">
+                                        <td key={a.id} className="p-2 border border-indigo-100 dark:border-slate-700 text-center">
                                             <input 
                                                 type="text" 
                                                 value={grade?.grade || ''} 
                                                 onChange={(e) => handleGradeChange(student.id, a.id, e.target.value)}
-                                                className="w-16 p-1 text-center bg-white/80 border border-gray-200 rounded focus:ring-1 focus:ring-indigo-400 outline-none"
+                                                className="w-16 p-1 text-center bg-white/80 dark:bg-slate-900/80 border border-gray-200 dark:border-slate-600 rounded focus:ring-1 focus:ring-indigo-400 outline-none dark:text-white"
                                                 placeholder="-"
                                             />
                                         </td>

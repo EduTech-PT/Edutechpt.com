@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { courseService } from '../../../services/courses';
 import { Profile, ClassComment, OnlineUser } from '../../../types';
@@ -129,21 +128,21 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
             {/* LEFT: Chat Area */}
             <div className="flex-1 flex flex-col h-full min-w-0">
                 {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-white/30 rounded-xl border border-indigo-50 mb-4 relative">
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-white/30 dark:bg-slate-800/30 rounded-xl border border-indigo-50 dark:border-slate-700 mb-4 relative">
                     
                     <div className="sticky top-0 z-10 flex justify-center mb-4 pointer-events-none">
-                        <span className="bg-indigo-50/90 text-indigo-400 text-[10px] px-3 py-1 rounded-full border border-indigo-100 shadow-sm backdrop-blur-sm">
+                        <span className="bg-indigo-50/90 dark:bg-slate-800/90 text-indigo-400 dark:text-indigo-300 text-[10px] px-3 py-1 rounded-full border border-indigo-100 dark:border-slate-600 shadow-sm backdrop-blur-sm">
                             ℹ️ As conversas com mais de 90 dias são eliminadas automaticamente.
                         </span>
                     </div>
 
                     {loading ? (
-                        <div className="text-center py-10 opacity-50">A conectar ao chat...</div>
+                        <div className="text-center py-10 opacity-50 text-indigo-900 dark:text-white">A conectar ao chat...</div>
                     ) : comments.length === 0 ? (
                         <div className="text-center py-20 opacity-50 flex flex-col items-center">
                             <span className="text-4xl mb-2">💬</span>
-                            <p className="text-sm font-bold text-indigo-900">Ainda não há mensagens.</p>
-                            <p className="text-xs">Sê o primeiro a escrever algo!</p>
+                            <p className="text-sm font-bold text-indigo-900 dark:text-white">Ainda não há mensagens.</p>
+                            <p className="text-xs text-indigo-600 dark:text-indigo-300">Sê o primeiro a escrever algo!</p>
                         </div>
                     ) : (
                         comments.map((msg) => {
@@ -155,14 +154,14 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
                                     <div className={`max-w-[80%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                                         <div className="flex items-center gap-2 mb-1">
                                             {!isMe && (
-                                                <div className="w-5 h-5 rounded-full bg-indigo-200 overflow-hidden flex items-center justify-center text-[8px] font-bold">
+                                                <div className="w-5 h-5 rounded-full bg-indigo-200 dark:bg-slate-700 overflow-hidden flex items-center justify-center text-[8px] font-bold text-indigo-800 dark:text-indigo-200">
                                                     {msg.user?.avatar_url ? <img src={msg.user.avatar_url} className="w-full h-full object-cover"/> : msg.user?.full_name?.[0]}
                                                 </div>
                                             )}
-                                            <span className={`text-[10px] font-bold ${isMe ? 'text-indigo-600' : 'text-gray-600'}`}>
+                                            <span className={`text-[10px] font-bold ${isMe ? 'text-indigo-600 dark:text-indigo-300' : 'text-gray-600 dark:text-gray-400'}`}>
                                                 {isMe ? 'Eu' : msg.user?.full_name}
                                             </span>
-                                            {isAdmin && !isMe && <span className="text-[8px] bg-indigo-100 text-indigo-700 px-1 rounded uppercase font-bold">{msg.user?.role}</span>}
+                                            {isAdmin && !isMe && <span className="text-[8px] bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 px-1 rounded uppercase font-bold">{msg.user?.role}</span>}
                                             <span className="text-[9px] text-gray-400 opacity-80">{formatTime(msg.created_at)}</span>
                                         </div>
                                         
@@ -170,7 +169,7 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
                                             p-3 rounded-xl text-sm relative group
                                             ${isMe 
                                                 ? 'bg-indigo-600 text-white rounded-tr-none shadow-md' 
-                                                : 'bg-white text-gray-800 border border-gray-200 rounded-tl-none shadow-sm'}
+                                                : 'bg-white dark:bg-slate-700 text-gray-800 dark:text-white border border-gray-200 dark:border-slate-600 rounded-tl-none shadow-sm'}
                                         `}>
                                             {msg.content}
                                             {(isMe || profile.role === 'admin') && (
@@ -198,7 +197,7 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
                             <EmojiPicker 
                                 onEmojiClick={onEmojiClick}
                                 autoFocusSearch={false}
-                                theme={Theme.LIGHT}
+                                theme={Theme.AUTO}
                                 width={300}
                                 height={400}
                                 previewConfig={{ showPreview: false }}
@@ -210,7 +209,7 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
                         <button 
                             type="button" 
                             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                            className="px-3 bg-white/80 rounded-xl border border-indigo-200 hover:bg-white text-xl transition-colors"
+                            className="px-3 bg-white/80 dark:bg-slate-800/80 rounded-xl border border-indigo-200 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700 text-xl transition-colors"
                             title="Inserir Emoji"
                         >
                             😊
@@ -220,7 +219,7 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
                             placeholder="Escreve uma mensagem..."
-                            className="flex-1 p-3 rounded-xl border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none bg-white/80 backdrop-blur-sm"
+                            className="flex-1 p-3 rounded-xl border border-indigo-200 dark:border-slate-600 focus:ring-2 focus:ring-indigo-400 outline-none bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm dark:text-white dark:placeholder-slate-400"
                             disabled={sending}
                         />
                         <button 
@@ -235,9 +234,9 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
             </div>
 
             {/* RIGHT: Online Users Sidebar */}
-            <div className="w-60 bg-white/30 rounded-xl border border-indigo-100 hidden md:flex flex-col overflow-hidden">
-                <div className="p-3 bg-indigo-50/50 border-b border-indigo-100 flex justify-between items-center">
-                    <h4 className="font-bold text-indigo-900 text-sm">Online</h4>
+            <div className="w-60 bg-white/30 dark:bg-slate-900/30 rounded-xl border border-indigo-100 dark:border-slate-700 hidden md:flex flex-col overflow-hidden">
+                <div className="p-3 bg-indigo-50/50 dark:bg-slate-800/50 border-b border-indigo-100 dark:border-slate-700 flex justify-between items-center">
+                    <h4 className="font-bold text-indigo-900 dark:text-white text-sm">Online</h4>
                     <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">{onlineUsers.length}</span>
                 </div>
                 
@@ -246,16 +245,16 @@ export const ClassroomChat: React.FC<Props> = ({ classId, profile, onlineUsers =
                         <p className="text-center text-xs text-gray-400 py-4">Ninguém online.</p>
                     ) : (
                         onlineUsers.map((user, idx) => (
-                            <div key={`${user.user_id}-${idx}`} className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/50 transition-colors group relative">
+                            <div key={`${user.user_id}-${idx}`} className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/50 dark:hover:bg-slate-800/50 transition-colors group relative">
                                 <div className="relative">
-                                    <div className="w-8 h-8 rounded-full bg-indigo-200 border border-white overflow-hidden flex items-center justify-center text-xs font-bold text-indigo-700">
+                                    <div className="w-8 h-8 rounded-full bg-indigo-200 dark:bg-slate-700 border border-white dark:border-slate-600 overflow-hidden flex items-center justify-center text-xs font-bold text-indigo-700 dark:text-indigo-300">
                                         {user.avatar_url ? <img src={user.avatar_url} className="w-full h-full object-cover"/> : user.full_name?.[0]}
                                     </div>
-                                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
+                                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <div className="text-xs font-bold text-indigo-900 truncate">{user.full_name}</div>
-                                    <div className="text-[9px] text-gray-500 flex items-center gap-1">
+                                    <div className="text-xs font-bold text-indigo-900 dark:text-white truncate">{user.full_name}</div>
+                                    <div className="text-[9px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
                                         <span>👁️ {formatTime(user.online_at)}</span>
                                     </div>
                                 </div>

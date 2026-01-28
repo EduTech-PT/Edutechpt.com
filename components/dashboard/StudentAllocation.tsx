@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Course, Class, Profile, UserRole } from '../../types';
 import { GlassCard } from '../GlassCard';
@@ -266,7 +265,7 @@ export const StudentAllocation: React.FC = () => {
                                                             ✓ Inscrito no Curso (Sem turma)
                                                         </div>
                                                     ) : (
-                                                        <div className="text-[9px] text-gray-400">
+                                                        <div className="text-[9px] text-gray-400 dark:text-gray-500">
                                                             Não inscrito
                                                         </div>
                                                     )}
