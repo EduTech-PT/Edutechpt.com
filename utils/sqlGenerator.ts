@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
--- AÇÃO: RATE LIMITING (3 TENTATIVAS / 10 MINUTOS) & TIKTOK FIELD
+-- AÇÃO: MONITORIZAÇÃO DE ARMAZENAMENTO (DB SIZE RPC)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -64,7 +64,6 @@ begin
   if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='global_notifications') then
     alter table public.profiles add column global_notifications boolean default true;
   end if;
-  -- Social Media Migration
   if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='tiktok_url') then
     alter table public.profiles add column tiktok_url text;
   end if;
@@ -106,8 +105,21 @@ create table if not exists public.courses (
     created_at timestamp with time zone default timezone('utc'::text, now()),
     marketing_data jsonb default '{}'::jsonb,
     duration text,
-    price text
+    price text,
+    format text default 'live',
+    access_days integer
 );
+
+-- MIGRATION: Colunas novas (Cursos)
+do $$ 
+begin
+  if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='format') then
+    alter table public.courses add column format text default 'live';
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='access_days') then
+    alter table public.courses add column access_days integer;
+  end if;
+end $$;
 
 create table if not exists public.classes (
     id uuid default gen_random_uuid() primary key,
@@ -146,7 +158,7 @@ create table if not exists public.access_logs (
 );
 
 -- ==============================================================================
--- NOVO: SISTEMA DE RATE LIMITING
+-- RATE LIMITING
 -- ==============================================================================
 create table if not exists public.rate_limits (
     id uuid default gen_random_uuid() primary key,
@@ -167,13 +179,11 @@ create or replace function public.check_rate_limit(
 declare
     count_recent int;
 begin
-    -- Auto-limpeza: Remove registos mais antigos que a janela de tempo para este user/ação
     delete from public.rate_limits 
     where key = identifier 
     and action = action_type 
     and created_at < now() - (window_minutes || ' minutes')::interval;
     
-    -- Conta tentativas recentes
     select count(*) into count_recent
     from public.rate_limits
     where key = identifier 
@@ -183,7 +193,6 @@ begin
         return false;
     end if;
 
-    -- Regista nova tentativa
     insert into public.rate_limits (key, action) values (identifier, action_type);
     return true;
 end;
@@ -248,6 +257,16 @@ create policy "Gerir Comentarios" on public.class_comments for delete using (aut
 -- ==============================================================================
 -- 9. FUNÇÕES DE SISTEMA ATUALIZADAS
 -- ==============================================================================
+
+-- RPC: Obter Tamanho da BD (Bytes)
+create or replace function public.get_db_size()
+returns bigint
+language sql
+security definer
+set search_path = public
+as $$
+  select pg_database_size(current_database());
+$$;
 
 -- RPC: Auto-reparação manual (Com Rate Limit)
 create or replace function public.claim_invite()

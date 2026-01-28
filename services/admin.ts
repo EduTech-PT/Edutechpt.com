@@ -363,5 +363,15 @@ export const adminService = {
         if (stats.courses.total_history < stats.courses.active) stats.courses.total_history = stats.courses.active;
 
         return stats;
+    },
+
+    // --- DB SIZE (NEW) ---
+    async getDatabaseSize() {
+        const { data, error } = await supabase.rpc('get_db_size');
+        if (error) {
+            console.warn("RPC get_db_size not found");
+            return 0;
+        }
+        return data as number; // bytes
     }
 };
