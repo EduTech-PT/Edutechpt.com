@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
--- AÇÃO: MONITORIZAÇÃO DE ARMAZENAMENTO (DB SIZE RPC)
+-- AÇÃO: MIGRATION PRICING PLANS (V3.1.10)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -107,7 +107,8 @@ create table if not exists public.courses (
     duration text,
     price text,
     format text default 'live',
-    access_days integer
+    access_days integer,
+    pricing_plans jsonb default '[]'::jsonb
 );
 
 -- MIGRATION: Colunas novas (Cursos)
@@ -118,6 +119,10 @@ begin
   end if;
   if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='access_days') then
     alter table public.courses add column access_days integer;
+  end if;
+  -- V3.1.10: Pricing Plans
+  if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='pricing_plans') then
+    alter table public.courses add column pricing_plans jsonb default '[]'::jsonb;
   end if;
 end $$;
 

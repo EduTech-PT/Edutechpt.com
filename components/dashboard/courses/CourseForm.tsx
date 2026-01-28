@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Course, MarketingData } from '../../../types';
+import { Course, MarketingData, PricingPlan } from '../../../types';
 import { RichTextEditor } from '../../RichTextEditor';
 import { storageService, StorageFile } from '../../../services/storage';
 
@@ -19,6 +19,9 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
     });
     const [uploading, setUploading] = useState(false);
 
+    // Pricing Plans State (Self-Paced Only)
+    const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
+
     // Gallery State
     const [showGallery, setShowGallery] = useState(false);
     const [galleryImages, setGalleryImages] = useState<StorageFile[]>([]);
@@ -29,7 +32,25 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
         if (initialData.marketing_data) {
             setMarketingData(initialData.marketing_data);
         }
+        if (initialData.pricing_plans) {
+            setPricingPlans(initialData.pricing_plans);
+        }
     }, [initialData]);
+
+    // Handle Plan Changes
+    const addPlan = () => {
+        setPricingPlans([...pricingPlans, { days: 30, price: '0', label: 'Plano Mensal' }]);
+    };
+
+    const removePlan = (index: number) => {
+        setPricingPlans(pricingPlans.filter((_, i) => i !== index));
+    };
+
+    const updatePlan = (index: number, field: keyof PricingPlan, value: any) => {
+        const updated = [...pricingPlans];
+        updated[index] = { ...updated[index], [field]: value };
+        setPricingPlans(updated);
+    };
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
@@ -105,7 +126,8 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
         await onSave({
             ...formData,
             description: finalDescription,
-            marketing_data: marketingData
+            marketing_data: marketingData,
+            pricing_plans: formData.format === 'self_paced' ? pricingPlans : undefined
         });
     };
 
@@ -174,20 +196,88 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                          <option value="self_paced" className="dark:bg-slate-800">▶️ Auto-Estudo (Vídeo-Aulas)</option>
                      </select>
                  </div>
-                 <div>
-                     <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">
-                         Dias de Acesso 
-                         <span className="text-xs font-normal text-indigo-500 dark:text-indigo-400 ml-1">(Deixe vazio para vitalício)</span>
-                     </label>
-                     <input 
-                        type="number" 
-                        value={formData.access_days || ''} 
-                        onChange={e => setFormData({...formData, access_days: e.target.value ? parseInt(e.target.value) : undefined})} 
-                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 focus:ring-2 focus:ring-indigo-500 outline-none text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-500" 
-                        placeholder="Ex: 180"
-                     />
-                 </div>
+                 
+                 {/* Se for LIVE: Preço Único e Dias de Acesso (Legado) */}
+                 {formData.format === 'live' && (
+                     <>
+                        <div>
+                             <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Custo (Valor)</label>
+                             <input 
+                                type="text" 
+                                value={formData.price || ''} 
+                                onChange={e => setFormData({...formData, price: e.target.value})} 
+                                placeholder="Ex: 250" 
+                                className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 outline-none text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-500"
+                            />
+                         </div>
+                     </>
+                 )}
              </div>
+
+             {/* Se for SELF_PACED: Construtor de Planos */}
+             {formData.format === 'self_paced' && (
+                 <div className="bg-indigo-50 dark:bg-slate-800/50 p-4 rounded-xl border border-indigo-100 dark:border-slate-700 animate-in fade-in">
+                     <div className="flex justify-between items-center mb-3">
+                         <h4 className="font-bold text-indigo-900 dark:text-white flex items-center gap-2">
+                             <span>💰</span> Opções de Acesso (Planos)
+                         </h4>
+                         <button 
+                            type="button" 
+                            onClick={addPlan}
+                            className="text-xs bg-indigo-600 text-white px-3 py-1 rounded-full hover:bg-indigo-700 font-bold shadow-sm"
+                         >
+                             + Adicionar Plano
+                         </button>
+                     </div>
+                     
+                     {pricingPlans.length === 0 ? (
+                         <div className="text-center py-4 text-gray-400 text-sm">Sem planos definidos. O curso será gratuito ou indisponível.</div>
+                     ) : (
+                         <div className="space-y-2">
+                             {pricingPlans.map((plan, idx) => (
+                                 <div key={idx} className="flex flex-wrap md:flex-nowrap gap-2 items-end bg-white/60 dark:bg-slate-900/60 p-2 rounded-lg border border-indigo-100 dark:border-slate-700">
+                                     <div className="flex-1 min-w-[120px]">
+                                         <label className="text-[10px] uppercase font-bold text-indigo-400">Rótulo (Opcional)</label>
+                                         <input 
+                                            type="text" 
+                                            placeholder="Ex: Mensal" 
+                                            value={plan.label || ''} 
+                                            onChange={e => updatePlan(idx, 'label', e.target.value)}
+                                            className="w-full p-1 bg-transparent border-b border-indigo-200 dark:border-slate-600 outline-none text-sm text-indigo-900 dark:text-white"
+                                         />
+                                     </div>
+                                     <div className="w-24">
+                                         <label className="text-[10px] uppercase font-bold text-indigo-400">Dias (0=Vitalício)</label>
+                                         <input 
+                                            type="number" 
+                                            value={plan.days === null ? 0 : plan.days} 
+                                            onChange={e => updatePlan(idx, 'days', parseInt(e.target.value) || 0)}
+                                            className="w-full p-1 bg-transparent border-b border-indigo-200 dark:border-slate-600 outline-none text-sm text-indigo-900 dark:text-white"
+                                         />
+                                     </div>
+                                     <div className="w-24">
+                                         <label className="text-[10px] uppercase font-bold text-indigo-400">Preço (€)</label>
+                                         <input 
+                                            type="text" 
+                                            value={plan.price} 
+                                            onChange={e => updatePlan(idx, 'price', e.target.value)}
+                                            className="w-full p-1 bg-transparent border-b border-indigo-200 dark:border-slate-600 outline-none text-sm text-indigo-900 dark:text-white"
+                                         />
+                                     </div>
+                                     <button 
+                                        type="button" 
+                                        onClick={() => removePlan(idx)}
+                                        className="text-red-400 hover:text-red-600 p-1 font-bold"
+                                        title="Remover"
+                                     >
+                                         ✕
+                                     </button>
+                                 </div>
+                             ))}
+                         </div>
+                     )}
+                 </div>
+             )}
 
              {/* CAMPOS DE MARKETING */}
              <div className="mt-8 space-y-6">
@@ -304,17 +394,8 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                         className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 outline-none text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-500"
                     />
                  </div>
-                 <div>
-                     <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Custo (Valor)</label>
-                     <input 
-                        type="text" 
-                        value={formData.price || ''} 
-                        onChange={e => setFormData({...formData, price: e.target.value})} 
-                        placeholder="Ex: 250" 
-                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 outline-none text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-500"
-                    />
-                 </div>
-                 <div className="flex items-center gap-3 pb-2">
+                 
+                 <div className="flex items-center gap-3 pb-2 md:col-start-4">
                     <input type="checkbox" checked={formData.is_public || false} onChange={(e) => setFormData({...formData, is_public: e.target.checked})} className="h-5 w-5 text-indigo-600 rounded"/>
                     <span className="text-sm font-bold text-indigo-900 dark:text-indigo-200">Publicar</span>
                  </div>

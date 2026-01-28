@@ -81,6 +81,12 @@ export interface MarketingData {
     cta: string;
 }
 
+export interface PricingPlan {
+    days: number | null; // null = vitalício
+    price: string;
+    label?: string; // ex: "Acesso 3 Meses"
+}
+
 export interface Course {
   id: string;
   title: string;
@@ -92,9 +98,10 @@ export interface Course {
   is_public?: boolean;
   marketing_data?: MarketingData;
   duration?: string; // NOVO: Duração (ex: "40h")
-  price?: string;    // NOVO: Preço (ex: "250€" ou "Gratuito")
+  price?: string;    // Preço Base (Legado ou Live)
   format?: 'live' | 'self_paced'; // NOVO: Formato do curso
-  access_days?: number; // NOVO: Dias de acesso (null = vitalício)
+  access_days?: number; // Legado: Dias de acesso (null = vitalício)
+  pricing_plans?: PricingPlan[]; // NOVO (v3.1.10): Múltiplos planos
 }
 
 export interface Class {
