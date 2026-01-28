@@ -156,12 +156,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       }
   };
 
-  // Extract YouTube ID
-  const getYoutubeId = (url: string) => {
+  // Extract Video Embed URL (Supports YouTube and Drive)
+  const getVideoEmbedUrl = (url: string) => {
       if (!url) return null;
-      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-      const match = url.match(regExp);
-      return (match && match[2].length === 11) ? match[2] : null;
+
+      // 1. Check YouTube
+      const ytRegExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+      const ytMatch = url.match(ytRegExp);
+      if (ytMatch && ytMatch[2].length === 11) {
+          return `https://www.youtube.com/embed/${ytMatch[2]}`;
+      }
+
+      // 2. Check Google Drive
+      const driveRegExp = /\/file\/d\/([a-zA-Z0-9_-]+)/;
+      const driveMatch = url.match(driveRegExp);
+      if (driveMatch && driveMatch[1]) {
+          return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+      }
+
+      return null;
   };
 
   return (
@@ -347,12 +360,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                   <h2 className="text-3xl font-bold text-indigo-900 dark:text-white mb-12 text-center">Conheça a Plataforma</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                       {videos.map((video) => {
-                          const videoId = getYoutubeId(video.youtube_url);
-                          return videoId ? (
+                          const embedUrl = getVideoEmbedUrl(video.youtube_url);
+                          return embedUrl ? (
                               <GlassCard key={video.id} className="p-0 overflow-hidden border-2 border-white/50 dark:border-white/10 shadow-lg">
                                   <div className="aspect-video w-full bg-black">
                                       <iframe 
-                                          src={`https://www.youtube.com/embed/${videoId}`} 
+                                          src={embedUrl} 
                                           title={video.title}
                                           className="w-full h-full" 
                                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
