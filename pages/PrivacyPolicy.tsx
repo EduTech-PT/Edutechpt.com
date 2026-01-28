@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { adminService } from '../services/admin';
 import { Footer } from '../components/Footer';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 // Default content used if database is empty
 const DEFAULT_CONTENT = `
@@ -122,7 +123,7 @@ export const PrivacyPolicy: React.FC<Props> = ({ onBack, isEmbedded = false }) =
   };
 
   const Content = () => (
-      <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600">
+      <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600 dark:text-indigo-100 dark:prose-headings:text-indigo-100 dark:prose-a:text-indigo-300 dark:prose-strong:text-white">
           <div dangerouslySetInnerHTML={{ __html: content }} />
       </GlassCard>
   );
@@ -136,10 +137,10 @@ export const PrivacyPolicy: React.FC<Props> = ({ onBack, isEmbedded = false }) =
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col dark:bg-slate-900 transition-colors duration-500">
       {/* Navbar */}
-      <nav className="w-full p-4 md:p-6 flex justify-between items-center z-10 bg-white/10 backdrop-blur-md border-b border-white/20 sticky top-0">
-        <div className="text-xl font-bold text-indigo-900 cursor-pointer" onClick={onBack}>
+      <nav className="w-full p-4 md:p-6 flex justify-between items-center z-10 bg-white/10 dark:bg-slate-900/50 backdrop-blur-md border-b border-white/20 dark:border-white/10 sticky top-0">
+        <div className="text-xl font-bold text-indigo-900 dark:text-white cursor-pointer" onClick={onBack}>
              {logoUrl ? (
                 <img 
                   src={logoUrl} 
@@ -150,19 +151,22 @@ export const PrivacyPolicy: React.FC<Props> = ({ onBack, isEmbedded = false }) =
                 "EduTech PT"
             )}
         </div>
-        <button 
-          onClick={onBack}
-          className="px-4 py-2 bg-white/50 hover:bg-white/80 text-indigo-900 rounded-lg text-sm font-bold transition-all shadow-sm flex items-center gap-2"
-        >
-          <span>⬅️</span> Voltar
-        </button>
+        <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <button 
+              onClick={onBack}
+              className="px-4 py-2 bg-white/50 hover:bg-white/80 dark:bg-white/10 dark:hover:bg-white/20 text-indigo-900 dark:text-white rounded-lg text-sm font-bold transition-all shadow-sm flex items-center gap-2"
+            >
+              <span>⬅️</span> Voltar
+            </button>
+        </div>
       </nav>
 
       {/* Content */}
       <div className="flex-grow container mx-auto px-4 py-8 max-w-4xl relative z-0">
          {/* Background Orbs */}
-        <div className="fixed top-1/4 left-1/4 w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none -z-10"></div>
-        <div className="fixed bottom-1/4 right-1/4 w-96 h-96 bg-indigo-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none -z-10"></div>
+        <div className="fixed top-1/4 left-1/4 w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none -z-10 dark:opacity-10"></div>
+        <div className="fixed bottom-1/4 right-1/4 w-96 h-96 bg-indigo-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none -z-10 dark:opacity-10"></div>
 
         <Content />
       </div>

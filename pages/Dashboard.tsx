@@ -12,7 +12,8 @@ import { driveService, GAS_VERSION } from '../services/drive';
 import { supabase } from '../lib/supabaseClient';
 import { useToast } from '../components/ui/ToastProvider';
 import { Skeleton } from '../components/ui/Skeleton';
-import { NotificationSystem } from '../components/dashboard/NotificationSystem'; // IMPORTADO
+import { NotificationSystem } from '../components/dashboard/NotificationSystem'; 
+import { ThemeToggle } from '../components/ThemeToggle'; // IMPORTADO
 
 // Views - Eager Load Critical Views
 import { Overview } from '../components/dashboard/Overview';
@@ -416,15 +417,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       handleSetView(view);
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-indigo-600">A iniciar EduTech PT...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-indigo-600 dark:text-indigo-400">A iniciar EduTech PT...</div>;
 
   // ESTADO DE ERRO DE ACESSO (PERFIL NÃO ENCONTRADO)
   if (!profile) return (
-      <div className="min-h-screen flex items-center justify-center p-8 bg-indigo-50">
+      <div className="min-h-screen flex items-center justify-center p-8 bg-indigo-50 dark:bg-slate-900">
           <GlassCard className="text-center max-w-md w-full">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">⚠️</div>
-              <h2 className="text-2xl font-bold text-indigo-900 mb-2">Acesso Pendente</h2>
-              <p className="text-indigo-700 mb-6 text-sm">
+              <h2 className="text-2xl font-bold text-indigo-900 dark:text-white mb-2">Acesso Pendente</h2>
+              <p className="text-indigo-700 dark:text-indigo-300 mb-6 text-sm">
                   Estamos a configurar o seu perfil. Se este ecrã persistir, clique no botão abaixo.
               </p>
               
@@ -552,7 +553,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                             ((dbVersion !== SQL_VERSION) || (gasStatus !== null && !gasStatus.match));
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 relative overflow-hidden font-sans">
+    <div className="flex min-h-screen bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 dark:from-slate-900 dark:via-slate-800 dark:to-black relative overflow-hidden font-sans transition-colors duration-500">
       
       {/* NOTIFICATION SYSTEM (Global) */}
       <NotificationSystem profile={profile} onOpenClassroom={handleOpenClassroom} />
@@ -578,9 +579,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
 
       {/* Background FX */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-          <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
-          <div className="absolute top-[20%] right-[-10%] w-96 h-96 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
-          <div className="absolute bottom-[-10%] left-[20%] w-96 h-96 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
+          <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob dark:opacity-10"></div>
+          <div className="absolute top-[20%] right-[-10%] w-96 h-96 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000 dark:opacity-10"></div>
+          <div className="absolute bottom-[-10%] left-[20%] w-96 h-96 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000 dark:opacity-10"></div>
       </div>
 
       <div className={`relative z-10 flex w-full max-w-[1600px] mx-auto p-0 md:p-6 md:gap-6 h-screen ${criticalDbError ? 'pt-24' : ''}`}>
@@ -613,26 +614,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
         </div>
         
         <main className="flex-1 min-w-0 h-full flex flex-col w-full p-2 md:p-0">
-            <header className="flex justify-between items-center mb-4 md:mb-6 p-4 bg-white/30 backdrop-blur-md rounded-2xl shadow-sm border border-white/40 sticky top-0 z-20 md:relative">
+            <header className="flex justify-between items-center mb-4 md:mb-6 p-4 bg-white/30 dark:bg-slate-800/50 backdrop-blur-md rounded-2xl shadow-sm border border-white/40 dark:border-white/10 sticky top-0 z-20 md:relative">
                 <div className="flex items-center gap-3">
                     <button 
                         onClick={() => setMobileMenuOpen(true)}
-                        className="md:hidden p-2 -ml-2 text-indigo-900 rounded-lg hover:bg-white/40 transition-colors"
+                        className="md:hidden p-2 -ml-2 text-indigo-900 dark:text-white rounded-lg hover:bg-white/40 dark:hover:bg-slate-700/50 transition-colors"
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
                     </button>
                     
-                    <div className="text-indigo-900 font-medium">
+                    <div className="text-indigo-900 dark:text-white font-medium">
                         <span className="opacity-70 hidden sm:inline">EduTech PT / </span> 
                         <span className="font-bold capitalize">{getPageTitle(currentView)}</span>
                     </div>
                 </div>
 
-                <div className="text-right hidden sm:block">
-                    <div className="text-xl font-bold text-indigo-900 tabular-nums leading-none">{formatTime(currentTime)}</div>
-                    <div className="text-xs text-indigo-700 font-medium uppercase tracking-wide opacity-80 mt-1">{formatDate(currentTime)}</div>
+                <div className="flex items-center gap-4">
+                    <div className="text-right hidden sm:block">
+                        <div className="text-xl font-bold text-indigo-900 dark:text-white tabular-nums leading-none">{formatTime(currentTime)}</div>
+                        <div className="text-xs text-indigo-700 dark:text-indigo-300 font-medium uppercase tracking-wide opacity-80 mt-1">{formatDate(currentTime)}</div>
+                    </div>
+                    <ThemeToggle />
                 </div>
             </header>
 
@@ -642,7 +646,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                         {renderView()}
                     </div>
                     {/* Reusable Footer inside Dashboard */}
-                    <Footer onNavigate={handleFooterNavigate} className="mt-auto rounded-xl md:rounded-none bg-white/40 border-none" />
+                    <Footer onNavigate={handleFooterNavigate} className="mt-auto rounded-xl md:rounded-none bg-white/40 border-none dark:bg-black/20" />
                 </div>
             </div>
         </main>
