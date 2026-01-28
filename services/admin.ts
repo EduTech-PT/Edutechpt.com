@@ -318,6 +318,10 @@ export const adminService = {
                         config.faqJson = [];
                     }
                 }
+
+                // Landing Page Dynamic Settings
+                if (item.key === 'landing_how_it_works') config.landing_how_it_works = item.value;
+                if (item.key === 'forbidden_words') config.forbidden_words = item.value;
             });
         }
         return config;
