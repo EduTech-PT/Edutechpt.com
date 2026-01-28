@@ -234,24 +234,67 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
              
              {/* CAMPOS DE CONFIGURAÇÃO (Formato e Acesso) */}
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div>
-                     <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Formato do Curso</label>
-                     <select 
-                        value={formData.format || 'live'} 
-                        onChange={e => setFormData({...formData, format: e.target.value as any})}
-                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 focus:ring-2 focus:ring-indigo-500 outline-none text-indigo-900 dark:text-white"
-                     >
-                         <option value="live" className="dark:bg-slate-800">🔴 Com Formador (Ao Vivo / Turma)</option>
-                         <option value="self_paced" className="dark:bg-slate-800">▶️ Auto-Estudo (Vídeo-Aulas)</option>
-                     </select>
+                 
+                 {/* COLUNA ESQUERDA: Formato e Nível */}
+                 <div className="space-y-4">
+                     <div>
+                         <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Formato do Curso</label>
+                         <select 
+                            value={formData.format || 'live'} 
+                            onChange={e => setFormData({...formData, format: e.target.value as any})}
+                            className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 focus:ring-2 focus:ring-indigo-500 outline-none text-indigo-900 dark:text-white"
+                         >
+                             <option value="live" className="dark:bg-slate-800">🔴 Com Formador (Ao Vivo / Turma)</option>
+                             <option value="self_paced" className="dark:bg-slate-800">▶️ Auto-Estudo (Vídeo-Aulas)</option>
+                         </select>
+                     </div>
+
+                     <div>
+                         <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Nível</label>
+                         <select 
+                            value={formData.level} 
+                            onChange={e => setFormData({...formData, level: e.target.value as any})} 
+                            className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 outline-none text-indigo-900 dark:text-white"
+                         >
+                             <option value="iniciante" className="dark:bg-slate-800">Iniciante</option>
+                             <option value="intermedio" className="dark:bg-slate-800">Intermédio</option>
+                             <option value="avancado" className="dark:bg-slate-800">Avançado</option>
+                         </select>
+                     </div>
+
+                     {/* Se NÃO for LIVE, Duração aparece aqui */}
+                     {formData.format !== 'live' && (
+                         <div>
+                             <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Duração (Horas)</label>
+                             <input 
+                                type="text" 
+                                value={formData.duration || ''} 
+                                onChange={e => setFormData({...formData, duration: e.target.value})} 
+                                placeholder="Ex: 40" 
+                                className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 outline-none text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-500"
+                            />
+                         </div>
+                     )}
                  </div>
                  
-                 {/* Se for LIVE: Preço Calculado, Hora e Extras */}
+                 {/* COLUNA DIREITA: Preço Calculado, Hora e Extras (Apenas LIVE) */}
                  {formData.format === 'live' && (
-                     <div className="md:col-span-1 bg-indigo-50/50 dark:bg-slate-900/50 p-3 rounded-lg border border-indigo-100 dark:border-slate-700 grid grid-cols-2 gap-2">
+                     <div className="md:col-span-1 bg-indigo-50/50 dark:bg-slate-900/50 p-3 rounded-lg border border-indigo-100 dark:border-slate-700 grid grid-cols-2 gap-3 self-start">
                          <div className="col-span-2">
-                             <label className="block text-[10px] uppercase font-bold text-indigo-500 dark:text-indigo-400 mb-1">Cálculo de Preço</label>
+                             <label className="block text-[10px] uppercase font-bold text-indigo-500 dark:text-indigo-400 mb-1 border-b border-indigo-200 dark:border-slate-600 pb-1">Cálculo de Preço</label>
                          </div>
+                         
+                         <div>
+                             <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Duração (Horas)</label>
+                             <input 
+                                type="text" 
+                                value={formData.duration || ''} 
+                                onChange={e => setFormData({...formData, duration: e.target.value})} 
+                                placeholder="Ex: 40" 
+                                className="w-full p-1.5 rounded text-sm bg-white border border-indigo-200 outline-none text-indigo-900 font-bold"
+                            />
+                         </div>
+
                          <div>
                              <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Preço / Hora (€)</label>
                              <input 
@@ -272,8 +315,8 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                                 title="Calculado automaticamente: Horas x Preço/Hora"
                             />
                          </div>
-                         <div className="col-span-2">
-                             <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Custo Aula Extra Individual (€)</label>
+                         <div>
+                             <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Custo Aula Extra (€)</label>
                              <input 
                                 type="text" 
                                 value={formData.extra_class_price || ''} 
@@ -434,38 +477,16 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                  </details>
              </div>
 
-             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                <div>
-                     <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Nível</label>
-                     <select 
-                        value={formData.level} 
-                        onChange={e => setFormData({...formData, level: e.target.value as any})} 
-                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 outline-none text-indigo-900 dark:text-white"
-                     >
-                         <option value="iniciante" className="dark:bg-slate-800">Iniciante</option>
-                         <option value="intermedio" className="dark:bg-slate-800">Intermédio</option>
-                         <option value="avancado" className="dark:bg-slate-800">Avançado</option>
-                     </select>
-                 </div>
-                 <div>
-                     <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Duração (Horas)</label>
-                     <input 
-                        type="text" 
-                        value={formData.duration || ''} 
-                        onChange={e => setFormData({...formData, duration: e.target.value})} 
-                        placeholder="Ex: 40" 
-                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 outline-none text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-500"
-                    />
+             <div className="flex justify-between items-center pt-4 border-t border-white/50 dark:border-white/10">
+                 <div className="flex items-center gap-3">
+                    <input type="checkbox" checked={formData.is_public || false} onChange={(e) => setFormData({...formData, is_public: e.target.checked})} className="h-5 w-5 text-indigo-600 rounded cursor-pointer"/>
+                    <span className="text-sm font-bold text-indigo-900 dark:text-indigo-200 cursor-pointer" onClick={() => setFormData({...formData, is_public: !formData.is_public})}>Publicar Curso</span>
                  </div>
                  
-                 <div className="flex items-center gap-3 pb-2 md:col-start-4">
-                    <input type="checkbox" checked={formData.is_public || false} onChange={(e) => setFormData({...formData, is_public: e.target.checked})} className="h-5 w-5 text-indigo-600 rounded"/>
-                    <span className="text-sm font-bold text-indigo-900 dark:text-indigo-200">Publicar</span>
+                 <div className="flex gap-2">
+                     <button type="button" onClick={onCancel} className="px-4 py-2 text-indigo-800 dark:text-indigo-200 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded">Cancelar</button>
+                     <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-bold shadow-md">{isEditing ? 'Guardar' : 'Criar'}</button>
                  </div>
-             </div>
-             <div className="flex justify-end gap-2 pt-4 border-t border-white/50 dark:border-white/10">
-                 <button type="button" onClick={onCancel} className="px-4 py-2 text-indigo-800 dark:text-indigo-200 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded">Cancelar</button>
-                 <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-bold shadow-md">{isEditing ? 'Guardar' : 'Criar'}</button>
              </div>
 
              {/* GALLERY MODAL */}
