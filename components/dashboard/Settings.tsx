@@ -29,7 +29,7 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral', pro
     return (
         <div className="h-full flex flex-col animate-in fade-in duration-300">
             {/* TABS DE NAVEGAÇÃO INTERNA */}
-            <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide shrink-0">
+            <div className="flex flex-wrap gap-2 mb-4 shrink-0">
                 {[
                     { id: 'geral', label: 'Geral', icon: '⚙️' },
                     { id: 'moderation', label: 'Moderação', icon: '🛡️' },
