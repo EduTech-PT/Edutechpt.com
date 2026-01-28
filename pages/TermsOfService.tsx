@@ -105,9 +105,28 @@ export const TermsOfService: React.FC<Props> = ({ onBack, isEmbedded = false }) 
   };
 
   const Content = () => (
-      <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600 dark:text-indigo-100 dark:prose-invert dark:prose-headings:text-white dark:prose-p:text-indigo-100 dark:prose-a:text-indigo-300 dark:prose-strong:text-white dark:prose-li:text-indigo-100">
-          <div dangerouslySetInnerHTML={{ __html: content }} />
-      </GlassCard>
+      <>
+        {/* 
+            STYLE OVERRIDE: 
+            Garante que conteúdo colado (ex: do Word) não traz fundos brancos no modo escuro 
+            e força a cor do texto para claro.
+        */}
+        <style>{`
+            .dark .terms-content * {
+                background-color: transparent !important;
+                color: inherit;
+            }
+            .dark .terms-content strong {
+                color: #fff !important;
+            }
+            .dark .terms-content a {
+                color: #818cf8 !important;
+            }
+        `}</style>
+        <GlassCard className="terms-content prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600 dark:text-indigo-100 dark:prose-invert dark:prose-headings:text-white dark:prose-p:text-indigo-100 dark:prose-a:text-indigo-300 dark:prose-strong:text-white dark:prose-li:text-indigo-100">
+            <div dangerouslySetInnerHTML={{ __html: content }} />
+        </GlassCard>
+      </>
   );
 
   if (isEmbedded) {
