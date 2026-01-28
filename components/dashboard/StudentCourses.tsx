@@ -241,7 +241,7 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                                 )}
                                 {course.price && (
                                     <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
-                                        {course.price === '0' ? 'Gratuito' : `${course.price} €`}
+                                        {(course.price === '0' || course.price === '0.00') ? 'Gratuito' : `${course.price} €`}
                                     </div>
                                 )}
                                 {/* Format Badge Small */}

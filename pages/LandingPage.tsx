@@ -156,7 +156,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                                  </span>
                                  {course.price && (
                                      <span className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-bold shadow-lg">
-                                        {course.price === '0' ? 'Gratuito' : `${course.price} €`}
+                                        {(course.price === '0' || course.price === '0.00') ? 'Gratuito' : `${course.price} €`}
                                      </span>
                                  )}
                              </div>

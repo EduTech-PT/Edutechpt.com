@@ -61,8 +61,10 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
         if (initialData.pricing_plans) {
             setPricingPlans(initialData.pricing_plans);
         }
-        // Detetar se é gratuito ao carregar (se o preço for '0' ou '0.00')
-        if (initialData.price === '0' || initialData.price === '0.00' || initialData.price === 'Gratuito') {
+        
+        // Detetar se é gratuito ao carregar
+        const priceVal = parseFloat(initialData.price || '0');
+        if (initialData.price === '0' || initialData.price === '0.00' || priceVal === 0) {
             setIsFree(true);
         }
     }, [initialData]);
@@ -73,6 +75,7 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
             
             if (isFree) {
                 // Se for gratuito, força o preço a ser '0' (string numérica válida para a BD)
+                // Não atualizamos se já for '0' para evitar loops
                 if (formData.price !== '0') {
                     setFormData(prev => ({ ...prev, price: '0' }));
                 }
@@ -86,7 +89,7 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                 
                 const total = hours * rate;
                 
-                // Formatar para decimal limpo. NUNCA enviar string "Gratuito" aqui.
+                // Formatar para decimal limpo.
                 const totalFormatted = total % 1 !== 0 ? total.toFixed(2) : total.toString();
 
                 if (formData.price !== totalFormatted) {
@@ -98,16 +101,13 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
 
     const updateStandardPlan = (targetLabel: string, field: keyof PricingPlan, value: any) => {
         setPricingPlans(prev => {
-            // Verifica se o plano já existe no array
             const existingIndex = prev.findIndex(p => p.label === targetLabel);
             
             if (existingIndex >= 0) {
-                // Atualiza existente
                 const newPlans = [...prev];
                 newPlans[existingIndex] = { ...newPlans[existingIndex], [field]: value };
                 return newPlans;
             } else {
-                // Cria novo se não existir (inicializando os outros campos)
                 const newPlan: PricingPlan = {
                     label: targetLabel,
                     days: field === 'days' ? value : 0,
