@@ -202,12 +202,20 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
            )}
            
            {/* Footer Metadata */}
-           <div className="mt-8 pt-6 border-t border-indigo-200 flex flex-wrap gap-4 text-sm text-indigo-700 opacity-80">
+           <div className="mt-8 pt-6 border-t border-indigo-200 flex flex-wrap gap-4 text-sm text-indigo-700 opacity-80 items-center">
                <span>📅 Publicado a: <b>{formatShortDate(course.created_at)}</b></span>
                {course.duration && <span>⏱️ Duração: <b>{course.duration} horas</b></span>}
+               
                {/* Show Single Price ONLY if no plans exist */}
                {(!course.pricing_plans || course.pricing_plans.length === 0) && course.price && (
                    <span>💰 Custo: <b>{course.price} €</b></span>
+               )}
+
+               {/* Show Extra Class Price if Available */}
+               {course.extra_class_price && (
+                   <span className="bg-indigo-50 px-2 py-1 rounded text-xs font-bold border border-indigo-100">
+                       ➕ Aula Extra: {course.extra_class_price} €
+                   </span>
                )}
            </div>
         </div>

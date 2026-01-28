@@ -98,10 +98,13 @@ export interface Course {
   is_public?: boolean;
   marketing_data?: MarketingData;
   duration?: string; // NOVO: Duração (ex: "40h")
-  price?: string;    // Preço Base (Legado ou Live)
+  price?: string;    // Preço Base (Legado ou Live - Calculado)
   format?: 'live' | 'self_paced'; // NOVO: Formato do curso
   access_days?: number; // Legado: Dias de acesso (null = vitalício)
   pricing_plans?: PricingPlan[]; // NOVO (v3.1.10): Múltiplos planos
+  // NOVOS CAMPOS LIVE (v3.1.11)
+  hourly_rate?: string; 
+  extra_class_price?: string;
 }
 
 export interface Class {

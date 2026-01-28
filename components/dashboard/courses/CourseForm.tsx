@@ -61,6 +61,18 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
         }
     }, [initialData]);
 
+    // Live Course Calculation Effect
+    useEffect(() => {
+        if (formData.format === 'live') {
+            const hours = parseFloat(formData.duration || '0') || 0;
+            const rate = parseFloat(formData.hourly_rate || '0') || 0;
+            if (hours > 0 && rate > 0) {
+                const total = hours * rate;
+                setFormData(prev => ({ ...prev, price: total.toString() }));
+            }
+        }
+    }, [formData.duration, formData.hourly_rate, formData.format]);
+
     const updateStandardPlan = (targetLabel: string, field: keyof PricingPlan, value: any) => {
         setPricingPlans(prev => {
             // Verifica se o plano já existe no array
@@ -234,20 +246,43 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                      </select>
                  </div>
                  
-                 {/* Se for LIVE: Preço Único e Dias de Acesso (Legado) */}
+                 {/* Se for LIVE: Preço Calculado, Hora e Extras */}
                  {formData.format === 'live' && (
-                     <>
-                        <div>
-                             <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Custo (Valor)</label>
+                     <div className="md:col-span-1 bg-indigo-50/50 dark:bg-slate-900/50 p-3 rounded-lg border border-indigo-100 dark:border-slate-700 grid grid-cols-2 gap-2">
+                         <div className="col-span-2">
+                             <label className="block text-[10px] uppercase font-bold text-indigo-500 dark:text-indigo-400 mb-1">Cálculo de Preço</label>
+                         </div>
+                         <div>
+                             <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Preço / Hora (€)</label>
+                             <input 
+                                type="text" 
+                                value={formData.hourly_rate || ''} 
+                                onChange={e => setFormData({...formData, hourly_rate: e.target.value})} 
+                                placeholder="Ex: 10" 
+                                className="w-full p-1.5 rounded text-sm bg-white border border-indigo-200 outline-none text-indigo-900"
+                            />
+                         </div>
+                         <div>
+                             <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Total (Calc.)</label>
                              <input 
                                 type="text" 
                                 value={formData.price || ''} 
-                                onChange={e => setFormData({...formData, price: e.target.value})} 
-                                placeholder="Ex: 250" 
-                                className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 outline-none text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-500"
+                                readOnly
+                                className="w-full p-1.5 rounded text-sm bg-gray-100 border border-gray-200 outline-none text-indigo-900 font-bold cursor-not-allowed"
+                                title="Calculado automaticamente: Horas x Preço/Hora"
                             />
                          </div>
-                     </>
+                         <div className="col-span-2">
+                             <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Custo Aula Extra Individual (€)</label>
+                             <input 
+                                type="text" 
+                                value={formData.extra_class_price || ''} 
+                                onChange={e => setFormData({...formData, extra_class_price: e.target.value})} 
+                                placeholder="Ex: 25" 
+                                className="w-full p-1.5 rounded text-sm bg-white border border-indigo-200 outline-none text-indigo-900"
+                            />
+                         </div>
+                     </div>
                  )}
              </div>
 

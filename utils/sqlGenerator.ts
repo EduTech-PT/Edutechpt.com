@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
--- AÇÃO: MIGRATION PRICING PLANS (V3.1.10)
+-- AÇÃO: MIGRATION LIVE PRICING (V3.1.11)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -108,7 +108,9 @@ create table if not exists public.courses (
     price text,
     format text default 'live',
     access_days integer,
-    pricing_plans jsonb default '[]'::jsonb
+    pricing_plans jsonb default '[]'::jsonb,
+    hourly_rate text,
+    extra_class_price text
 );
 
 -- MIGRATION: Colunas novas (Cursos)
@@ -123,6 +125,13 @@ begin
   -- V3.1.10: Pricing Plans
   if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='pricing_plans') then
     alter table public.courses add column pricing_plans jsonb default '[]'::jsonb;
+  end if;
+  -- V3.1.11: Live Course Pricing
+  if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='hourly_rate') then
+    alter table public.courses add column hourly_rate text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='extra_class_price') then
+    alter table public.courses add column extra_class_price text;
   end if;
 end $$;
 
@@ -258,91 +267,6 @@ drop policy if exists "Gerir Comentarios" on public.class_comments;
 create policy "Ver Comentarios" on public.class_comments for select using (true);
 create policy "Criar Comentarios" on public.class_comments for insert with check (auth.uid() = user_id);
 create policy "Gerir Comentarios" on public.class_comments for delete using (auth.uid() = user_id OR public.is_admin());
-
--- ==============================================================================
--- 9. FUNÇÕES DE SISTEMA ATUALIZADAS
--- ==============================================================================
-
--- RPC: Obter Tamanho da BD (Bytes)
-create or replace function public.get_db_size()
-returns bigint
-language sql
-security definer
-set search_path = public
-as $$
-  select pg_database_size(current_database());
-$$;
-
--- RPC: Auto-reparação manual (Com Rate Limit)
-create or replace function public.claim_invite()
-returns boolean as $$
-declare
-  user_email text;
-  my_id uuid;
-begin
-  my_id := auth.uid();
-  if my_id is null then return false; end if;
-  
-  select email into user_email from auth.users where id = my_id;
-  
-  -- RATE LIMIT CHECK: 3 tentativas em 10 minutos
-  if not public.check_rate_limit(user_email, 'claim_invite', 3, 10) then
-     raise exception 'Limite de tentativas excedido. Por favor, aguarde 10 minutos antes de tentar novamente.';
-  end if;
-  
-  if lower(user_email) = 'edutechpt@hotmail.com' then
-      insert into public.profiles (id, email, full_name, role)
-      values (my_id, user_email, 'Administrador', 'admin')
-      on conflict (id) do update set role = 'admin';
-      return true;
-  end if;
-
-  insert into public.profiles (id, email, full_name, role)
-  values (my_id, user_email, 'Utilizador', 'aluno')
-  on conflict (id) do nothing;
-
-  return true;
-end;
-$$ language plpgsql security definer;
-
-create or replace function public.get_community_members()
-returns setof public.profiles as $$
-begin
-    return query select * from public.profiles order by full_name;
-end;
-$$ language plpgsql security definer;
-
-create or replace function public.cleanup_old_comments()
-returns trigger as $$
-begin
-  delete from public.class_comments where created_at < now() - interval '90 days';
-  return new;
-end;
-$$ language plpgsql security definer;
-
-drop trigger if exists on_comment_cleanup on public.class_comments;
-create trigger on_comment_cleanup after insert on public.class_comments for each statement execute procedure public.cleanup_old_comments();
-
-create or replace function public.moderate_chat()
-returns trigger as $$
-declare
-  bad_words_json jsonb;
-  bad_word text;
-  cleaned_content text;
-begin
-  select value::jsonb into bad_words_json from public.app_config where key = 'forbidden_words';
-  if bad_words_json is null or jsonb_typeof(bad_words_json) != 'array' then return new; end if;
-  cleaned_content := new.content;
-  for bad_word in select * from jsonb_array_elements_text(bad_words_json) loop
-    cleaned_content := regexp_replace(cleaned_content, bad_word, '****', 'gi');
-  end loop;
-  new.content := cleaned_content;
-  return new;
-end;
-$$ language plpgsql security definer;
-
-drop trigger if exists on_chat_moderation on public.class_comments;
-create trigger on_chat_moderation before insert or update on public.class_comments for each row execute procedure public.moderate_chat();
 
 -- ==============================================================================
 -- 10. RECARREGAMENTO DE SCHEMA

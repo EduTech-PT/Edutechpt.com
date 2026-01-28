@@ -3,8 +3,8 @@ import { supabase } from '../lib/supabaseClient';
 import { Course, Class, Profile, ClassMaterial, ClassAnnouncement, ClassAssessment, CourseHierarchy, AttendanceRecord, StudentGrade, ClassComment } from '../types';
 
 // Colunas base que sabemos que existem garantidamente.
-// Atualizado com format, access_days e pricing_plans
-const BASE_COLUMNS = 'id, title, description, level, image_url, is_public, marketing_data, created_at, instructor_id, format, access_days, pricing_plans';
+// Atualizado com format, access_days, pricing_plans, hourly_rate, extra_class_price
+const BASE_COLUMNS = 'id, title, description, level, image_url, is_public, marketing_data, created_at, instructor_id, format, access_days, pricing_plans, hourly_rate, extra_class_price';
 
 export const courseService = {
     async getAll() {
