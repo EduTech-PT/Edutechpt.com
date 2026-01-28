@@ -68,7 +68,7 @@ const DEFAULT_CONTENT = `
                 Estes termos são regidos pelas leis de Portugal. Para a resolução de quaisquer litígios emergentes deste contrato, será competente o foro da comarca de Lisboa, com expressa renúncia a qualquer outro.
             </p>
 
-            <div class="mt-12 pt-8 border-t border-indigo-200/50 text-center">
+            <div class="mt-12 pt-8 border-t border-indigo-200/50 dark:border-white/10 text-center">
                 <p class="text-sm opacity-70">
                     Questões sobre os termos? Contacte: <strong>edutechpt@hotmail.com</strong>
                 </p>
@@ -105,7 +105,7 @@ export const TermsOfService: React.FC<Props> = ({ onBack, isEmbedded = false }) 
   };
 
   const Content = () => (
-      <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600 dark:text-indigo-100 dark:prose-headings:text-indigo-100 dark:prose-a:text-indigo-300 dark:prose-strong:text-white">
+      <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600 dark:text-indigo-100 dark:prose-invert dark:prose-headings:text-white dark:prose-p:text-indigo-100 dark:prose-a:text-indigo-300 dark:prose-strong:text-white dark:prose-li:text-indigo-100">
           <div dangerouslySetInnerHTML={{ __html: content }} />
       </GlassCard>
   );

@@ -75,18 +75,18 @@ const DEFAULT_CONTENT = `
                 Podemos atualizar esta política ocasionalmente. Recomendamos que reveja esta página periodicamente para quaisquer alterações. O uso continuado da plataforma após alterações constitui aceitação das mesmas.
             </p>
 
-            <div class="bg-indigo-50 border-l-4 border-indigo-500 p-4 my-8 rounded-r-lg">
-                <h3 class="mt-0 text-indigo-900">9. Conformidade com Serviços Google</h3>
-                <p>
+            <div class="bg-indigo-50 dark:bg-slate-800 border-l-4 border-indigo-500 p-4 my-8 rounded-r-lg">
+                <h3 class="mt-0 text-indigo-900 dark:text-white">9. Conformidade com Serviços Google</h3>
+                <p class="dark:text-indigo-200">
                     A utilização e transferência de informações recebidas das APIs do Google para qualquer outra aplicação pela EduTech PT aderirá à 
-                    <a href="https://developers.google.com/terms/api-services-user-data-policy#additional_requirements_for_specific_api_scopes" target="_blank" rel="noreferrer" class="font-bold text-indigo-700 hover:text-indigo-900 mx-1">
+                    <a href="https://developers.google.com/terms/api-services-user-data-policy#additional_requirements_for_specific_api_scopes" target="_blank" rel="noreferrer" class="font-bold text-indigo-700 dark:text-indigo-300 hover:text-indigo-900 dark:hover:text-white mx-1">
                          Política de Dados do Utilizador dos Serviços API da Google
                     </a>, 
                     incluindo os requisitos de Uso Limitado.
                 </p>
             </div>
 
-            <div class="mt-12 pt-8 border-t border-indigo-200/50 text-center">
+            <div class="mt-12 pt-8 border-t border-indigo-200/50 dark:border-white/10 text-center">
                 <p class="text-sm opacity-70">
                     Dúvidas? Contacte-nos: <strong>edutechpt@hotmail.com</strong>
                 </p>
@@ -123,7 +123,7 @@ export const PrivacyPolicy: React.FC<Props> = ({ onBack, isEmbedded = false }) =
   };
 
   const Content = () => (
-      <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600 dark:text-indigo-100 dark:prose-headings:text-indigo-100 dark:prose-a:text-indigo-300 dark:prose-strong:text-white">
+      <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600 dark:text-indigo-100 dark:prose-invert dark:prose-headings:text-white dark:prose-p:text-indigo-100 dark:prose-a:text-indigo-300 dark:prose-strong:text-white dark:prose-li:text-indigo-100">
           <div dangerouslySetInnerHTML={{ __html: content }} />
       </GlassCard>
   );
