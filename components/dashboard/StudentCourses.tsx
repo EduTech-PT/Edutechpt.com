@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
+import { adminService } from '../../services/admin';
 import { Profile, Course, UserRole } from '../../types';
 import { formatShortDate } from '../../utils/formatters';
 import { CourseDetailModal } from '../CourseDetailModal';
@@ -16,6 +17,13 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
   const [publicCourses, setPublicCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Config state for emails
+  const [emailConfig, setEmailConfig] = useState({
+      to: 'inscricao@edutechpt.com',
+      subject: 'Inscrição no Curso: {nome_curso}',
+      body: 'Olá,\n\nGostaria de me inscrever no curso "{nome_curso}".\n\nNome: {nome_aluno}\nEmail: {email_aluno}'
+  });
+  
   // Modal State
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
 
@@ -23,6 +31,14 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
     const loadData = async () => {
         setLoading(true);
         try {
+            // Load App Config for Emails
+            const config = await adminService.getAppConfig();
+            setEmailConfig({
+                to: config.enrollmentEmailTo || 'inscricao@edutechpt.com',
+                subject: config.enrollmentSubject || 'Inscrição no Curso: {nome_curso}',
+                body: config.enrollmentBody || 'Olá,\n\nGostaria de me inscrever no curso "{nome_curso}".\n\nNome: {nome_aluno}\nEmail: {email_aluno}'
+            });
+
             if (profile.role === UserRole.ADMIN) {
                 const allClasses = await courseService.getAllClassesWithDetails();
                 const virtualEnrollments = allClasses.map(cls => ({
@@ -61,9 +77,23 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
           else alert("Erro: Navegação indisponível.");
           setSelectedCourse(null);
       } else {
-          const subject = `Inscrição no Curso: ${selectedCourse.title}`;
-          const body = `Olá,\n\nGostaria de me inscrever no curso "${selectedCourse.title}".\n\nNome: ${profile.full_name}\nEmail: ${profile.email}`;
-          window.location.href = `mailto:edutechpt@hotmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+          // --- NOVA LÓGICA DE EMAIL CONFIGURÁVEL ---
+          const replacements = {
+              '{nome_curso}': selectedCourse.title,
+              '{nome_aluno}': profile.full_name || '',
+              '{email_aluno}': profile.email
+          };
+
+          let finalSubject = emailConfig.subject;
+          let finalBody = emailConfig.body;
+
+          // Apply replacements
+          Object.entries(replacements).forEach(([key, value]) => {
+              finalSubject = finalSubject.split(key).join(value);
+              finalBody = finalBody.split(key).join(value);
+          });
+
+          window.location.href = `mailto:${emailConfig.to}?subject=${encodeURIComponent(finalSubject)}&body=${encodeURIComponent(finalBody)}`;
           setSelectedCourse(null);
       }
   };

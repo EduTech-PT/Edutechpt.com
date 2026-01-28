@@ -37,6 +37,7 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
     const handleSaveGlobal = async () => {
         setIsSaving(true);
         try {
+            // Configurações existentes
             await adminService.updateAppConfig('request_access_email', config.requestAccessEmail?.trim());
             await adminService.updateAppConfig('request_access_subject', config.requestAccessSubject);
             await adminService.updateAppConfig('request_access_body', config.requestAccessBody);
@@ -49,6 +50,11 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
             await adminService.updateAppConfig('submission_email_body', config.submissionBody);
             await adminService.updateAppConfig('application_email_subject', config.applicationSubject);
             await adminService.updateAppConfig('application_email_body', config.applicationBody);
+            
+            // Nova Configuração: Inscrição em Cursos
+            await adminService.updateAppConfig('enrollment_email_to', config.enrollmentEmailTo?.trim());
+            await adminService.updateAppConfig('enrollment_email_subject', config.enrollmentSubject);
+            await adminService.updateAppConfig('enrollment_email_body', config.enrollmentBody);
             
             toast.success('Configurações guardadas!');
         } catch (e: any) {
@@ -165,18 +171,18 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
              
              {/* 0. PREFERÊNCIAS PESSOAIS */}
              <GlassCard className="border-l-4 border-l-purple-500">
-                 <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2"><span>🔔</span> Minhas Notificações</h3>
+                 <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4 flex items-center gap-2"><span>🔔</span> Minhas Notificações</h3>
                  <div className="flex flex-col gap-4">
                      <div className="flex flex-col md:flex-row gap-4">
                          <div className="flex-1">
-                             <label className="block text-sm text-indigo-800 font-bold mb-1">Som de Alerta</label>
+                             <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Som de Alerta</label>
                              <select 
                                 value={userSound} 
                                 onChange={(e) => {
                                     setUserSound(e.target.value);
                                     testSound(e.target.value); 
                                 }}
-                                className="w-full p-2 rounded bg-white/50 border border-purple-200 text-indigo-900 focus:ring-2 focus:ring-purple-400 outline-none"
+                                className="w-full p-2 rounded bg-white/50 dark:bg-black/30 border border-purple-200 dark:border-purple-800 text-indigo-900 dark:text-indigo-100 focus:ring-2 focus:ring-purple-400 outline-none"
                              >
                                  <option value="pop">Pop (Padrão)</option>
                                  <option value="glass">Glass (Elegante)</option>
@@ -192,8 +198,8 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
                          
                          {canSeeGlobalToggle && (
                              <div className="flex-1">
-                                 <label className="block text-sm text-indigo-800 font-bold mb-1">Modo Monitorização (Global)</label>
-                                 <div className="flex items-center gap-3 p-2 bg-white/50 rounded border border-purple-200">
+                                 <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Modo Monitorização (Global)</label>
+                                 <div className="flex items-center gap-3 p-2 bg-white/50 dark:bg-slate-800/50 rounded border border-purple-200 dark:border-purple-800">
                                      <label className="relative inline-flex items-center cursor-pointer">
                                         <input 
                                             type="checkbox" 
@@ -201,9 +207,9 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
                                             onChange={(e) => setGlobalNotif(e.target.checked)}
                                             className="sr-only peer"
                                         />
-                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                        <div className="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                      </label>
-                                     <span className="text-xs text-indigo-600">
+                                     <span className="text-xs text-indigo-600 dark:text-indigo-300">
                                          {globalNotif ? 'Receber de TODAS as turmas' : 'Apenas das minhas turmas'}
                                      </span>
                                  </div>
@@ -212,7 +218,7 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
                      </div>
 
                      <div className="flex gap-2 justify-end pt-2">
-                         <button onClick={() => testSound(userSound)} className="px-4 py-2 bg-white text-purple-600 border border-purple-200 rounded-lg font-bold hover:bg-purple-50 text-sm flex items-center gap-2">
+                         <button onClick={() => testSound(userSound)} className="px-4 py-2 bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-700 rounded-lg font-bold hover:bg-purple-50 dark:hover:bg-purple-900 text-sm flex items-center gap-2">
                              <span>🔊</span> Testar
                          </button>
                          <button onClick={handleSavePreferences} className="px-6 py-2 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700 shadow-md text-sm">
@@ -222,25 +228,67 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
                  </div>
              </GlassCard>
 
-             <div className="border-t border-indigo-200 my-6"></div>
+             <div className="border-t border-indigo-200 dark:border-indigo-800 my-6"></div>
              <h4 className="text-sm font-bold text-gray-400 uppercase mb-4">Definições Globais do Sistema (Admin)</h4>
 
-             {/* 1. PEDIDO DE ACESSO */}
+             {/* 1. INSCRIÇÃO EM CURSOS (NOVO) */}
              <GlassCard>
-                 <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2"><span>🔑</span> Pedido de Acesso (Login)</h3>
+                 <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4 flex items-center gap-2"><span>🎓</span> Inscrição em Cursos</h3>
+                 <p className="text-sm text-indigo-600 dark:text-indigo-300 mb-4 opacity-80">
+                     Este email é pré-preenchido quando o utilizador clica em "Aceder/Inscrever" na lista de cursos.
+                 </p>
                  <div className="space-y-4">
-                     <div><label className="block text-sm text-indigo-800 font-bold mb-1">Email Destino</label><input type="email" value={config.requestAccessEmail || ''} onChange={e => setConfig({...config, requestAccessEmail: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60"/></div>
-                     <div><label className="block text-sm text-indigo-800 font-bold mb-1">Assunto</label><input type="text" value={config.requestAccessSubject || ''} onChange={e => setConfig({...config, requestAccessSubject: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60"/></div>
-                     <div><label className="block text-sm text-indigo-800 font-bold mb-1">Corpo</label><textarea value={config.requestAccessBody || ''} onChange={e => setConfig({...config, requestAccessBody: e.target.value})} className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 text-sm"/></div>
+                     <div>
+                         <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Email Destino</label>
+                         <input 
+                            type="email" 
+                            placeholder="inscricao@edutechpt.com"
+                            value={config.enrollmentEmailTo || ''} 
+                            onChange={e => setConfig({...config, enrollmentEmailTo: e.target.value})} 
+                            className="w-full p-2 rounded bg-white/50 dark:bg-black/30 border border-white/60 dark:border-white/20 text-indigo-900 dark:text-white"
+                         />
+                     </div>
+                     <div>
+                         <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Assunto</label>
+                         <input 
+                            type="text" 
+                            value={config.enrollmentSubject || ''} 
+                            onChange={e => setConfig({...config, enrollmentSubject: e.target.value})} 
+                            placeholder="Ex: Inscrição no Curso: {nome_curso}"
+                            className="w-full p-2 rounded bg-white/50 dark:bg-black/30 border border-white/60 dark:border-white/20 text-indigo-900 dark:text-white"
+                         />
+                     </div>
+                     <div>
+                         <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Corpo da Mensagem</label>
+                         <textarea 
+                            value={config.enrollmentBody || ''} 
+                            onChange={e => setConfig({...config, enrollmentBody: e.target.value})} 
+                            className="w-full h-32 p-2 rounded bg-white/50 dark:bg-black/30 border border-white/60 dark:border-white/20 text-sm text-indigo-900 dark:text-white"
+                            placeholder="Escreva aqui o modelo do email..."
+                         />
+                     </div>
+                     <div className="text-xs text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 p-2 rounded border border-indigo-100 dark:border-indigo-800">
+                         <b>Variáveis disponíveis:</b> <code>{'{nome_aluno}'}</code>, <code>{'{email_aluno}'}</code>, <code>{'{nome_curso}'}</code>
+                     </div>
                  </div>
              </GlassCard>
 
-             {/* 2. CONVITES */}
+             {/* 2. PEDIDO DE ACESSO */}
              <GlassCard>
-                 <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2"><span>✉️</span> Convites</h3>
+                 <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4 flex items-center gap-2"><span>🔑</span> Pedido de Acesso (Login)</h3>
                  <div className="space-y-4">
-                     <div><label className="block text-sm text-indigo-800 font-bold mb-1">Assunto</label><input type="text" value={config.inviteSubject || ''} onChange={e => setConfig({...config, inviteSubject: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60"/></div>
-                     <div><label className="block text-sm text-indigo-800 font-bold mb-1">Corpo</label><textarea value={config.inviteBody || ''} onChange={e => setConfig({...config, inviteBody: e.target.value})} className="w-full h-24 p-2 rounded bg-white/50 border border-white/60 text-sm"/></div>
+                     <div><label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Email Destino</label><input type="email" value={config.requestAccessEmail || ''} onChange={e => setConfig({...config, requestAccessEmail: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-black/30 border border-white/60 dark:border-white/20 text-indigo-900 dark:text-white"/></div>
+                     <div><label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Assunto</label><input type="text" value={config.requestAccessSubject || ''} onChange={e => setConfig({...config, requestAccessSubject: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-black/30 border border-white/60 dark:border-white/20 text-indigo-900 dark:text-white"/></div>
+                     <div><label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Corpo</label><textarea value={config.requestAccessBody || ''} onChange={e => setConfig({...config, requestAccessBody: e.target.value})} className="w-full h-24 p-2 rounded bg-white/50 dark:bg-black/30 border border-white/60 dark:border-white/20 text-sm text-indigo-900 dark:text-white"/></div>
+                 </div>
+             </GlassCard>
+
+             {/* 3. CONVITES */}
+             <GlassCard>
+                 <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4 flex items-center gap-2"><span>✉️</span> Convites</h3>
+                 <div className="space-y-4">
+                     <div><label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Assunto</label><input type="text" value={config.inviteSubject || ''} onChange={e => setConfig({...config, inviteSubject: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-black/30 border border-white/60 dark:border-white/20 text-indigo-900 dark:text-white"/></div>
+                     <div><label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Corpo</label><textarea value={config.inviteBody || ''} onChange={e => setConfig({...config, inviteBody: e.target.value})} className="w-full h-24 p-2 rounded bg-white/50 dark:bg-black/30 border border-white/60 dark:border-white/20 text-sm text-indigo-900 dark:text-white"/></div>
                  </div>
              </GlassCard>
 

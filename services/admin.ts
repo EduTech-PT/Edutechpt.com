@@ -286,6 +286,11 @@ export const adminService = {
                 if (item.key === 'invite_email_subject') config.inviteSubject = item.value;
                 if (item.key === 'invite_email_body') config.inviteBody = item.value;
 
+                // Enrollment (Inscrição) Email Settings
+                if (item.key === 'enrollment_email_to') config.enrollmentEmailTo = item.value;
+                if (item.key === 'enrollment_email_subject') config.enrollmentSubject = item.value;
+                if (item.key === 'enrollment_email_body') config.enrollmentBody = item.value;
+
                 // Auth Warning Settings
                 if (item.key === 'auth_warning_title') config.authWarningTitle = item.value; 
                 if (item.key === 'auth_warning_intro') config.authWarningIntro = item.value;

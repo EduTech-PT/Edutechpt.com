@@ -31,7 +31,7 @@ const DEFAULT_CONTENT = `
             <p>Os seus dados são utilizados estritamente para:</p>
             <ul>
                 <li>Gestão de inscrições em cursos e turmas.</li>
-                <li>Disponibilização de materiais didáticos e certificação.</li>
+                <li>Disponibilização de materiais didáticos e avaliação.</li>
                 <li>Comunicação entre formadores, alunos e administração.</li>
                 <li>Criação automática de pastas pessoais no Google Drive (para formadores).</li>
                 <li>Segurança e prevenção de acessos não autorizados.</li>

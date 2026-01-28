@@ -13,8 +13,8 @@ const DEFAULT_CONTENT = `
             </p>
             <div class="space-y-6">
                 <div class="bg-white/40 p-6 rounded-xl border border-white/50">
-                    <h3 class="font-bold text-lg text-indigo-900 mb-2">Os cursos conferem certificado?</h3>
-                    <p class="text-indigo-800 text-sm">Sim, todos os cursos concluídos com aproveitamento conferem um certificado digital.</p>
+                    <h3 class="font-bold text-lg text-indigo-900 mb-2">A formação é prática?</h3>
+                    <p class="text-indigo-800 text-sm">Sim, todos os cursos são focados em projetos reais e no desenvolvimento de competências técnicas exigidas pelo mercado.</p>
                 </div>
             </div>
 `;

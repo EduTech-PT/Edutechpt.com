@@ -106,7 +106,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       {/* AUTHORITY BAR */}
       <div className="w-full bg-white/20 dark:bg-black/20 backdrop-blur-md border-y border-white/30 dark:border-white/10 py-8 mb-16 relative z-10">
           <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-              <div className="flex flex-col items-center"><span className="text-3xl mb-2">🎓</span><span className="font-bold text-indigo-900 dark:text-white text-lg">Certificada</span><span className="text-xs text-indigo-600 dark:text-indigo-300 uppercase tracking-wide">Formação</span></div>
+              <div className="flex flex-col items-center"><span className="text-3xl mb-2">🎓</span><span className="font-bold text-indigo-900 dark:text-white text-lg">Especializada</span><span className="text-xs text-indigo-600 dark:text-indigo-300 uppercase tracking-wide">Formação</span></div>
               <div className="flex flex-col items-center"><span className="text-3xl mb-2">💻</span><span className="font-bold text-indigo-900 dark:text-white text-lg">100% Online</span><span className="text-xs text-indigo-600 dark:text-indigo-300 uppercase tracking-wide">Flexibilidade</span></div>
               <div className="flex flex-col items-center"><span className="text-3xl mb-2">📚</span><span className="font-bold text-indigo-900 dark:text-white text-lg">{courses.length}+ Cursos</span><span className="text-xs text-indigo-600 dark:text-indigo-300 uppercase tracking-wide">Disponíveis</span></div>
               <div className="flex flex-col items-center"><span className="text-3xl mb-2">🤝</span><span className="font-bold text-indigo-900 dark:text-white text-lg">Comunidade</span><span className="text-xs text-indigo-600 dark:text-indigo-300 uppercase tracking-wide">Aprendizagem</span></div>
@@ -186,8 +186,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                   </GlassCard>
                   <GlassCard className="text-center p-8 relative overflow-visible">
                       <div className="w-16 h-16 bg-pink-600 text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg absolute -top-8 left-1/2 transform -translate-x-1/2 border-4 border-pink-50 dark:border-slate-800">3</div>
-                      <h3 className="mt-8 text-xl font-bold text-indigo-900 dark:text-white mb-3">Certifique-se</h3>
-                      <p className="text-indigo-700 dark:text-indigo-300 text-sm leading-relaxed">Realize avaliações e obtenha o certificado.</p>
+                      <h3 className="mt-8 text-xl font-bold text-indigo-900 dark:text-white mb-3">Evolua</h3>
+                      <p className="text-indigo-700 dark:text-indigo-300 text-sm leading-relaxed">Realize avaliações e domine novas competências.</p>
                   </GlassCard>
               </div>
           </div>

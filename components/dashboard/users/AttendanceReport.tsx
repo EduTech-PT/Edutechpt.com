@@ -114,10 +114,10 @@ export const AttendanceReport: React.FC = () => {
                         <thead className="bg-indigo-50 text-indigo-900 font-bold text-xs sticky top-0 z-20 shadow-sm">
                             <tr>
                                 <th className="p-3 text-left sticky left-0 z-30 bg-indigo-100 border-r border-indigo-200 min-w-[200px]">Aluno</th>
-                                {uniqueDates.map(date => (
-                                    <th key={date} className="p-2 text-center min-w-[60px] border-r border-indigo-100 whitespace-nowrap">
+                                {uniqueDates.map((date: unknown) => (
+                                    <th key={date as string} className="p-2 text-center min-w-[60px] border-r border-indigo-100 whitespace-nowrap">
                                         <div className="transform -rotate-45 origin-bottom-left translate-x-4 mb-2">
-                                            {formatShortDate(date)}
+                                            {formatShortDate(date as string)}
                                         </div>
                                     </th>
                                 ))}
@@ -141,10 +141,10 @@ export const AttendanceReport: React.FC = () => {
                                             <div className="truncate w-48" title={student.full_name || ''}>{student.full_name}</div>
                                         </td>
                                         
-                                        {uniqueDates.map(date => {
+                                        {uniqueDates.map((date: unknown) => {
                                             const rec = studentRecords.find(r => r.date === date);
                                             return (
-                                                <td key={date} className="p-2 text-center border-r border-indigo-50">
+                                                <td key={date as string} className="p-2 text-center border-r border-indigo-50">
                                                     {rec ? (
                                                         <span className={`inline-block w-6 h-6 leading-6 rounded-full text-[10px] font-bold ${getStatusColor(rec.status)}`} title={rec.status}>
                                                             {getStatusLabel(rec.status)}
