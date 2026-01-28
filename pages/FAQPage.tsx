@@ -100,7 +100,7 @@ export const FAQPage: React.FC<Props> = ({ onBack, isEmbedded = false }) => {
         {categories.length > 0 ? (
             <div>
                 <h1 className="text-3xl md:text-4xl font-bold text-center mb-4 text-indigo-900 dark:text-white">Perguntas Frequentes</h1>
-                <p className="text-center text-lg font-medium opacity-80 mb-12 text-indigo-700 dark:text-gray-300">
+                <p className="text-center text-lg font-medium opacity-80 mb-12 text-indigo-700 dark:text-gray-200">
                     Encontre respostas organizadas por tema.
                 </p>
                 
@@ -119,7 +119,7 @@ export const FAQPage: React.FC<Props> = ({ onBack, isEmbedded = false }) => {
                                             : 'bg-white/30 dark:bg-slate-800/30 hover:bg-white/50 dark:hover:bg-slate-700/50 border-transparent hover:border-indigo-100 dark:hover:border-slate-600'}
                                     `}
                                 >
-                                    <h2 className="text-xl font-bold text-indigo-800 dark:text-gray-100 flex items-center gap-3">
+                                    <h2 className="text-xl font-bold text-indigo-800 dark:text-white flex items-center gap-3">
                                         <span className={`text-sm bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 px-2 py-1 rounded-lg transition-colors ${isCatOpen ? 'bg-indigo-200 dark:bg-indigo-800' : ''}`}>#</span> 
                                         {cat.title}
                                     </h2>
