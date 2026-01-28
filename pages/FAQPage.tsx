@@ -7,14 +7,14 @@ import { ThemeToggle } from '../components/ThemeToggle';
 
 // Default content used if database is empty and no structured list exists
 const DEFAULT_CONTENT = `
-            <h1 class="text-3xl md:text-4xl font-bold text-center mb-8">Perguntas Frequentes</h1>
-            <p class="lead text-center text-lg font-medium opacity-80 mb-12">
+            <h1 class="text-3xl md:text-4xl font-bold text-center mb-8 text-indigo-900 dark:text-white">Perguntas Frequentes</h1>
+            <p class="lead text-center text-lg font-medium opacity-80 mb-12 text-indigo-700 dark:text-indigo-200">
                 Encontre respostas rápidas para as dúvidas mais comuns.
             </p>
             <div class="space-y-6">
-                <div class="bg-white/40 p-6 rounded-xl border border-white/50">
-                    <h3 class="font-bold text-lg text-indigo-900 mb-2">A formação é prática?</h3>
-                    <p class="text-indigo-800 text-sm">Sim, todos os cursos são focados em projetos reais e no desenvolvimento de competências técnicas exigidas pelo mercado.</p>
+                <div class="bg-white/40 dark:bg-slate-800/40 p-6 rounded-xl border border-white/50 dark:border-white/10">
+                    <h3 class="font-bold text-lg text-indigo-900 dark:text-white mb-2">A formação é prática?</h3>
+                    <p class="text-indigo-800 dark:text-indigo-200 text-sm">Sim, todos os cursos são focados em projetos reais e no desenvolvimento de competências técnicas exigidas pelo mercado.</p>
                 </div>
             </div>
 `;
