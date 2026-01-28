@@ -8,13 +8,13 @@ import { ThemeToggle } from '../components/ThemeToggle';
 // Default content used if database is empty and no structured list exists
 const DEFAULT_CONTENT = `
             <h1 class="text-3xl md:text-4xl font-bold text-center mb-8 text-indigo-900 dark:text-white">Perguntas Frequentes</h1>
-            <p class="lead text-center text-lg font-medium opacity-80 mb-12 text-indigo-700 dark:text-indigo-200">
+            <p class="lead text-center text-lg font-medium opacity-80 mb-12 text-indigo-700 dark:text-gray-200">
                 Encontre respostas rápidas para as dúvidas mais comuns.
             </p>
             <div class="space-y-6">
                 <div class="bg-white/40 dark:bg-slate-800/40 p-6 rounded-xl border border-white/50 dark:border-white/10">
                     <h3 class="font-bold text-lg text-indigo-900 dark:text-white mb-2">A formação é prática?</h3>
-                    <p class="text-indigo-800 dark:text-indigo-100 text-sm">Sim, todos os cursos são focados em projetos reais e no desenvolvimento de competências técnicas exigidas pelo mercado.</p>
+                    <p class="text-indigo-800 dark:text-gray-200 text-sm">Sim, todos os cursos são focados em projetos reais e no desenvolvimento de competências técnicas exigidas pelo mercado.</p>
                 </div>
             </div>
 `;
@@ -100,7 +100,7 @@ export const FAQPage: React.FC<Props> = ({ onBack, isEmbedded = false }) => {
         {categories.length > 0 ? (
             <div>
                 <h1 className="text-3xl md:text-4xl font-bold text-center mb-4 text-indigo-900 dark:text-white">Perguntas Frequentes</h1>
-                <p className="text-center text-lg font-medium opacity-80 mb-12 text-indigo-700 dark:text-indigo-300">
+                <p className="text-center text-lg font-medium opacity-80 mb-12 text-indigo-700 dark:text-gray-300">
                     Encontre respostas organizadas por tema.
                 </p>
                 
@@ -119,7 +119,7 @@ export const FAQPage: React.FC<Props> = ({ onBack, isEmbedded = false }) => {
                                             : 'bg-white/30 dark:bg-slate-800/30 hover:bg-white/50 dark:hover:bg-slate-700/50 border-transparent hover:border-indigo-100 dark:hover:border-slate-600'}
                                     `}
                                 >
-                                    <h2 className="text-xl font-bold text-indigo-800 dark:text-indigo-100 flex items-center gap-3">
+                                    <h2 className="text-xl font-bold text-indigo-800 dark:text-gray-100 flex items-center gap-3">
                                         <span className={`text-sm bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 px-2 py-1 rounded-lg transition-colors ${isCatOpen ? 'bg-indigo-200 dark:bg-indigo-800' : ''}`}>#</span> 
                                         {cat.title}
                                     </h2>
@@ -143,7 +143,7 @@ export const FAQPage: React.FC<Props> = ({ onBack, isEmbedded = false }) => {
                                                 onClick={(e) => toggleFaq(uniqueId, e)}
                                             >
                                                 <div className="p-5 flex justify-between items-center">
-                                                    <h3 className={`font-bold text-lg transition-colors ${isOpen ? 'text-indigo-600 dark:text-indigo-400' : 'text-indigo-900 dark:text-indigo-200'}`}>
+                                                    <h3 className={`font-bold text-lg transition-colors ${isOpen ? 'text-indigo-600 dark:text-indigo-400' : 'text-indigo-900 dark:text-gray-200'}`}>
                                                         {item.q}
                                                     </h3>
                                                     <span className={`text-indigo-400 transform transition-transform duration-300 font-bold text-xl ${isOpen ? 'rotate-180' : 'rotate-0'}`}>
@@ -152,7 +152,7 @@ export const FAQPage: React.FC<Props> = ({ onBack, isEmbedded = false }) => {
                                                 </div>
                                                 <div className={`px-5 overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[1000px] pb-6 opacity-100' : 'max-h-0 opacity-0'}`}>
                                                     <div 
-                                                        className="text-indigo-800 dark:text-indigo-100 text-sm leading-relaxed border-t border-indigo-50 dark:border-slate-700 pt-4 prose prose-indigo dark:prose-invert max-w-none"
+                                                        className="text-indigo-800 dark:text-gray-200 text-sm leading-relaxed border-t border-indigo-50 dark:border-slate-700 pt-4 prose prose-indigo dark:prose-invert max-w-none dark:prose-p:text-gray-200"
                                                         dangerouslySetInnerHTML={{ __html: item.a }}
                                                     />
                                                 </div>
@@ -166,14 +166,14 @@ export const FAQPage: React.FC<Props> = ({ onBack, isEmbedded = false }) => {
                 </div>
 
                 <div className="mt-12 pt-8 border-t border-indigo-200/50 dark:border-white/10 text-center">
-                    <p className="text-sm opacity-70 text-indigo-900 dark:text-indigo-200">
+                    <p className="text-sm opacity-70 text-indigo-900 dark:text-gray-300">
                         Ainda tem dúvidas? Contacte: <strong>edutechpt@hotmail.com</strong>
                     </p>
                 </div>
             </div>
         ) : (
             // FALLBACK HTML
-            <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600 dark:text-indigo-100 dark:prose-headings:text-indigo-100 dark:prose-a:text-indigo-300 dark:prose-strong:text-white">
+            <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600 dark:text-gray-100 dark:prose-headings:text-white dark:prose-p:text-gray-200 dark:prose-a:text-indigo-300 dark:prose-strong:text-white">
                 <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
             </GlassCard>
         )}
