@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Course, MarketingData } from '../../../types';
 import { RichTextEditor } from '../../RichTextEditor';
-import { storageService } from '../../../services/storage';
+import { storageService, StorageFile } from '../../../services/storage';
 
 interface Props {
     initialData: Partial<Course>;
@@ -18,6 +18,11 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
         social: '', authority: '', guarantee: '', bonuses: '', cta: ''
     });
     const [uploading, setUploading] = useState(false);
+
+    // Gallery State
+    const [showGallery, setShowGallery] = useState(false);
+    const [galleryImages, setGalleryImages] = useState<StorageFile[]>([]);
+    const [loadingGallery, setLoadingGallery] = useState(false);
 
     useEffect(() => {
         setFormData(initialData);
@@ -40,6 +45,26 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
             alert("Erro no upload: " + err.message);
         } finally {
             setUploading(false);
+        }
+    };
+
+    const handleOpenGallery = async () => {
+        setShowGallery(true);
+        setLoadingGallery(true);
+        try {
+            const files = await storageService.listFiles('course-images');
+            setGalleryImages(files);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoadingGallery(false);
+        }
+    };
+
+    const handleSelectImage = (url?: string) => {
+        if (url) {
+            setFormData(prev => ({ ...prev, image_url: url }));
+            setShowGallery(false);
         }
     };
 
@@ -105,7 +130,7 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                          <div className="flex-1 relative">
                             <input 
                                 type="text" 
-                                placeholder="https://... ou carregue ->" 
+                                placeholder="https://... ou use botões ->" 
                                 value={formData.image_url || ''} 
                                 onChange={e => setFormData({...formData, image_url: e.target.value})} 
                                 className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 focus:ring-2 focus:ring-indigo-500 outline-none pr-10 text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-500"
@@ -116,8 +141,20 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                                 </div>
                             )}
                          </div>
-                         <label className={`px-3 py-2 bg-indigo-600 text-white rounded cursor-pointer hover:bg-indigo-700 transition-all ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                             {uploading ? '...' : '📁'}
+                         
+                         {/* Gallery Button */}
+                         <button
+                            type="button"
+                            onClick={handleOpenGallery}
+                            className="px-3 py-2 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200 rounded hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-all font-bold border border-indigo-200 dark:border-indigo-700"
+                            title="Selecionar da Galeria"
+                         >
+                            🖼️
+                         </button>
+
+                         {/* Upload Button */}
+                         <label className={`px-3 py-2 bg-indigo-600 text-white rounded cursor-pointer hover:bg-indigo-700 transition-all ${uploading ? 'opacity-50 pointer-events-none' : ''}`} title="Fazer Upload">
+                             {uploading ? '...' : '⬆️'}
                              <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
                          </label>
                      </div>
@@ -286,6 +323,61 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                  <button type="button" onClick={onCancel} className="px-4 py-2 text-indigo-800 dark:text-indigo-200 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded">Cancelar</button>
                  <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-bold shadow-md">{isEditing ? 'Guardar' : 'Criar'}</button>
              </div>
+
+             {/* GALLERY MODAL */}
+             {showGallery && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl w-full max-w-3xl max-h-[80vh] flex flex-col shadow-2xl border border-indigo-100 dark:border-slate-700">
+                        <div className="p-4 border-b border-indigo-100 dark:border-slate-700 flex justify-between items-center">
+                            <h3 className="font-bold text-lg text-indigo-900 dark:text-white flex items-center gap-2">
+                                <span>🖼️</span> Galeria de Imagens
+                            </h3>
+                            <button onClick={() => setShowGallery(false)} className="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white font-bold p-2">✕</button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-gray-50 dark:bg-slate-950/50">
+                            {loadingGallery ? (
+                                <div className="flex items-center justify-center h-40 text-indigo-500 dark:text-indigo-400">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-4 border-current border-t-transparent mr-2"></div>
+                                    A carregar galeria...
+                                </div>
+                            ) : galleryImages.length === 0 ? (
+                                <div className="text-center py-20 text-gray-400 flex flex-col items-center">
+                                    <span className="text-4xl mb-2">📂</span>
+                                    <p>A galeria está vazia.</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                    {galleryImages.map(img => (
+                                        <div 
+                                            key={img.name} 
+                                            onClick={() => handleSelectImage(img.url)}
+                                            className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-indigo-500 hover:ring-4 ring-indigo-200 dark:ring-indigo-900 cursor-pointer relative group bg-white dark:bg-slate-800 shadow-sm transition-all"
+                                        >
+                                            {img.url ? (
+                                                <img src={img.url} alt={img.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs break-all p-2">Sem Imagem</div>
+                                            )}
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                <span className="bg-white/90 text-indigo-900 text-xs font-bold px-2 py-1 rounded shadow-sm">Selecionar</span>
+                                            </div>
+                                            <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 truncate px-2">
+                                                {img.name.split('/').pop()}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-3 bg-white dark:bg-slate-900 border-t border-indigo-100 dark:border-slate-700 text-right">
+                            <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">
+                                {galleryImages.length} imagens encontradas
+                            </span>
+                        </div>
+                    </div>
+                </div>
+             )}
         </form>
     );
 };
