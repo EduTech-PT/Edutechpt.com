@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { Course } from '../types';
@@ -157,7 +156,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                                  </span>
                                  {course.price && (
                                      <span className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-bold shadow-lg">
-                                        {course.price} €
+                                        {course.price === '0' ? 'Gratuito' : `${course.price} €`}
                                      </span>
                                  )}
                              </div>

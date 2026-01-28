@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { GlassCard } from './GlassCard';
 import { Course } from '../types';
@@ -41,10 +40,10 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-indigo-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <GlassCard className="w-full max-w-4xl max-h-[90vh] flex flex-col p-0 relative overflow-hidden shadow-2xl ring-1 ring-white/50">
+      <GlassCard className="w-full max-w-4xl max-h-[90vh] flex flex-col p-0 relative overflow-hidden shadow-2xl ring-1 ring-white/50 bg-white/40 dark:bg-slate-900/80">
         
         {/* Header Image */}
-        <div className="h-48 md:h-64 bg-indigo-100 relative shrink-0">
+        <div className="h-48 md:h-64 bg-indigo-100 dark:bg-slate-800 relative shrink-0">
           {course.image_url ? (
             <img 
               src={course.image_url} 
@@ -95,7 +94,7 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
         </div>
 
         {/* Content Scrollable Area */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 bg-white/40">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 bg-white/40 dark:bg-slate-900/40">
            
            {hasMarketingData ? (
                <div className="space-y-8 font-sans">
@@ -103,24 +102,24 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
                    {/* Grid: Target & Benefits */}
                    <div className="grid md:grid-cols-2 gap-6">
                         {mData.target && (
-                            <div className="bg-white/60 p-5 rounded-xl border-l-4 border-indigo-500 shadow-sm">
-                                <h3 className="font-bold text-lg text-indigo-900 flex items-center gap-2 mb-2">🎯 Para quem é?</h3>
-                                <div className="text-indigo-800 text-sm leading-relaxed whitespace-pre-wrap">{mData.target}</div>
+                            <div className="bg-white/60 dark:bg-slate-800/60 p-5 rounded-xl border-l-4 border-indigo-500 shadow-sm">
+                                <h3 className="font-bold text-lg text-indigo-900 dark:text-white flex items-center gap-2 mb-2">🎯 Para quem é?</h3>
+                                <div className="text-indigo-800 dark:text-indigo-200 text-sm leading-relaxed whitespace-pre-wrap">{mData.target}</div>
                             </div>
                         )}
                         {mData.benefits && (
-                            <div className="bg-white/60 p-5 rounded-xl border-l-4 border-green-500 shadow-sm">
-                                <h3 className="font-bold text-lg text-green-900 flex items-center gap-2 mb-2">🚀 O que vais ganhar</h3>
-                                <div className="text-indigo-800 text-sm leading-relaxed whitespace-pre-wrap">{mData.benefits}</div>
+                            <div className="bg-white/60 dark:bg-slate-800/60 p-5 rounded-xl border-l-4 border-green-500 shadow-sm">
+                                <h3 className="font-bold text-lg text-green-900 dark:text-green-400 flex items-center gap-2 mb-2">🚀 O que vais ganhar</h3>
+                                <div className="text-indigo-800 dark:text-indigo-200 text-sm leading-relaxed whitespace-pre-wrap">{mData.benefits}</div>
                             </div>
                         )}
                    </div>
 
                    {/* Curriculum */}
                    {mData.curriculum && (
-                       <div className="bg-white/40 p-6 rounded-xl border border-indigo-100/50">
-                            <h3 className="font-bold text-xl text-indigo-900 mb-4 border-b border-indigo-100 pb-2">📚 Conteúdo Programático</h3>
-                            <div className="text-indigo-900 text-sm leading-relaxed whitespace-pre-wrap font-medium">{mData.curriculum}</div>
+                       <div className="bg-white/40 dark:bg-slate-800/40 p-6 rounded-xl border border-indigo-100/50 dark:border-slate-700">
+                            <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4 border-b border-indigo-100 dark:border-slate-700 pb-2">📚 Conteúdo Programático</h3>
+                            <div className="text-indigo-900 dark:text-indigo-100 text-sm leading-relaxed whitespace-pre-wrap font-medium">{mData.curriculum}</div>
                        </div>
                    )}
 
@@ -128,16 +127,16 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
                    <div className="grid md:grid-cols-2 gap-6">
                         {mData.authority && (
                             <div className="flex flex-col gap-2">
-                                <h4 className="font-bold text-indigo-900 uppercase text-xs tracking-wide">O teu Formador</h4>
-                                <div className="bg-indigo-50 p-4 rounded-lg text-sm text-indigo-800 border border-indigo-100">
+                                <h4 className="font-bold text-indigo-900 dark:text-white uppercase text-xs tracking-wide">O teu Formador</h4>
+                                <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg text-sm text-indigo-800 dark:text-indigo-200 border border-indigo-100 dark:border-indigo-800">
                                     {mData.authority}
                                 </div>
                             </div>
                         )}
                         {mData.social && (
                             <div className="flex flex-col gap-2">
-                                <h4 className="font-bold text-indigo-900 uppercase text-xs tracking-wide">O que dizem</h4>
-                                <div className="bg-yellow-50 p-4 rounded-lg text-sm text-yellow-900 italic border border-yellow-100">
+                                <h4 className="font-bold text-indigo-900 dark:text-white uppercase text-xs tracking-wide">O que dizem</h4>
+                                <div className="bg-yellow-50 dark:bg-yellow-900/10 p-4 rounded-lg text-sm text-yellow-900 dark:text-yellow-200 italic border border-yellow-100 dark:border-yellow-800">
                                     "{mData.social}"
                                 </div>
                             </div>
@@ -146,22 +145,22 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
 
                    {/* Guarantee & Bonuses */}
                    {(mData.guarantee || mData.bonuses) && (
-                       <div className="flex flex-col md:flex-row gap-4 pt-4 border-t border-indigo-100">
+                       <div className="flex flex-col md:flex-row gap-4 pt-4 border-t border-indigo-100 dark:border-slate-700">
                            {mData.guarantee && (
-                               <div className="flex-1 flex items-center gap-3 p-3 bg-white/50 rounded-lg">
+                               <div className="flex-1 flex items-center gap-3 p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
                                    <span className="text-2xl">🛡️</span>
                                    <div>
-                                       <div className="font-bold text-indigo-900 text-xs uppercase">Garantia</div>
-                                       <div className="text-xs text-indigo-700">{mData.guarantee}</div>
+                                       <div className="font-bold text-indigo-900 dark:text-white text-xs uppercase">Garantia</div>
+                                       <div className="text-xs text-indigo-700 dark:text-indigo-300">{mData.guarantee}</div>
                                    </div>
                                </div>
                            )}
                            {mData.bonuses && (
-                               <div className="flex-1 flex items-center gap-3 p-3 bg-white/50 rounded-lg">
+                               <div className="flex-1 flex items-center gap-3 p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
                                    <span className="text-2xl">🎁</span>
                                    <div>
-                                       <div className="font-bold text-indigo-900 text-xs uppercase">Bónus</div>
-                                       <div className="text-xs text-indigo-700">{mData.bonuses}</div>
+                                       <div className="font-bold text-indigo-900 dark:text-white text-xs uppercase">Bónus</div>
+                                       <div className="text-xs text-indigo-700 dark:text-indigo-300">{mData.bonuses}</div>
                                    </div>
                                </div>
                            )}
@@ -171,7 +170,7 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
            ) : (
                /* Legacy Description (HTML) */
                <div 
-                  className="prose prose-indigo prose-lg max-w-none text-indigo-900 leading-relaxed"
+                  className="prose prose-indigo dark:prose-invert prose-lg max-w-none text-indigo-900 dark:text-indigo-100 leading-relaxed"
                   dangerouslySetInnerHTML={{ __html: course.description || '<p>Sem descrição detalhada.</p>' }}
                />
            )}
@@ -179,7 +178,7 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
            {/* SECTION: PRICING PLANS (NEW) */}
            {course.pricing_plans && course.pricing_plans.length > 0 && (
                <div className="mt-8 mb-2">
-                   <h3 className="font-bold text-xl text-indigo-900 mb-4 flex items-center gap-2 border-b border-indigo-100 pb-2">
+                   <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4 flex items-center gap-2 border-b border-indigo-100 dark:border-slate-700 pb-2">
                        <span>💎</span> Opções de Acesso
                    </h3>
                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -202,18 +201,18 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
            )}
            
            {/* Footer Metadata */}
-           <div className="mt-8 pt-6 border-t border-indigo-200 flex flex-wrap gap-4 text-sm text-indigo-700 opacity-80 items-center">
+           <div className="mt-8 pt-6 border-t border-indigo-200 dark:border-slate-700 flex flex-wrap gap-4 text-sm text-indigo-700 dark:text-indigo-300 opacity-80 items-center">
                <span>📅 Publicado a: <b>{formatShortDate(course.created_at)}</b></span>
                {course.duration && <span>⏱️ Duração: <b>{course.duration} horas</b></span>}
                
                {/* Show Single Price ONLY if no plans exist */}
                {(!course.pricing_plans || course.pricing_plans.length === 0) && course.price && (
-                   <span>💰 Custo: <b>{course.price} €</b></span>
+                   <span>💰 Custo: <b>{course.price === '0' ? 'Gratuito' : `${course.price} €`}</b></span>
                )}
 
                {/* Show Extra Class Price if Available */}
                {course.extra_class_price && (
-                   <span className="bg-indigo-50 px-2 py-1 rounded text-xs font-bold border border-indigo-100">
+                   <span className="bg-indigo-50 dark:bg-slate-800 px-2 py-1 rounded text-xs font-bold border border-indigo-100 dark:border-slate-700">
                        ➕ Aula Extra: {course.extra_class_price} €
                    </span>
                )}
@@ -221,10 +220,10 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-6 bg-white/60 border-t border-white/50 backdrop-blur-md flex justify-between items-center gap-4 shrink-0">
+        <div className="p-6 bg-white/60 dark:bg-slate-900/60 border-t border-white/50 dark:border-white/10 backdrop-blur-md flex justify-between items-center gap-4 shrink-0">
             <button 
                 onClick={onClose}
-                className="px-6 py-3 text-indigo-700 font-bold hover:bg-indigo-50 rounded-lg transition-colors"
+                className="px-6 py-3 text-indigo-700 dark:text-indigo-300 font-bold hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
             >
                 Fechar
             </button>

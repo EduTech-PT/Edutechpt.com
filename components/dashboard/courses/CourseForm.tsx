@@ -72,17 +72,10 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
             
             const total = hours * rate;
             
-            let totalFormatted;
-            
-            // Logic Update: Show "Gratuito" if total is 0
-            if (total === 0) {
-                totalFormatted = 'Gratuito';
-            } else {
-                // Format to avoid long decimals, but keep integers clean
-                totalFormatted = total % 1 !== 0 ? total.toFixed(2) : total.toString();
-            }
+            // Logic Update: Keep '0' as string for DB compatibility, UI handles "Gratuito"
+            const totalFormatted = total % 1 !== 0 ? total.toFixed(2) : total.toString();
 
-            // Only update if value is different to avoid redundant renders (though React handles strict equality)
+            // Only update if value is different to avoid redundant renders
             if (formData.price !== totalFormatted) {
                 setFormData(prev => ({ ...prev, price: totalFormatted }));
             }
@@ -311,7 +304,8 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                              <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Total (Calc.)</label>
                              <input 
                                 type="text" 
-                                value={formData.price || ''} 
+                                // UI Logic Only: Show "Gratuito" if "0", else show price.
+                                value={formData.price === '0' || formData.price === '0.00' ? 'Gratuito' : (formData.price || '')} 
                                 readOnly
                                 className="w-full p-1.5 rounded text-sm bg-gray-100 border border-gray-200 outline-none text-indigo-900 font-bold cursor-not-allowed"
                                 title="Calculado automaticamente: Horas x Preço/Hora"
