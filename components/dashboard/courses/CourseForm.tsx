@@ -41,6 +41,9 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
         social: '', authority: '', guarantee: '', bonuses: '', cta: ''
     });
     const [uploading, setUploading] = useState(false);
+    
+    // Novo estado para controlar explicitamente se é gratuito
+    const [isFree, setIsFree] = useState(false);
 
     // Pricing Plans State (Self-Paced Only)
     const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
@@ -58,29 +61,40 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
         if (initialData.pricing_plans) {
             setPricingPlans(initialData.pricing_plans);
         }
+        // Detetar se é gratuito ao carregar (se o preço for '0' ou '0.00')
+        if (initialData.price === '0' || initialData.price === '0.00' || initialData.price === 'Gratuito') {
+            setIsFree(true);
+        }
     }, [initialData]);
 
     // Live Course Calculation Effect
     useEffect(() => {
         if (formData.format === 'live') {
-            // Replace commas with dots for calculation
-            const hStr = (formData.duration || '').toString().replace(',', '.');
-            const rStr = (formData.hourly_rate || '').toString().replace(',', '.');
             
-            const hours = parseFloat(hStr) || 0;
-            const rate = parseFloat(rStr) || 0;
-            
-            const total = hours * rate;
-            
-            // Logic Update: Keep '0' as string for DB compatibility, UI handles "Gratuito"
-            const totalFormatted = total % 1 !== 0 ? total.toFixed(2) : total.toString();
+            if (isFree) {
+                // Se for gratuito, força o preço a ser '0' (string numérica válida para a BD)
+                if (formData.price !== '0') {
+                    setFormData(prev => ({ ...prev, price: '0' }));
+                }
+            } else {
+                // Replace commas with dots for calculation
+                const hStr = (formData.duration || '').toString().replace(',', '.');
+                const rStr = (formData.hourly_rate || '').toString().replace(',', '.');
+                
+                const hours = parseFloat(hStr) || 0;
+                const rate = parseFloat(rStr) || 0;
+                
+                const total = hours * rate;
+                
+                // Formatar para decimal limpo. NUNCA enviar string "Gratuito" aqui.
+                const totalFormatted = total % 1 !== 0 ? total.toFixed(2) : total.toString();
 
-            // Only update if value is different to avoid redundant renders
-            if (formData.price !== totalFormatted) {
-                setFormData(prev => ({ ...prev, price: totalFormatted }));
+                if (formData.price !== totalFormatted) {
+                    setFormData(prev => ({ ...prev, price: totalFormatted }));
+                }
             }
         }
-    }, [formData.duration, formData.hourly_rate, formData.format]);
+    }, [formData.duration, formData.hourly_rate, formData.format, isFree]);
 
     const updateStandardPlan = (targetLabel: string, field: keyof PricingPlan, value: any) => {
         setPricingPlans(prev => {
@@ -181,8 +195,12 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
             ? pricingPlans.filter(p => p.price && p.price.trim() !== '') 
             : undefined;
 
+        // Ensure price is '0' if isFree checked, to avoid DB error
+        const finalPrice = isFree ? '0' : formData.price;
+
         await onSave({
             ...formData,
+            price: finalPrice, 
             description: finalDescription,
             marketing_data: marketingData,
             pricing_plans: validPlans
@@ -274,52 +292,66 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                  
                  {/* COLUNA DIREITA: Preço Calculado, Hora e Extras (Apenas LIVE) */}
                  {formData.format === 'live' && (
-                     <div className="md:col-span-1 bg-indigo-50/50 dark:bg-slate-900/50 p-3 rounded-lg border border-indigo-100 dark:border-slate-700 grid grid-cols-2 gap-3 self-start">
-                         <div className="col-span-2">
-                             <label className="block text-[10px] uppercase font-bold text-indigo-500 dark:text-indigo-400 mb-1 border-b border-indigo-200 dark:border-slate-600 pb-1">Cálculo de Preço</label>
+                     <div className="md:col-span-1 bg-indigo-50/50 dark:bg-slate-900/50 p-3 rounded-lg border border-indigo-100 dark:border-slate-700 flex flex-col gap-3 self-start">
+                         <div className="flex justify-between items-center border-b border-indigo-200 dark:border-slate-600 pb-1 mb-1">
+                             <label className="text-[10px] uppercase font-bold text-indigo-500 dark:text-indigo-400">Preço e Duração</label>
+                             <div className="flex items-center gap-2">
+                                <input 
+                                    type="checkbox" 
+                                    id="checkFree"
+                                    checked={isFree} 
+                                    onChange={(e) => setIsFree(e.target.checked)}
+                                    className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
+                                />
+                                <label htmlFor="checkFree" className="text-xs font-bold text-indigo-700 dark:text-indigo-300 cursor-pointer">Curso Gratuito</label>
+                             </div>
                          </div>
                          
-                         <div>
-                             <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Duração (Horas)</label>
-                             <input 
-                                type="text" 
-                                value={formData.duration || ''} 
-                                onChange={e => setFormData({...formData, duration: e.target.value})} 
-                                placeholder="Ex: 40" 
-                                className="w-full p-1.5 rounded text-sm bg-white border border-indigo-200 outline-none text-indigo-900 font-bold"
-                            />
-                         </div>
+                         <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Duração (Horas)</label>
+                                <input 
+                                    type="text" 
+                                    value={formData.duration || ''} 
+                                    onChange={e => setFormData({...formData, duration: e.target.value})} 
+                                    placeholder="Ex: 40" 
+                                    className="w-full p-1.5 rounded text-sm bg-white border border-indigo-200 outline-none text-indigo-900 font-bold"
+                                />
+                            </div>
 
-                         <div>
-                             <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Preço / Hora (€)</label>
-                             <input 
-                                type="text" 
-                                value={formData.hourly_rate || ''} 
-                                onChange={e => setFormData({...formData, hourly_rate: e.target.value})} 
-                                placeholder="Ex: 10" 
-                                className="w-full p-1.5 rounded text-sm bg-white border border-indigo-200 outline-none text-indigo-900"
-                            />
-                         </div>
-                         <div>
-                             <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Total (Calc.)</label>
-                             <input 
-                                type="text" 
-                                // UI Logic Only: Show "Gratuito" if "0", else show price.
-                                value={formData.price === '0' || formData.price === '0.00' ? 'Gratuito' : (formData.price || '')} 
-                                readOnly
-                                className="w-full p-1.5 rounded text-sm bg-gray-100 border border-gray-200 outline-none text-indigo-900 font-bold cursor-not-allowed"
-                                title="Calculado automaticamente: Horas x Preço/Hora"
-                            />
-                         </div>
-                         <div>
-                             <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Custo Aula Extra (€)</label>
-                             <input 
-                                type="text" 
-                                value={formData.extra_class_price || ''} 
-                                onChange={e => setFormData({...formData, extra_class_price: e.target.value})} 
-                                placeholder="Ex: 25" 
-                                className="w-full p-1.5 rounded text-sm bg-white border border-indigo-200 outline-none text-indigo-900"
-                            />
+                            <div>
+                                <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Preço / Hora (€)</label>
+                                <input 
+                                    type="text" 
+                                    value={formData.hourly_rate || ''} 
+                                    onChange={e => setFormData({...formData, hourly_rate: e.target.value})} 
+                                    placeholder={isFree ? '-' : 'Ex: 10'} 
+                                    disabled={isFree}
+                                    className={`w-full p-1.5 rounded text-sm border border-indigo-200 outline-none text-indigo-900 ${isFree ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white'}`}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Total (Calc.)</label>
+                                <input 
+                                    type="text" 
+                                    // Visualização apenas
+                                    value={isFree ? 'Gratuito' : (formData.price || '')} 
+                                    readOnly
+                                    className={`w-full p-1.5 rounded text-sm border border-gray-200 outline-none font-bold cursor-not-allowed ${isFree ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-indigo-900'}`}
+                                    title={isFree ? "Curso Gratuito" : "Calculado: Horas x Preço/Hora"}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Custo Aula Extra (€)</label>
+                                <input 
+                                    type="text" 
+                                    value={formData.extra_class_price || ''} 
+                                    onChange={e => setFormData({...formData, extra_class_price: e.target.value})} 
+                                    placeholder="Ex: 25" 
+                                    disabled={isFree}
+                                    className={`w-full p-1.5 rounded text-sm border border-indigo-200 outline-none text-indigo-900 ${isFree ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white'}`}
+                                />
+                            </div>
                          </div>
                      </div>
                  )}
