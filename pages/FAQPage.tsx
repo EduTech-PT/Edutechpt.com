@@ -97,8 +97,25 @@ export const FAQPage: React.FC<Props> = ({ onBack, isEmbedded = false }) => {
   // MAIN CONTENT COMPONENT
   const Content = () => (
       <>
+        {/* 
+            STYLE OVERRIDE: 
+            Força a remoção de formatação de origem (background-color, color) no modo escuro.
+        */}
+        <style>{`
+            .dark .faq-content * {
+                background-color: transparent !important;
+                color: inherit !important;
+            }
+            .dark .faq-content strong, .dark .faq-content b {
+                color: #fff !important;
+            }
+            .dark .faq-content a {
+                color: #818cf8 !important;
+            }
+        `}</style>
+
         {categories.length > 0 ? (
-            <div>
+            <div className="faq-content">
                 <h1 className="text-3xl md:text-4xl font-bold text-center mb-4 text-indigo-900 dark:text-white">Perguntas Frequentes</h1>
                 <p className="text-center text-lg font-medium opacity-80 mb-12 text-indigo-700 dark:text-indigo-100">
                     Encontre respostas organizadas por tema.
@@ -173,7 +190,7 @@ export const FAQPage: React.FC<Props> = ({ onBack, isEmbedded = false }) => {
             </div>
         ) : (
             // FALLBACK HTML (Legacy)
-            <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600 dark:text-indigo-100 dark:prose-headings:text-white dark:prose-p:text-indigo-100 dark:prose-a:text-indigo-300 dark:prose-strong:text-white">
+            <GlassCard className="faq-content prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600 dark:text-indigo-100 dark:prose-headings:text-white dark:prose-p:text-indigo-100 dark:prose-a:text-indigo-300 dark:prose-strong:text-white">
                 <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
             </GlassCard>
         )}

@@ -123,9 +123,31 @@ export const PrivacyPolicy: React.FC<Props> = ({ onBack, isEmbedded = false }) =
   };
 
   const Content = () => (
-      <GlassCard className="prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600 dark:text-indigo-100 dark:prose-invert dark:prose-headings:text-white dark:prose-p:text-indigo-100 dark:prose-a:text-indigo-300 dark:prose-strong:text-white dark:prose-li:text-indigo-100">
-          <div dangerouslySetInnerHTML={{ __html: content }} />
-      </GlassCard>
+      <>
+        {/* 
+            STYLE OVERRIDE: 
+            Força a remoção de formatação de origem (background-color, color) no modo escuro.
+        */}
+        <style>{`
+            .dark .privacy-content * {
+                background-color: transparent !important;
+                color: inherit !important;
+            }
+            .dark .privacy-content strong, .dark .privacy-content b {
+                color: #fff !important;
+                font-weight: bold !important;
+            }
+            .dark .privacy-content a {
+                color: #818cf8 !important;
+            }
+            .dark .privacy-content h1, .dark .privacy-content h2, .dark .privacy-content h3 {
+                color: #fff !important;
+            }
+        `}</style>
+        <GlassCard className="privacy-content prose prose-indigo max-w-none text-indigo-900 prose-headings:text-indigo-900 prose-a:text-indigo-600 dark:text-indigo-100 dark:prose-invert dark:prose-headings:text-white dark:prose-p:text-indigo-100 dark:prose-a:text-indigo-300 dark:prose-strong:text-white dark:prose-li:text-indigo-100">
+            <div dangerouslySetInnerHTML={{ __html: content }} />
+        </GlassCard>
+      </>
   );
 
   if (isEmbedded) {

@@ -232,6 +232,14 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 pointer-events: none;
                 display: block;
             }
+            /* Dark Mode Paste Cleaner: Forces transparency on backgrounds pasted from Word */
+            .dark [contenteditable] span, 
+            .dark [contenteditable] p, 
+            .dark [contenteditable] div {
+                background-color: transparent !important;
+                /* Note: We do NOT force color:inherit here to allow the user to use the color picker */
+            }
+
             /* Enhanced Prose Styles for Native Editor */
             .prose blockquote {
                 font-style: italic;
