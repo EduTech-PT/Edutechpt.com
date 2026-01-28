@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Course, MarketingData, PricingPlan } from '../../../types';
 import { RichTextEditor } from '../../RichTextEditor';
@@ -191,9 +192,10 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
 
         // Filter out incomplete plans (must have price and days defined to be saved)
         // Note: We allow days=0 (lifetime), but price must be present.
+        // FIX: Se for 'live', forçamos array vazio [] para limpar a base de dados
         const validPlans = formData.format === 'self_paced' 
             ? pricingPlans.filter(p => p.price && p.price.trim() !== '') 
-            : undefined;
+            : []; 
 
         // Ensure price is '0' if isFree checked, to avoid DB error
         const finalPrice = isFree ? '0' : formData.price;
