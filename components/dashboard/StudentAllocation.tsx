@@ -39,33 +39,49 @@ export const StudentAllocation: React.FC = () => {
     }, [selectedCourseId]);
 
     const loadData = async () => {
+        setLoading(true);
         try {
-            setLoading(true);
-            const [coursesData, profilesData, enrollmentsData] = await Promise.all([
-                courseService.getAll(),
-                userService.getAllProfiles(),
-                courseService.getAllEnrollments()
-            ]);
-            
-            setCourses(coursesData);
-            setAllStudents(profilesData.filter(p => p.role === UserRole.STUDENT));
-            setEnrollments(enrollmentsData || []);
+            // Carregar perfis
+            try {
+                const profilesData = await userService.getAllProfiles();
+                // Filtra alunos, mas inclui fallback caso a role não esteja normalizada
+                setAllStudents(profilesData.filter(p => p.role === UserRole.STUDENT || p.role === 'aluno' || p.role === 'student'));
+            } catch (e) {
+                console.error("Erro loading profiles", e);
+            }
 
-            if (coursesData.length > 0) {
+            // Carregar inscrições
+            try {
+                const enrollmentsData = await courseService.getAllEnrollments();
+                setEnrollments(enrollmentsData || []);
+            } catch (e) {
+                console.error("Erro loading enrollments", e);
+            }
+
+            // Carregar cursos (Trigger principal da UI)
+            const coursesData = await courseService.getAll();
+            setCourses(coursesData || []);
+
+            if (coursesData && coursesData.length > 0) {
                 setSelectedCourseId(coursesData[0].id);
             }
         } catch (err) {
-            console.error(err);
+            console.error("Erro geral no StudentAllocation:", err);
         } finally {
             setLoading(false);
         }
     };
 
     const loadClasses = async (courseId: string) => {
-        const data = await courseService.getClasses(courseId);
-        setClasses(data);
-        if (data.length > 0) setSelectedClassId(data[0].id);
-        else setSelectedClassId('');
+        try {
+            const data = await courseService.getClasses(courseId);
+            setClasses(data || []);
+            if (data && data.length > 0) setSelectedClassId(data[0].id);
+            else setSelectedClassId('');
+        } catch (e) {
+            console.error("Erro loading classes", e);
+            setClasses([]);
+        }
     };
 
     // --- ACTIONS ---
@@ -102,8 +118,6 @@ export const StudentAllocation: React.FC = () => {
 
     const openDateEditor = (student: Profile, enrollmentDate: string) => {
         // Formatar para datetime-local input (YYYY-MM-DDTHH:MM)
-        // Se a data vier da DB como ISO (UTC), converte para visualização local ou mantém raw.
-        // Simplificação: substring(0, 16) pega "YYYY-MM-DDTHH:MM"
         const formatted = enrollmentDate ? new Date(enrollmentDate).toISOString().substring(0, 16) : '';
         setNewEnrollDate(formatted);
         setEditingEnrollment({
@@ -117,12 +131,9 @@ export const StudentAllocation: React.FC = () => {
         if (!editingEnrollment || !selectedCourseId || !newEnrollDate) return;
         
         try {
-            // Converter input value para ISO string completa
             const isoDate = new Date(newEnrollDate).toISOString();
-            
             await courseService.updateEnrollmentDate(editingEnrollment.userId, selectedCourseId, isoDate);
             
-            // Refresh
             const newEnrollments = await courseService.getAllEnrollments();
             setEnrollments(newEnrollments || []);
             setEditingEnrollment(null);
@@ -144,6 +155,7 @@ export const StudentAllocation: React.FC = () => {
 
     // 2. Alunos disponíveis
     const availableStudents = allStudents.filter(student => {
+        // Excluir se já estiver nesta turma
         if (enrolledInClass.some(e => e.id === student.id)) return false;
         
         if (searchQuery) {
@@ -155,6 +167,7 @@ export const StudentAllocation: React.FC = () => {
         }
         return true;
     }).sort((a, b) => {
+        // Priorizar quem já tem inscrição no curso (mas noutra turma ou sem turma)
         const aEnrolled = enrollments.some(e => e.user_id === a.id && e.course_id === selectedCourseId);
         const bEnrolled = enrollments.some(e => e.user_id === b.id && e.course_id === selectedCourseId);
         if (aEnrolled && !bEnrolled) return -1;
@@ -163,7 +176,7 @@ export const StudentAllocation: React.FC = () => {
     });
 
     return (
-        <div className="space-y-6 h-[calc(100vh-140px)] flex flex-col animate-in slide-in-from-right duration-300">
+        <div className="space-y-6 flex flex-col h-[80vh] md:h-auto min-h-[600px] animate-in fade-in">
             {/* HEADERS & FILTERS */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
                 <div>
@@ -171,11 +184,11 @@ export const StudentAllocation: React.FC = () => {
                     <p className="text-sm text-indigo-600">Distribua os alunos pelas turmas correspondentes.</p>
                 </div>
                 
-                <div className="flex gap-2 w-full md:w-auto">
+                <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
                     <select 
                         value={selectedCourseId} 
                         onChange={(e) => setSelectedCourseId(e.target.value)}
-                        className="flex-1 md:w-64 p-2 rounded-lg bg-white/60 border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none font-bold text-indigo-800 shadow-sm"
+                        className="md:w-64 p-2 rounded-lg bg-white/60 border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none font-bold text-indigo-800 shadow-sm"
                     >
                         {courses.length === 0 && <option value="">A carregar cursos...</option>}
                         {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
@@ -184,7 +197,7 @@ export const StudentAllocation: React.FC = () => {
                     <select 
                         value={selectedClassId} 
                         onChange={(e) => setSelectedClassId(e.target.value)}
-                        className="flex-1 md:w-48 p-2 rounded-lg bg-white/60 border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none font-bold text-indigo-800 shadow-sm"
+                        className="md:w-48 p-2 rounded-lg bg-white/60 border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none font-bold text-indigo-800 shadow-sm"
                         disabled={!selectedCourseId || classes.length === 0}
                     >
                         {classes.length === 0 ? <option>Sem turmas</option> : null}
@@ -194,22 +207,25 @@ export const StudentAllocation: React.FC = () => {
             </div>
 
             {loading ? (
-                <div className="flex-1 flex items-center justify-center text-indigo-500">
+                <div className="flex-1 flex items-center justify-center text-indigo-500 font-bold bg-white/30 rounded-xl">
+                    <div className="animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent mr-2"></div>
                     A carregar dados...
                 </div>
             ) : !selectedClassId ? (
-                <GlassCard className="flex-1 flex flex-col items-center justify-center text-center opacity-60">
-                    <span className="text-4xl mb-2">🏫</span>
+                <GlassCard className="flex-1 flex flex-col items-center justify-center text-center opacity-70">
+                    <span className="text-4xl mb-3">🏫</span>
                     <h3 className="font-bold text-lg text-indigo-900">Selecione uma Turma</h3>
-                    <p className="text-sm">Escolha um curso e uma turma para gerir os alunos.</p>
+                    <p className="text-sm text-indigo-800">
+                        {courses.length === 0 ? "Não existem cursos criados." : "Escolha um curso e uma turma para gerir os alunos."}
+                    </p>
                 </GlassCard>
             ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0 overflow-hidden">
                     
                     {/* LEFT: AVAILABLE STUDENTS */}
-                    <GlassCard className="flex flex-col p-0 overflow-hidden border-2 border-indigo-50/50 bg-white/20">
+                    <GlassCard className="flex flex-col p-0 overflow-hidden border-2 border-indigo-50/50 bg-white/20 h-full">
                         <div className="p-4 bg-indigo-50/80 border-b border-indigo-100 shrink-0">
-                            <h3 className="font-bold text-indigo-900 mb-2">Alunos Disponíveis</h3>
+                            <h3 className="font-bold text-indigo-900 mb-2">Alunos Disponíveis ({availableStudents.length})</h3>
                             <input 
                                 type="text" 
                                 placeholder="🔍 Pesquisar aluno..." 
@@ -219,9 +235,11 @@ export const StudentAllocation: React.FC = () => {
                             />
                         </div>
                         
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2 h-0 min-h-full">
                             {availableStudents.length === 0 ? (
-                                <div className="p-8 text-center text-xs text-gray-400">Nenhum aluno encontrado.</div>
+                                <div className="p-8 text-center text-xs text-gray-400">
+                                    {allStudents.length === 0 ? "Sem contas de aluno registadas." : "Nenhum aluno corresponde à pesquisa."}
+                                </div>
                             ) : (
                                 availableStudents.map(student => {
                                     const enrollment = enrollments.find(e => e.user_id === student.id && e.course_id === selectedCourseId);
@@ -230,13 +248,13 @@ export const StudentAllocation: React.FC = () => {
                                     const isProcessing = processingUser === student.id;
 
                                     return (
-                                        <div key={student.id} className="flex items-center justify-between p-2 rounded-lg bg-white/60 hover:bg-white border border-transparent hover:border-indigo-100 transition-all group">
+                                        <div key={student.id} className="flex items-center justify-between p-2 rounded-lg bg-white/60 hover:bg-white border border-transparent hover:border-indigo-100 transition-all group shadow-sm">
                                             <div className="flex items-center gap-3 min-w-0">
-                                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold overflow-hidden shrink-0">
+                                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold overflow-hidden shrink-0 border border-indigo-200">
                                                     {student.avatar_url ? <img src={student.avatar_url} className="w-full h-full object-cover"/> : student.full_name?.[0]}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <div className="text-xs font-bold text-indigo-900 truncate w-32 md:w-48">{student.full_name}</div>
+                                                    <div className="text-xs font-bold text-indigo-900 truncate w-32 md:w-48" title={student.full_name || ''}>{student.full_name}</div>
                                                     
                                                     {/* Status Badge */}
                                                     {otherClass ? (
@@ -269,36 +287,41 @@ export const StudentAllocation: React.FC = () => {
                     </GlassCard>
 
                     {/* RIGHT: ENROLLED STUDENTS */}
-                    <GlassCard className="flex flex-col p-0 overflow-hidden border-2 border-indigo-100 bg-indigo-50/20">
+                    <GlassCard className="flex flex-col p-0 overflow-hidden border-2 border-indigo-100 bg-indigo-50/20 h-full">
                         <div className="p-4 bg-white/60 border-b border-indigo-100 shrink-0 flex justify-between items-center">
                             <h3 className="font-bold text-indigo-900">Alunos na Turma</h3>
                             <span className="text-xs font-bold bg-indigo-600 text-white px-2 py-1 rounded-full">{enrolledInClass.length}</span>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2 h-0 min-h-full">
                             {enrolledInClass.length === 0 ? (
-                                <div className="p-8 text-center text-xs text-gray-400">Turma vazia. Adicione alunos à esquerda.</div>
+                                <div className="p-8 text-center text-xs text-gray-400 flex flex-col items-center">
+                                    <span className="text-2xl mb-2">📭</span>
+                                    <p>Turma vazia.</p> 
+                                    <p>Adicione alunos da lista à esquerda.</p>
+                                </div>
                             ) : (
                                 enrolledInClass.map(student => {
                                     const isProcessing = processingUser === student.id;
                                     const enrollment = enrollments.find(e => e.user_id === student.id && e.course_id === selectedCourseId);
                                     
                                     return (
-                                        <div key={student.id} className="flex items-center justify-between p-2 rounded-lg bg-white border border-indigo-50 hover:border-indigo-200 transition-all group">
+                                        <div key={student.id} className="flex items-center justify-between p-2 rounded-lg bg-white border border-indigo-50 hover:border-indigo-200 transition-all group shadow-sm">
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <button 
                                                     onClick={() => !isProcessing && handleRemove(student.id)}
                                                     className="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-bold rounded hover:bg-red-500 hover:text-white transition-colors shrink-0"
+                                                    title="Remover da turma"
                                                 >
                                                     {isProcessing ? '...' : '←'}
                                                 </button>
-                                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold overflow-hidden shrink-0">
+                                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold overflow-hidden shrink-0 border border-indigo-200">
                                                     {student.avatar_url ? <img src={student.avatar_url} className="w-full h-full object-cover"/> : student.full_name?.[0]}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <div className="text-xs font-bold text-indigo-900 truncate">{student.full_name}</div>
+                                                    <div className="text-xs font-bold text-indigo-900 truncate" title={student.full_name || ''}>{student.full_name}</div>
                                                     <div className="text-[9px] text-gray-500 truncate flex items-center gap-2">
-                                                        <span>{formatShortDate(enrollment?.enrolled_at)}</span>
+                                                        <span>Inscrito: {formatShortDate(enrollment?.enrolled_at)}</span>
                                                         <button 
                                                             onClick={() => openDateEditor(student, enrollment?.enrolled_at)}
                                                             className="text-indigo-400 hover:text-indigo-600 p-0.5 hover:bg-indigo-50 rounded"
@@ -322,7 +345,7 @@ export const StudentAllocation: React.FC = () => {
             {/* DATE EDIT MODAL */}
             {editingEnrollment && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <GlassCard className="w-full max-w-sm relative">
+                    <GlassCard className="w-full max-w-sm relative bg-white">
                         <h3 className="font-bold text-lg text-indigo-900 mb-2">Editar Data de Inscrição</h3>
                         <p className="text-sm text-indigo-600 mb-4 font-bold">{editingEnrollment.studentName}</p>
                         
