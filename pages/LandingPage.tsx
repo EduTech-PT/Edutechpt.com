@@ -141,6 +141,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
                              
                              <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
+                                 {/* Format Badge */}
+                                 {course.format === 'self_paced' ? (
+                                     <span className="px-3 py-1 bg-blue-500/90 backdrop-blur-md rounded-lg text-xs font-bold text-white uppercase shadow-lg tracking-wider">
+                                        ▶️ Vídeo
+                                     </span>
+                                 ) : (
+                                     <span className="px-3 py-1 bg-red-500/90 backdrop-blur-md rounded-lg text-xs font-bold text-white uppercase shadow-lg tracking-wider">
+                                        🔴 Ao Vivo
+                                     </span>
+                                 )}
+
                                  <span className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-lg text-xs font-bold text-indigo-900 uppercase shadow-lg tracking-wider">
                                     {course.level}
                                  </span>

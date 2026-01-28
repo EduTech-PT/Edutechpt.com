@@ -93,6 +93,8 @@ export interface Course {
   marketing_data?: MarketingData;
   duration?: string; // NOVO: Duração (ex: "40h")
   price?: string;    // NOVO: Preço (ex: "250€" ou "Gratuito")
+  format?: 'live' | 'self_paced'; // NOVO: Formato do curso
+  access_days?: number; // NOVO: Dias de acesso (null = vitalício)
 }
 
 export interface Class {

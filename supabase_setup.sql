@@ -1,8 +1,8 @@
 
 -- ==============================================================================
--- EDUTECH PT - SCHEMA COMPLETO (v3.1.7)
+-- EDUTECH PT - SCHEMA COMPLETO (v3.1.8)
 -- Data: 2024
--- AÇÃO: RATE LIMITING (3 TENTATIVAS / 10 MINUTOS)
+-- AÇÃO: MIGRATION PARA SUPORTAR TIPOS DE CURSO E EXPIRAÇÃO
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -11,8 +11,8 @@ create table if not exists public.app_config (
     value text
 );
 
-insert into public.app_config (key, value) values ('sql_version', 'v3.1.7')
-on conflict (key) do update set value = 'v3.1.7';
+insert into public.app_config (key, value) values ('sql_version', 'v3.1.8')
+on conflict (key) do update set value = 'v3.1.8';
 
 -- 2. FUNÇÃO DE SEGURANÇA (SECURITY DEFINER)
 create or replace function public.is_admin()
@@ -49,6 +49,23 @@ create table if not exists public.profiles (
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
+-- MIGRATION: Colunas novas (Perfis)
+do $$ 
+begin
+  if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='tiktok_url') then
+    alter table public.profiles add column tiktok_url text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='twitter_url') then
+    alter table public.profiles add column twitter_url text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='instagram_url') then
+    alter table public.profiles add column instagram_url text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='facebook_url') then
+    alter table public.profiles add column facebook_url text;
+  end if;
+end $$;
+
 -- 4. CARGOS E PERMISSÕES
 create table if not exists public.roles (
     name text primary key,
@@ -76,8 +93,21 @@ create table if not exists public.courses (
     created_at timestamp with time zone default timezone('utc'::text, now()),
     marketing_data jsonb default '{}'::jsonb,
     duration text,
-    price text
+    price text,
+    format text default 'live',
+    access_days integer
 );
+
+-- MIGRATION: Colunas novas (Cursos)
+do $$ 
+begin
+  if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='format') then
+    alter table public.courses add column format text default 'live';
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='access_days') then
+    alter table public.courses add column access_days integer;
+  end if;
+end $$;
 
 create table if not exists public.classes (
     id uuid default gen_random_uuid() primary key,

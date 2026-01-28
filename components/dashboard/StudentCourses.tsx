@@ -68,11 +68,37 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
 
   const handleOpenCourse = (course: Course) => { setSelectedCourse(course); };
 
+  const checkExpiration = (enrollmentDate: string, accessDays?: number) => {
+      if (!accessDays || accessDays <= 0) return { expired: false, daysLeft: null };
+      
+      const start = new Date(enrollmentDate);
+      const end = new Date(start);
+      end.setDate(start.getDate() + accessDays);
+      
+      const now = new Date();
+      const diffTime = end.getTime() - now.getTime();
+      const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      return { 
+          expired: daysLeft < 0,
+          daysLeft: daysLeft
+      };
+  };
+
   const handleAction = () => {
       if (!selectedCourse) return;
-      const isEnrolled = enrollments.some(e => e.course_id === selectedCourse.id);
+      const enrollment = enrollments.find(e => e.course_id === selectedCourse.id);
+      const isEnrolled = !!enrollment;
       
       if (isEnrolled) {
+          // Check Expiration
+          const { expired } = checkExpiration(enrollment.enrolled_at, selectedCourse.access_days);
+          
+          if (expired) {
+              alert("O acesso a este curso expirou. Contacte a administração para renovar.");
+              return;
+          }
+
           if (onOpenClassroom) onOpenClassroom(selectedCourse.id);
           else alert("Erro: Navegação indisponível.");
           setSelectedCourse(null);
@@ -128,9 +154,12 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                     const classInfo = item.class;
                     if (!course) return null;
 
+                    // Expiration Logic
+                    const { expired, daysLeft } = checkExpiration(item.enrolled_at, course.access_days);
+
                     return (
-                        <GlassCard key={`${item.course_id}-${item.class_id || idx}`} hoverEffect={true} className="flex flex-col relative overflow-hidden group border-l-4 border-l-indigo-500 dark:border-l-indigo-400">
-                             <div className="absolute top-4 right-4 z-10">
+                        <GlassCard key={`${item.course_id}-${item.class_id || idx}`} hoverEffect={!expired} className={`flex flex-col relative overflow-hidden group border-l-4 ${expired ? 'border-l-gray-400 opacity-70 grayscale' : 'border-l-indigo-500 dark:border-l-indigo-400'}`}>
+                             <div className="absolute top-4 right-4 z-10 flex flex-col gap-1 items-end">
                                 {classInfo ? (
                                     <span className="px-3 py-1 bg-white/90 dark:bg-slate-900/90 text-indigo-800 dark:text-indigo-200 text-xs font-bold rounded-full shadow-sm border border-indigo-100 dark:border-indigo-800 backdrop-blur-md">
                                         Turma: {classInfo.name}
@@ -138,6 +167,15 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                                 ) : (
                                     <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full shadow-sm">Sem Turma</span>
                                 )}
+                                
+                                {/* Expiration Badge */}
+                                {expired ? (
+                                    <span className="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-full shadow-sm">EXPIRADO</span>
+                                ) : daysLeft !== null ? (
+                                    <span className={`px-3 py-1 text-xs font-bold rounded-full shadow-sm ${daysLeft < 15 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                        {daysLeft} dias restantes
+                                    </span>
+                                ) : null}
                              </div>
 
                              <div className="h-32 bg-indigo-100 dark:bg-slate-700 rounded-lg mb-4 overflow-hidden relative">
@@ -156,9 +194,15 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                              
                              <div className="mt-auto pt-4 border-t border-indigo-100 dark:border-white/10 flex justify-between items-center">
                                 <span className="text-xs text-indigo-400">Inscrito</span>
-                                <button onClick={() => handleOpenCourse(course)} className="px-4 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700 transition-colors shadow-sm">
-                                    Aceder
-                                </button>
+                                {expired ? (
+                                    <button disabled className="px-4 py-1.5 bg-gray-300 text-white text-xs font-bold rounded cursor-not-allowed">
+                                        Bloqueado
+                                    </button>
+                                ) : (
+                                    <button onClick={() => handleOpenCourse(course)} className="px-4 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700 transition-colors shadow-sm">
+                                        Aceder
+                                    </button>
+                                )}
                              </div>
                         </GlassCard>
                     );
@@ -189,7 +233,7 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                 {publicCourses.map(course => {
                     const isEnrolled = enrollments.some(e => e.course_id === course.id);
                     return (
-                        <GlassCard key={course.id} className="flex flex-col h-full bg-white/40 dark:bg-slate-800/40 opacity-90 hover:opacity-100 transition-all">
+                        <GlassCard key={course.id} className="flex flex-col h-full bg-white/40 dark:bg-slate-800/40 opacity-90 hover:opacity-100 transition-all group">
                             <div className="h-24 bg-gray-100 dark:bg-slate-700 rounded-lg mb-3 overflow-hidden relative grayscale group-hover:grayscale-0 transition-all">
                                 {course.image_url ? (
                                     <img src={course.image_url} alt="" className="w-full h-full object-cover" />
@@ -201,6 +245,14 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                                         {course.price} €
                                     </div>
                                 )}
+                                {/* Format Badge Small */}
+                                <div className="absolute top-2 left-2">
+                                    {course.format === 'self_paced' ? (
+                                        <span className="text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded shadow font-bold">▶️ Vídeo</span>
+                                    ) : (
+                                        <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded shadow font-bold">🔴 Live</span>
+                                    )}
+                                </div>
                             </div>
                             <h4 className="font-bold text-indigo-900 dark:text-white text-sm mb-1 line-clamp-2">{course.title}</h4>
                             <div className="flex gap-2 mb-2 text-[10px] uppercase font-bold text-indigo-400 dark:text-indigo-300">

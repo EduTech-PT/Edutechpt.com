@@ -117,11 +117,39 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                  </div>
              </div>
              
+             {/* CAMPOS DE CONFIGURAÇÃO (Formato e Acesso) */}
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div>
+                     <label className="block text-sm mb-1 text-indigo-900 font-bold">Formato do Curso</label>
+                     <select 
+                        value={formData.format || 'live'} 
+                        onChange={e => setFormData({...formData, format: e.target.value as any})}
+                        className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none"
+                     >
+                         <option value="live">🔴 Com Formador (Ao Vivo / Turma)</option>
+                         <option value="self_paced">▶️ Auto-Estudo (Vídeo-Aulas)</option>
+                     </select>
+                 </div>
+                 <div>
+                     <label className="block text-sm mb-1 text-indigo-900 font-bold">
+                         Dias de Acesso 
+                         <span className="text-xs font-normal text-indigo-500 ml-1">(Deixe vazio para vitalício)</span>
+                     </label>
+                     <input 
+                        type="number" 
+                        value={formData.access_days || ''} 
+                        onChange={e => setFormData({...formData, access_days: e.target.value ? parseInt(e.target.value) : undefined})} 
+                        className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                        placeholder="Ex: 180"
+                     />
+                 </div>
+             </div>
+
              {/* CAMPOS DE MARKETING */}
-             <div className="bg-indigo-50/50 p-6 rounded-xl border border-indigo-200 space-y-6 mt-6">
+             <div className="mt-8 space-y-6">
                  <div className="flex items-center gap-2 mb-2">
                      <span className="text-xl">⚡</span>
-                     <h4 className="font-bold text-indigo-900">Detalhes de Apresentação (Marketing)</h4>
+                     <h4 className="font-bold text-indigo-900 dark:text-white">Detalhes de Apresentação (Marketing)</h4>
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                      <MarketingInput 
@@ -241,14 +269,25 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
 
 const MarketingInput = ({ label, help, value, onChange, placeholder, multiline = false }: any) => (
     <div className="flex flex-col">
-        <label className="text-xs font-bold text-indigo-900 mb-1 flex items-center flex-wrap">
+        <label className="text-xs font-bold text-indigo-900 dark:text-indigo-200 mb-1 flex items-center flex-wrap">
             {label}
-            {help && <span className="font-normal text-indigo-500 ml-2 opacity-80 text-[10px]">({help})</span>}
+            {help && <span className="font-normal text-indigo-500 dark:text-indigo-400 ml-2 opacity-80 text-[10px]">({help})</span>}
         </label>
         {multiline ? (
-            <textarea value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="w-full p-2 rounded-lg bg-white border border-indigo-100 focus:ring-2 focus:ring-indigo-400 outline-none text-sm min-h-[80px]" />
+            <textarea 
+                value={value || ''} 
+                onChange={e => onChange(e.target.value)} 
+                placeholder={placeholder} 
+                className="w-full p-2 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-indigo-100 dark:border-white/10 focus:ring-2 focus:ring-indigo-400 outline-none text-sm min-h-[80px] text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-600" 
+            />
         ) : (
-            <input type="text" value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="w-full p-2 rounded-lg bg-white border border-indigo-100 focus:ring-2 focus:ring-indigo-400 outline-none text-sm" />
+            <input 
+                type="text" 
+                value={value || ''} 
+                onChange={e => onChange(e.target.value)} 
+                placeholder={placeholder} 
+                className="w-full p-2 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-indigo-100 dark:border-white/10 focus:ring-2 focus:ring-indigo-400 outline-none text-sm text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-600" 
+            />
         )}
     </div>
 );
