@@ -141,6 +141,25 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
           </div>
       )}
 
+      {/* Google Script Alert (NEW) */}
+      {gasStatus && !gasStatus.match && isAdmin && (
+          <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-800 p-4 rounded shadow-lg animate-pulse">
+              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                  <div>
+                      <p className="font-bold text-lg">⚠️ INTEGRAÇÃO DESATUALIZADA (GOOGLE DRIVE)</p>
+                      <p className="text-sm mb-1">O Script Google precisa de ser atualizado para garantir o funcionamento dos ficheiros e calendário.</p>
+                      <div className="flex gap-4 text-xs font-mono bg-white/50 p-2 rounded">
+                          <span>App: <b>{gasStatus.local}</b></span>
+                          <span>Remote: <b>{gasStatus.remote === 'not_configured' ? 'Não Configurado' : gasStatus.remote}</b></span>
+                      </div>
+                  </div>
+                  <button onClick={onFixGas} className="bg-amber-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-amber-700 shadow-lg">
+                      Atualizar Agora
+                  </button>
+              </div>
+          </div>
+      )}
+
       {/* Header Card */}
       <GlassCard className="relative overflow-hidden">
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
