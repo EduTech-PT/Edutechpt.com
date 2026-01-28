@@ -222,12 +222,14 @@ export const AvailabilityMap: React.FC<AvailabilityProps> = ({ session }) => {
 
   return (
     <div className="h-full flex flex-col animate-in slide-in-from-right duration-300 relative">
-         <AvailabilityHeader 
-            currentDate={currentDate} 
-            onPrev={prevMonth} 
-            onNext={nextMonth} 
-            onExportClick={() => setShowExportModal(true)} 
-         />
+         <div className="sticky top-0 z-30 pb-4">
+             <AvailabilityHeader 
+                currentDate={currentDate} 
+                onPrev={prevMonth} 
+                onNext={nextMonth} 
+                onExportClick={() => setShowExportModal(true)} 
+             />
+         </div>
 
          <AvailabilityGrid monthlySlots={monthlySlots} />
 
