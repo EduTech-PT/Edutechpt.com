@@ -126,6 +126,15 @@ export const courseService = {
         if (error) throw error;
     },
 
+    async updateEnrollmentDate(userId: string, courseId: string, newDate: string) {
+        const { error } = await supabase
+            .from('enrollments')
+            .update({ enrolled_at: newDate })
+            .eq('user_id', userId)
+            .eq('course_id', courseId);
+        if (error) throw error;
+    },
+
     async create(course: Partial<Course>) {
         const { error } = await supabase.from('courses').insert([course]);
         if (error) throw error;

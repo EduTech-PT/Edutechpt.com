@@ -4,6 +4,7 @@ import { Course, Class, Profile, UserRole } from '../../types';
 import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
 import { userService } from '../../services/users';
+import { formatShortDate } from '../../utils/formatters';
 
 export const StudentAllocation: React.FC = () => {
     const [courses, setCourses] = useState<Course[]>([]);
@@ -19,6 +20,10 @@ export const StudentAllocation: React.FC = () => {
     
     // Processing state for individual user actions
     const [processingUser, setProcessingUser] = useState<string | null>(null);
+
+    // Date Editing State
+    const [editingEnrollment, setEditingEnrollment] = useState<{userId: string, date: string, studentName: string} | null>(null);
+    const [newEnrollDate, setNewEnrollDate] = useState('');
 
     useEffect(() => {
         loadData();
@@ -72,8 +77,6 @@ export const StudentAllocation: React.FC = () => {
             await courseService.assignStudentToClass(studentId, selectedCourseId, selectedClassId);
             
             // Update local state optimistic
-            // We need to either update enrollments or refetch. 
-            // Simple approach: Refetch enrollments to be safe with DB constraints
             const newEnrollments = await courseService.getAllEnrollments();
             setEnrollments(newEnrollments || []);
         } catch (e: any) {
@@ -97,6 +100,37 @@ export const StudentAllocation: React.FC = () => {
         }
     };
 
+    const openDateEditor = (student: Profile, enrollmentDate: string) => {
+        // Formatar para datetime-local input (YYYY-MM-DDTHH:MM)
+        // Se a data vier da DB como ISO (UTC), converte para visualização local ou mantém raw.
+        // Simplificação: substring(0, 16) pega "YYYY-MM-DDTHH:MM"
+        const formatted = enrollmentDate ? new Date(enrollmentDate).toISOString().substring(0, 16) : '';
+        setNewEnrollDate(formatted);
+        setEditingEnrollment({
+            userId: student.id,
+            date: enrollmentDate,
+            studentName: student.full_name || 'Aluno'
+        });
+    };
+
+    const handleDateSave = async () => {
+        if (!editingEnrollment || !selectedCourseId || !newEnrollDate) return;
+        
+        try {
+            // Converter input value para ISO string completa
+            const isoDate = new Date(newEnrollDate).toISOString();
+            
+            await courseService.updateEnrollmentDate(editingEnrollment.userId, selectedCourseId, isoDate);
+            
+            // Refresh
+            const newEnrollments = await courseService.getAllEnrollments();
+            setEnrollments(newEnrollments || []);
+            setEditingEnrollment(null);
+        } catch (e: any) {
+            alert("Erro ao atualizar data: " + e.message);
+        }
+    };
+
     // --- FILTER LOGIC ---
 
     // 1. Alunos que estão na turma selecionada
@@ -108,16 +142,10 @@ export const StudentAllocation: React.FC = () => {
         return enrollment && enrollment.class_id === selectedClassId;
     });
 
-    // 2. Alunos disponíveis para adicionar (não estão nesta turma)
-    // Podem estar:
-    // a) Inscritos no curso mas SEM turma (Prioridade)
-    // b) Inscritos no curso noutra turma (Aviso)
-    // c) Não inscritos no curso (Novo)
+    // 2. Alunos disponíveis
     const availableStudents = allStudents.filter(student => {
-        // Excluir os que já estão na turma atual
         if (enrolledInClass.some(e => e.id === student.id)) return false;
         
-        // Filtro de pesquisa
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
             return (
@@ -127,7 +155,6 @@ export const StudentAllocation: React.FC = () => {
         }
         return true;
     }).sort((a, b) => {
-        // Ordenação inteligente: Primeiro os que já estão inscritos no curso (sem turma)
         const aEnrolled = enrollments.some(e => e.user_id === a.id && e.course_id === selectedCourseId);
         const bEnrolled = enrollments.some(e => e.user_id === b.id && e.course_id === selectedCourseId);
         if (aEnrolled && !bEnrolled) return -1;
@@ -254,21 +281,32 @@ export const StudentAllocation: React.FC = () => {
                             ) : (
                                 enrolledInClass.map(student => {
                                     const isProcessing = processingUser === student.id;
+                                    const enrollment = enrollments.find(e => e.user_id === student.id && e.course_id === selectedCourseId);
+                                    
                                     return (
-                                        <div key={student.id} className="flex items-center justify-between p-2 rounded-lg bg-white border border-indigo-50 hover:border-red-200 transition-all group">
+                                        <div key={student.id} className="flex items-center justify-between p-2 rounded-lg bg-white border border-indigo-50 hover:border-indigo-200 transition-all group">
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <button 
                                                     onClick={() => !isProcessing && handleRemove(student.id)}
                                                     className="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-bold rounded hover:bg-red-500 hover:text-white transition-colors shrink-0"
                                                 >
-                                                    {isProcessing ? '...' : '← Remover'}
+                                                    {isProcessing ? '...' : '←'}
                                                 </button>
                                                 <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold overflow-hidden shrink-0">
                                                     {student.avatar_url ? <img src={student.avatar_url} className="w-full h-full object-cover"/> : student.full_name?.[0]}
                                                 </div>
                                                 <div className="min-w-0">
                                                     <div className="text-xs font-bold text-indigo-900 truncate">{student.full_name}</div>
-                                                    <div className="text-[9px] text-gray-500 truncate">{student.email}</div>
+                                                    <div className="text-[9px] text-gray-500 truncate flex items-center gap-2">
+                                                        <span>{formatShortDate(enrollment?.enrolled_at)}</span>
+                                                        <button 
+                                                            onClick={() => openDateEditor(student, enrollment?.enrolled_at)}
+                                                            className="text-indigo-400 hover:text-indigo-600 p-0.5 hover:bg-indigo-50 rounded"
+                                                            title="Editar Data de Inscrição"
+                                                        >
+                                                            📅
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -278,6 +316,42 @@ export const StudentAllocation: React.FC = () => {
                         </div>
                     </GlassCard>
 
+                </div>
+            )}
+
+            {/* DATE EDIT MODAL */}
+            {editingEnrollment && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+                    <GlassCard className="w-full max-w-sm relative">
+                        <h3 className="font-bold text-lg text-indigo-900 mb-2">Editar Data de Inscrição</h3>
+                        <p className="text-sm text-indigo-600 mb-4 font-bold">{editingEnrollment.studentName}</p>
+                        
+                        <div className="mb-6">
+                            <label className="block text-xs font-bold text-indigo-500 uppercase mb-1">Nova Data e Hora</label>
+                            <input 
+                                type="datetime-local" 
+                                value={newEnrollDate}
+                                onChange={(e) => setNewEnrollDate(e.target.value)}
+                                className="w-full p-2 border border-indigo-200 rounded text-indigo-900 font-mono text-sm"
+                            />
+                            <p className="text-[10px] text-indigo-400 mt-2">Isto afeta o cálculo de expiração para cursos de acesso limitado.</p>
+                        </div>
+
+                        <div className="flex gap-2 justify-end">
+                            <button 
+                                onClick={() => setEditingEnrollment(null)}
+                                className="px-4 py-2 text-indigo-600 font-bold hover:bg-indigo-50 rounded-lg text-sm"
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                onClick={handleDateSave}
+                                className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md text-sm"
+                            >
+                                Guardar
+                            </button>
+                        </div>
+                    </GlassCard>
                 </div>
             )}
         </div>
