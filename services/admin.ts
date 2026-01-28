@@ -321,6 +321,8 @@ export const adminService = {
 
                 // Landing Page Dynamic Settings
                 if (item.key === 'landing_how_it_works') config.landing_how_it_works = item.value;
+                if (item.key === 'landing_testimonials') config.landing_testimonials = item.value;
+                if (item.key === 'landing_videos') config.landing_videos = item.value;
                 if (item.key === 'forbidden_words') config.forbidden_words = item.value;
             });
         }
