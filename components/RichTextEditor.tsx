@@ -21,6 +21,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const [foreColor, setForeColor] = useState('#000000');
   const [hiliteColor, setHiliteColor] = useState('#ffffff');
 
+  // Format Painter State
+  const [painterActive, setPainterActive] = useState(false);
+  const [storedStyles, setStoredStyles] = useState<any>(null);
+
   // Sincronizar valor externo com o editor
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
@@ -74,6 +78,63 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       execCommand(type, color);
   };
 
+  // --- Format Painter Logic ---
+  const handleFormatPainterClick = () => {
+    if (painterActive) {
+        // Cancelar se já estiver ativo
+        setPainterActive(false);
+        setStoredStyles(null);
+        return;
+    }
+
+    // Capturar estilos da seleção atual
+    const styles: any = {};
+    
+    // Boolean states (Toggles)
+    const toggles = ['bold', 'italic', 'underline', 'strikeThrough', 'subscript', 'superscript'];
+    toggles.forEach(cmd => {
+        styles[cmd] = document.queryCommandState(cmd);
+    });
+
+    // Value states
+    const values = ['fontName', 'fontSize', 'foreColor', 'hiliteColor']; // backColor
+    values.forEach(cmd => {
+        styles[cmd] = document.queryCommandValue(cmd);
+    });
+
+    setStoredStyles(styles);
+    setPainterActive(true);
+  };
+
+  const handleEditorMouseUp = () => {
+      if (!painterActive || !storedStyles) return;
+
+      const selection = window.getSelection();
+      // Apenas aplica se houver seleção ou cursor posicionado
+      if (!selection) return;
+      
+      // Aplicar Toggles (apenas se o estado destino diferir da origem)
+      ['bold', 'italic', 'underline', 'strikeThrough', 'subscript', 'superscript'].forEach(cmd => {
+          const targetState = document.queryCommandState(cmd);
+          const sourceState = storedStyles[cmd];
+          if (targetState !== sourceState) {
+              document.execCommand(cmd, false);
+          }
+      });
+
+      // Aplicar Valores
+      ['fontName', 'fontSize', 'foreColor', 'hiliteColor'].forEach(cmd => {
+          const sourceValue = storedStyles[cmd];
+          if (sourceValue) {
+              document.execCommand(cmd, false, sourceValue);
+          }
+      });
+
+      handleInput(); // Atualizar valor
+      setPainterActive(false); // Desativar após uso único
+      setStoredStyles(null);
+  };
+
   return (
     <div className={`flex flex-col ${className}`}>
       {label && <label className="block text-sm font-medium text-indigo-900 dark:text-indigo-200 mb-1">{label}</label>}
@@ -94,6 +155,16 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                    <ToolbarButton title="Refazer" onClick={() => execCommand('redo')} icon={<IconRedo />} />
                </div>
                
+               <Divider />
+
+               {/* Format Painter */}
+               <ToolbarButton 
+                    title="Pincel de Formatação (Copiar Estilo)" 
+                    onClick={handleFormatPainterClick} 
+                    icon={<IconBrush />} 
+                    isActive={painterActive}
+               />
+
                <Divider />
 
                {/* Headers */}
@@ -215,11 +286,15 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         {/* Content Editable Area */}
         <div 
             ref={editorRef}
-            className="prose prose-indigo dark:prose-invert prose-sm max-w-none focus:outline-none min-h-[250px] p-4 text-indigo-900 dark:text-indigo-100 leading-relaxed overflow-y-auto"
+            className={`
+                prose prose-indigo dark:prose-invert prose-sm max-w-none focus:outline-none min-h-[250px] p-4 text-indigo-900 dark:text-indigo-100 leading-relaxed overflow-y-auto
+                ${painterActive ? 'cursor-copy' : 'cursor-text'}
+            `}
             contentEditable
             onInput={handleInput}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
+            onMouseUp={handleEditorMouseUp}
             data-placeholder={placeholder}
             style={{ minHeight: '250px' }}
         />
@@ -294,7 +369,7 @@ const ToolbarButton: React.FC<{
     className={`
       p-1 w-7 h-7 rounded-md transition-all flex items-center justify-center active:scale-95
       ${isActive 
-        ? 'bg-indigo-600 text-white shadow-sm' 
+        ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-300' 
         : 'text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-slate-700 hover:text-indigo-900 dark:hover:text-white'}
     `}
     title={title}
@@ -326,3 +401,4 @@ const IconOutdent = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="
 const IconSub = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 19 6-6"/><path d="m4 13 6 6"/><path d="M19 19a2 2 0 0 0 2-2v-1a2 2 0 0 0-2-2h-1v5"/></svg>;
 const IconSup = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 19 6-6"/><path d="m4 13 6 6"/><path d="M19 9a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1v5"/></svg>;
 const IconLorem = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
+const IconBrush = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2.5 2.22 0 .41.31.75.71.75 1.45 0 2.27-1.12 2.75-1.93.97-1.63 2.5-1.92 3.6-1.07l.27.2c.42.33.99.31 1.4-.05l1.83-1.63a1.05 1.05 0 0 0 .05-1.42l-.2-.25c-1.1-1.39-1.42-3.1-4.91-1.84Z"/></svg>;
