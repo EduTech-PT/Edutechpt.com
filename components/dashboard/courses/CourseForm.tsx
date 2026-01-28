@@ -63,11 +63,20 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
     // Live Course Calculation Effect
     useEffect(() => {
         if (formData.format === 'live') {
-            const hours = parseFloat(formData.duration || '0') || 0;
-            const rate = parseFloat(formData.hourly_rate || '0') || 0;
-            if (hours > 0 && rate > 0) {
-                const total = hours * rate;
-                setFormData(prev => ({ ...prev, price: total.toString() }));
+            // Replace commas with dots for calculation
+            const hStr = (formData.duration || '').toString().replace(',', '.');
+            const rStr = (formData.hourly_rate || '').toString().replace(',', '.');
+            
+            const hours = parseFloat(hStr) || 0;
+            const rate = parseFloat(rStr) || 0;
+            
+            const total = hours * rate;
+            // Format to avoid long decimals, but keep integers clean
+            const totalFormatted = total % 1 !== 0 ? total.toFixed(2) : total.toString();
+
+            // Only update if value is different to avoid redundant renders (though React handles strict equality)
+            if (formData.price !== totalFormatted) {
+                setFormData(prev => ({ ...prev, price: totalFormatted }));
             }
         }
     }, [formData.duration, formData.hourly_rate, formData.format]);
