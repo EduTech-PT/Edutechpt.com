@@ -14,7 +14,7 @@ const DEFAULT_CONTENT = `
             <div class="space-y-6">
                 <div class="bg-white/40 dark:bg-slate-800/40 p-6 rounded-xl border border-white/50 dark:border-white/10">
                     <h3 class="font-bold text-lg text-indigo-900 dark:text-white mb-2">A formação é prática?</h3>
-                    <p class="text-indigo-800 dark:text-indigo-200 text-sm">Sim, todos os cursos são focados em projetos reais e no desenvolvimento de competências técnicas exigidas pelo mercado.</p>
+                    <p class="text-indigo-800 dark:text-indigo-100 text-sm">Sim, todos os cursos são focados em projetos reais e no desenvolvimento de competências técnicas exigidas pelo mercado.</p>
                 </div>
             </div>
 `;
@@ -152,7 +152,7 @@ export const FAQPage: React.FC<Props> = ({ onBack, isEmbedded = false }) => {
                                                 </div>
                                                 <div className={`px-5 overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[1000px] pb-6 opacity-100' : 'max-h-0 opacity-0'}`}>
                                                     <div 
-                                                        className="text-indigo-800 dark:text-indigo-300 text-sm leading-relaxed border-t border-indigo-50 dark:border-slate-700 pt-4 prose prose-indigo dark:prose-invert max-w-none"
+                                                        className="text-indigo-800 dark:text-indigo-100 text-sm leading-relaxed border-t border-indigo-50 dark:border-slate-700 pt-4 prose prose-indigo dark:prose-invert max-w-none"
                                                         dangerouslySetInnerHTML={{ __html: item.a }}
                                                     />
                                                 </div>
