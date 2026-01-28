@@ -196,8 +196,8 @@ export const RoleManager: React.FC = () => {
             <GlassCard>
                 <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 mb-6">
                     <div>
-                        <h3 className="font-bold text-xl text-indigo-900">Matriz de Permissões</h3>
-                        <p className="text-sm text-indigo-700">Defina o que cada cargo pode fazer na plataforma.</p>
+                        <h3 className="font-bold text-xl text-indigo-900 dark:text-white">Matriz de Permissões</h3>
+                        <p className="text-sm text-indigo-700 dark:text-indigo-200">Defina o que cada cargo pode fazer na plataforma.</p>
                     </div>
                     
                     <button 
@@ -209,22 +209,22 @@ export const RoleManager: React.FC = () => {
                 </div>
 
                 {loading ? (
-                    <div className="text-center py-8 text-indigo-500">A carregar cargos...</div>
+                    <div className="text-center py-8 text-indigo-500 dark:text-indigo-300">A carregar cargos...</div>
                 ) : (
                     <div className="overflow-x-auto custom-scrollbar pb-2">
                         <table className="w-full text-sm border-collapse">
                             <thead>
                                 <tr>
-                                    <th className="text-left p-3 border-b-2 border-indigo-100 bg-white/30 backdrop-blur sticky left-0 z-10 min-w-[200px]">
-                                        <span className="text-indigo-900 font-bold uppercase text-xs tracking-wider">Permissão</span>
+                                    <th className="text-left p-3 border-b-2 border-indigo-100 dark:border-slate-700 bg-white/30 dark:bg-slate-800/30 backdrop-blur sticky left-0 z-10 min-w-[200px]">
+                                        <span className="text-indigo-900 dark:text-white font-bold uppercase text-xs tracking-wider">Permissão</span>
                                     </th>
                                     {roles.map(role => (
-                                        <th key={role.name} className="p-3 border-b-2 border-indigo-100 text-center min-w-[120px] align-top group">
+                                        <th key={role.name} className="p-3 border-b-2 border-indigo-100 dark:border-slate-700 text-center min-w-[120px] align-top group">
                                             <div className="flex flex-col items-center gap-1">
                                                 <span className={`px-2 py-1 rounded text-xs font-bold uppercase mb-1 cursor-pointer hover:opacity-80 ${
                                                     role.name === 'admin' ? 'bg-indigo-600 text-white' : 
-                                                    role.name === 'aluno' ? 'bg-indigo-100 text-indigo-800' : 
-                                                    'bg-white text-indigo-600 border border-indigo-200'
+                                                    role.name === 'aluno' ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200' : 
+                                                    'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white border border-indigo-200 dark:border-slate-600'
                                                 }`} onClick={() => openEditModal(role)} title="Editar Detalhes">
                                                     {role.name} ✎
                                                 </span>
@@ -232,7 +232,7 @@ export const RoleManager: React.FC = () => {
                                                 {!SYSTEM_ROLES.includes(role.name) && (
                                                     <button 
                                                         onClick={() => handleDeleteRole(role.name)}
-                                                        className="text-[10px] text-red-400 hover:text-red-600 bg-red-50 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        className="text-[10px] text-red-400 hover:text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
                                                         title="Eliminar Cargo"
                                                     >
                                                         Eliminar
@@ -245,10 +245,10 @@ export const RoleManager: React.FC = () => {
                             </thead>
                             <tbody>
                                 {PERMISSIONS_CONFIG.map((perm) => (
-                                    <tr key={perm.key} className="hover:bg-indigo-50/50 transition-colors border-b border-indigo-50 last:border-0">
-                                        <td className="p-3 sticky left-0 bg-white/30 backdrop-blur z-10">
-                                            <div className="font-bold text-indigo-900">{perm.label}</div>
-                                            <div className="text-xs text-indigo-500 font-normal hidden md:block">{perm.desc}</div>
+                                    <tr key={perm.key} className="hover:bg-indigo-50/50 dark:hover:bg-slate-800/50 transition-colors border-b border-indigo-50 dark:border-slate-700 last:border-0">
+                                        <td className="p-3 sticky left-0 bg-white/30 dark:bg-slate-900/50 backdrop-blur z-10">
+                                            <div className="font-bold text-indigo-900 dark:text-white">{perm.label}</div>
+                                            <div className="text-xs text-indigo-500 dark:text-indigo-400 font-normal hidden md:block">{perm.desc}</div>
                                         </td>
                                         {roles.map(role => {
                                             const isChecked = !!role.permissions?.[perm.key];
@@ -266,7 +266,7 @@ export const RoleManager: React.FC = () => {
                                                                 checked={isChecked}
                                                                 disabled={isLocked}
                                                                 onChange={() => handleToggleTablePermission(role.name, perm.key, isChecked)}
-                                                                className={`w-5 h-5 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer ${isLocked ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
+                                                                className={`w-5 h-5 rounded border-indigo-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer ${isLocked ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''}`}
                                                             />
                                                         )}
                                                     </div>
@@ -279,7 +279,7 @@ export const RoleManager: React.FC = () => {
                         </table>
                     </div>
                 )}
-                <div className="mt-4 p-3 bg-indigo-50 rounded-lg text-xs text-indigo-800 border border-indigo-100">
+                <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-xs text-indigo-800 dark:text-indigo-200 border border-indigo-100 dark:border-indigo-800">
                     ℹ️ <b>Dica:</b> Clique no nome de um cargo para editar a descrição ou o nome (apenas cargos personalizados).
                 </div>
             </GlassCard>
@@ -287,45 +287,45 @@ export const RoleManager: React.FC = () => {
             {/* CREATE / EDIT ROLE MODAL */}
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/40 backdrop-blur-sm p-4 animate-in fade-in">
-                    <GlassCard className="w-full max-w-2xl relative max-h-[90vh] flex flex-col">
-                        <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-indigo-400 hover:text-indigo-800">✕</button>
+                    <GlassCard className="w-full max-w-2xl relative max-h-[90vh] flex flex-col bg-white dark:bg-slate-900">
+                        <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-indigo-400 hover:text-indigo-800 dark:hover:text-white">✕</button>
                         
-                        <h3 className="font-bold text-xl text-indigo-900 mb-6">
+                        <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-6">
                             {isEditing ? `Editar Cargo: ${originalName}` : 'Criar Novo Cargo'}
                         </h3>
                         
                         <form onSubmit={handleModalSubmit} className="flex-1 overflow-y-auto custom-scrollbar pr-2">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                 <div>
-                                    <label className="block text-sm font-bold text-indigo-900 mb-1">Nome do Cargo</label>
+                                    <label className="block text-sm font-bold text-indigo-900 dark:text-indigo-200 mb-1">Nome do Cargo</label>
                                     <input 
                                         type="text" 
                                         placeholder="ex: coordenador" 
                                         value={modalData.name}
                                         onChange={(e) => setModalData({...modalData, name: e.target.value})}
-                                        className={`w-full p-2 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none ${isEditing && SYSTEM_ROLES.includes(originalName || '') ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
+                                        className={`w-full p-2 rounded bg-white dark:bg-slate-800 border border-indigo-200 dark:border-slate-600 focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white ${isEditing && SYSTEM_ROLES.includes(originalName || '') ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-slate-700' : ''}`}
                                         disabled={isEditing && SYSTEM_ROLES.includes(originalName || '')}
                                         required
                                     />
                                     {isEditing && SYSTEM_ROLES.includes(originalName || '') 
                                         ? <p className="text-xs text-red-500 mt-1">Cargos de sistema não podem ser renomeados.</p>
-                                        : <p className="text-xs text-indigo-500 mt-1">Será guardado como ID (sem espaços, minúsculas).</p>
+                                        : <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-1">Será guardado como ID (sem espaços, minúsculas).</p>
                                     }
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-indigo-900 mb-1">Descrição</label>
+                                    <label className="block text-sm font-bold text-indigo-900 dark:text-indigo-200 mb-1">Descrição</label>
                                     <input 
                                         type="text" 
                                         placeholder="ex: Responsável pedagógico" 
                                         value={modalData.description}
                                         onChange={(e) => setModalData({...modalData, description: e.target.value})}
-                                        className="w-full p-2 rounded bg-white border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                        className="w-full p-2 rounded bg-white dark:bg-slate-800 border border-indigo-200 dark:border-slate-600 focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white"
                                     />
                                 </div>
                             </div>
 
-                            <div className="mb-2 flex justify-between items-center border-b border-indigo-100 pb-2">
-                                <label className="block text-sm font-bold text-indigo-900">Permissões (Definição Inicial)</label>
+                            <div className="mb-2 flex justify-between items-center border-b border-indigo-100 dark:border-slate-700 pb-2">
+                                <label className="block text-sm font-bold text-indigo-900 dark:text-white">Permissões (Definição Inicial)</label>
                                 <div className="space-x-2">
                                     <button 
                                         type="button" 
@@ -333,15 +333,15 @@ export const RoleManager: React.FC = () => {
                                             const all = PERMISSIONS_CONFIG.reduce((acc, curr) => ({...acc, [curr.key]: true}), {});
                                             setModalData({...modalData, permissions: all});
                                         }}
-                                        className="text-xs text-indigo-600 hover:underline"
+                                        className="text-xs text-indigo-600 dark:text-indigo-300 hover:underline"
                                     >
                                         Selecionar Tudo
                                     </button>
-                                    <span className="text-indigo-300">|</span>
+                                    <span className="text-indigo-300 dark:text-slate-600">|</span>
                                     <button 
                                         type="button" 
                                         onClick={() => setModalData({...modalData, permissions: {}})}
-                                        className="text-xs text-indigo-600 hover:underline"
+                                        className="text-xs text-indigo-600 dark:text-indigo-300 hover:underline"
                                     >
                                         Limpar
                                     </button>
@@ -352,7 +352,7 @@ export const RoleManager: React.FC = () => {
                                 {PERMISSIONS_CONFIG.map((perm) => (
                                     <div 
                                         key={perm.key} 
-                                        className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${modalData.permissions[perm.key] ? 'bg-indigo-50 border-indigo-300' : 'bg-white/50 border-transparent hover:bg-white'}`}
+                                        className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${modalData.permissions[perm.key] ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700' : 'bg-white/50 dark:bg-slate-800/50 border-transparent hover:bg-white dark:hover:bg-slate-700'}`}
                                         onClick={() => toggleModalPermission(perm.key)}
                                     >
                                         <input 
@@ -362,18 +362,18 @@ export const RoleManager: React.FC = () => {
                                             className="mt-1 w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 pointer-events-none"
                                         />
                                         <div>
-                                            <div className="text-sm font-bold text-indigo-900">{perm.label}</div>
-                                            <div className="text-xs text-indigo-500">{perm.desc}</div>
+                                            <div className="text-sm font-bold text-indigo-900 dark:text-white">{perm.label}</div>
+                                            <div className="text-xs text-indigo-500 dark:text-indigo-400">{perm.desc}</div>
                                         </div>
                                     </div>
                                 ))}
                             </div>
 
-                            <div className="flex justify-end gap-3 pt-4 border-t border-indigo-100">
+                            <div className="flex justify-end gap-3 pt-4 border-t border-indigo-100 dark:border-slate-700">
                                 <button 
                                     type="button" 
                                     onClick={() => setShowModal(false)}
-                                    className="px-4 py-2 text-indigo-600 font-bold hover:bg-indigo-50 rounded-lg"
+                                    className="px-4 py-2 text-indigo-600 dark:text-indigo-300 font-bold hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg"
                                 >
                                     Cancelar
                                 </button>

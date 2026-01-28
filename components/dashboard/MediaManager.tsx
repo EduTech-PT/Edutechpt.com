@@ -56,18 +56,18 @@ export const MediaManager: React.FC = () => {
         <div className="space-y-6 animate-in slide-in-from-right duration-300">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-indigo-900">Galeria de Imagens</h2>
-                    <p className="text-sm text-indigo-600">Gestão de ficheiros do servidor</p>
+                    <h2 className="text-2xl font-bold text-indigo-900 dark:text-white">Galeria de Imagens</h2>
+                    <p className="text-sm text-indigo-600 dark:text-indigo-300">Gestão de ficheiros do servidor</p>
                 </div>
                 
                 <div className="flex gap-2">
                      <select 
                         value={currentBucket} 
                         onChange={(e) => setCurrentBucket(e.target.value as any)}
-                        className="px-4 py-2 bg-white/60 border border-indigo-200 rounded-lg text-indigo-900 font-bold outline-none focus:ring-2 focus:ring-indigo-400"
+                        className="px-4 py-2 bg-white/60 dark:bg-slate-800/60 border border-indigo-200 dark:border-slate-700 rounded-lg text-indigo-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-indigo-400"
                     >
-                        <option value="course-images">Imagens de Cursos</option>
-                        <option value="avatars">Avatars (Perfis)</option>
+                        <option value="course-images" className="dark:bg-slate-800">Imagens de Cursos</option>
+                        <option value="avatars" className="dark:bg-slate-800">Avatars (Perfis)</option>
                     </select>
 
                     {selectedFiles.length > 0 && (
@@ -83,12 +83,12 @@ export const MediaManager: React.FC = () => {
 
             <GlassCard>
                 {loading ? (
-                    <div className="text-center p-12 text-indigo-500">
+                    <div className="text-center p-12 text-indigo-500 dark:text-indigo-300">
                         <div className="animate-spin h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-2"></div>
                         A carregar imagens de <b>{currentBucket}</b>...
                     </div>
                 ) : files.length === 0 ? (
-                    <div className="text-center p-12 text-indigo-400">
+                    <div className="text-center p-12 text-indigo-400 dark:text-indigo-300">
                         <div className="text-4xl mb-2">🖼️</div>
                         <p>Nenhuma imagem encontrada em <b>{currentBucket}</b>.</p>
                     </div>
@@ -98,12 +98,12 @@ export const MediaManager: React.FC = () => {
                             <div 
                                 key={file.id || file.name} 
                                 className={`
-                                    relative group rounded-lg overflow-hidden border-2 cursor-pointer transition-all bg-white
+                                    relative group rounded-lg overflow-hidden border-2 cursor-pointer transition-all bg-white dark:bg-slate-800
                                     ${selectedFiles.includes(file.name) ? 'border-indigo-600 ring-2 ring-indigo-400' : 'border-transparent hover:border-indigo-300'}
                                 `}
                                 onClick={() => toggleSelection(file.name)}
                             >
-                                <div className="aspect-square bg-gray-100 relative flex items-center justify-center overflow-hidden">
+                                <div className="aspect-square bg-gray-100 dark:bg-slate-700 relative flex items-center justify-center overflow-hidden">
                                     {file.metadata?.mimetype === 'application/vnd.google-apps.folder' ? (
                                         <span className="text-4xl">📁</span>
                                     ) : (
@@ -141,8 +141,8 @@ export const MediaManager: React.FC = () => {
                                         </a>
                                     </div>
                                 </div>
-                                <div className="p-2 bg-white/90 text-[10px] text-center border-t border-gray-100">
-                                    <div className="truncate font-bold text-gray-700" title={file.name}>{file.name}</div>
+                                <div className="p-2 bg-white/90 dark:bg-slate-900/90 text-[10px] text-center border-t border-gray-100 dark:border-slate-700">
+                                    <div className="truncate font-bold text-gray-700 dark:text-gray-300" title={file.name}>{file.name}</div>
                                     <div className="text-gray-400">{(file.metadata?.size / 1024).toFixed(1)} KB</div>
                                 </div>
                             </div>
