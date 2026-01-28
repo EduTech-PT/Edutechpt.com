@@ -42,6 +42,14 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
       return '🥉';
   };
 
+  // Helper robusto para formatar preço
+  const formatPrice = (price?: string) => {
+      if (!price) return '';
+      // Tenta converter para float, substituindo virgula por ponto se necessário
+      const num = parseFloat(price.toString().replace(',', '.'));
+      return num === 0 ? 'Gratuito' : `${price} €`;
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-indigo-900/60 backdrop-blur-sm animate-in fade-in duration-300">
       <GlassCard className="w-full max-w-4xl max-h-[90vh] flex flex-col p-0 relative overflow-hidden shadow-2xl ring-1 ring-white/50 bg-white/40 dark:bg-slate-900/80">
@@ -193,7 +201,9 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
                                    <h4 className="font-bold text-sm uppercase tracking-wide opacity-90">{plan.label || 'Plano'}</h4>
                                </div>
                                <div className="mt-auto z-10">
-                                   <div className="text-2xl font-extrabold tracking-tight">{plan.price} €</div>
+                                   <div className="text-2xl font-extrabold tracking-tight">
+                                       {formatPrice(plan.price)}
+                                   </div>
                                    <div className="text-xs font-bold opacity-75">
                                        {plan.days === 0 || plan.days === null ? 'Acesso Vitalício' : `${plan.days} dias de acesso`}
                                    </div>
@@ -211,7 +221,7 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
                
                {/* Show Single Price ONLY if no plans exist */}
                {(!course.pricing_plans || course.pricing_plans.length === 0) && course.price && (
-                   <span>💰 Custo: <b>{(course.price === '0' || course.price === '0.00') ? 'Gratuito' : `${course.price} €`}</b></span>
+                   <span>💰 Custo: <b>{formatPrice(course.price)}</b></span>
                )}
 
                {/* Show Extra Class Price if Available */}

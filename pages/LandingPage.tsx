@@ -72,6 +72,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       window.location.href = mailto;
   };
 
+  // Helper para formatar preço (Consistente com Modal)
+  const formatPrice = (price?: string) => {
+      if (!price) return null;
+      const num = parseFloat(price.toString().replace(',', '.'));
+      return num === 0 ? 'Gratuito' : `${price} €`;
+  };
+
   return (
     <div className="min-h-screen flex flex-col font-sans dark:bg-slate-900 transition-colors duration-500">
       {/* Navbar */}
@@ -165,7 +172,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                                  </span>
                                  {course.price && (
                                      <span className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-bold shadow-lg">
-                                        {(course.price === '0' || course.price === '0.00') ? 'Gratuito' : `${course.price} €`}
+                                        {formatPrice(course.price)}
                                      </span>
                                  )}
                              </div>

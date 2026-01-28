@@ -123,6 +123,13 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
       }
   };
 
+  // Helper local para formato consistente
+  const formatPrice = (price?: string) => {
+      if (!price) return null;
+      const num = parseFloat(price.toString().replace(',', '.'));
+      return num === 0 ? 'Gratuito' : `${price} €`;
+  };
+
   if (loading) return <div className="p-8 text-center text-indigo-600 dark:text-indigo-300 font-bold">A carregar cursos...</div>;
 
   return (
@@ -241,7 +248,7 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                                 )}
                                 {course.price && (
                                     <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
-                                        {(course.price === '0' || course.price === '0.00') ? 'Gratuito' : `${course.price} €`}
+                                        {formatPrice(course.price)}
                                     </div>
                                 )}
                                 {/* Format Badge Small */}
