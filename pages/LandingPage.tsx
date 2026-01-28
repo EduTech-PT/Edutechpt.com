@@ -164,7 +164,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       const ytRegExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
       const ytMatch = url.match(ytRegExp);
       if (ytMatch && ytMatch[2].length === 11) {
-          return `https://www.youtube.com/embed/${ytMatch[2]}`;
+          const videoId = ytMatch[2];
+          // Autoplay (Muted for browser policy), Loop (requires playlist=VIDEO_ID)
+          return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}`;
       }
 
       // 2. Check Google Drive
