@@ -14,11 +14,26 @@ interface LandingPageProps {
   onFaqClick?: () => void;
 }
 
+interface Step {
+    id: string;
+    title: string;
+    description: string;
+    badge: string;
+    color: string;
+}
+
+const DEFAULT_STEPS: Step[] = [
+    { id: '1', title: 'Escolha o Curso', description: 'Navegue pelo nosso catálogo e selecione a formação.', badge: '1', color: 'indigo' },
+    { id: '2', title: 'Inscreva-se', description: 'Crie a sua conta de aluno para aceder à turma.', badge: '2', color: 'purple' },
+    { id: '3', title: 'Evolua', description: 'Realize avaliações e domine novas competências.', badge: '3', color: 'pink' }
+];
+
 export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivacyClick, onTermsClick, onFaqClick }) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [steps, setSteps] = useState<Step[]>(DEFAULT_STEPS);
   
   const [appEmailConfig, setAppEmailConfig] = useState({
       subject: 'Candidatura EduTech PT',
@@ -46,6 +61,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                   subject: configResult.applicationSubject || appEmailConfig.subject,
                   body: configResult.applicationBody || appEmailConfig.body
               });
+          }
+          // Load Dynamic Steps
+          if (configResult.landing_how_it_works) {
+              try {
+                  const parsed = JSON.parse(configResult.landing_how_it_works);
+                  if (Array.isArray(parsed) && parsed.length > 0) {
+                      setSteps(parsed);
+                  }
+              } catch (e) {
+                  console.warn("Erro a carregar passos dinâmicos:", e);
+              }
           }
       }
     } catch (err) { console.error('Unexpected error:', err); } 
@@ -83,6 +109,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       if (isNaN(num) || num === 0) return 'Gratuito';
       
       return `${price} €`;
+  };
+
+  const getStepColorClasses = (color: string) => {
+      switch (color) {
+          case 'purple': return { bg: 'bg-purple-600', border: 'border-purple-50 dark:border-slate-800' };
+          case 'pink': return { bg: 'bg-pink-600', border: 'border-pink-50 dark:border-slate-800' };
+          case 'green': return { bg: 'bg-green-600', border: 'border-green-50 dark:border-slate-800' };
+          case 'yellow': return { bg: 'bg-yellow-500', border: 'border-yellow-50 dark:border-slate-800' };
+          case 'red': return { bg: 'bg-red-600', border: 'border-red-50 dark:border-slate-800' };
+          default: return { bg: 'bg-indigo-600', border: 'border-indigo-50 dark:border-slate-800' };
+      }
   };
 
   return (
@@ -201,26 +238,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
         )}
       </div>
 
-      {/* METHODOLOGY SECTION */}
+      {/* METHODOLOGY SECTION (DYNAMIC) */}
       <div className="bg-gradient-to-b from-transparent to-white/30 dark:to-black/30 py-20 relative z-10">
           <div className="max-w-7xl mx-auto px-4">
               <h2 className="text-3xl md:text-4xl font-bold text-indigo-900 dark:text-white mb-12 text-center">Como Funciona</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  <GlassCard className="text-center p-8 relative overflow-visible">
-                      <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg absolute -top-8 left-1/2 transform -translate-x-1/2 border-4 border-indigo-50 dark:border-slate-800">1</div>
-                      <h3 className="mt-8 text-xl font-bold text-indigo-900 dark:text-white mb-3">Escolha o Curso</h3>
-                      <p className="text-indigo-700 dark:text-indigo-300 text-sm leading-relaxed">Navegue pelo nosso catálogo e selecione a formação.</p>
-                  </GlassCard>
-                  <GlassCard className="text-center p-8 relative overflow-visible">
-                      <div className="w-16 h-16 bg-purple-600 text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg absolute -top-8 left-1/2 transform -translate-x-1/2 border-4 border-purple-50 dark:border-slate-800">2</div>
-                      <h3 className="mt-8 text-xl font-bold text-indigo-900 dark:text-white mb-3">Inscreva-se</h3>
-                      <p className="text-indigo-700 dark:text-indigo-300 text-sm leading-relaxed">Crie a sua conta de aluno para aceder à turma.</p>
-                  </GlassCard>
-                  <GlassCard className="text-center p-8 relative overflow-visible">
-                      <div className="w-16 h-16 bg-pink-600 text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg absolute -top-8 left-1/2 transform -translate-x-1/2 border-4 border-pink-50 dark:border-slate-800">3</div>
-                      <h3 className="mt-8 text-xl font-bold text-indigo-900 dark:text-white mb-3">Evolua</h3>
-                      <p className="text-indigo-700 dark:text-indigo-300 text-sm leading-relaxed">Realize avaliações e domine novas competências.</p>
-                  </GlassCard>
+                  {steps.map((step) => {
+                      const colors = getStepColorClasses(step.color || 'indigo');
+                      return (
+                          <GlassCard key={step.id} className="text-center p-8 relative overflow-visible">
+                              <div className={`w-16 h-16 ${colors.bg} text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg absolute -top-8 left-1/2 transform -translate-x-1/2 border-4 ${colors.border}`}>
+                                  {step.badge}
+                              </div>
+                              <h3 className="mt-8 text-xl font-bold text-indigo-900 dark:text-white mb-3">{step.title}</h3>
+                              <p className="text-indigo-700 dark:text-indigo-300 text-sm leading-relaxed">{step.description}</p>
+                          </GlassCard>
+                      );
+                  })}
               </div>
           </div>
       </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../../GlassCard';
 import { adminService } from '../../../services/admin';
@@ -16,6 +15,20 @@ interface Props {
     onNavigateToDrive: () => void;
 }
 
+interface Step {
+    id: string;
+    title: string;
+    description: string;
+    badge: string; // O número ou ícone (ex: "1", "2", "🎓")
+    color: string; // indigo, purple, pink, etc
+}
+
+const DEFAULT_STEPS: Step[] = [
+    { id: '1', title: 'Escolha o Curso', description: 'Navegue pelo nosso catálogo e selecione a formação.', badge: '1', color: 'indigo' },
+    { id: '2', title: 'Inscreva-se', description: 'Crie a sua conta de aluno para aceder à turma.', badge: '2', color: 'purple' },
+    { id: '3', title: 'Evolua', description: 'Realize avaliações e domine novas competências.', badge: '3', color: 'pink' }
+];
+
 export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigateToSql, onNavigateToDrive }) => {
     const [config, setConfig] = useState<any>({});
     const [loading, setLoading] = useState(true);
@@ -30,6 +43,9 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
     
     // Test Tools
     const [showCertTest, setShowCertTest] = useState(false);
+
+    // Landing Page Steps State
+    const [steps, setSteps] = useState<Step[]>(DEFAULT_STEPS);
 
     useEffect(() => {
         loadConfig();
@@ -47,6 +63,18 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
         try {
             const data = await adminService.getAppConfig();
             setConfig(data);
+            
+            // Load Steps
+            if (data.landing_how_it_works) {
+                try {
+                    const parsedSteps = JSON.parse(data.landing_how_it_works);
+                    if (Array.isArray(parsedSteps) && parsedSteps.length > 0) {
+                        setSteps(parsedSteps);
+                    }
+                } catch (e) {
+                    console.warn("Erro ao ler passos da landing page", e);
+                }
+            }
         } catch (e) {
             console.error(e);
         } finally {
@@ -72,7 +100,10 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
             await adminService.updateAppConfig('auth_warning_summary', config.authWarningSummary);
             await adminService.updateAppConfig('auth_warning_steps', config.authWarningSteps);
 
-            alert('Definições gerais e de login guardadas. (Atualize a página para ver as alterações)');
+            // Landing Page Steps
+            await adminService.updateAppConfig('landing_how_it_works', JSON.stringify(steps));
+
+            alert('Definições gerais, login e landing page guardadas.');
         } catch (e: any) {
             alert('Erro ao guardar: ' + e.message);
         } finally {
@@ -112,6 +143,38 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
             await navigator.clipboard.writeText(text);
             alert('Link copiado!');
         } catch (err) { console.error(err); }
+    };
+
+    // Steps Management
+    const addStep = () => {
+        const newStep: Step = {
+            id: Date.now().toString(),
+            title: 'Novo Passo',
+            description: 'Descrição do passo.',
+            badge: (steps.length + 1).toString(),
+            color: 'indigo'
+        };
+        setSteps([...steps, newStep]);
+    };
+
+    const removeStep = (id: string) => {
+        if (window.confirm("Remover este passo?")) {
+            setSteps(steps.filter(s => s.id !== id));
+        }
+    };
+
+    const updateStep = (id: string, field: keyof Step, value: string) => {
+        setSteps(steps.map(s => s.id === id ? { ...s, [field]: value } : s));
+    };
+
+    const moveStep = (index: number, direction: 'up' | 'down') => {
+        const newSteps = [...steps];
+        if (direction === 'up' && index > 0) {
+            [newSteps[index], newSteps[index - 1]] = [newSteps[index - 1], newSteps[index]];
+        } else if (direction === 'down' && index < newSteps.length - 1) {
+            [newSteps[index], newSteps[index + 1]] = [newSteps[index + 1], newSteps[index]];
+        }
+        setSteps(newSteps);
     };
 
     // MOCK DATA FOR CERTIFICATE TEST
@@ -159,6 +222,79 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                         }
                         onUpdate={onNavigateToDrive}
                     />
+                </div>
+            </div>
+
+            {/* LANDING PAGE - HOW IT WORKS */}
+            <div className="border-t border-indigo-100 dark:border-white/10 pt-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-xl text-indigo-900 dark:text-white flex items-center gap-2">
+                        <span>🚀</span> Landing Page: Como Funciona
+                    </h3>
+                    <button 
+                        onClick={addStep}
+                        className="px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 text-xs font-bold rounded-lg hover:bg-indigo-200"
+                    >
+                        + Adicionar Passo
+                    </button>
+                </div>
+                
+                <div className="space-y-4">
+                    {steps.map((step, idx) => (
+                        <div key={step.id} className="flex gap-4 p-4 bg-white/40 dark:bg-slate-800/40 border border-indigo-100 dark:border-slate-700 rounded-xl items-start">
+                            <div className="flex flex-col gap-1 pt-1">
+                                <button onClick={() => moveStep(idx, 'up')} disabled={idx === 0} className="text-gray-400 hover:text-indigo-600 disabled:opacity-20">▲</button>
+                                <button onClick={() => moveStep(idx, 'down')} disabled={idx === steps.length - 1} className="text-gray-400 hover:text-indigo-600 disabled:opacity-20">▼</button>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-1">
+                                <div>
+                                    <label className="text-[10px] font-bold text-indigo-400 uppercase">Ícone/Nº</label>
+                                    <input 
+                                        type="text" 
+                                        value={step.badge} 
+                                        onChange={(e) => updateStep(step.id, 'badge', e.target.value)}
+                                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm font-bold text-center"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-indigo-400 uppercase">Cor</label>
+                                    <select 
+                                        value={step.color} 
+                                        onChange={(e) => updateStep(step.id, 'color', e.target.value)}
+                                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm"
+                                    >
+                                        <option value="indigo">Indigo (Azul)</option>
+                                        <option value="purple">Purple (Roxo)</option>
+                                        <option value="pink">Pink (Rosa)</option>
+                                        <option value="green">Green (Verde)</option>
+                                        <option value="yellow">Yellow (Amarelo)</option>
+                                        <option value="red">Red (Vermelho)</option>
+                                    </select>
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="text-[10px] font-bold text-indigo-400 uppercase">Título</label>
+                                    <input 
+                                        type="text" 
+                                        value={step.title} 
+                                        onChange={(e) => updateStep(step.id, 'title', e.target.value)}
+                                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm font-bold"
+                                    />
+                                </div>
+                                <div className="md:col-span-4">
+                                    <label className="text-[10px] font-bold text-indigo-400 uppercase">Descrição</label>
+                                    <textarea 
+                                        value={step.description} 
+                                        onChange={(e) => updateStep(step.id, 'description', e.target.value)}
+                                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm"
+                                        rows={2}
+                                    />
+                                </div>
+                            </div>
+
+                            <button onClick={() => removeStep(step.id)} className="text-red-400 hover:text-red-600 p-2">✕</button>
+                        </div>
+                    ))}
                 </div>
             </div>
 
