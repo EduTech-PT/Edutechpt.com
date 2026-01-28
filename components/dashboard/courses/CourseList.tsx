@@ -9,6 +9,21 @@ interface Props {
 }
 
 export const CourseList: React.FC<Props> = ({ courses, onEdit, onDelete }) => {
+    
+    // Helper local para preço (duplicado para garantir consistência visual)
+    const formatPrice = (price?: string | number) => {
+      if (price === undefined || price === null || price === '') return 'Gratuito';
+      const strVal = price.toString().replace(',', '.').trim();
+      if (strVal === '0' || strVal === '0.00' || strVal === '0.0') return 'Gratuito';
+      const num = parseFloat(strVal);
+      if (isNaN(num) || num === 0) return 'Gratuito';
+      return `${price} €`;
+    };
+
+    const hasPrice = (price?: string | number) => {
+      return price !== undefined && price !== null && price !== '';
+    };
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
              {courses.map(course => (
@@ -29,7 +44,7 @@ export const CourseList: React.FC<Props> = ({ courses, onEdit, onDelete }) => {
                          <span className="uppercase font-bold text-indigo-600 dark:text-indigo-300">{course.level}</span>
                          <div className="flex gap-2">
                              {course.duration && <span className="font-bold text-indigo-800 dark:text-indigo-200">{course.duration} horas</span>}
-                             {course.price && <span className="font-bold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-1 rounded">{course.price} €</span>}
+                             {hasPrice(course.price) && <span className="font-bold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-1 rounded">{formatPrice(course.price)}</span>}
                          </div>
                      </div>
                  </GlassCard>

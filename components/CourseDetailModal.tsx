@@ -56,6 +56,11 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
       return `${price} €`;
   };
 
+  // Helper para verificar existência de preço (incluindo 0)
+  const hasPrice = (price?: string | number) => {
+      return price !== undefined && price !== null && price !== '';
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-indigo-900/60 backdrop-blur-sm animate-in fade-in duration-300">
       <GlassCard className="w-full max-w-4xl max-h-[90vh] flex flex-col p-0 relative overflow-hidden shadow-2xl ring-1 ring-white/50 bg-white/40 dark:bg-slate-900/80">
@@ -225,8 +230,8 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
                <span>📅 Publicado a: <b>{formatShortDate(course.created_at)}</b></span>
                {course.duration && <span>⏱️ Duração: <b>{course.duration} horas</b></span>}
                
-               {/* Show Single Price ONLY if no plans exist */}
-               {(!course.pricing_plans || course.pricing_plans.length === 0) && course.price && (
+               {/* Show Single Price ONLY if no plans exist. Fix for 0 value short-circuit. */}
+               {(!course.pricing_plans || course.pricing_plans.length === 0) && hasPrice(course.price) && (
                    <span>💰 Custo: <b>{formatPrice(course.price)}</b></span>
                )}
 
