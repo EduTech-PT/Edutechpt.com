@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 
 interface RichTextEditorProps {
@@ -134,6 +135,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                </select>
 
                 <div className="flex gap-1 ml-1 items-center px-1 border border-indigo-100 dark:border-slate-700 rounded bg-white/30 dark:bg-slate-800/30 h-9">
+                    {/* Botão de Cor Automática */}
+                    <button 
+                        type="button"
+                        onMouseDown={(e) => { e.preventDefault(); execCommand('foreColor', 'initial'); }}
+                        className="px-2 h-6 flex items-center justify-center text-[10px] font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-slate-700 rounded transition-colors"
+                        title="Cor Automática (Reset)"
+                    >
+                        Auto
+                    </button>
+                    <div className="w-px h-4 bg-indigo-200 dark:bg-slate-600 mx-0.5 opacity-50"></div>
+
                     <div className="relative w-6 h-6 overflow-hidden rounded-full cursor-pointer border border-indigo-200 dark:border-slate-600 shadow-sm" title="Cor do Texto">
                         <input type="color" value={foreColor} onChange={(e) => handleColorChange(e, 'foreColor')} className="absolute -top-4 -left-4 w-16 h-16 cursor-pointer p-0 border-0" />
                         <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold pointer-events-none mix-blend-difference text-white">A</span>
