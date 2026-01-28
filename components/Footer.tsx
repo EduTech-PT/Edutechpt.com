@@ -14,10 +14,10 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, className = '' }) =>
   };
 
   return (
-    <footer className={`w-full py-10 text-center text-indigo-900/60 text-sm bg-white/30 backdrop-blur-xl border-t border-white/40 z-20 mt-auto ${className}`}>
+    <footer className={`w-full py-10 text-center text-indigo-900/60 dark:text-indigo-200/60 text-sm bg-white/30 dark:bg-slate-900/30 backdrop-blur-xl border-t border-white/40 dark:border-white/10 z-20 mt-auto ${className}`}>
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="text-left">
-                <h4 className="font-bold text-indigo-900 text-lg mb-1">EduTech PT</h4>
+                <h4 className="font-bold text-indigo-900 dark:text-white text-lg mb-1">EduTech PT</h4>
                 <p className="text-xs max-w-xs">Plataforma de gestão de formação técnica especializada.</p>
             </div>
             
@@ -27,21 +27,21 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, className = '' }) =>
                     <a 
                         href="?page=faq"
                         onClick={(e) => handleLinkClick(e, 'faq')}
-                        className="hover:text-indigo-900 hover:underline transition-colors cursor-pointer"
+                        className="hover:text-indigo-900 dark:hover:text-white hover:underline transition-colors cursor-pointer"
                     >
                         Perguntas Frequentes
                     </a>
                     <a 
                         href="?page=privacy"
                         onClick={(e) => handleLinkClick(e, 'privacy')}
-                        className="hover:text-indigo-900 hover:underline transition-colors cursor-pointer"
+                        className="hover:text-indigo-900 dark:hover:text-white hover:underline transition-colors cursor-pointer"
                     >
                         Privacidade
                     </a>
                     <a 
                         href="?page=terms"
                         onClick={(e) => handleLinkClick(e, 'terms')}
-                        className="hover:text-indigo-900 hover:underline transition-colors cursor-pointer"
+                        className="hover:text-indigo-900 dark:hover:text-white hover:underline transition-colors cursor-pointer"
                     >
                         Termos
                     </a>

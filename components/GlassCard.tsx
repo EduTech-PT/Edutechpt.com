@@ -24,6 +24,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({ children, className = '', 
         dark:shadow-black/40
         rounded-2xl 
         p-4 md:p-6 
+        text-indigo-900 dark:text-indigo-100
         transition-all duration-300
         ${hoverEffect ? 'hover:bg-white/40 dark:hover:bg-slate-800/60 hover:shadow-xl hover:-translate-y-1' : ''}
         ${className}

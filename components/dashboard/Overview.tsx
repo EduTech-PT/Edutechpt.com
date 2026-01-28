@@ -145,14 +145,14 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
       <GlassCard className="relative overflow-hidden">
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                  <h2 className="text-2xl font-bold text-indigo-900">Olá, {profile.full_name || profile.email?.split('@')[0]}</h2>
-                  <p className="text-indigo-700">
-                      Bem-vindo ao teu Painel de Controlo • <span className="font-bold uppercase bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-xs">{profile.role}</span>
+                  <h2 className="text-2xl font-bold text-indigo-900 dark:text-white">Olá, {profile.full_name || profile.email?.split('@')[0]}</h2>
+                  <p className="text-indigo-700 dark:text-indigo-200">
+                      Bem-vindo ao teu Painel de Controlo • <span className="font-bold uppercase bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 px-2 py-0.5 rounded text-xs">{profile.role}</span>
                   </p>
               </div>
               <div className="text-right hidden md:block">
-                  <p className="text-xs text-indigo-500 font-bold uppercase">Acesso</p>
-                  <p className="text-indigo-900 font-mono">{new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                  <p className="text-xs text-indigo-500 dark:text-indigo-400 font-bold uppercase">Acesso</p>
+                  <p className="text-indigo-900 dark:text-indigo-100 font-mono">{new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
               </div>
           </div>
       </GlassCard>
@@ -163,7 +163,7 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
               
               {/* Pie Chart: Alunos por Curso */}
               <GlassCard className="flex flex-col items-center">
-                  <h3 className="font-bold text-lg text-indigo-900 mb-4">Distribuição de Alunos</h3>
+                  <h3 className="font-bold text-lg text-indigo-900 dark:text-white mb-4">Distribuição de Alunos</h3>
                   <div className="w-full h-64">
                       {pieData.length > 0 ? (
                           <ResponsiveContainer width="100%" height="100%">
@@ -194,7 +194,7 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
 
               {/* Bar Chart: Visão Geral */}
               <GlassCard className="flex flex-col items-center">
-                  <h3 className="font-bold text-lg text-indigo-900 mb-4">Turmas e Inscrições</h3>
+                  <h3 className="font-bold text-lg text-indigo-900 dark:text-white mb-4">Turmas e Inscrições</h3>
                   <div className="w-full h-64">
                       {barData.length > 0 ? (
                           <ResponsiveContainer width="100%" height="100%">
@@ -221,14 +221,14 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
       {/* ... Existing Class List Code ... */}
       <div className="grid grid-cols-1 gap-6">
           <GlassCard>
-              <div className="flex items-center justify-between mb-4 border-b border-indigo-100 pb-2">
+              <div className="flex items-center justify-between mb-4 border-b border-indigo-100 dark:border-white/10 pb-2">
                   <div className="flex items-center gap-3">
-                      <h3 className="font-bold text-lg text-indigo-900 flex items-center gap-2">
+                      <h3 className="font-bold text-lg text-indigo-900 dark:text-white flex items-center gap-2">
                           <span>🎒</span> 
                           {isAdmin || profile.role === 'editor' ? 'Visão Rápida (Cartões de Turma)' : 'As Minhas Turmas'}
                       </h3>
                       {selectedCourseId && (
-                          <span className="text-sm font-bold text-indigo-600 animate-in fade-in">
+                          <span className="text-sm font-bold text-indigo-600 dark:text-indigo-300 animate-in fade-in">
                               &gt; {selectedCourseTitle}
                           </span>
                       )}
@@ -237,12 +237,12 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
                       {selectedCourseId ? (
                           <button 
                               onClick={() => setSelectedCourseId(null)}
-                              className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full font-bold hover:bg-indigo-200 transition-colors"
+                              className="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200 px-3 py-1 rounded-full font-bold hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors"
                           >
                               ⬅ Voltar aos Cursos
                           </button>
                       ) : (
-                          <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-bold">
+                          <span className="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200 px-2 py-1 rounded-full font-bold">
                               {classes.length} Turmas / {uniqueCourses.length} Cursos
                           </span>
                       )}
@@ -254,7 +254,7 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
               ) : classes.length === 0 ? (
                   <div className="text-center py-10 opacity-60">
                       <span className="text-4xl block mb-2">📭</span>
-                      <p className="text-indigo-900 font-bold">Sem turmas alocadas.</p>
+                      <p className="text-indigo-900 dark:text-white font-bold">Sem turmas alocadas.</p>
                   </div>
               ) : !selectedCourseId ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in zoom-in-95">
@@ -264,19 +264,19 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
                               <div 
                                   key={course.id} 
                                   onClick={() => setSelectedCourseId(course.id)}
-                                  className="bg-white/40 border border-indigo-100 p-4 rounded-xl hover:shadow-md hover:bg-white/60 transition-all cursor-pointer group flex flex-col h-full"
+                                  className="bg-white/40 dark:bg-slate-800/40 border border-indigo-100 dark:border-white/10 p-4 rounded-xl hover:shadow-md hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all cursor-pointer group flex flex-col h-full"
                               >
                                   <div className="flex items-center gap-3 mb-3">
-                                      <div className="w-12 h-12 rounded-lg bg-indigo-100 overflow-hidden flex items-center justify-center shrink-0">
+                                      <div className="w-12 h-12 rounded-lg bg-indigo-100 dark:bg-slate-700 overflow-hidden flex items-center justify-center shrink-0">
                                           {course.image_url ? <img src={course.image_url} className="w-full h-full object-cover" /> : <span className="text-2xl">🎓</span>}
                                       </div>
                                       <div>
-                                          <h4 className="font-bold text-indigo-900 leading-tight line-clamp-2">{course.title}</h4>
-                                          <span className="text-[10px] uppercase font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">{course.level}</span>
+                                          <h4 className="font-bold text-indigo-900 dark:text-white leading-tight line-clamp-2">{course.title}</h4>
+                                          <span className="text-[10px] uppercase font-bold text-indigo-500 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/50 px-1.5 py-0.5 rounded">{course.level}</span>
                                       </div>
                                   </div>
-                                  <div className="mt-auto pt-2 border-t border-indigo-50 flex justify-between items-center text-xs">
-                                      <span className="font-bold text-indigo-700">{classCount} Turma{classCount !== 1 ? 's' : ''}</span>
+                                  <div className="mt-auto pt-2 border-t border-indigo-50 dark:border-white/10 flex justify-between items-center text-xs">
+                                      <span className="font-bold text-indigo-700 dark:text-indigo-300">{classCount} Turma{classCount !== 1 ? 's' : ''}</span>
                                       <span className="text-indigo-400 group-hover:translate-x-1 transition-transform">Ver Turmas ➡</span>
                                   </div>
                               </div>
@@ -286,9 +286,9 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
               ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in slide-in-from-right-4">
                       {filteredClasses.map(cls => (
-                          <div key={cls.id} className="bg-white/40 border border-indigo-100 p-4 rounded-xl hover:shadow-md transition-all group relative">
+                          <div key={cls.id} className="bg-white/40 dark:bg-slate-800/40 border border-indigo-100 dark:border-white/10 p-4 rounded-xl hover:shadow-md transition-all group relative">
                               <div className="flex justify-between items-start mb-2">
-                                  <h4 className="font-bold text-indigo-900 text-lg">{cls.name}</h4>
+                                  <h4 className="font-bold text-indigo-900 dark:text-white text-lg">{cls.name}</h4>
                                   <span className="text-xs text-indigo-400 font-mono">{formatShortDate(cls.created_at)}</span>
                               </div>
                           </div>
