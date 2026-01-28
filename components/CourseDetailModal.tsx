@@ -43,12 +43,17 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
   };
 
   // Helper robusto para formatar preço
-  const formatPrice = (price?: string) => {
-      if (!price) return '';
-      // Tenta converter para float, substituindo virgula por ponto se necessário
-      const num = parseFloat(price.toString().replace(',', '.'));
-      // Se for zero (ou 0.00), retorna Gratuito. Caso contrário retorna o valor original com €
-      return num === 0 ? 'Gratuito' : `${price} €`;
+  const formatPrice = (price?: string | number) => {
+      if (price === undefined || price === null || price === '') return 'Gratuito';
+      const strVal = price.toString().replace(',', '.').trim();
+      
+      // Verificações diretas de string
+      if (strVal === '0' || strVal === '0.00' || strVal === '0.0') return 'Gratuito';
+      
+      const num = parseFloat(strVal);
+      if (isNaN(num) || num === 0) return 'Gratuito';
+      
+      return `${price} €`;
   };
 
   return (

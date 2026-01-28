@@ -124,10 +124,16 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
   };
 
   // Helper local para formato consistente
-  const formatPrice = (price?: string) => {
-      if (!price) return null;
-      const num = parseFloat(price.toString().replace(',', '.'));
-      return num === 0 ? 'Gratuito' : `${price} €`;
+  const formatPrice = (price?: string | number) => {
+      if (price === undefined || price === null || price === '') return 'Gratuito';
+      const strVal = price.toString().replace(',', '.').trim();
+      
+      if (strVal === '0' || strVal === '0.00' || strVal === '0.0') return 'Gratuito';
+      
+      const num = parseFloat(strVal);
+      if (isNaN(num) || num === 0) return 'Gratuito';
+      
+      return `${price} €`;
   };
 
   if (loading) return <div className="p-8 text-center text-indigo-600 dark:text-indigo-300 font-bold">A carregar cursos...</div>;

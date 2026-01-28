@@ -72,11 +72,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       window.location.href = mailto;
   };
 
-  // Helper para formatar preço (Consistente com Modal)
-  const formatPrice = (price?: string) => {
-      if (!price) return null;
-      const num = parseFloat(price.toString().replace(',', '.'));
-      return num === 0 ? 'Gratuito' : `${price} €`;
+  // Helper para formatar preço (Consistente com Modal e atualizado para Gratuito)
+  const formatPrice = (price?: string | number) => {
+      if (price === undefined || price === null || price === '') return 'Gratuito';
+      const strVal = price.toString().replace(',', '.').trim();
+      
+      if (strVal === '0' || strVal === '0.00' || strVal === '0.0') return 'Gratuito';
+      
+      const num = parseFloat(strVal);
+      if (isNaN(num) || num === 0) return 'Gratuito';
+      
+      return `${price} €`;
   };
 
   return (
@@ -172,7 +178,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                                  </span>
                                  {course.price && (
                                      <span className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-bold shadow-lg">
-                                        {formatPrice(course.price)}
+                                        Custo: {formatPrice(course.price)}
                                      </span>
                                  )}
                              </div>
