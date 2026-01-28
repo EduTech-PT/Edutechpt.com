@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { Course } from '../types';
@@ -111,6 +112,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       return `${price} €`;
   };
 
+  // Helper para verificar existência de preço (incluindo 0)
+  const hasPrice = (price?: string | number) => {
+      return price !== undefined && price !== null && price !== '';
+  };
+
   const getStepColorClasses = (color: string) => {
       switch (color) {
           case 'purple': return { bg: 'bg-purple-600', border: 'border-purple-50 dark:border-slate-800' };
@@ -213,7 +219,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                                  <span className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-lg text-xs font-bold text-indigo-900 uppercase shadow-lg tracking-wider">
                                     {course.level}
                                  </span>
-                                 {course.price && (
+                                 {hasPrice(course.price) && (
                                      <span className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-bold shadow-lg">
                                         Custo: {formatPrice(course.price)}
                                      </span>

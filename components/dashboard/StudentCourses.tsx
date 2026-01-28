@@ -136,6 +136,10 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
       return `${price} €`;
   };
 
+  const hasPrice = (price?: string | number) => {
+      return price !== undefined && price !== null && price !== '';
+  };
+
   if (loading) return <div className="p-8 text-center text-indigo-600 dark:text-indigo-300 font-bold">A carregar cursos...</div>;
 
   return (
@@ -252,7 +256,7 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-2xl">✨</div>
                                 )}
-                                {course.price && (
+                                {hasPrice(course.price) && (
                                     <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
                                         {formatPrice(course.price)}
                                     </div>
