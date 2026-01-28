@@ -180,42 +180,42 @@ export const StudentAllocation: React.FC = () => {
             {/* HEADERS & FILTERS */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
                 <div>
-                    <h2 className="text-xl font-bold text-indigo-900">Alocação de Alunos</h2>
-                    <p className="text-sm text-indigo-600">Distribua os alunos pelas turmas correspondentes.</p>
+                    <h2 className="text-xl font-bold text-indigo-900 dark:text-white">Alocação de Alunos</h2>
+                    <p className="text-sm text-indigo-600 dark:text-indigo-300">Distribua os alunos pelas turmas correspondentes.</p>
                 </div>
                 
                 <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
                     <select 
                         value={selectedCourseId} 
                         onChange={(e) => setSelectedCourseId(e.target.value)}
-                        className="md:w-64 p-2 rounded-lg bg-white/60 border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none font-bold text-indigo-800 shadow-sm"
+                        className="md:w-64 p-2 rounded-lg bg-white/60 dark:bg-slate-800/60 border border-indigo-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-400 outline-none font-bold text-indigo-800 dark:text-white shadow-sm"
                     >
                         {courses.length === 0 && <option value="">A carregar cursos...</option>}
-                        {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                        {courses.map(c => <option key={c.id} value={c.id} className="dark:bg-slate-800">{c.title}</option>)}
                     </select>
 
                     <select 
                         value={selectedClassId} 
                         onChange={(e) => setSelectedClassId(e.target.value)}
-                        className="md:w-48 p-2 rounded-lg bg-white/60 border border-indigo-200 focus:ring-2 focus:ring-indigo-400 outline-none font-bold text-indigo-800 shadow-sm"
+                        className="md:w-48 p-2 rounded-lg bg-white/60 dark:bg-slate-800/60 border border-indigo-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-400 outline-none font-bold text-indigo-800 dark:text-white shadow-sm"
                         disabled={!selectedCourseId || classes.length === 0}
                     >
                         {classes.length === 0 ? <option>Sem turmas</option> : null}
-                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        {classes.map(c => <option key={c.id} value={c.id} className="dark:bg-slate-800">{c.name}</option>)}
                     </select>
                 </div>
             </div>
 
             {loading ? (
-                <div className="flex-1 flex items-center justify-center text-indigo-500 font-bold bg-white/30 rounded-xl">
+                <div className="flex-1 flex items-center justify-center text-indigo-500 dark:text-indigo-300 font-bold bg-white/30 dark:bg-slate-800/30 rounded-xl">
                     <div className="animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent mr-2"></div>
                     A carregar dados...
                 </div>
             ) : !selectedClassId ? (
                 <GlassCard className="flex-1 flex flex-col items-center justify-center text-center opacity-70">
                     <span className="text-4xl mb-3">🏫</span>
-                    <h3 className="font-bold text-lg text-indigo-900">Selecione uma Turma</h3>
-                    <p className="text-sm text-indigo-800">
+                    <h3 className="font-bold text-lg text-indigo-900 dark:text-white">Selecione uma Turma</h3>
+                    <p className="text-sm text-indigo-800 dark:text-indigo-200">
                         {courses.length === 0 ? "Não existem cursos criados." : "Escolha um curso e uma turma para gerir os alunos."}
                     </p>
                 </GlassCard>
@@ -223,15 +223,15 @@ export const StudentAllocation: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0 overflow-hidden">
                     
                     {/* LEFT: AVAILABLE STUDENTS */}
-                    <GlassCard className="flex flex-col p-0 overflow-hidden border-2 border-indigo-50/50 bg-white/20 h-full">
-                        <div className="p-4 bg-indigo-50/80 border-b border-indigo-100 shrink-0">
-                            <h3 className="font-bold text-indigo-900 mb-2">Alunos Disponíveis ({availableStudents.length})</h3>
+                    <GlassCard className="flex flex-col p-0 overflow-hidden border-2 border-indigo-50/50 dark:border-slate-700 bg-white/20 dark:bg-slate-900/40 h-full">
+                        <div className="p-4 bg-indigo-50/80 dark:bg-slate-800/80 border-b border-indigo-100 dark:border-slate-700 shrink-0">
+                            <h3 className="font-bold text-indigo-900 dark:text-white mb-2">Alunos Disponíveis ({availableStudents.length})</h3>
                             <input 
                                 type="text" 
                                 placeholder="🔍 Pesquisar aluno..." 
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full p-2 text-xs rounded bg-white border border-indigo-200 focus:ring-1 focus:ring-indigo-400 outline-none"
+                                className="w-full p-2 text-xs rounded bg-white dark:bg-slate-900/60 border border-indigo-200 dark:border-slate-700 focus:ring-1 focus:ring-indigo-400 outline-none dark:text-white dark:placeholder-slate-400"
                             />
                         </div>
                         
@@ -248,21 +248,21 @@ export const StudentAllocation: React.FC = () => {
                                     const isProcessing = processingUser === student.id;
 
                                     return (
-                                        <div key={student.id} className="flex items-center justify-between p-2 rounded-lg bg-white/60 hover:bg-white border border-transparent hover:border-indigo-100 transition-all group shadow-sm">
+                                        <div key={student.id} className="flex items-center justify-between p-2 rounded-lg bg-white/60 dark:bg-slate-800/60 hover:bg-white dark:hover:bg-slate-700 border border-transparent hover:border-indigo-100 dark:hover:border-slate-600 transition-all group shadow-sm">
                                             <div className="flex items-center gap-3 min-w-0">
-                                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold overflow-hidden shrink-0 border border-indigo-200">
+                                                <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-slate-700 text-indigo-600 dark:text-indigo-200 flex items-center justify-center text-xs font-bold overflow-hidden shrink-0 border border-indigo-200 dark:border-slate-600">
                                                     {student.avatar_url ? <img src={student.avatar_url} className="w-full h-full object-cover"/> : student.full_name?.[0]}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <div className="text-xs font-bold text-indigo-900 truncate w-32 md:w-48" title={student.full_name || ''}>{student.full_name}</div>
+                                                    <div className="text-xs font-bold text-indigo-900 dark:text-white truncate w-32 md:w-48" title={student.full_name || ''}>{student.full_name}</div>
                                                     
                                                     {/* Status Badge */}
                                                     {otherClass ? (
-                                                        <div className="text-[9px] text-amber-600 font-bold flex items-center gap-1">
+                                                        <div className="text-[9px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
                                                             ⚠️ Na turma: {otherClass.name}
                                                         </div>
                                                     ) : enrollment ? (
-                                                        <div className="text-[9px] text-green-600 font-bold">
+                                                        <div className="text-[9px] text-green-600 dark:text-green-400 font-bold">
                                                             ✓ Inscrito no Curso (Sem turma)
                                                         </div>
                                                     ) : (
@@ -275,7 +275,7 @@ export const StudentAllocation: React.FC = () => {
                                             <button 
                                                 onClick={() => !isProcessing && handleAssign(student.id)}
                                                 disabled={isProcessing}
-                                                className="px-3 py-1.5 bg-indigo-100 text-indigo-700 text-xs font-bold rounded hover:bg-indigo-600 hover:text-white transition-colors"
+                                                className="px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200 text-xs font-bold rounded hover:bg-indigo-600 hover:text-white transition-colors"
                                             >
                                                 {isProcessing ? '...' : 'Adicionar →'}
                                             </button>
@@ -287,9 +287,9 @@ export const StudentAllocation: React.FC = () => {
                     </GlassCard>
 
                     {/* RIGHT: ENROLLED STUDENTS */}
-                    <GlassCard className="flex flex-col p-0 overflow-hidden border-2 border-indigo-100 bg-indigo-50/20 h-full">
-                        <div className="p-4 bg-white/60 border-b border-indigo-100 shrink-0 flex justify-between items-center">
-                            <h3 className="font-bold text-indigo-900">Alunos na Turma</h3>
+                    <GlassCard className="flex flex-col p-0 overflow-hidden border-2 border-indigo-100 dark:border-slate-700 bg-indigo-50/20 dark:bg-slate-800/20 h-full">
+                        <div className="p-4 bg-white/60 dark:bg-slate-800/60 border-b border-indigo-100 dark:border-slate-700 shrink-0 flex justify-between items-center">
+                            <h3 className="font-bold text-indigo-900 dark:text-white">Alunos na Turma</h3>
                             <span className="text-xs font-bold bg-indigo-600 text-white px-2 py-1 rounded-full">{enrolledInClass.length}</span>
                         </div>
 
@@ -306,25 +306,25 @@ export const StudentAllocation: React.FC = () => {
                                     const enrollment = enrollments.find(e => e.user_id === student.id && e.course_id === selectedCourseId);
                                     
                                     return (
-                                        <div key={student.id} className="flex items-center justify-between p-2 rounded-lg bg-white border border-indigo-50 hover:border-indigo-200 transition-all group shadow-sm">
+                                        <div key={student.id} className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800 border border-indigo-50 dark:border-slate-700 hover:border-indigo-200 transition-all group shadow-sm">
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <button 
                                                     onClick={() => !isProcessing && handleRemove(student.id)}
-                                                    className="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-bold rounded hover:bg-red-500 hover:text-white transition-colors shrink-0"
+                                                    className="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-xs font-bold rounded hover:bg-red-500 hover:text-white transition-colors shrink-0"
                                                     title="Remover da turma"
                                                 >
                                                     {isProcessing ? '...' : '←'}
                                                 </button>
-                                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold overflow-hidden shrink-0 border border-indigo-200">
+                                                <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-slate-700 text-indigo-600 dark:text-indigo-200 flex items-center justify-center text-xs font-bold overflow-hidden shrink-0 border border-indigo-200 dark:border-slate-600">
                                                     {student.avatar_url ? <img src={student.avatar_url} className="w-full h-full object-cover"/> : student.full_name?.[0]}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <div className="text-xs font-bold text-indigo-900 truncate" title={student.full_name || ''}>{student.full_name}</div>
-                                                    <div className="text-[9px] text-gray-500 truncate flex items-center gap-2">
+                                                    <div className="text-xs font-bold text-indigo-900 dark:text-white truncate" title={student.full_name || ''}>{student.full_name}</div>
+                                                    <div className="text-[9px] text-gray-500 dark:text-gray-400 truncate flex items-center gap-2">
                                                         <span>Inscrito: {formatShortDate(enrollment?.enrolled_at)}</span>
                                                         <button 
                                                             onClick={() => openDateEditor(student, enrollment?.enrolled_at)}
-                                                            className="text-indigo-400 hover:text-indigo-600 p-0.5 hover:bg-indigo-50 rounded"
+                                                            className="text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 p-0.5 hover:bg-indigo-50 dark:hover:bg-slate-700 rounded"
                                                             title="Editar Data de Inscrição"
                                                         >
                                                             📅
@@ -345,17 +345,17 @@ export const StudentAllocation: React.FC = () => {
             {/* DATE EDIT MODAL */}
             {editingEnrollment && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <GlassCard className="w-full max-w-sm relative bg-white">
-                        <h3 className="font-bold text-lg text-indigo-900 mb-2">Editar Data de Inscrição</h3>
-                        <p className="text-sm text-indigo-600 mb-4 font-bold">{editingEnrollment.studentName}</p>
+                    <GlassCard className="w-full max-w-sm relative bg-white dark:bg-slate-900">
+                        <h3 className="font-bold text-lg text-indigo-900 dark:text-white mb-2">Editar Data de Inscrição</h3>
+                        <p className="text-sm text-indigo-600 dark:text-indigo-300 mb-4 font-bold">{editingEnrollment.studentName}</p>
                         
                         <div className="mb-6">
-                            <label className="block text-xs font-bold text-indigo-500 uppercase mb-1">Nova Data e Hora</label>
+                            <label className="block text-xs font-bold text-indigo-500 dark:text-indigo-400 uppercase mb-1">Nova Data e Hora</label>
                             <input 
                                 type="datetime-local" 
                                 value={newEnrollDate}
                                 onChange={(e) => setNewEnrollDate(e.target.value)}
-                                className="w-full p-2 border border-indigo-200 rounded text-indigo-900 font-mono text-sm"
+                                className="w-full p-2 border border-indigo-200 dark:border-slate-600 rounded text-indigo-900 dark:text-white dark:bg-slate-800 font-mono text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                             <p className="text-[10px] text-indigo-400 mt-2">Isto afeta o cálculo de expiração para cursos de acesso limitado.</p>
                         </div>
@@ -363,7 +363,7 @@ export const StudentAllocation: React.FC = () => {
                         <div className="flex gap-2 justify-end">
                             <button 
                                 onClick={() => setEditingEnrollment(null)}
-                                className="px-4 py-2 text-indigo-600 font-bold hover:bg-indigo-50 rounded-lg text-sm"
+                                className="px-4 py-2 text-indigo-600 dark:text-indigo-300 font-bold hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg text-sm"
                             >
                                 Cancelar
                             </button>
