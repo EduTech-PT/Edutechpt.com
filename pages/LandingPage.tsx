@@ -54,9 +54,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [videos, setVideos] = useState<LandingVideo[]>([]);
   
+  // Config state for emails
   const [appEmailConfig, setAppEmailConfig] = useState({
       subject: 'Candidatura EduTech PT',
       body: 'Olá,\n\nGostaria de saber mais informações sobre os vossos cursos...'
+  });
+
+  // Config específica para INSCRIÇÃO (Modal de Curso)
+  const [enrollmentConfig, setEnrollmentConfig] = useState({
+      to: 'edutechpt@hotmail.com',
+      subject: 'Inscrição no Curso: {nome_curso}',
+      body: 'Olá,\n\nGostaria de me inscrever no curso "{nome_curso}" (Ref: {id_curso}).\n\nPor favor, enviem-me mais informações sobre como proceder.\n\nObrigado.'
   });
   
   useEffect(() => {
@@ -75,12 +83,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
 
       if (configResult) {
           if (configResult.logoUrl) setLogoUrl(configResult.logoUrl);
+          
+          // Config Geral (Rodapé/Candidatura)
           if (configResult.applicationSubject || configResult.applicationBody) {
               setAppEmailConfig({
                   subject: configResult.applicationSubject || appEmailConfig.subject,
                   body: configResult.applicationBody || appEmailConfig.body
               });
           }
+
+          // Config Específica de Inscrição (Botão Inscrever)
+          // Mapeia enrollment_email_* do admin.ts
+          setEnrollmentConfig(prev => ({
+              to: configResult.enrollmentEmailTo || prev.to,
+              subject: configResult.enrollmentSubject || prev.subject,
+              body: configResult.enrollmentBody || prev.body
+          }));
+
           // Load Dynamic Steps
           if (configResult.landing_how_it_works) {
               try {
@@ -119,13 +138,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
   };
 
   const handleEnrollment = () => {
-      // Cria um link mailto para inscrição no curso selecionado
       if (!selectedCourse) return;
+      
       const shortId = selectedCourse.id.split('-')[0];
-      const subject = `Inscrição no Curso: ${selectedCourse.title}`;
-      // Adicionado ID curto ao corpo para consistência
-      const body = `Olá,\n\nGostaria de me inscrever no curso "${selectedCourse.title}" (Ref: ${shortId}).\n\nPor favor, enviem-me mais informações sobre como proceder.\n\nObrigado.`;
-      const mailto = `mailto:edutechpt@hotmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      
+      // Utilizar configuração carregada
+      let finalSubject = enrollmentConfig.subject;
+      let finalBody = enrollmentConfig.body;
+
+      // Replacements
+      const replacements: Record<string, string> = {
+          '{nome_curso}': selectedCourse.title,
+          '{id_curso}': shortId,
+          '{nome_aluno}': '', // Visitante não tem nome definido
+          '{email_aluno}': ''
+      };
+
+      Object.entries(replacements).forEach(([key, value]) => {
+          finalSubject = finalSubject.split(key).join(value);
+          finalBody = finalBody.split(key).join(value);
+      });
+
+      const mailto = `mailto:${enrollmentConfig.to}?subject=${encodeURIComponent(finalSubject)}&body=${encodeURIComponent(finalBody)}`;
       window.location.href = mailto;
   };
 
