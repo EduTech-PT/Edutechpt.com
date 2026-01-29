@@ -161,19 +161,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       if (!url) return null;
 
       // 1. Check YouTube (Enhanced Regex for Shorts, mobile URLs, etc.)
-      // Captura ID de 11 chars
       const ytRegExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([^"&?\/ ]{11})/i;
       const ytMatch = url.match(ytRegExp);
       
       if (ytMatch && ytMatch[1]) {
           const videoId = ytMatch[1];
-          const origin = typeof window !== 'undefined' ? window.location.origin : '';
-          
-          // Parametros vitais para evitar "Video Indisponível":
-          // origin: Requerido pela API IFrame para segurança
-          // playlist: Requerido para loop funcionar (deve ser igual ao video ID)
-          // rel=0: Evita vídeos sugeridos externos
-          return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&rel=0&origin=${origin}`;
+          // FIX: Usar youtube-nocookie para evitar bloqueios de privacidade
+          // FIX: Adicionar playsinline para mobile
+          // FIX: Remover origin da query string para evitar conflitos de API, confiar no Referrer Header
+          return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&rel=0&controls=0&playsinline=1&iv_load_policy=3&modestbranding=1`;
       }
 
       // 2. Check Google Drive
@@ -377,7 +373,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                                           src={embedUrl} 
                                           title={video.title}
                                           className="w-full h-full" 
-                                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                                          referrerPolicy="strict-origin-when-cross-origin"
                                           allowFullScreen
                                       ></iframe>
                                   </div>
