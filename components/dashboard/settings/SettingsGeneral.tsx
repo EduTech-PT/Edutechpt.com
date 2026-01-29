@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../../GlassCard';
 import { adminService } from '../../../services/admin';
@@ -21,14 +22,6 @@ interface Step {
     description: string;
     badge: string; 
     color: string; 
-}
-
-interface Testimonial {
-    id: string;
-    name: string;
-    role: string;
-    text: string;
-    avatar_url?: string;
 }
 
 interface LandingVideo {
@@ -60,7 +53,7 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
 
     // Landing Page Content State
     const [steps, setSteps] = useState<Step[]>(DEFAULT_STEPS);
-    const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+    // REMOVIDO: const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
     const [videos, setVideos] = useState<LandingVideo[]>([]);
 
     useEffect(() => {
@@ -88,13 +81,7 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                 } catch (e) { console.warn("Erro steps", e); }
             }
 
-            // Load Testimonials
-            if (data.landing_testimonials) {
-                try {
-                    const parsedTests = JSON.parse(data.landing_testimonials);
-                    if (Array.isArray(parsedTests)) setTestimonials(parsedTests);
-                } catch (e) { console.warn("Erro testimonials", e); }
-            }
+            // REMOVIDO: Load Testimonials
 
             // Load Videos
             if (data.landing_videos) {
@@ -139,7 +126,7 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
             await adminService.updateAppConfig('auth_warning_steps', config.authWarningSteps);
 
             await adminService.updateAppConfig('landing_how_it_works', JSON.stringify(steps));
-            await adminService.updateAppConfig('landing_testimonials', JSON.stringify(testimonials));
+            // REMOVIDO: await adminService.updateAppConfig('landing_testimonials', JSON.stringify(testimonials));
             await adminService.updateAppConfig('landing_videos', JSON.stringify(videos));
 
             alert('Definições gerais guardadas.');
@@ -203,12 +190,7 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
         setSteps(newSteps);
     };
 
-    // --- Testimonials Management ---
-    const addTestimonial = () => {
-        setTestimonials([...testimonials, { id: Date.now().toString(), name: 'Nome do Aluno', role: 'Curso de React', text: 'Opinião sobre o curso...' }]);
-    };
-    const removeTestimonial = (id: string) => { if (window.confirm("Remover testemunho?")) setTestimonials(testimonials.filter(t => t.id !== id)); };
-    const updateTestimonial = (id: string, field: keyof Testimonial, value: string) => { setTestimonials(testimonials.map(t => t.id === id ? { ...t, [field]: value } : t)); };
+    // REMOVIDO: Funções de gestão de Testemunhos
 
     // --- Videos Management ---
     const addVideo = () => {
@@ -403,32 +385,7 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                 </div>
             </div>
 
-            {/* LANDING PAGE - TESTIMONIALS */}
-            <div className="border-t border-indigo-100 dark:border-white/10 pt-6">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-xl text-indigo-900 dark:text-white flex items-center gap-2">
-                        <span>💬</span> Landing Page: Testemunhos
-                    </h3>
-                    <div className="flex gap-2">
-                        <button onClick={addTestimonial} className="px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 text-xs font-bold rounded-lg hover:bg-indigo-200">+ Adicionar</button>
-                        <SaveBtn onClick={() => handleSaveField('landing_testimonials', JSON.stringify(testimonials))} />
-                    </div>
-                </div>
-                <div className="space-y-4">
-                    {testimonials.map((test) => (
-                        <div key={test.id} className="p-4 bg-white/40 dark:bg-slate-800/40 border border-indigo-100 dark:border-slate-700 rounded-xl relative">
-                            <button onClick={() => removeTestimonial(test.id)} className="absolute top-2 right-2 text-red-400 hover:text-red-600">✕</button>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div><label className="text-[10px] font-bold text-indigo-400 uppercase">Nome</label><input type="text" value={test.name} onChange={(e) => updateTestimonial(test.id, 'name', e.target.value)} className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm font-bold"/></div>
-                                <div><label className="text-[10px] font-bold text-indigo-400 uppercase">Cargo/Curso</label><input type="text" value={test.role} onChange={(e) => updateTestimonial(test.id, 'role', e.target.value)} className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm"/></div>
-                                <div><label className="text-[10px] font-bold text-indigo-400 uppercase">Avatar URL (Opcional)</label><input type="text" value={test.avatar_url || ''} onChange={(e) => updateTestimonial(test.id, 'avatar_url', e.target.value)} placeholder="https://..." className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm"/></div>
-                                <div className="md:col-span-3"><label className="text-[10px] font-bold text-indigo-400 uppercase">Texto</label><textarea value={test.text} onChange={(e) => updateTestimonial(test.id, 'text', e.target.value)} className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-600 text-sm" rows={2}/></div>
-                            </div>
-                        </div>
-                    ))}
-                    {testimonials.length === 0 && <p className="text-sm text-gray-400 italic text-center">Nenhum testemunho configurado.</p>}
-                </div>
-            </div>
+            {/* REMOVIDO: LANDING PAGE - TESTIMONIALS (MUDOU PARA ABA ESPECÍFICA) */}
 
             {/* LANDING PAGE - VIDEOS */}
             <div className="border-t border-indigo-100 dark:border-white/10 pt-6">

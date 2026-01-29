@@ -10,12 +10,13 @@ import { SettingsAccess } from './settings/SettingsAccess';
 import { SettingsAvatars } from './settings/SettingsAvatars';
 import { SettingsLegal } from './settings/SettingsLegal';
 import { SettingsModeration } from './settings/SettingsModeration';
+import { SettingsTestimonials } from './settings/SettingsTestimonials'; // IMPORTADO
 import { RoleManager } from './RoleManager';
 import { ClassAllocation } from './ClassAllocation';
 
 interface Props {
   dbVersion: string;
-  initialTab?: 'geral' | 'sql' | 'drive' | 'avatars' | 'access' | 'roles' | 'allocation' | 'legal' | 'moderation';
+  initialTab?: 'geral' | 'sql' | 'drive' | 'avatars' | 'access' | 'roles' | 'allocation' | 'legal' | 'moderation' | 'testimonials';
   profile: Profile;
 }
 
@@ -32,6 +33,7 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral', pro
             <div className="flex flex-wrap gap-2 mb-4 shrink-0">
                 {[
                     { id: 'geral', label: 'Geral', icon: '⚙️' },
+                    { id: 'testimonials', label: 'Testemunhos', icon: '💬' }, // NOVA ABA
                     { id: 'moderation', label: 'Moderação', icon: '🛡️' },
                     { id: 'legal', label: 'Conteúdo Legal', icon: '⚖️' }, 
                     { id: 'drive', label: 'Drive & Integrações', icon: '☁️' },
@@ -69,6 +71,8 @@ export const Settings: React.FC<Props> = ({ dbVersion, initialTab = 'geral', pro
                     />
                 )}
                 
+                {tab === 'testimonials' && <SettingsTestimonials />}
+
                 {tab === 'moderation' && <SettingsModeration />}
 
                 {tab === 'sql' && <SettingsSQL />}
