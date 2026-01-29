@@ -118,24 +118,32 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
         setRemoteGasVersion(version);
     };
 
+    const handleSaveField = async (key: string, value: string) => {
+        try {
+            await adminService.updateAppConfig(key, value);
+            alert("Campo guardado!");
+        } catch (e: any) {
+            alert("Erro ao guardar: " + e.message);
+        }
+    };
+
+    // Keep handleSave for bulk saving list items (too complex for single buttons)
     const handleSave = async () => {
         setIsSaving(true);
         try {
             await adminService.updateAppConfig('app_logo_url', config.logoUrl || '');
             await adminService.updateAppConfig('app_favicon_url', config.faviconUrl || '');
             
-            // Login Warning
             await adminService.updateAppConfig('auth_warning_title', config.authWarningTitle);
             await adminService.updateAppConfig('auth_warning_intro', config.authWarningIntro);
             await adminService.updateAppConfig('auth_warning_summary', config.authWarningSummary);
             await adminService.updateAppConfig('auth_warning_steps', config.authWarningSteps);
 
-            // Landing Page Content
             await adminService.updateAppConfig('landing_how_it_works', JSON.stringify(steps));
             await adminService.updateAppConfig('landing_testimonials', JSON.stringify(testimonials));
             await adminService.updateAppConfig('landing_videos', JSON.stringify(videos));
 
-            alert('Definições gerais e conteúdo da Landing Page guardados.');
+            alert('Definições gerais guardadas.');
         } catch (e: any) {
             alert('Erro ao guardar: ' + e.message);
         } finally {
@@ -163,6 +171,11 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                 ...prev, 
                 [type === 'logo' ? 'logoUrl' : 'faviconUrl']: url 
             }));
+            
+            // Auto save upload
+            const key = type === 'logo' ? 'app_logo_url' : 'app_favicon_url';
+            await handleSaveField(key, url);
+
         } catch (err: any) {
             alert("Erro no upload: " + err.message);
         } finally {
@@ -216,6 +229,16 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
         is_public: false
     };
 
+    const SaveBtn = ({ onClick }: { onClick: () => void }) => (
+        <button 
+            onClick={onClick}
+            className="p-2 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-colors flex items-center justify-center shrink-0"
+            title="Guardar Campo"
+        >
+            💾
+        </button>
+    );
+
     if (loading) return <div className="p-8 text-center text-indigo-500">A carregar configurações...</div>;
 
     return (
@@ -253,13 +276,116 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                 </div>
             </div>
 
+            {/* LOGIN WARNING CONFIG */}
+            <div className="border-t border-indigo-100 dark:border-white/10 pt-6">
+                 <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4 flex items-center gap-2">
+                     <span>⚠️</span> Mensagem de Login (Google)
+                 </h3>
+                 <p className="text-sm text-indigo-700 dark:text-indigo-300 mb-4 opacity-80">
+                    Personalize o aviso exibido no ecrã de login para ajudar os utilizadores a passarem o alerta "Aplicação Não Verificada".
+                 </p>
+                 <div className="space-y-4 bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl border border-amber-100 dark:border-amber-800">
+                     <div>
+                         <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Título do Aviso</label>
+                         <div className="flex gap-2">
+                             <input 
+                                type="text" 
+                                value={config.authWarningTitle || ''} 
+                                onChange={e => setConfig({...config, authWarningTitle: e.target.value})} 
+                                className="w-full p-2 rounded bg-white dark:bg-black/20 border border-amber-200 dark:border-amber-700 focus:ring-2 focus:ring-amber-300 dark:text-white"
+                             />
+                             <SaveBtn onClick={() => handleSaveField('auth_warning_title', config.authWarningTitle)} />
+                         </div>
+                     </div>
+                     <div>
+                         <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Texto Introdutório</label>
+                         <div className="flex gap-2">
+                             <input 
+                                type="text" 
+                                value={config.authWarningIntro || ''} 
+                                onChange={e => setConfig({...config, authWarningIntro: e.target.value})} 
+                                className="w-full p-2 rounded bg-white dark:bg-black/20 border border-amber-200 dark:border-amber-700 focus:ring-2 focus:ring-amber-300 dark:text-white"
+                             />
+                             <SaveBtn onClick={() => handleSaveField('auth_warning_intro', config.authWarningIntro)} />
+                         </div>
+                     </div>
+                     <div>
+                         <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Título do Acordeão (Ajuda)</label>
+                         <div className="flex gap-2">
+                             <input 
+                                type="text" 
+                                value={config.authWarningSummary || ''} 
+                                onChange={e => setConfig({...config, authWarningSummary: e.target.value})} 
+                                className="w-full p-2 rounded bg-white dark:bg-black/20 border border-amber-200 dark:border-amber-700 focus:ring-2 focus:ring-amber-300 dark:text-white"
+                             />
+                             <SaveBtn onClick={() => handleSaveField('auth_warning_summary', config.authWarningSummary)} />
+                         </div>
+                     </div>
+                     <div>
+                         <div className="flex justify-between items-center mb-1">
+                            <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold">Passo a Passo (HTML)</label>
+                            <SaveBtn onClick={() => handleSaveField('auth_warning_steps', config.authWarningSteps)} />
+                         </div>
+                         <RichTextEditor 
+                            value={config.authWarningSteps || ''} 
+                            onChange={val => setConfig({...config, authWarningSteps: val})}
+                            label=""
+                         />
+                     </div>
+                 </div>
+            </div>
+
+            {/* BRANDING */}
+            <div className="border-t border-indigo-100 dark:border-white/10 pt-6">
+                 <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4 flex items-center gap-2">
+                    <span>🎨</span> Personalização
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                     <div className="bg-white/40 dark:bg-slate-800/40 p-6 rounded-xl border border-white/50 dark:border-white/10">
+                         <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-3 uppercase tracking-wide">Logótipo</label>
+                         <div className="flex gap-2 items-center mb-3">
+                             <input type="text" value={config.logoUrl || ''} onChange={e => setConfig({...config, logoUrl: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-black/20 border border-white/60 dark:border-white/20 text-xs dark:text-white"/>
+                             <SaveBtn onClick={() => handleSaveField('app_logo_url', config.logoUrl)} />
+                             <label className={`px-3 py-2 bg-white dark:bg-slate-700 text-indigo-600 dark:text-white border border-indigo-200 dark:border-slate-600 rounded font-bold cursor-pointer hover:bg-indigo-50 dark:hover:bg-slate-600 text-xs flex items-center gap-1 ${uploadingLogo ? 'opacity-50' : ''}`}>
+                                 {uploadingLogo ? '...' : '📁'}
+                                 <input type="file" className="hidden" accept="image/*" onChange={e => handleUpload(e, 'logo')} disabled={uploadingLogo} />
+                             </label>
+                         </div>
+                         <div className="flex items-center justify-center py-4 bg-transparent rounded-lg border border-indigo-200 dark:border-slate-600 border-dashed h-32">
+                             {config.logoUrl ? <img src={config.logoUrl} className="h-24 object-contain" /> : <span className="opacity-30 text-xs dark:text-white">Sem Logótipo</span>}
+                         </div>
+                     </div>
+
+                     <div className="bg-white/40 dark:bg-slate-800/40 p-6 rounded-xl border border-white/50 dark:border-white/10">
+                         <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-3 uppercase tracking-wide">Favicon</label>
+                         <div className="flex gap-2 items-center mb-3">
+                             <input type="text" value={config.faviconUrl || ''} onChange={e => setConfig({...config, faviconUrl: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-black/20 border border-white/60 dark:border-white/20 text-xs dark:text-white"/>
+                             <SaveBtn onClick={() => handleSaveField('app_favicon_url', config.faviconUrl)} />
+                             <label className={`px-3 py-2 bg-white dark:bg-slate-700 text-indigo-600 dark:text-white border border-indigo-200 dark:border-slate-600 rounded font-bold cursor-pointer hover:bg-indigo-50 dark:hover:bg-slate-600 text-xs flex items-center gap-1 ${uploadingFavicon ? 'opacity-50' : ''}`}>
+                                 {uploadingFavicon ? '...' : '📁'}
+                                 <input type="file" className="hidden" accept="image/x-icon,image/png" onChange={e => handleUpload(e, 'favicon')} disabled={uploadingFavicon} />
+                             </label>
+                         </div>
+                         <div className="flex items-center justify-center p-4 bg-transparent rounded-lg border border-indigo-200 dark:border-slate-600 border-dashed h-32">
+                             {config.faviconUrl ? <img src={config.faviconUrl} className="h-8 w-8 object-contain" /> : <span className="opacity-30 text-xs dark:text-white">Sem Ícone</span>}
+                         </div>
+                     </div>
+                </div>
+            </div>
+
+            {/* Listas Complexas mantêm o botão de guardar global por serem arrays */}
+            
             {/* LANDING PAGE - HOW IT WORKS */}
             <div className="border-t border-indigo-100 dark:border-white/10 pt-6">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-xl text-indigo-900 dark:text-white flex items-center gap-2">
                         <span>🚀</span> Landing Page: Como Funciona
                     </h3>
-                    <button onClick={addStep} className="px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 text-xs font-bold rounded-lg hover:bg-indigo-200">+ Adicionar Passo</button>
+                    <div className="flex gap-2">
+                        <button onClick={addStep} className="px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 text-xs font-bold rounded-lg hover:bg-indigo-200">+ Passo</button>
+                        <SaveBtn onClick={() => handleSaveField('landing_how_it_works', JSON.stringify(steps))} />
+                    </div>
                 </div>
                 <div className="space-y-4">
                     {steps.map((step, idx) => (
@@ -286,7 +412,10 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                     <h3 className="font-bold text-xl text-indigo-900 dark:text-white flex items-center gap-2">
                         <span>💬</span> Landing Page: Testemunhos
                     </h3>
-                    <button onClick={addTestimonial} className="px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 text-xs font-bold rounded-lg hover:bg-indigo-200">+ Adicionar</button>
+                    <div className="flex gap-2">
+                        <button onClick={addTestimonial} className="px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 text-xs font-bold rounded-lg hover:bg-indigo-200">+ Adicionar</button>
+                        <SaveBtn onClick={() => handleSaveField('landing_testimonials', JSON.stringify(testimonials))} />
+                    </div>
                 </div>
                 <div className="space-y-4">
                     {testimonials.map((test) => (
@@ -310,7 +439,10 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                     <h3 className="font-bold text-xl text-indigo-900 dark:text-white flex items-center gap-2">
                         <span>🎬</span> Landing Page: Vídeos (Youtube)
                     </h3>
-                    <button onClick={addVideo} className="px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 text-xs font-bold rounded-lg hover:bg-indigo-200">+ Adicionar</button>
+                    <div className="flex gap-2">
+                        <button onClick={addVideo} className="px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 text-xs font-bold rounded-lg hover:bg-indigo-200">+ Adicionar</button>
+                        <SaveBtn onClick={() => handleSaveField('landing_videos', JSON.stringify(videos))} />
+                    </div>
                 </div>
                 <div className="space-y-4">
                     {videos.map((vid) => (
@@ -337,96 +469,6 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                         className="px-6 py-3 bg-white dark:bg-white/10 border border-indigo-200 dark:border-white/20 text-indigo-800 dark:text-white rounded-lg font-bold shadow-sm hover:bg-indigo-50 dark:hover:bg-white/20 transition-all flex items-center gap-2"
                     >
                         <span>🎓</span> Testar Emissão de Certificado
-                    </button>
-                </div>
-            </div>
-
-            {/* LOGIN WARNING CONFIG */}
-            <div className="border-t border-indigo-100 dark:border-white/10 pt-6">
-                 <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4 flex items-center gap-2">
-                     <span>⚠️</span> Mensagem de Login (Google)
-                 </h3>
-                 <p className="text-sm text-indigo-700 dark:text-indigo-300 mb-4 opacity-80">
-                    Personalize o aviso exibido no ecrã de login para ajudar os utilizadores a passarem o alerta "Aplicação Não Verificada".
-                 </p>
-                 <div className="space-y-4 bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl border border-amber-100 dark:border-amber-800">
-                     <div>
-                         <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Título do Aviso</label>
-                         <input 
-                            type="text" 
-                            value={config.authWarningTitle || ''} 
-                            onChange={e => setConfig({...config, authWarningTitle: e.target.value})} 
-                            className="w-full p-2 rounded bg-white dark:bg-black/20 border border-amber-200 dark:border-amber-700 focus:ring-2 focus:ring-amber-300 dark:text-white"
-                         />
-                     </div>
-                     <div>
-                         <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Texto Introdutório</label>
-                         <input 
-                            type="text" 
-                            value={config.authWarningIntro || ''} 
-                            onChange={e => setConfig({...config, authWarningIntro: e.target.value})} 
-                            className="w-full p-2 rounded bg-white dark:bg-black/20 border border-amber-200 dark:border-amber-700 focus:ring-2 focus:ring-amber-300 dark:text-white"
-                         />
-                     </div>
-                     <div>
-                         <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Título do Acordeão (Ajuda)</label>
-                         <input 
-                            type="text" 
-                            value={config.authWarningSummary || ''} 
-                            onChange={e => setConfig({...config, authWarningSummary: e.target.value})} 
-                            className="w-full p-2 rounded bg-white dark:bg-black/20 border border-amber-200 dark:border-amber-700 focus:ring-2 focus:ring-amber-300 dark:text-white"
-                         />
-                     </div>
-                     <div>
-                         <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Passo a Passo (HTML)</label>
-                         <RichTextEditor 
-                            value={config.authWarningSteps || ''} 
-                            onChange={val => setConfig({...config, authWarningSteps: val})}
-                            label=""
-                         />
-                     </div>
-                 </div>
-            </div>
-
-            {/* BRANDING */}
-            <div className="border-t border-indigo-100 dark:border-white/10 pt-6">
-                 <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4 flex items-center gap-2">
-                    <span>🎨</span> Personalização
-                </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                     <div className="bg-white/40 dark:bg-slate-800/40 p-6 rounded-xl border border-white/50 dark:border-white/10">
-                         <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-3 uppercase tracking-wide">Logótipo</label>
-                         <div className="flex gap-2 items-center mb-3">
-                             <input type="text" value={config.logoUrl || ''} onChange={e => setConfig({...config, logoUrl: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-black/20 border border-white/60 dark:border-white/20 text-xs dark:text-white"/>
-                             <label className={`px-3 py-2 bg-white dark:bg-slate-700 text-indigo-600 dark:text-white border border-indigo-200 dark:border-slate-600 rounded font-bold cursor-pointer hover:bg-indigo-50 dark:hover:bg-slate-600 text-xs flex items-center gap-1 ${uploadingLogo ? 'opacity-50' : ''}`}>
-                                 {uploadingLogo ? '...' : '📁'}
-                                 <input type="file" className="hidden" accept="image/*" onChange={e => handleUpload(e, 'logo')} disabled={uploadingLogo} />
-                             </label>
-                         </div>
-                         <div className="flex items-center justify-center py-4 bg-transparent rounded-lg border border-indigo-200 dark:border-slate-600 border-dashed h-32">
-                             {config.logoUrl ? <img src={config.logoUrl} className="h-24 object-contain" /> : <span className="opacity-30 text-xs dark:text-white">Sem Logótipo</span>}
-                         </div>
-                     </div>
-
-                     <div className="bg-white/40 dark:bg-slate-800/40 p-6 rounded-xl border border-white/50 dark:border-white/10">
-                         <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-3 uppercase tracking-wide">Favicon</label>
-                         <div className="flex gap-2 items-center mb-3">
-                             <input type="text" value={config.faviconUrl || ''} onChange={e => setConfig({...config, faviconUrl: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-black/20 border border-white/60 dark:border-white/20 text-xs dark:text-white"/>
-                             <label className={`px-3 py-2 bg-white dark:bg-slate-700 text-indigo-600 dark:text-white border border-indigo-200 dark:border-slate-600 rounded font-bold cursor-pointer hover:bg-indigo-50 dark:hover:bg-slate-600 text-xs flex items-center gap-1 ${uploadingFavicon ? 'opacity-50' : ''}`}>
-                                 {uploadingFavicon ? '...' : '📁'}
-                                 <input type="file" className="hidden" accept="image/x-icon,image/png" onChange={e => handleUpload(e, 'favicon')} disabled={uploadingFavicon} />
-                             </label>
-                         </div>
-                         <div className="flex items-center justify-center p-4 bg-transparent rounded-lg border border-indigo-200 dark:border-slate-600 border-dashed h-32">
-                             {config.faviconUrl ? <img src={config.faviconUrl} className="h-8 w-8 object-contain" /> : <span className="opacity-30 text-xs dark:text-white">Sem Ícone</span>}
-                         </div>
-                     </div>
-                </div>
-
-                <div className="mt-6 flex justify-end">
-                    <button onClick={handleSave} disabled={isSaving} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-lg disabled:opacity-50">
-                        {isSaving ? 'A Guardar...' : 'Guardar Definições'}
                     </button>
                 </div>
             </div>
