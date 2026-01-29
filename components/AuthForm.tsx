@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { GlassCard } from './GlassCard';
 import { Provider } from '@supabase/supabase-js'; 
 import { adminService } from '../services/admin';
-import { userService } from '../services/users'; 
+import { EnrollmentFormModal } from './EnrollmentFormModal'; // IMPORTADO
 
 interface AuthFormProps {
   onCancel: () => void;
@@ -36,12 +36,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, on
       body: 'Olá,\n\nGostaria de solicitar acesso à plataforma EduTech PT.'
   });
 
-  // Modal de Pedido de Acesso
+  // Modal State
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [reqName, setReqName] = useState('');
-  const [reqEmail, setReqEmail] = useState('');
-  const [reqReason, setReqReason] = useState('');
-  const [requestLoading, setRequestLoading] = useState(false);
 
   useEffect(() => {
     adminService.getAppConfig().then(c => {
@@ -98,120 +94,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, on
       setLoading(false);
     }
   };
-
-  const handleRequestSubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
-      
-      if (!reqEmail.includes('@') || !reqName) {
-          alert("Por favor preencha o nome e um email válido.");
-          return;
-      }
-
-      setRequestLoading(true);
-
-      try {
-          // 1. Rate Limiting Check (Server-side via RPC)
-          // Impede spam verificando se este email já pediu acesso 3x nos últimos 10 min
-          const allowed = await userService.checkRateLimit(reqEmail.toLowerCase().trim(), 'request_access', 3, 10);
-
-          if (!allowed) {
-              alert("⚠️ Limite Excedido: Já efetuou vários pedidos recentemente.\n\nPor favor, aguarde 10 minutos antes de tentar novamente.");
-              setRequestLoading(false);
-              return;
-          }
-
-          // 2. Construir Mailto
-          // Se passou no rate limit, permitimos abrir o cliente de email
-          const finalSubject = requestAccessConfig.subject + ` - ${reqName}`;
-          const finalBody = `${requestAccessConfig.body}\n\n---\nNome: ${reqName}\nEmail: ${reqEmail}\nMotivo: ${reqReason}`;
-          
-          const mailtoLink = `mailto:${requestAccessConfig.email}?subject=${encodeURIComponent(finalSubject)}&body=${encodeURIComponent(finalBody)}`;
-          
-          // Trigger
-          window.location.href = mailtoLink;
-          
-          // Fechar modal
-          setShowRequestModal(false);
-          setReqName('');
-          setReqReason('');
-          // Não limpamos o email para conveniência caso queiram corrigir algo
-          
-      } catch (err) {
-          console.error(err);
-          alert("Ocorreu um erro ao processar o pedido.");
-      } finally {
-          setRequestLoading(false);
-      }
-  };
-
-  // Se o modal de pedido estiver ativo, renderiza-o sobreposto
-  if (showRequestModal) {
-      return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-indigo-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <GlassCard className="w-full max-w-md relative bg-white/90 dark:bg-slate-900/90">
-                <button 
-                    onClick={() => setShowRequestModal(false)}
-                    className="absolute top-4 right-4 text-indigo-400 hover:text-indigo-800 dark:hover:text-white"
-                >
-                    ✕
-                </button>
-                
-                <div className="mb-6 text-center">
-                    <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center text-2xl mx-auto mb-3">🔐</div>
-                    <h3 className="text-xl font-bold text-indigo-900 dark:text-white">Pedir Acesso</h3>
-                    <p className="text-sm text-indigo-600 dark:text-indigo-300">Preencha os dados para solicitar uma conta.</p>
-                </div>
-
-                <form onSubmit={handleRequestSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 mb-1 uppercase">Nome Completo</label>
-                        <input 
-                            type="text" 
-                            required
-                            value={reqName}
-                            onChange={e => setReqName(e.target.value)}
-                            className="w-full p-2 rounded bg-white dark:bg-slate-800 border border-indigo-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white"
-                            placeholder="Seu nome"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 mb-1 uppercase">Email</label>
-                        <input 
-                            type="email" 
-                            required
-                            value={reqEmail}
-                            onChange={e => setReqEmail(e.target.value)}
-                            className="w-full p-2 rounded bg-white dark:bg-slate-800 border border-indigo-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white"
-                            placeholder="seu@email.com"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 mb-1 uppercase">Motivo (Opcional)</label>
-                        <textarea 
-                            value={reqReason}
-                            onChange={e => setReqReason(e.target.value)}
-                            className="w-full p-2 rounded bg-white dark:bg-slate-800 border border-indigo-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-400 outline-none h-20 text-sm text-indigo-900 dark:text-white"
-                            placeholder="Ex: Quero inscrever-me no curso de React..."
-                        />
-                    </div>
-
-                    <div className="pt-2">
-                        <button 
-                            type="submit" 
-                            disabled={requestLoading}
-                            className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
-                        >
-                            {requestLoading ? 'A validar...' : 'Enviar Pedido ✉️'}
-                        </button>
-                        <p className="text-[10px] text-center text-indigo-400 dark:text-indigo-300 mt-2">
-                            Isto irá abrir o seu cliente de email padrão.
-                        </p>
-                    </div>
-                </form>
-            </GlassCard>
-        </div>
-      );
-  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-indigo-900/20 backdrop-blur-sm">
@@ -310,6 +192,17 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, on
            Ao continuar, aceita os <button onClick={onTermsClick} className="underline hover:text-indigo-900 dark:hover:text-white font-bold">Termos de Uso</button> e a <button onClick={onPrivacyClick} className="underline hover:text-indigo-900 dark:hover:text-white font-bold">Política de Privacidade</button>.
         </p>
       </GlassCard>
+
+      {/* NOVO MODAL UNIFICADO */}
+      {showRequestModal && (
+          <EnrollmentFormModal 
+              course={null} // Pedido Geral
+              destEmail={requestAccessConfig.email}
+              subjectTemplate={requestAccessConfig.subject}
+              bodyTemplate={requestAccessConfig.body}
+              onClose={() => setShowRequestModal(false)}
+          />
+      )}
     </div>
   );
 };
