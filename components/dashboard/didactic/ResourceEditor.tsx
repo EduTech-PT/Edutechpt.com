@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { DriveFile, driveService } from '../../../services/drive';
 import { courseService } from '../../../services/courses';
@@ -21,6 +22,8 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
     const [loadingDrive, setLoadingDrive] = useState(false);
     const [driveCurrentFolder, setDriveCurrentFolder] = useState<string | null>(null);
     const [driveFolderStack, setDriveFolderStack] = useState<{id: string, name: string}[]>([]);
+
+    const isEditing = !!initialData?.id;
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldPrefix: string = '') => {
         if (!e.target.files || e.target.files.length === 0) return;
@@ -59,7 +62,7 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
         if (loadingDrive || driveFiles.length > 0) return; 
         setLoadingDrive(true);
         try {
-            let startFolderId = profile.role === UserRole.ADMIN ? (await driveService.getConfig()).driveFolderId : await driveService.getPersonalFolder(profile);
+            let startFolderId = profile.role === 'admin' ? (await driveService.getConfig()).driveFolderId : await driveService.getPersonalFolder(profile);
             setDriveCurrentFolder(startFolderId); setDriveFolderStack([]);
             const data = await driveService.listFiles(startFolderId); setDriveFiles(data.files);
         } catch (e: any) { alert(e.message); } finally { setLoadingDrive(false); }
@@ -76,7 +79,7 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                     <div className="space-y-2">
                         <div className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-300 mb-2 font-bold">
                             {driveFolderStack.length > 0 && <button type="button" onClick={handleDriveBack} className="hover:underline mr-2">⬅ Voltar</button>}
-                            <span>{profile.role === UserRole.ADMIN ? 'Raiz' : 'Pasta Pessoal'}</span>{driveFolderStack.map(f => <span key={f.id}> / {f.name}</span>)}
+                            <span>{profile.role === 'admin' ? 'Raiz' : 'Pasta Pessoal'}</span>{driveFolderStack.map(f => <span key={f.id}> / {f.name}</span>)}
                         </div>
                         <div className="max-h-40 overflow-y-auto custom-scrollbar border border-gray-200 dark:border-slate-600 rounded bg-white dark:bg-slate-900">
                             {driveFiles.map(file => {
@@ -102,6 +105,19 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
         );
     };
 
+    const handleSingleSave = async (field: string, value: any) => {
+        if (!isEditing) return;
+        try {
+            const updates = { [field]: value };
+            if (type === 'materials') await courseService.updateClassMaterial(initialData.id, updates);
+            else if (type === 'announcements') await courseService.updateClassAnnouncement(initialData.id, updates);
+            else if (type === 'assessments') await courseService.updateClassAssessment(initialData.id, updates);
+            alert("Campo guardado!");
+        } catch (e: any) {
+            alert("Erro ao guardar: " + e.message);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
@@ -116,17 +132,39 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
         } catch (err: any) { alert(err.message); }
     };
 
+    const SaveBtn = ({ onClick }: { onClick: () => void }) => {
+        if (!isEditing) return null;
+        return (
+            <button 
+                type="button"
+                onClick={onClick}
+                className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-colors flex items-center justify-center shrink-0 ml-1"
+                title="Guardar Campo"
+            >
+                💾
+            </button>
+        );
+    };
+
     return (
         <form onSubmit={handleSubmit} className="bg-indigo-50 dark:bg-slate-900/50 p-4 rounded-xl border border-indigo-200 dark:border-slate-700 mb-6 space-y-4">
             <p className="text-sm font-bold text-indigo-800 dark:text-indigo-200 capitalize">Editor de {type}</p>
             
             {type === 'materials' && (
                 <div className="space-y-2">
-                    <input type="text" placeholder="Título" className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} required />
+                    <div className="flex gap-2">
+                        <input type="text" placeholder="Título" className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} required />
+                        <SaveBtn onClick={() => handleSingleSave('title', formData.title)} />
+                    </div>
                     <select value={formData.type || 'file'} onChange={e => setFormData({...formData, type: e.target.value})} className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white">
                         <option value="file">Ficheiro</option><option value="link">Link</option><option value="drive">Drive</option>
                     </select>
-                    {formData.type === 'link' && <input type="url" placeholder="URL" className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.url || ''} onChange={e => setFormData({...formData, url: e.target.value})} />}
+                    {formData.type === 'link' && (
+                        <div className="flex gap-2">
+                            <input type="url" placeholder="URL" className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.url || ''} onChange={e => setFormData({...formData, url: e.target.value})} />
+                            <SaveBtn onClick={() => handleSingleSave('url', formData.url)} />
+                        </div>
+                    )}
                     {formData.type === 'file' && <input type="file" onChange={(e) => handleFileUpload(e)} className="dark:text-white" />}
                     {formData.type === 'drive' && <DrivePickerUI />}
                 </div>
@@ -134,17 +172,32 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
 
             {type === 'announcements' && (
                 <div className="space-y-2">
-                    <input type="text" placeholder="Título" className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} required />
-                    <textarea placeholder="Conteúdo (HTML suportado)" className="w-full p-2 rounded h-24 bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.content || ''} onChange={e => setFormData({...formData, content: e.target.value})} required />
+                    <div className="flex gap-2">
+                        <input type="text" placeholder="Título" className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} required />
+                        <SaveBtn onClick={() => handleSingleSave('title', formData.title)} />
+                    </div>
+                    <div className="flex gap-2 items-start">
+                        <textarea placeholder="Conteúdo (HTML suportado)" className="w-full p-2 rounded h-24 bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.content || ''} onChange={e => setFormData({...formData, content: e.target.value})} required />
+                        <SaveBtn onClick={() => handleSingleSave('content', formData.content)} />
+                    </div>
                 </div>
             )}
 
             {type === 'assessments' && (
                 <div className="space-y-2">
-                    <input type="text" placeholder="Título" className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} required />
-                    <textarea placeholder="Descrição" className="w-full p-2 rounded h-20 bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.description || ''} onChange={e => setFormData({...formData, description: e.target.value})} />
+                    <div className="flex gap-2">
+                        <input type="text" placeholder="Título" className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} required />
+                        <SaveBtn onClick={() => handleSingleSave('title', formData.title)} />
+                    </div>
+                    <div className="flex gap-2 items-start">
+                        <textarea placeholder="Descrição" className="w-full p-2 rounded h-20 bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.description || ''} onChange={e => setFormData({...formData, description: e.target.value})} />
+                        <SaveBtn onClick={() => handleSingleSave('description', formData.description)} />
+                    </div>
                     <label className="block text-xs font-bold text-indigo-900 dark:text-indigo-200">Data de Entrega</label>
-                    <input type="datetime-local" className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.due_date || ''} onChange={e => setFormData({...formData, due_date: e.target.value})} />
+                    <div className="flex gap-2">
+                        <input type="datetime-local" className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.due_date || ''} onChange={e => setFormData({...formData, due_date: e.target.value})} />
+                        <SaveBtn onClick={() => handleSingleSave('due_date', formData.due_date)} />
+                    </div>
                     <div className="pt-2 border-t border-indigo-200 dark:border-slate-700 mt-2">
                         <p className="text-xs font-bold mb-1 dark:text-white">Anexo do Enunciado (Opcional)</p>
                         <select value={formData.resource_type || 'file'} onChange={e => setFormData({...formData, resource_type: e.target.value})} className="w-full p-2 rounded mb-2 text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white">
@@ -160,7 +213,7 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
             <div className="flex justify-end gap-2">
                 <button type="button" onClick={onCancel} className="px-3 py-1 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded">Cancelar</button>
                 <button type="submit" className="px-4 py-1 bg-green-600 text-white rounded font-bold hover:bg-green-700 disabled:opacity-50" disabled={uploading}>
-                    {uploading ? '...' : 'Guardar'}
+                    {uploading ? '...' : 'Guardar Tudo'}
                 </button>
             </div>
         </form>

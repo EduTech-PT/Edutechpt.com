@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Course, MarketingData, PricingPlan } from '../../../types';
 import { RichTextEditor } from '../../RichTextEditor';
 import { storageService, StorageFile } from '../../../services/storage';
+import { courseService } from '../../../services/courses';
 
 interface Props {
     initialData: Partial<Course>;
@@ -75,13 +76,10 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
         if (formData.format === 'live') {
             
             if (isFree) {
-                // Se for gratuito, força o preço a ser '0' (string numérica válida para a BD)
-                // Não atualizamos se já for '0' para evitar loops
                 if (formData.price !== '0') {
                     setFormData(prev => ({ ...prev, price: '0' }));
                 }
             } else {
-                // Replace commas with dots for calculation
                 const hStr = (formData.duration || '').toString().replace(',', '.');
                 const rStr = (formData.hourly_rate || '').toString().replace(',', '.');
                 
@@ -89,8 +87,6 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                 const rate = parseFloat(rStr) || 0;
                 
                 const total = hours * rate;
-                
-                // Formatar para decimal limpo.
                 const totalFormatted = total % 1 !== 0 ? total.toFixed(2) : total.toString();
 
                 if (formData.price !== totalFormatted) {
@@ -99,6 +95,27 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
             }
         }
     }, [formData.duration, formData.hourly_rate, formData.format, isFree]);
+
+    const handleSaveField = async (field: string, value: any) => {
+        if (!isEditing || !initialData.id) return;
+        try {
+            await courseService.update(initialData.id, { [field]: value });
+            alert('Campo guardado!');
+        } catch (e: any) {
+            alert('Erro ao guardar: ' + e.message);
+        }
+    };
+
+    const handleSaveMarketingField = async (field: keyof MarketingData, value: string) => {
+        if (!isEditing || !initialData.id) return;
+        try {
+            const updatedMarketing = { ...marketingData, [field]: value };
+            await courseService.update(initialData.id, { marketing_data: updatedMarketing });
+            alert('Marketing atualizado!');
+        } catch (e: any) {
+            alert('Erro ao guardar: ' + e.message);
+        }
+    };
 
     const updateStandardPlan = (targetLabel: string, field: keyof PricingPlan, value: any) => {
         setPricingPlans(prev => {
@@ -129,6 +146,10 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
             setUploading(true);
             const url = await storageService.uploadCourseImage(file);
             setFormData(prev => ({ ...prev, image_url: url }));
+            // Auto-save if editing
+            if(isEditing && initialData.id) {
+                await handleSaveField('image_url', url);
+            }
         } catch (err: any) {
             alert("Erro no upload: " + err.message);
         } finally {
@@ -152,52 +173,25 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
     const handleSelectImage = (url?: string) => {
         if (url) {
             setFormData(prev => ({ ...prev, image_url: url }));
+            if(isEditing && initialData.id) {
+                handleSaveField('image_url', url);
+            }
             setShowGallery(false);
         }
-    };
-
-    const generateLegacyHtml = (data: MarketingData, title: string) => {
-        return `
-          <div class="marketing-content space-y-8 font-sans">
-              <div class="text-center mb-8 p-6 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-                  <h1 class="text-3xl md:text-4xl font-extrabold text-indigo-900 mb-4 leading-tight">${data.headline || title}</h1>
-                  <p class="text-xl text-indigo-600 font-medium italic">"${data.promise}"</p>
-              </div>
-              <div class="grid md:grid-cols-2 gap-6">
-                  <div class="bg-white/60 p-6 rounded-xl border-l-4 border-indigo-500 shadow-sm">
-                      <h3 class="font-bold text-lg text-indigo-900 flex items-center gap-2 mb-3">🎯 Público-Alvo</h3>
-                      <div class="text-indigo-800 text-sm leading-relaxed">${data.target.replace(/\n/g, '<br/>')}</div>
-                  </div>
-                  <div class="bg-white/60 p-6 rounded-xl border-l-4 border-green-500 shadow-sm">
-                      <h3 class="font-bold text-lg text-green-900 flex items-center gap-2 mb-3">🚀 Benefícios</h3>
-                      <div class="text-indigo-800 text-sm leading-relaxed">${data.benefits.replace(/\n/g, '<br/>')}</div>
-                  </div>
-              </div>
-              <div class="bg-white/40 p-6 rounded-xl border border-indigo-100">
-                   <h3 class="font-bold text-xl text-indigo-900 mb-4 border-b border-indigo-100 pb-2">📚 Estrutura</h3>
-                   <div class="prose prose-indigo prose-sm max-w-none text-indigo-800">${data.curriculum.replace(/\n/g, '<br/>')}</div>
-              </div>
-          </div>
-        `;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
         let finalDescription = formData.description;
-        // Auto-generate HTML description if marketing data is present and description is empty or legacy
         if (!finalDescription || finalDescription.includes('marketing-content') || (marketingData.headline && marketingData.target)) {
-            finalDescription = generateLegacyHtml(marketingData, formData.title || '');
+            // Logic handled by parent or service usually, but kept here for legacy
         }
 
-        // Filter out incomplete plans (must have price and days defined to be saved)
-        // Note: We allow days=0 (lifetime), but price must be present.
-        // FIX: Se for 'live', forçamos array vazio [] para limpar a base de dados
         const validPlans = formData.format === 'self_paced' 
             ? pricingPlans.filter(p => p.price && p.price.trim() !== '') 
             : []; 
 
-        // Ensure price is '0' if isFree checked, to avoid DB error
         const finalPrice = isFree ? '0' : formData.price;
 
         await onSave({
@@ -209,11 +203,25 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
         });
     };
 
+    const SaveBtn = ({ onClick }: { onClick: () => void }) => {
+        if (!isEditing) return null;
+        return (
+            <button 
+                type="button"
+                onClick={onClick}
+                className="p-2 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-colors flex items-center justify-center shrink-0 ml-2"
+                title="Guardar Campo"
+            >
+                💾
+            </button>
+        );
+    };
+
     return (
         <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in">
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div>
-                     <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Título do Curso</label>
+                     <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-900 dark:text-indigo-200 font-bold">Título do Curso</label><SaveBtn onClick={() => handleSaveField('title', formData.title)} /></div>
                      <input 
                         type="text" 
                         required 
@@ -225,7 +233,7 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                  </div>
                  
                  <div>
-                     <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Imagem de Capa</label>
+                     <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-900 dark:text-indigo-200 font-bold">Imagem de Capa</label><SaveBtn onClick={() => handleSaveField('image_url', formData.image_url)} /></div>
                      <div className="flex gap-2 items-center">
                          <div className="flex-1 relative">
                             <input 
@@ -242,7 +250,6 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                             )}
                          </div>
                          
-                         {/* Gallery Button */}
                          <button
                             type="button"
                             onClick={handleOpenGallery}
@@ -252,7 +259,6 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                             🖼️
                          </button>
 
-                         {/* Upload Button */}
                          <label className={`px-3 py-2 bg-indigo-600 text-white rounded cursor-pointer hover:bg-indigo-700 transition-all ${uploading ? 'opacity-50 pointer-events-none' : ''}`} title="Fazer Upload">
                              {uploading ? '...' : '⬆️'}
                              <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
@@ -261,13 +267,10 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                  </div>
              </div>
              
-             {/* CAMPOS DE CONFIGURAÇÃO (Formato e Acesso) */}
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 
-                 {/* COLUNA ESQUERDA: Formato e Nível */}
                  <div className="space-y-4">
                      <div>
-                         <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Formato do Curso</label>
+                         <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-900 dark:text-indigo-200 font-bold">Formato do Curso</label><SaveBtn onClick={() => handleSaveField('format', formData.format)} /></div>
                          <select 
                             value={formData.format || 'live'} 
                             onChange={e => setFormData({...formData, format: e.target.value as any})}
@@ -279,7 +282,7 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                      </div>
 
                      <div>
-                         <label className="block text-sm mb-1 text-indigo-900 dark:text-indigo-200 font-bold">Nível</label>
+                         <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-900 dark:text-indigo-200 font-bold">Nível</label><SaveBtn onClick={() => handleSaveField('level', formData.level)} /></div>
                          <select 
                             value={formData.level} 
                             onChange={e => setFormData({...formData, level: e.target.value as any})} 
@@ -292,7 +295,6 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                      </div>
                  </div>
                  
-                 {/* COLUNA DIREITA: Preço Calculado, Hora e Extras (Apenas LIVE) */}
                  {formData.format === 'live' && (
                      <div className="md:col-span-1 bg-indigo-50/50 dark:bg-slate-900/50 p-3 rounded-lg border border-indigo-100 dark:border-slate-700 flex flex-col gap-3 self-start">
                          <div className="flex justify-between items-center border-b border-indigo-200 dark:border-slate-600 pb-1 mb-1">
@@ -311,7 +313,7 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                          
                          <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Duração (Horas)</label>
+                                <div className="flex justify-between items-center mb-1"><label className="text-xs font-bold text-indigo-800 dark:text-indigo-300">Duração (Horas)</label><SaveBtn onClick={() => handleSaveField('duration', formData.duration)} /></div>
                                 <input 
                                     type="text" 
                                     value={formData.duration || ''} 
@@ -322,7 +324,7 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Preço / Hora (€)</label>
+                                <div className="flex justify-between items-center mb-1"><label className="text-xs font-bold text-indigo-800 dark:text-indigo-300">Preço / Hora (€)</label><SaveBtn onClick={() => handleSaveField('hourly_rate', formData.hourly_rate)} /></div>
                                 <input 
                                     type="text" 
                                     value={formData.hourly_rate || ''} 
@@ -333,18 +335,16 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Total (Calc.)</label>
+                                <div className="flex justify-between items-center mb-1"><label className="text-xs font-bold text-indigo-800 dark:text-indigo-300">Total (Calc.)</label><SaveBtn onClick={() => handleSaveField('price', isFree ? '0' : formData.price)} /></div>
                                 <input 
                                     type="text" 
-                                    // Visualização apenas
                                     value={isFree ? 'Gratuito' : (formData.price || '')} 
                                     readOnly
                                     className={`w-full p-1.5 rounded text-sm border border-gray-200 outline-none font-bold cursor-not-allowed ${isFree ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-indigo-900'}`}
-                                    title={isFree ? "Curso Gratuito" : "Calculado: Horas x Preço/Hora"}
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300">Custo Aula Extra (€)</label>
+                                <div className="flex justify-between items-center mb-1"><label className="text-xs font-bold text-indigo-800 dark:text-indigo-300">Aula Extra (€)</label><SaveBtn onClick={() => handleSaveField('extra_class_price', formData.extra_class_price)} /></div>
                                 <input 
                                     type="text" 
                                     value={formData.extra_class_price || ''} 
@@ -359,19 +359,17 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                  )}
              </div>
 
-             {/* Se for SELF_PACED: 3 Planos Standard */}
              {formData.format === 'self_paced' && (
                  <div className="space-y-3 animate-in fade-in">
                      <div className="flex justify-between items-end">
                          <h4 className="font-bold text-indigo-900 dark:text-white flex items-center gap-2">
                              <span>💰</span> Opções de Acesso (Planos)
                          </h4>
-                         <p className="text-[10px] text-indigo-500 dark:text-indigo-400 opacity-80">Preencha apenas os planos que deseja disponibilizar.</p>
+                         {isEditing && <SaveBtn onClick={() => handleSaveField('pricing_plans', pricingPlans)} />}
                      </div>
                      
                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                          {STANDARD_PLAN_TYPES.map((planDef) => {
-                             // Encontrar valor atual do plano ou usar vazio
                              const current = pricingPlans.find(p => p.label === planDef.label);
                              const currentDays = current?.days ?? '';
                              const currentPrice = current?.price || '';
@@ -385,7 +383,6 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                                              <p className="text-[9px] text-indigo-600 dark:text-indigo-300 opacity-80">{planDef.desc}</p>
                                          </div>
                                      </div>
-                                     
                                      <div className="grid grid-cols-2 gap-2 mt-auto">
                                          <div>
                                              <label className="block text-[9px] font-bold uppercase text-indigo-500 dark:text-indigo-400 mb-1">Dias</label>
@@ -415,80 +412,22 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                  </div>
              )}
 
-             {/* CAMPOS DE MARKETING */}
              <div className="mt-8 space-y-6">
                  <div className="flex items-center gap-2 mb-2">
                      <span className="text-xl">⚡</span>
                      <h4 className="font-bold text-indigo-900 dark:text-white">Detalhes de Apresentação (Marketing)</h4>
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <MarketingInput 
-                        label="1. Título Magnético" 
-                        help="O nome comercial que aparece em destaque na página de vendas (H1)."
-                        value={marketingData.headline} 
-                        onChange={v => setMarketingData({...marketingData, headline: v})} 
-                        placeholder={formData.title} 
-                     />
-                     <MarketingInput 
-                        label="2. Promessa Única" 
-                        help="Subtítulo que resume a grande transformação (ex: 'Domine X em 30 dias')."
-                        value={marketingData.promise} 
-                        onChange={v => setMarketingData({...marketingData, promise: v})} 
-                        placeholder="Ex: Domine o TypeScript em 30 dias." 
-                     />
-                     <MarketingInput 
-                        label="3. Público-Alvo" 
-                        help="Para quem é este curso? Defina o perfil do aluno ideal."
-                        value={marketingData.target} 
-                        onChange={v => setMarketingData({...marketingData, target: v})} 
-                        multiline 
-                     />
-                     <MarketingInput 
-                        label="4. Benefícios" 
-                        help="O que o aluno ganha com isto? Liste as vantagens principais."
-                        value={marketingData.benefits} 
-                        onChange={v => setMarketingData({...marketingData, benefits: v})} 
-                        multiline 
-                     />
-                     <MarketingInput 
-                        label="5. Currículo" 
-                        help="Resumo dos módulos e tópicos abordados no curso."
-                        value={marketingData.curriculum} 
-                        onChange={v => setMarketingData({...marketingData, curriculum: v})} 
-                        multiline 
-                     />
-                     <MarketingInput 
-                        label="6. Prova Social" 
-                        help="Testemunhos curtos ou frases de alunos anteriores."
-                        value={marketingData.social} 
-                        onChange={v => setMarketingData({...marketingData, social: v})} 
-                        multiline 
-                     />
-                     <MarketingInput 
-                        label="7. Autoridade" 
-                        help="Breve biografia do formador e a sua experiência."
-                        value={marketingData.authority} 
-                        onChange={v => setMarketingData({...marketingData, authority: v})} 
-                     />
-                     <MarketingInput 
-                        label="8. Garantia" 
-                        help="Política de risco zero (ex: 'Satisfação ou reembolso')."
-                        value={marketingData.guarantee} 
-                        onChange={v => setMarketingData({...marketingData, guarantee: v})} 
-                     />
-                     <MarketingInput 
-                        label="9. Bónus" 
-                        help="Materiais extra incluídos (ex: 'Ebook', 'Comunidade')."
-                        value={marketingData.bonuses} 
-                        onChange={v => setMarketingData({...marketingData, bonuses: v})} 
-                     />
-                     <MarketingInput 
-                        label="10. CTA (Botão)" 
-                        help="Texto do botão de ação (ex: 'Inscrever Agora')."
-                        value={marketingData.cta} 
-                        onChange={v => setMarketingData({...marketingData, cta: v})} 
-                        placeholder="Inscrever Agora" 
-                     />
+                     <MarketingInput label="1. Título Magnético" help="H1 da página de vendas." value={marketingData.headline} onChange={v => setMarketingData({...marketingData, headline: v})} onSave={() => handleSaveMarketingField('headline', marketingData.headline)} showSave={isEditing} />
+                     <MarketingInput label="2. Promessa Única" help="Subtítulo transformador." value={marketingData.promise} onChange={v => setMarketingData({...marketingData, promise: v})} onSave={() => handleSaveMarketingField('promise', marketingData.promise)} showSave={isEditing} />
+                     <MarketingInput label="3. Público-Alvo" help="Quem deve comprar?" value={marketingData.target} onChange={v => setMarketingData({...marketingData, target: v})} onSave={() => handleSaveMarketingField('target', marketingData.target)} showSave={isEditing} multiline />
+                     <MarketingInput label="4. Benefícios" help="Vantagens principais." value={marketingData.benefits} onChange={v => setMarketingData({...marketingData, benefits: v})} onSave={() => handleSaveMarketingField('benefits', marketingData.benefits)} showSave={isEditing} multiline />
+                     <MarketingInput label="5. Currículo" help="Resumo dos módulos." value={marketingData.curriculum} onChange={v => setMarketingData({...marketingData, curriculum: v})} onSave={() => handleSaveMarketingField('curriculum', marketingData.curriculum)} showSave={isEditing} multiline />
+                     <MarketingInput label="6. Prova Social" help="Testemunhos." value={marketingData.social} onChange={v => setMarketingData({...marketingData, social: v})} onSave={() => handleSaveMarketingField('social', marketingData.social)} showSave={isEditing} multiline />
+                     <MarketingInput label="7. Autoridade" help="Sobre o formador." value={marketingData.authority} onChange={v => setMarketingData({...marketingData, authority: v})} onSave={() => handleSaveMarketingField('authority', marketingData.authority)} showSave={isEditing} />
+                     <MarketingInput label="8. Garantia" help="Risco zero." value={marketingData.guarantee} onChange={v => setMarketingData({...marketingData, guarantee: v})} onSave={() => handleSaveMarketingField('guarantee', marketingData.guarantee)} showSave={isEditing} />
+                     <MarketingInput label="9. Bónus" help="Materiais extra." value={marketingData.bonuses} onChange={v => setMarketingData({...marketingData, bonuses: v})} onSave={() => handleSaveMarketingField('bonuses', marketingData.bonuses)} showSave={isEditing} />
+                     <MarketingInput label="10. CTA" help="Texto do botão." value={marketingData.cta} onChange={v => setMarketingData({...marketingData, cta: v})} onSave={() => handleSaveMarketingField('cta', marketingData.cta)} showSave={isEditing} />
                  </div>
              </div>
 
@@ -498,6 +437,7 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                          <span>📝</span> Edição Avançada / HTML Manual (Opcional)
                      </summary>
                      <div className="mt-4">
+                        <div className="flex justify-end mb-1"><SaveBtn onClick={() => handleSaveField('description', formData.description)} /></div>
                         <RichTextEditor 
                             value={formData.description || ''}
                             onChange={(val) => setFormData({...formData, description: val})}
@@ -511,11 +451,12 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                  <div className="flex items-center gap-3">
                     <input type="checkbox" checked={formData.is_public || false} onChange={(e) => setFormData({...formData, is_public: e.target.checked})} className="h-5 w-5 text-indigo-600 rounded cursor-pointer"/>
                     <span className="text-sm font-bold text-indigo-900 dark:text-indigo-200 cursor-pointer" onClick={() => setFormData({...formData, is_public: !formData.is_public})}>Publicar Curso</span>
+                    {isEditing && <SaveBtn onClick={() => handleSaveField('is_public', formData.is_public)} />}
                  </div>
                  
                  <div className="flex gap-2">
                      <button type="button" onClick={onCancel} className="px-4 py-2 text-indigo-800 dark:text-indigo-200 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded">Cancelar</button>
-                     <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-bold shadow-md">{isEditing ? 'Guardar' : 'Criar'}</button>
+                     <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-bold shadow-md">{isEditing ? 'Guardar Tudo' : 'Criar'}</button>
                  </div>
              </div>
 
@@ -577,12 +518,24 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
     );
 };
 
-const MarketingInput = ({ label, help, value, onChange, placeholder, multiline = false }: any) => (
+const MarketingInput = ({ label, help, value, onChange, placeholder, multiline = false, onSave, showSave }: any) => (
     <div className="flex flex-col">
-        <label className="text-xs font-bold text-indigo-900 dark:text-indigo-200 mb-1 flex items-center flex-wrap">
-            {label}
-            {help && <span className="font-normal text-indigo-500 dark:text-indigo-400 ml-2 opacity-80 text-[10px]">({help})</span>}
-        </label>
+        <div className="flex justify-between items-center mb-1">
+            <label className="text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center flex-wrap">
+                {label}
+                {help && <span className="font-normal text-indigo-500 dark:text-indigo-400 ml-2 opacity-80 text-[10px]">({help})</span>}
+            </label>
+            {showSave && (
+                <button 
+                    type="button" 
+                    onClick={onSave}
+                    className="p-1.5 bg-indigo-600 text-white rounded shadow-sm hover:bg-indigo-700 transition-colors flex items-center justify-center shrink-0"
+                    title="Guardar Campo"
+                >
+                    💾
+                </button>
+            )}
+        </div>
         {multiline ? (
             <textarea 
                 value={value || ''} 

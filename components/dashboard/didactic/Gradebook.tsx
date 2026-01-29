@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Profile, StudentGrade, ClassAssessment } from '../../../types';
 import { courseService } from '../../../services/courses';
@@ -47,6 +48,24 @@ export const Gradebook: React.FC<Props> = ({ classId, students }) => {
                 }];
             }
         });
+    };
+
+    const saveSingleGrade = async (studentId: string, assessmentId: string) => {
+        const grade = grades.find(g => g.student_id === studentId && g.assessment_id === assessmentId);
+        if (!grade) return;
+
+        try {
+            const gradeToSave = {
+                assessment_id: grade.assessment_id,
+                student_id: grade.student_id,
+                grade: grade.grade,
+                graded_at: new Date().toISOString()
+            };
+            await courseService.saveGrades([gradeToSave]);
+            alert("Nota guardada!");
+        } catch (e: any) {
+            alert("Erro: " + e.message);
+        }
     };
 
     const saveGrades = async () => {
@@ -131,13 +150,22 @@ export const Gradebook: React.FC<Props> = ({ classId, students }) => {
                                     const grade = grades.find(g => g.student_id === student.id && g.assessment_id === a.id);
                                     return (
                                         <td key={a.id} className="p-2 border border-indigo-100 dark:border-slate-700 text-center">
-                                            <input 
-                                                type="text" 
-                                                value={grade?.grade || ''} 
-                                                onChange={(e) => handleGradeChange(student.id, a.id, e.target.value)}
-                                                className="w-16 p-1 text-center bg-white/80 dark:bg-slate-900/80 border border-gray-200 dark:border-slate-600 rounded focus:ring-1 focus:ring-indigo-400 outline-none dark:text-white"
-                                                placeholder="-"
-                                            />
+                                            <div className="flex items-center justify-center gap-1">
+                                                <input 
+                                                    type="text" 
+                                                    value={grade?.grade || ''} 
+                                                    onChange={(e) => handleGradeChange(student.id, a.id, e.target.value)}
+                                                    className="w-12 p-1 text-center bg-white/80 dark:bg-slate-900/80 border border-gray-200 dark:border-slate-600 rounded focus:ring-1 focus:ring-indigo-400 outline-none dark:text-white text-xs"
+                                                    placeholder="-"
+                                                />
+                                                <button 
+                                                    onClick={() => saveSingleGrade(student.id, a.id)}
+                                                    className="w-5 h-5 bg-indigo-600 text-white rounded shadow-sm hover:bg-indigo-700 flex items-center justify-center text-[10px]"
+                                                    title="Guardar Nota"
+                                                >
+                                                    💾
+                                                </button>
+                                            </div>
                                         </td>
                                     );
                                 })}
@@ -148,7 +176,7 @@ export const Gradebook: React.FC<Props> = ({ classId, students }) => {
             </div>
             <div className="mt-4 flex justify-end">
                 <button onClick={saveGrades} disabled={saving} className="px-6 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-md">
-                    {saving ? 'A Guardar...' : (notifyStudents ? 'Guardar e Enviar 📤' : 'Guardar Notas')}
+                    {saving ? 'A Guardar...' : (notifyStudents ? 'Guardar e Enviar 📤' : 'Guardar Tudo')}
                 </button>
             </div>
         </div>

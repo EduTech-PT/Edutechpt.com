@@ -15,7 +15,6 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
     const [config, setConfig] = useState<any>({});
     const [userSound, setUserSound] = useState<string>('pop');
     const [globalNotif, setGlobalNotif] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
 
     useEffect(() => {
@@ -44,16 +43,12 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
         }
     };
 
-    const handleSavePreferences = async () => {
+    const handleSavePreferenceField = async (field: string, value: any) => {
         const { data: { user } } = await supabase.auth.getUser();
-        
         if (!user) return;
         try {
-            await userService.updateProfile(user.id, { 
-                notification_sound: userSound as any,
-                global_notifications: globalNotif
-            });
-            toast.success("Preferências guardadas!");
+            await userService.updateProfile(user.id, { [field]: value });
+            toast.success("Preferência guardada!");
         } catch (e: any) {
             toast.error("Erro: " + e.message);
         }
@@ -115,14 +110,11 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
              <GlassCard className="border-l-4 border-l-purple-500">
                  <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-xl text-indigo-900 dark:text-white flex items-center gap-2"><span>🔔</span> Minhas Notificações</h3>
-                    <button onClick={handleSavePreferences} className="px-4 py-2 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700 shadow-md text-xs flex items-center gap-2">
-                        💾 Guardar Tudo
-                    </button>
                  </div>
                  <div className="flex flex-col gap-4">
                      <div className="flex flex-col md:flex-row gap-4">
                          <div className="flex-1">
-                             <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Som de Alerta</label>
+                             <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 dark:text-indigo-200 font-bold">Som de Alerta</label><SaveBtn onClick={() => handleSavePreferenceField('notification_sound', userSound)} /></div>
                              <div className="flex gap-2">
                                  <select 
                                     value={userSound} 
@@ -145,7 +137,7 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
                          
                          {canSeeGlobalToggle && (
                              <div className="flex-1">
-                                 <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-1">Modo Monitorização (Global)</label>
+                                 <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 dark:text-indigo-200 font-bold">Modo Monitorização (Global)</label><SaveBtn onClick={() => handleSavePreferenceField('global_notifications', globalNotif)} /></div>
                                  <div className="flex items-center gap-3 p-2 bg-white/50 dark:bg-slate-800/50 rounded border border-purple-200 dark:border-purple-800 h-[42px]">
                                      <label className="relative inline-flex items-center cursor-pointer">
                                         <input type="checkbox" checked={globalNotif} onChange={(e) => setGlobalNotif(e.target.checked)} className="sr-only peer" />

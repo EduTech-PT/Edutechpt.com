@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { GlassCard } from '../../GlassCard';
-import { Course, Class } from '../../../types';
+import { Course } from '../../../types';
+import { courseService } from '../../../services/courses';
 
 interface Props {
     isEditing: boolean;
-    initialData: { name: string; course_id: string };
+    initialData: { id?: string; name: string; course_id: string };
     courses: Course[];
     onSave: (data: { name: string; course_id: string }) => Promise<void>;
     onCancel: () => void;
@@ -21,6 +23,16 @@ export const ClassForm: React.FC<Props> = ({ isEditing, initialData, courses, on
         setSaving(true);
         await onSave(formData);
         setSaving(false);
+    };
+
+    const handleSaveName = async () => {
+        if (!isEditing || !initialData.id) return;
+        try {
+            await courseService.updateClass(initialData.id, formData.name);
+            alert("Nome da turma atualizado!");
+        } catch (e: any) {
+            alert("Erro ao guardar: " + e.message);
+        }
     };
 
     return (
@@ -47,7 +59,19 @@ export const ClassForm: React.FC<Props> = ({ isEditing, initialData, courses, on
                     </div>
                     
                     <div>
-                        <label className="block text-sm font-bold text-indigo-900 dark:text-indigo-200 mb-1.5">Nome da Turma</label>
+                        <div className="flex justify-between items-center mb-1.5">
+                            <label className="block text-sm font-bold text-indigo-900 dark:text-indigo-200">Nome da Turma</label>
+                            {isEditing && (
+                                <button 
+                                    type="button" 
+                                    onClick={handleSaveName}
+                                    className="p-1.5 bg-indigo-600 text-white rounded shadow-sm hover:bg-indigo-700 transition-colors flex items-center justify-center shrink-0"
+                                    title="Guardar Nome"
+                                >
+                                    💾
+                                </button>
+                            )}
+                        </div>
                         <input 
                             type="text" 
                             value={formData.name}
@@ -72,7 +96,7 @@ export const ClassForm: React.FC<Props> = ({ isEditing, initialData, courses, on
                             disabled={saving}
                             className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-md transition-colors disabled:opacity-50"
                         >
-                            {saving ? 'A Guardar...' : (isEditing ? 'Atualizar' : 'Criar Turma')}
+                            {saving ? 'A Guardar...' : (isEditing ? 'Atualizar Tudo' : 'Criar Turma')}
                         </button>
                     </div>
                 </form>
