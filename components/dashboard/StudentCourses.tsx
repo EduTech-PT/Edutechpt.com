@@ -5,6 +5,7 @@ import { courseService } from '../../services/courses';
 import { adminService } from '../../services/admin';
 import { Profile, Course, UserRole } from '../../types';
 import { CourseDetailModal } from '../CourseDetailModal';
+import { EnrollmentFormModal } from '../EnrollmentFormModal'; // IMPORTADO
 
 interface Props {
   profile: Profile;
@@ -16,15 +17,16 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
   const [publicCourses, setPublicCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Config state for emails (Default robusto)
+  // Config state for emails
   const [emailConfig, setEmailConfig] = useState({
       to: 'inscricao@edutechpt.com',
       subject: 'Inscrição no Curso: {nome_curso}',
-      body: 'Olá,\n\nGostaria de me inscrever no curso "{nome_curso}" (Ref: {id_curso}).\n\nNome: {nome_aluno}\nEmail: {email_aluno}'
+      body: 'Olá,\n\nGostaria de me inscrever no curso...'
   });
   
   // Modal State
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [showEnrollModal, setShowEnrollModal] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -33,7 +35,6 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
             // Load App Config for Emails
             const config = await adminService.getAppConfig();
             
-            // Atualiza apenas se existirem valores na config, senão mantém o default
             setEmailConfig(prev => ({
                 to: config.enrollmentEmailTo || prev.to,
                 subject: config.enrollmentSubject || prev.subject,
@@ -57,7 +58,6 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
             }
         } catch (err) { 
             console.error("Erro ao carregar dados:", err); 
-            // Fallback em caso de erro na config, mantém defaults
         }
 
         try {
@@ -107,34 +107,8 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
           else alert("Erro: Navegação indisponível.");
           setSelectedCourse(null);
       } else {
-          // --- NOVA LÓGICA DE EMAIL CONFIGURÁVEL (ROBUSTA) ---
-          const replacements: Record<string, string> = {
-              '{nome_curso}': selectedCourse.title || 'Curso',
-              '{nome_aluno}': profile.full_name || 'Aluno',
-              '{email_aluno}': profile.email || '',
-              '{id_curso}': (selectedCourse.id || '').split('-')[0] // Short ID
-          };
-
-          let finalSubject = emailConfig.subject || "Inscrição";
-          let finalBody = emailConfig.body || "";
-
-          // Se o corpo estiver vazio (erro de config), usa um fallback seguro
-          if (!finalBody.trim()) {
-              finalBody = 'Olá,\n\nGostaria de me inscrever no curso "{nome_curso}" (Ref: {id_curso}).';
-          }
-
-          // Apply replacements
-          Object.entries(replacements).forEach(([key, value]) => {
-              // Replace all occurrences using split/join pattern for safety
-              finalSubject = finalSubject.split(key).join(value);
-              finalBody = finalBody.split(key).join(value);
-          });
-
-          // Create Mailto
-          const mailtoLink = `mailto:${emailConfig.to}?subject=${encodeURIComponent(finalSubject)}&body=${encodeURIComponent(finalBody)}`;
-          window.location.href = mailtoLink;
-          
-          setSelectedCourse(null);
+          // Abrir Modal de Inscrição em vez de mailto
+          setShowEnrollModal(true);
       }
   };
 
@@ -279,9 +253,7 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                             </div>
                             
                             <div className="flex flex-col flex-grow">
-                                {/* BADGES ROW - MOVED BELOW IMAGE */}
                                 <div className="flex flex-wrap gap-2 mb-2">
-                                    {/* Format Badge */}
                                     {course.format === 'self_paced' ? (
                                         <span className="px-2 py-0.5 bg-blue-100 text-blue-700 border border-blue-200 text-[9px] font-bold uppercase rounded shadow-sm">
                                             ▶️ Vídeo
@@ -292,7 +264,6 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                                         </span>
                                     )}
 
-                                    {/* Location Badge */}
                                     {course.location_type === 'presencial' ? (
                                         <span className="px-2 py-0.5 bg-orange-100 text-orange-700 border border-orange-200 text-[9px] font-bold uppercase rounded shadow-sm">
                                             📍 Presencial
@@ -307,12 +278,10 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                                         </span>
                                     )}
 
-                                    {/* Level Badge */}
                                     <span className="px-2 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-600 text-[9px] font-bold uppercase rounded shadow-sm">
                                         {course.level}
                                     </span>
 
-                                    {/* Price Badge */}
                                     {showPrice && (
                                         <span className="px-2 py-0.5 bg-green-100 text-green-800 border border-green-200 text-[9px] font-bold rounded shadow-sm">
                                             {formatPrice(course.price)}
@@ -351,6 +320,16 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
             onAction={handleAction}
             actionLabel={enrollments.some(e => e.course_id === selectedCourse.id) ? "Aceder à Aula" : "Solicitar Inscrição"}
             isEnrolled={enrollments.some(e => e.course_id === selectedCourse.id)}
+          />
+      )}
+
+      {showEnrollModal && selectedCourse && (
+          <EnrollmentFormModal 
+              course={selectedCourse}
+              initialName={profile.full_name || ''}
+              initialEmail={profile.email || ''}
+              destEmail={emailConfig.to}
+              onClose={() => setShowEnrollModal(false)}
           />
       )}
     </div>

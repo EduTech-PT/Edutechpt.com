@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { Course } from '../types';
 import { adminService } from '../services/admin';
-import { courseService } from '../services/courses'; // Import Course Service
+import { courseService } from '../services/courses'; 
 import { CourseDetailModal } from '../components/CourseDetailModal';
+import { EnrollmentFormModal } from '../components/EnrollmentFormModal'; // IMPORTADO
 import { Footer } from '../components/Footer';
 import { ThemeToggle } from '../components/ThemeToggle';
 
@@ -49,6 +50,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   
+  // Modal de Inscrição State
+  const [showEnrollModal, setShowEnrollModal] = useState(false);
+
   // Dynamic Content
   const [steps, setSteps] = useState<Step[]>(DEFAULT_STEPS);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
@@ -60,11 +64,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       body: 'Olá,\n\nGostaria de saber mais informações sobre os vossos cursos...'
   });
 
-  // Config específica para INSCRIÇÃO (Modal de Curso)
+  // Config específica para INSCRIÇÃO (Modal de Curso) - Mantemos o "to" para passar ao Modal
   const [enrollmentConfig, setEnrollmentConfig] = useState({
       to: 'edutechpt@hotmail.com',
-      subject: 'Inscrição no Curso: {nome_curso}',
-      body: 'Olá,\n\nGostaria de me inscrever no curso "{nome_curso}" (Ref: {id_curso}).\n\nPor favor, enviem-me mais informações sobre como proceder.\n\nObrigado.'
+      // subject e body deixam de ser usados no mailto direto, pois o EnrollmentFormModal constrói o seu próprio body HTML
+      // mas mantemos a estrutura para compatibilidade se necessário
+      subject: '', 
+      body: ''
   });
   
   useEffect(() => {
@@ -73,9 +79,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
 
   const fetchData = async () => {
     try {
-      // Use Service for courses to leverage error fallback protection
       const [coursesData, configResult] = await Promise.all([
-         courseService.getPublicCourses(6), // Limit to 6
+         courseService.getPublicCourses(6), 
          adminService.getAppConfig()
       ]);
 
@@ -84,7 +89,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       if (configResult) {
           if (configResult.logoUrl) setLogoUrl(configResult.logoUrl);
           
-          // Config Geral (Rodapé/Candidatura)
           if (configResult.applicationSubject || configResult.applicationBody) {
               setAppEmailConfig({
                   subject: configResult.applicationSubject || appEmailConfig.subject,
@@ -92,29 +96,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
               });
           }
 
-          // Config Específica de Inscrição (Botão Inscrever)
-          // Mapeia enrollment_email_* do admin.ts
           setEnrollmentConfig(prev => ({
               to: configResult.enrollmentEmailTo || prev.to,
               subject: configResult.enrollmentSubject || prev.subject,
               body: configResult.enrollmentBody || prev.body
           }));
 
-          // Load Dynamic Steps
           if (configResult.landing_how_it_works) {
               try {
                   const parsed = JSON.parse(configResult.landing_how_it_works);
                   if (Array.isArray(parsed) && parsed.length > 0) setSteps(parsed);
               } catch (e) { console.warn("Erro parsing steps", e); }
           }
-          // Load Testimonials
           if (configResult.landing_testimonials) {
               try {
                   const parsed = JSON.parse(configResult.landing_testimonials);
                   if (Array.isArray(parsed)) setTestimonials(parsed);
               } catch (e) { console.warn("Erro parsing testimonials", e); }
           }
-          // Load Videos
           if (configResult.landing_videos) {
               try {
                   const parsed = JSON.parse(configResult.landing_videos);
@@ -139,44 +138,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
 
   const handleEnrollment = () => {
       if (!selectedCourse) return;
-      
-      const shortId = selectedCourse.id.split('-')[0];
-      
-      // Utilizar configuração carregada
-      let finalSubject = enrollmentConfig.subject;
-      let finalBody = enrollmentConfig.body;
-
-      // Replacements
-      const replacements: Record<string, string> = {
-          '{nome_curso}': selectedCourse.title,
-          '{id_curso}': shortId,
-          '{nome_aluno}': '', // Visitante não tem nome definido
-          '{email_aluno}': ''
-      };
-
-      Object.entries(replacements).forEach(([key, value]) => {
-          finalSubject = finalSubject.split(key).join(value);
-          finalBody = finalBody.split(key).join(value);
-      });
-
-      const mailto = `mailto:${enrollmentConfig.to}?subject=${encodeURIComponent(finalSubject)}&body=${encodeURIComponent(finalBody)}`;
-      window.location.href = mailto;
+      // Em vez de mailto, abrimos o modal de formulário
+      setShowEnrollModal(true);
   };
 
-  // Helper para formatar preço (Consistente com Modal e atualizado para Gratuito)
   const formatPrice = (price?: string | number) => {
       if (price === undefined || price === null || price === '') return 'Gratuito';
       const strVal = price.toString().replace(',', '.').trim();
-      
       if (strVal === '0' || strVal === '0.00' || strVal === '0.0') return 'Gratuito';
-      
       const num = parseFloat(strVal);
       if (isNaN(num) || num === 0) return 'Gratuito';
-      
       return `${price} €`;
   };
 
-  // Helper para verificar existência de preço (incluindo 0)
   const hasPrice = (price?: string | number) => {
       return price !== undefined && price !== null && price !== '';
   };
@@ -192,29 +166,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       }
   };
 
-  // Extract Video Embed URL (Supports YouTube and Drive)
   const getVideoEmbedUrl = (url: string) => {
       if (!url) return null;
-
-      // 1. Check YouTube (Enhanced Regex for Shorts, mobile URLs, etc.)
       const ytRegExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([^"&?\/ ]{11})/i;
       const ytMatch = url.match(ytRegExp);
-      
       if (ytMatch && ytMatch[1]) {
           const videoId = ytMatch[1];
-          // FIX: Usar youtube-nocookie para evitar bloqueios de privacidade
-          // FIX: Adicionar playsinline para mobile
-          // FIX: Remover origin da query string para evitar conflitos de API, confiar no Referrer Header
           return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&rel=0&controls=0&playsinline=1&iv_load_policy=3&modestbranding=1`;
       }
-
-      // 2. Check Google Drive
       const driveRegExp = /\/file\/d\/([a-zA-Z0-9_-]+)/;
       const driveMatch = url.match(driveRegExp);
       if (driveMatch && driveMatch[1]) {
           return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
       }
-
       return null;
   };
 
@@ -285,7 +249,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {courses.map(course => {
-                    // Logic to determine if price should be shown
                     const hasPlans = course.format === 'self_paced' && course.pricing_plans && course.pricing_plans.length > 0;
                     const showPrice = hasPrice(course.price) && !hasPlans;
 
@@ -301,9 +264,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                             </div>
                             
                             <div className="p-6 flex flex-col flex-grow">
-                                {/* BADGES ROW - MOVED BELOW IMAGE */}
                                 <div className="flex flex-wrap gap-2 mb-3">
-                                    {/* Format Badge */}
                                     {course.format === 'self_paced' ? (
                                         <span className="px-2 py-1 bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold uppercase rounded shadow-sm">
                                             ▶️ Vídeo
@@ -314,7 +275,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                                         </span>
                                     )}
 
-                                    {/* Location Badge */}
                                     {course.location_type === 'presencial' ? (
                                         <span className="px-2 py-1 bg-orange-100 text-orange-700 border border-orange-200 text-[10px] font-bold uppercase rounded shadow-sm">
                                             📍 Presencial
@@ -329,12 +289,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                                         </span>
                                     )}
 
-                                    {/* Level Badge */}
                                     <span className="px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-600 text-[10px] font-bold uppercase rounded shadow-sm">
                                         {course.level}
                                     </span>
 
-                                    {/* Price Badge */}
                                     {showPrice && (
                                         <span className="px-2 py-1 bg-green-100 text-green-800 border border-green-200 text-[10px] font-bold rounded shadow-sm">
                                             {formatPrice(course.price)}
@@ -359,7 +317,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
         )}
       </div>
 
-      {/* TESTIMONIALS SECTION (NEW) */}
+      {/* TESTIMONIALS & VIDEOS ... */}
       {testimonials.length > 0 && (
           <div className="py-16 bg-white/20 dark:bg-black/20 backdrop-blur-md border-y border-white/30 dark:border-white/10 relative z-10">
               <div className="max-w-7xl mx-auto px-4">
@@ -392,7 +350,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
           </div>
       )}
 
-      {/* METHODOLOGY SECTION (DYNAMIC) */}
+      {/* METHODOLOGY SECTION */}
       <div className="bg-gradient-to-b from-transparent to-white/30 dark:to-black/30 py-20 relative z-10">
           <div className="max-w-7xl mx-auto px-4">
               <h2 className="text-3xl md:text-4xl font-bold text-indigo-900 dark:text-white mb-12 text-center">Como Funciona</h2>
@@ -413,7 +371,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
           </div>
       </div>
 
-      {/* VIDEOS SECTION (NEW) */}
       {videos.length > 0 && (
           <div className="py-20 px-4 relative z-10">
               <div className="max-w-7xl mx-auto">
@@ -465,6 +422,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
             onSecondaryAction={handleEnrollment}
             secondaryLabel="Inscrever"
             isEnrolled={false}
+          />
+      )}
+
+      {/* MODAL DE INSCRIÇÃO */}
+      {showEnrollModal && selectedCourse && (
+          <EnrollmentFormModal 
+              course={selectedCourse}
+              destEmail={enrollmentConfig.to}
+              onClose={() => setShowEnrollModal(false)}
           />
       )}
 
