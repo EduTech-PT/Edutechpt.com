@@ -264,45 +264,68 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-2xl">✨</div>
                                 )}
-                                {showPrice && (
-                                    <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
-                                        {formatPrice(course.price)}
-                                    </div>
-                                )}
-                                {/* Badges */}
-                                <div className="absolute top-2 left-2 flex flex-col gap-1">
-                                    {course.format === 'self_paced' ? (
-                                        <span className="text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded shadow font-bold w-fit">▶️ Vídeo</span>
-                                    ) : (
-                                        <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded shadow font-bold w-fit">🔴 Live</span>
-                                    )}
-                                    {/* Location Badge Small */}
-                                    {course.location_type === 'presencial' ? (
-                                        <span className="text-[10px] bg-orange-500 text-white px-2 py-0.5 rounded shadow font-bold w-fit">📍 Presencial</span>
-                                    ) : course.location_type === 'hibrido' ? (
-                                        <span className="text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded shadow font-bold w-fit">🔄 Híbrido</span>
-                                    ) : null}
-                                </div>
-                            </div>
-                            <h4 className="font-bold text-indigo-900 dark:text-white text-sm mb-1 line-clamp-2">{course.title}</h4>
-                            <div className="flex gap-2 mb-2 text-[10px] uppercase font-bold text-indigo-400 dark:text-indigo-300">
-                                <span>{course.level}</span>
-                                {course.duration && <span>• {course.duration} horas</span>}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
                             </div>
                             
-                            <p className="text-xs text-indigo-700 dark:text-indigo-200 opacity-70 line-clamp-3 mb-4 flex-grow">
-                                {course.description?.replace(/<[^>]*>?/gm, '') || 'Sem descrição.'}
-                            </p>
+                            <div className="flex flex-col flex-grow">
+                                {/* BADGES ROW - MOVED BELOW IMAGE */}
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                    {/* Format Badge */}
+                                    {course.format === 'self_paced' ? (
+                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 border border-blue-200 text-[9px] font-bold uppercase rounded shadow-sm">
+                                            ▶️ Vídeo
+                                        </span>
+                                    ) : (
+                                        <span className="px-2 py-0.5 bg-red-100 text-red-700 border border-red-200 text-[9px] font-bold uppercase rounded shadow-sm">
+                                            🔴 Ao Vivo
+                                        </span>
+                                    )}
 
-                            {isEnrolled ? (
-                                <button onClick={() => handleOpenCourse(course)} className="mt-auto w-full py-2 bg-green-100 text-green-700 border border-green-200 text-xs font-bold rounded hover:bg-green-200 transition-colors">
-                                    ✅ Já Inscrito
-                                </button>
-                            ) : (
-                                <button onClick={() => handleOpenCourse(course)} className="mt-auto w-full py-2 bg-white dark:bg-white/10 border border-indigo-200 dark:border-white/20 text-indigo-600 dark:text-white text-xs font-bold rounded hover:bg-indigo-50 dark:hover:bg-white/20 transition-colors">
-                                    Ver Detalhes
-                                </button>
-                            )}
+                                    {/* Location Badge */}
+                                    {course.location_type === 'presencial' ? (
+                                        <span className="px-2 py-0.5 bg-orange-100 text-orange-700 border border-orange-200 text-[9px] font-bold uppercase rounded shadow-sm">
+                                            📍 Presencial
+                                        </span>
+                                    ) : course.location_type === 'hibrido' ? (
+                                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 border border-purple-200 text-[9px] font-bold uppercase rounded shadow-sm">
+                                            🔄 Híbrido
+                                        </span>
+                                    ) : (
+                                        <span className="px-2 py-0.5 bg-green-100 text-green-700 border border-green-200 text-[9px] font-bold uppercase rounded shadow-sm">
+                                            🌐 Online
+                                        </span>
+                                    )}
+
+                                    {/* Level Badge */}
+                                    <span className="px-2 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-600 text-[9px] font-bold uppercase rounded shadow-sm">
+                                        {course.level}
+                                    </span>
+
+                                    {/* Price Badge */}
+                                    {showPrice && (
+                                        <span className="px-2 py-0.5 bg-green-100 text-green-800 border border-green-200 text-[9px] font-bold rounded shadow-sm">
+                                            {formatPrice(course.price)}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <h4 className="font-bold text-indigo-900 dark:text-white text-sm mb-1 line-clamp-2">{course.title}</h4>
+                                {course.duration && <span className="text-[10px] text-indigo-400 dark:text-indigo-300 font-bold mb-2 block">{course.duration} horas</span>}
+                                
+                                <p className="text-xs text-indigo-700 dark:text-indigo-200 opacity-70 line-clamp-3 mb-4 flex-grow">
+                                    {course.description?.replace(/<[^>]*>?/gm, '') || 'Sem descrição.'}
+                                </p>
+
+                                {isEnrolled ? (
+                                    <button onClick={() => handleOpenCourse(course)} className="mt-auto w-full py-2 bg-green-100 text-green-700 border border-green-200 text-xs font-bold rounded hover:bg-green-200 transition-colors">
+                                        ✅ Já Inscrito
+                                    </button>
+                                ) : (
+                                    <button onClick={() => handleOpenCourse(course)} className="mt-auto w-full py-2 bg-white dark:bg-white/10 border border-indigo-200 dark:border-white/20 text-indigo-600 dark:text-white text-xs font-bold rounded hover:bg-indigo-50 dark:hover:bg-white/20 transition-colors">
+                                        Ver Detalhes
+                                    </button>
+                                )}
+                            </div>
                         </GlassCard>
                     );
                 })}

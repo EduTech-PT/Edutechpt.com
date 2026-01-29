@@ -264,46 +264,50 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-400 to-purple-500"><span className="text-5xl">📚</span></div>
                                 )}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
-                                
-                                <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
+                            </div>
+                            
+                            <div className="p-6 flex flex-col flex-grow">
+                                {/* BADGES ROW - MOVED BELOW IMAGE */}
+                                <div className="flex flex-wrap gap-2 mb-3">
                                     {/* Format Badge */}
                                     {course.format === 'self_paced' ? (
-                                        <span className="px-3 py-1 bg-blue-500/90 backdrop-blur-md rounded-lg text-xs font-bold text-white uppercase shadow-lg tracking-wider">
+                                        <span className="px-2 py-1 bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold uppercase rounded shadow-sm">
                                             ▶️ Vídeo
                                         </span>
                                     ) : (
-                                        <span className="px-3 py-1 bg-red-500/90 backdrop-blur-md rounded-lg text-xs font-bold text-white uppercase shadow-lg tracking-wider">
+                                        <span className="px-2 py-1 bg-red-100 text-red-700 border border-red-200 text-[10px] font-bold uppercase rounded shadow-sm">
                                             🔴 Ao Vivo
                                         </span>
                                     )}
 
-                                    {/* Location Badge (NOVO) */}
+                                    {/* Location Badge */}
                                     {course.location_type === 'presencial' ? (
-                                        <span className="px-3 py-1 bg-orange-500/90 backdrop-blur-md rounded-lg text-xs font-bold text-white uppercase shadow-lg tracking-wider">
+                                        <span className="px-2 py-1 bg-orange-100 text-orange-700 border border-orange-200 text-[10px] font-bold uppercase rounded shadow-sm">
                                             📍 Presencial
                                         </span>
                                     ) : course.location_type === 'hibrido' ? (
-                                        <span className="px-3 py-1 bg-purple-500/90 backdrop-blur-md rounded-lg text-xs font-bold text-white uppercase shadow-lg tracking-wider">
+                                        <span className="px-2 py-1 bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold uppercase rounded shadow-sm">
                                             🔄 Híbrido
                                         </span>
                                     ) : (
-                                        <span className="px-3 py-1 bg-green-500/90 backdrop-blur-md rounded-lg text-xs font-bold text-white uppercase shadow-lg tracking-wider">
+                                        <span className="px-2 py-1 bg-green-100 text-green-700 border border-green-200 text-[10px] font-bold uppercase rounded shadow-sm">
                                             🌐 Online
                                         </span>
                                     )}
 
-                                    <span className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-lg text-xs font-bold text-indigo-900 uppercase shadow-lg tracking-wider">
+                                    {/* Level Badge */}
+                                    <span className="px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-600 text-[10px] font-bold uppercase rounded shadow-sm">
                                         {course.level}
                                     </span>
+
+                                    {/* Price Badge */}
                                     {showPrice && (
-                                        <span className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-bold shadow-lg">
-                                            Custo: {formatPrice(course.price)}
+                                        <span className="px-2 py-1 bg-green-100 text-green-800 border border-green-200 text-[10px] font-bold rounded shadow-sm">
+                                            {formatPrice(course.price)}
                                         </span>
                                     )}
                                 </div>
-                            </div>
-                            
-                            <div className="p-6 flex flex-col flex-grow">
+
                                 <h3 className="text-xl font-bold text-indigo-900 dark:text-white mb-1 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{course.title}</h3>
                                 {course.duration && <span className="text-xs font-bold text-indigo-400 uppercase mb-3 block">{course.duration} horas</span>}
                                 
