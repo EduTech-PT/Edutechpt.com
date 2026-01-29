@@ -62,6 +62,10 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
       return price !== undefined && price !== null && price !== '';
   };
 
+  // DEFAULT VALUES (FALLBACK)
+  const minStudents = course.min_students || 10;
+  const referralText = course.referral_text || "10% de desconto";
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4 bg-indigo-900/70 backdrop-blur-md animate-in fade-in duration-300">
       <GlassCard className="w-full h-full md:h-auto md:max-w-5xl md:max-h-[90vh] flex flex-col p-0 relative overflow-hidden shadow-2xl ring-1 ring-white/50 bg-[#f8fafc] dark:bg-[#0f172a] md:rounded-3xl border-0">
@@ -314,7 +318,7 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
                             <span className="text-2xl p-2 bg-white/50 dark:bg-black/20 rounded-lg">👥</span>
                             <div>
                                 <h4 className="font-bold text-amber-900 dark:text-amber-100 text-sm uppercase tracking-wide">Turma Mínima</h4>
-                                <p className="text-xs text-amber-800 dark:text-amber-200">O curso inicia apenas com o mínimo de <strong>10 alunos</strong>.</p>
+                                <p className="text-xs text-amber-800 dark:text-amber-200">O curso inicia apenas com o mínimo de <strong>{minStudents} alunos</strong>.</p>
                             </div>
                         </div>
                         
@@ -326,7 +330,7 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
                             <span className="text-2xl p-2 bg-white/50 dark:bg-black/20 rounded-lg">🎟️</span>
                             <div>
                                 <h4 className="font-bold text-amber-900 dark:text-amber-100 text-sm uppercase tracking-wide">Desconto de Amigo</h4>
-                                <p className="text-xs text-amber-800 dark:text-amber-200">Recomende o curso a 4 amigos e ganhe <strong>10% de desconto</strong>!</p>
+                                <p className="text-xs text-amber-800 dark:text-amber-200">Recomende o curso a 4 amigos e ganhe <strong>{referralText}</strong>!</p>
                             </div>
                         </div>
                     </div>

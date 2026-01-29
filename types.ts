@@ -105,6 +105,9 @@ export interface Course {
   // NOVOS CAMPOS LIVE (v3.1.11)
   hourly_rate?: string; 
   extra_class_price?: string;
+  // NOVOS CAMPOS CONDIÇÕES (v3.1.12)
+  min_students?: number;
+  referral_text?: string;
 }
 
 export interface Class {

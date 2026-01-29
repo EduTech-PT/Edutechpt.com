@@ -359,6 +359,40 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                  )}
              </div>
 
+             {/* NOVAS CONDICOES DE ABERTURA */}
+             <div className="bg-amber-50/50 dark:bg-amber-900/10 p-4 rounded-xl border border-amber-200 dark:border-amber-800">
+                 <h4 className="font-bold text-amber-900 dark:text-amber-100 mb-2 flex items-center gap-2 text-sm">
+                     <span>⚠️</span> Condições de Abertura & Recomendações
+                 </h4>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div>
+                         <div className="flex justify-between items-center mb-1">
+                             <label className="text-xs font-bold text-amber-800 dark:text-amber-200">Mínimo de Alunos</label>
+                             <SaveBtn onClick={() => handleSaveField('min_students', formData.min_students)} />
+                         </div>
+                         <input 
+                            type="number" 
+                            value={formData.min_students || 10} 
+                            onChange={e => setFormData({...formData, min_students: parseInt(e.target.value) || 0})}
+                            className="w-full p-2 rounded bg-white dark:bg-slate-900/50 border border-amber-200 dark:border-amber-700 outline-none text-indigo-900 dark:text-white"
+                         />
+                     </div>
+                     <div>
+                         <div className="flex justify-between items-center mb-1">
+                             <label className="text-xs font-bold text-amber-800 dark:text-amber-200">Bónus de Recomendação</label>
+                             <SaveBtn onClick={() => handleSaveField('referral_text', formData.referral_text)} />
+                         </div>
+                         <input 
+                            type="text" 
+                            value={formData.referral_text || '10% de desconto'} 
+                            onChange={e => setFormData({...formData, referral_text: e.target.value})}
+                            className="w-full p-2 rounded bg-white dark:bg-slate-900/50 border border-amber-200 dark:border-amber-700 outline-none text-indigo-900 dark:text-white"
+                            placeholder="Ex: 10% de desconto"
+                         />
+                     </div>
+                 </div>
+             </div>
+
              {formData.format === 'self_paced' && (
                  <div className="space-y-3 animate-in fade-in">
                      <div className="flex justify-between items-end">
