@@ -209,6 +209,13 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
         });
     };
 
+    const handleCopyId = () => {
+        if (initialData.id) {
+            navigator.clipboard.writeText(initialData.id);
+            alert('ID do curso copiado!');
+        }
+    };
+
     const SaveBtn = ({ onClick }: { onClick: () => void }) => {
         if (!isEditing) return null;
         return (
@@ -225,6 +232,26 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in">
+             
+             {/* ID FIELD */}
+             <div className="bg-gray-50 dark:bg-slate-800/50 p-3 rounded-lg border border-gray-200 dark:border-slate-700 mb-2 flex items-center justify-between">
+                 <div className="flex flex-col">
+                     <span className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400">ID do Curso</span>
+                     <span className="font-mono text-sm text-indigo-900 dark:text-indigo-200 font-bold select-all">
+                         {initialData.id || '(Gerado automaticamente ao guardar)'}
+                     </span>
+                 </div>
+                 {initialData.id && (
+                     <button 
+                        type="button"
+                        onClick={handleCopyId}
+                        className="px-3 py-1 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-600 transition-colors"
+                     >
+                         Copiar ID
+                     </button>
+                 )}
+             </div>
+
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div>
                      <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-900 dark:text-indigo-200 font-bold">Título do Curso</label><SaveBtn onClick={() => handleSaveField('title', formData.title)} /></div>

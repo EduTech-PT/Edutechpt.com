@@ -107,7 +107,8 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
           const replacements = {
               '{nome_curso}': selectedCourse.title,
               '{nome_aluno}': profile.full_name || '',
-              '{email_aluno}': profile.email
+              '{email_aluno}': profile.email,
+              '{id_curso}': selectedCourse.id
           };
 
           let finalSubject = emailConfig.subject;
@@ -115,6 +116,7 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
 
           // Apply replacements
           Object.entries(replacements).forEach(([key, value]) => {
+              // Replace all occurrences
               finalSubject = finalSubject.split(key).join(value);
               finalBody = finalBody.split(key).join(value);
           });
