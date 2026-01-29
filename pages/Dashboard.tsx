@@ -209,10 +209,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                   await checkTables();
 
                   if (config.googleScriptUrl) {
-                      driveService.checkScriptVersion(config.googleScriptUrl).then(remoteVer => {
+                      // Updated check to handle object response
+                      driveService.checkScriptVersion(config.googleScriptUrl).then(health => {
                           setGasStatus({
-                              match: remoteVer === GAS_VERSION,
-                              remote: remoteVer,
+                              match: health.version === GAS_VERSION && health.mailPermission,
+                              remote: health.version,
                               local: GAS_VERSION
                           });
                       });

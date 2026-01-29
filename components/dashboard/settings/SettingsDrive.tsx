@@ -2,14 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../../GlassCard';
 import { adminService } from '../../../services/admin';
-import { driveService, GAS_TEMPLATE_CODE, GAS_VERSION, GAS_MANIFEST_JSON } from '../../../services/drive';
+import { driveService, GAS_TEMPLATE_CODE, GAS_VERSION, GAS_MANIFEST_JSON, ScriptHealth } from '../../../services/drive';
 
 export const SettingsDrive: React.FC = () => {
     const [config, setConfig] = useState<any>({});
     const [loading, setLoading] = useState(true);
     const [copyFeedback, setCopyFeedback] = useState('');
     const [testStatus, setTestStatus] = useState<{success: boolean, msg: string} | null>(null);
-    const [remoteVersion, setRemoteVersion] = useState<string>('checking');
+    
+    // Status State
+    const [remoteStatus, setRemoteStatus] = useState<ScriptHealth>({ version: 'checking', mailPermission: true, status: 'ok' });
     
     // UI State
     const [activeTab, setActiveTab] = useState<'code' | 'manifest'>('code');
@@ -25,7 +27,7 @@ export const SettingsDrive: React.FC = () => {
             if (data.googleScriptUrl) {
                 checkVersion(data.googleScriptUrl);
             } else {
-                setRemoteVersion('not_configured');
+                setRemoteStatus({ version: 'not_configured', mailPermission: false, status: 'not_configured' });
             }
         } catch (e) {
             console.error(e);
@@ -35,9 +37,13 @@ export const SettingsDrive: React.FC = () => {
     };
 
     const checkVersion = async (url: string) => {
-        setRemoteVersion('checking');
-        const v = await driveService.checkScriptVersion(url);
-        setRemoteVersion(v);
+        setRemoteStatus({ version: 'checking', mailPermission: true, status: 'ok' });
+        const health = await driveService.checkScriptVersion(url);
+        setRemoteStatus(health);
+        // Se detetar erro de permissão, muda automaticamente para a aba de manifesto
+        if (!health.mailPermission && health.status === 'ok') {
+            setActiveTab('manifest');
+        }
     };
 
     const handleCopyCode = async () => {
@@ -109,20 +115,45 @@ export const SettingsDrive: React.FC = () => {
     };
 
     const renderAlert = () => {
-        if (remoteVersion === 'checking' || !config.googleScriptUrl) return null;
-        if (remoteVersion === GAS_VERSION) {
-             return <div className="mb-4 p-3 bg-green-100 border border-green-300 rounded-lg text-green-800 text-sm flex items-center gap-2"><span>✅</span><b>Script Atualizado ({remoteVersion})</b></div>;
+        const { version, mailPermission, status, message } = remoteStatus;
+
+        if (version === 'checking' || !config.googleScriptUrl) return null;
+
+        // ALERTA CRÍTICO: FALTA PERMISSÃO DE EMAIL
+        if (status === 'ok' && !mailPermission) {
+            return (
+                <div className="mb-4 p-4 bg-red-100 border-l-4 border-red-500 text-red-800 rounded-r-lg shadow-md animate-pulse">
+                    <div className="flex items-start gap-3">
+                        <span className="text-2xl">🛑</span>
+                        <div>
+                            <strong className="block text-lg">AÇÃO NECESSÁRIA: Permissões de Email</strong>
+                            <p className="text-sm mb-2">O script está conectado, mas <b>não tem permissão para enviar emails</b>.</p>
+                            <div className="bg-white/60 p-2 rounded text-xs font-mono border border-red-200">
+                                1. Copie o JSON da aba <b>Manifesto</b> abaixo.<br/>
+                                2. No Google Script: <b>Definições do Projeto</b> &gt; Marque "Mostrar manifesto appsscript.json".<br/>
+                                3. Cole o código no ficheiro <b>appsscript.json</b>.<br/>
+                                4. Execute <code>autorizarPermissoes</code> novamente e aceite os novos scopes.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
         }
-        let message = '';
-        if (remoteVersion === 'not_configured') return null;
-        if (remoteVersion === 'connection_error') message = 'Erro de Conexão. Verifique o URL.';
-        else if (remoteVersion === 'error_html') message = 'Erro Crítico: Script devolveu HTML. Verifique permissões "Qualquer pessoa".';
-        else message = `Versão Instalada (${remoteVersion}) diferente da Atual (${GAS_VERSION}).`;
+
+        if (version === GAS_VERSION) {
+             return <div className="mb-4 p-3 bg-green-100 border border-green-300 rounded-lg text-green-800 text-sm flex items-center gap-2"><span>✅</span><b>Script Atualizado ({version}) e Operacional</b></div>;
+        }
+
+        let alertMsg = '';
+        if (status === 'not_configured') return null;
+        if (version === 'connection_error') alertMsg = 'Erro de Conexão. Verifique o URL.';
+        else if (version === 'error_html') alertMsg = 'Erro Crítico: Script devolveu HTML. Verifique permissões "Qualquer pessoa".';
+        else alertMsg = `Versão Instalada (${version}) diferente da Atual (${GAS_VERSION}). Atualize o código.`;
 
         return (
-            <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg text-red-800 text-sm shadow-sm">
-                <p className="font-bold">⚠️ Ação Necessária no Google Script</p>
-                <p>{message}</p>
+            <div className="mb-4 p-3 bg-amber-100 border border-amber-300 rounded-lg text-amber-800 text-sm shadow-sm">
+                <p className="font-bold">⚠️ Atenção ao Script</p>
+                <p>{message || alertMsg}</p>
             </div>
         );
     };
@@ -180,12 +211,14 @@ export const SettingsDrive: React.FC = () => {
                  </div>
                  
                  {/* Alerta sobre o Manifesto */}
-                 <div className="mb-4 bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-xs text-yellow-900">
-                     <strong className="block mb-1">🔧 COMO RESOLVER ERRO DE PERMISSÃO EMAIL:</strong>
-                     <p>1. Copie o conteúdo da aba <b>Manifesto</b> acima.</p>
-                     <p>2. No editor Google Apps Script, vá a <b>Definições do Projeto</b> {'>'} Marque "Mostrar manifesto appsscript.json".</p>
-                     <p>3. Volte ao código, abra o ficheiro <b>appsscript.json</b> e cole o conteúdo.</p>
-                 </div>
+                 {activeTab === 'manifest' && (
+                    <div className="mb-4 bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-xs text-yellow-900 animate-in fade-in">
+                        <strong className="block mb-1">🔧 COMO ATIVAR PERMISSÕES:</strong>
+                        <p>1. Copie o JSON abaixo.</p>
+                        <p>2. No editor Google Apps Script, vá a <b>Definições do Projeto</b> (ícone engrenagem) {'>'} Marque "Mostrar manifesto appsscript.json".</p>
+                        <p>3. Volte ao editor, abra o ficheiro <b>appsscript.json</b> e substitua tudo pelo código abaixo.</p>
+                    </div>
+                 )}
 
                  <div className="flex-1 overflow-auto bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner">
                      <pre className="text-slate-300 font-mono text-xs whitespace-pre-wrap">

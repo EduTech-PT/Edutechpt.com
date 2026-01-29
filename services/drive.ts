@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.6.3";
+export const GAS_VERSION = "v1.6.4";
 
 export interface DriveFile {
   id: string;
@@ -13,6 +13,13 @@ export interface DriveFile {
   mimeType: string;
   url: string;
   size: number;
+}
+
+export interface ScriptHealth {
+    version: string;
+    mailPermission: boolean;
+    status: 'ok' | 'error' | 'not_configured';
+    message?: string;
 }
 
 export const driveService = {
@@ -31,14 +38,14 @@ export const driveService = {
   },
 
   /**
-   * Verifica a versão real instalada no Google Apps Script
+   * Verifica a versão real instalada no Google Apps Script e o estado das permissões
    */
-  async checkScriptVersion(urlOverride?: string): Promise<string> {
+  async checkScriptVersion(urlOverride?: string): Promise<ScriptHealth> {
       try {
           const config = await adminService.getAppConfig();
           const url = urlOverride || config.googleScriptUrl;
 
-          if (!url) return 'not_configured';
+          if (!url) return { version: '', mailPermission: false, status: 'not_configured' };
 
           // Adicionado Timeout de 5s para evitar hanging
           const controller = new AbortController();
@@ -55,23 +62,27 @@ export const driveService = {
 
               const contentType = response.headers.get("content-type");
               if (contentType && contentType.includes("text/html")) {
-                  return 'error_html'; // Script não publicado como "Qualquer pessoa" ou erro do Google
+                  return { version: 'error_html', mailPermission: false, status: 'error', message: 'Script retornou HTML (Erro Permissão Publicação)' };
               }
 
               const result = await response.json();
               
               if (result.status === 'success' && result.version) {
-                  return result.version;
+                  return { 
+                      version: result.version, 
+                      mailPermission: result.mailPermission === true,
+                      status: 'ok' 
+                  };
               }
               
-              return 'outdated_unknown';
+              return { version: 'outdated_unknown', mailPermission: false, status: 'error', message: 'Resposta inválida do script' };
           } catch (e: any) {
-              if (e.name === 'AbortError') return 'connection_error'; // Timeout
+              if (e.name === 'AbortError') return { version: 'timeout', mailPermission: false, status: 'error', message: 'Tempo limite excedido' };
               throw e;
           }
-      } catch (e) {
+      } catch (e: any) {
           console.error("Health Check Failed:", e);
-          return 'connection_error';
+          return { version: 'connection_error', mailPermission: false, status: 'error', message: e.message };
       }
   },
 
@@ -326,10 +337,15 @@ function doPost(e) {
     let result = {};
 
     if (action === 'check_health') {
+        // Verifica permissão de email em runtime
+        var mailStatus = false;
+        try { MailApp.getRemainingDailyQuota(); mailStatus = true; } catch(e) {}
+
         result = { 
             status: 'success', 
             version: '${GAS_VERSION}',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            mailPermission: mailStatus
         };
     }
 
