@@ -34,7 +34,7 @@ export const ProfilePersonalInfo: React.FC<Props> = ({ user, formData, visibilit
     const SaveButton = ({ field }: { field: string }) => (
         <button 
             onClick={() => onSaveField(field)}
-            className="p-2 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-colors flex items-center justify-center"
+            className="p-2 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-colors flex items-center justify-center shrink-0"
             title="Guardar Campo"
         >
             💾
