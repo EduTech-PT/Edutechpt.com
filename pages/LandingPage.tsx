@@ -160,16 +160,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
   const getVideoEmbedUrl = (url: string) => {
       if (!url) return null;
 
-      // 1. Check YouTube
-      const ytRegExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+      // 1. Check YouTube (Enhanced Regex for Shorts, mobile URLs, etc.)
+      // Captura ID de 11 chars
+      const ytRegExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([^"&?\/ ]{11})/i;
       const ytMatch = url.match(ytRegExp);
-      if (ytMatch && ytMatch[2].length === 11) {
-          const videoId = ytMatch[2];
-          // Autoplay=1: Inicia automaticamente
-          // Mute=1: Sem som (obrigatório para autoplay na maioria dos browsers)
-          // Loop=1: Repete o vídeo
-          // Playlist=VIDEO_ID: Necessário para o loop funcionar em vídeos únicos no YouTube
-          return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}`;
+      
+      if (ytMatch && ytMatch[1]) {
+          const videoId = ytMatch[1];
+          const origin = typeof window !== 'undefined' ? window.location.origin : '';
+          
+          // Parametros vitais para evitar "Video Indisponível":
+          // origin: Requerido pela API IFrame para segurança
+          // playlist: Requerido para loop funcionar (deve ser igual ao video ID)
+          // rel=0: Evita vídeos sugeridos externos
+          return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&rel=0&origin=${origin}`;
       }
 
       // 2. Check Google Drive
