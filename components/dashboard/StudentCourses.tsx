@@ -20,8 +20,8 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
   // Config state for emails
   const [emailConfig, setEmailConfig] = useState({
       to: 'inscricao@edutechpt.com',
-      subject: 'Inscrição no Curso: {nome_curso}',
-      body: 'Olá,\n\nGostaria de me inscrever no curso...'
+      subject: '', // Default vazio para usar hardcode se DB vazia
+      body: '' // Default vazio para usar hardcode se DB vazia
   });
   
   // Modal State
@@ -37,8 +37,8 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
             
             setEmailConfig(prev => ({
                 to: config.enrollmentEmailTo || prev.to,
-                subject: config.enrollmentSubject || prev.subject,
-                body: config.enrollmentBody || prev.body
+                subject: config.enrollmentSubject || '',
+                body: config.enrollmentBody || ''
             }));
 
             if (profile.role === UserRole.ADMIN) {
@@ -329,6 +329,8 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
               initialName={profile.full_name || ''}
               initialEmail={profile.email || ''}
               destEmail={emailConfig.to}
+              subjectTemplate={emailConfig.subject}
+              bodyTemplate={emailConfig.body}
               onClose={() => setShowEnrollModal(false)}
           />
       )}

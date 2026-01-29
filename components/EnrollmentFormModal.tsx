@@ -10,6 +10,9 @@ interface EnrollmentFormModalProps {
     initialName?: string;
     initialEmail?: string;
     destEmail?: string;
+    // Novos props para template dinâmico
+    subjectTemplate?: string;
+    bodyTemplate?: string;
 }
 
 export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({ 
@@ -17,7 +20,9 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
     onClose, 
     initialName = '', 
     initialEmail = '',
-    destEmail = 'edutechpt@hotmail.com'
+    destEmail = 'edutechpt@hotmail.com',
+    subjectTemplate,
+    bodyTemplate
 }) => {
     const [name, setName] = useState(initialName);
     const [email, setEmail] = useState(initialEmail);
@@ -26,6 +31,15 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
     const [loading, setLoading] = useState(false);
 
     const isGeneralRequest = !course;
+
+    const processTemplate = (template: string, vars: Record<string, string>) => {
+        let text = template;
+        Object.entries(vars).forEach(([key, value]) => {
+            const regex = new RegExp(`{${key}}`, 'g');
+            text = text.replace(regex, value || '');
+        });
+        return text;
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -38,44 +52,75 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
         setLoading(true);
 
         const courseTitle = course ? course.title : 'Pedido de Acesso / Geral';
+        const courseId = course ? course.id : '-';
         const courseRef = course ? `(Ref: ${course.id.split('-')[0]})` : '';
-        const subject = isGeneralRequest ? `Novo Pedido de Acesso: ${name}` : `Nova Inscrição: ${courseTitle}`;
         
-        // Construção do corpo do email (HTML)
-        const body = `
-            <div style="font-family: sans-serif; color: #333;">
-                <h2 style="color: #4f46e5;">${isGeneralRequest ? 'Pedido de Acesso / Contacto' : 'Nova Candidatura / Inscrição'}</h2>
-                <p>Recebeu um novo pedido através da plataforma EduTech PT.</p>
-                
-                <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-                    <tr style="background-color: #f3f4f6;">
-                        <td style="padding: 10px; border: 1px solid #ddd; width: 30%;"><strong>Assunto/Curso:</strong></td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">${courseTitle} ${courseRef}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 10px; border: 1px solid #ddd;"><strong>Nome do Utilizador:</strong></td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">${name}</td>
-                    </tr>
-                    <tr style="background-color: #f3f4f6;">
-                        <td style="padding: 10px; border: 1px solid #ddd;"><strong>Email:</strong></td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">${email}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 10px; border: 1px solid #ddd;"><strong>Telefone:</strong></td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">${phone || 'Não indicado'}</td>
-                    </tr>
-                </table>
+        // Preparar variáveis para substituição
+        const variables = {
+            nome_aluno: name,
+            email_aluno: email,
+            telefone: phone,
+            nome_curso: courseTitle,
+            id_curso: courseId,
+            mensagem: message
+        };
 
-                <div style="margin-top: 20px; padding: 15px; background-color: #fffbeb; border: 1px solid #fcd34d; border-radius: 5px;">
-                    <strong>Mensagem / Observações:</strong><br/>
-                    ${message ? message.replace(/\n/g, '<br/>') : 'Sem mensagem adicional.'}
+        // 1. ASSUNTO
+        let subject = isGeneralRequest ? `Novo Pedido de Acesso: ${name}` : `Nova Inscrição: ${courseTitle}`;
+        if (subjectTemplate && subjectTemplate.trim() !== '') {
+            subject = processTemplate(subjectTemplate, variables);
+        }
+
+        // 2. CORPO
+        let body = '';
+
+        if (bodyTemplate && bodyTemplate.trim() !== '') {
+            // Usar Template Personalizado (Dinâmico)
+            // Converte quebras de linha em <br> se não parecer HTML
+            const processedBody = processTemplate(bodyTemplate, variables);
+            const isHtml = /<[a-z][\s\S]*>/i.test(processedBody);
+            
+            body = isHtml ? processedBody : processedBody.replace(/\n/g, '<br/>');
+            
+            // Wrapper simples para garantir fonte
+            body = `<div style="font-family: sans-serif; color: #333; line-height: 1.5;">${body}</div>`;
+        } else {
+            // Fallback: Layout Hardcoded Original (Bonito)
+            body = `
+                <div style="font-family: sans-serif; color: #333;">
+                    <h2 style="color: #4f46e5;">${isGeneralRequest ? 'Pedido de Acesso / Contacto' : 'Nova Candidatura / Inscrição'}</h2>
+                    <p>Recebeu um novo pedido através da plataforma EduTech PT.</p>
+                    
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                        <tr style="background-color: #f3f4f6;">
+                            <td style="padding: 10px; border: 1px solid #ddd; width: 30%;"><strong>Assunto/Curso:</strong></td>
+                            <td style="padding: 10px; border: 1px solid #ddd;">${courseTitle} ${courseRef}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px; border: 1px solid #ddd;"><strong>Nome do Utilizador:</strong></td>
+                            <td style="padding: 10px; border: 1px solid #ddd;">${name}</td>
+                        </tr>
+                        <tr style="background-color: #f3f4f6;">
+                            <td style="padding: 10px; border: 1px solid #ddd;"><strong>Email:</strong></td>
+                            <td style="padding: 10px; border: 1px solid #ddd;">${email}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px; border: 1px solid #ddd;"><strong>Telefone:</strong></td>
+                            <td style="padding: 10px; border: 1px solid #ddd;">${phone || 'Não indicado'}</td>
+                        </tr>
+                    </table>
+
+                    <div style="margin-top: 20px; padding: 15px; background-color: #fffbeb; border: 1px solid #fcd34d; border-radius: 5px;">
+                        <strong>Mensagem / Observações:</strong><br/>
+                        ${message ? message.replace(/\n/g, '<br/>') : 'Sem mensagem adicional.'}
+                    </div>
+                    
+                    <p style="margin-top: 30px; font-size: 12px; color: #666;">
+                        Este email foi enviado automaticamente pelo sistema EduTech PT (Backend GAS).
+                    </p>
                 </div>
-                
-                <p style="margin-top: 30px; font-size: 12px; color: #666;">
-                    Este email foi enviado automaticamente pelo sistema EduTech PT (Backend GAS).
-                </p>
-            </div>
-        `;
+            `;
+        }
 
         try {
             const success = await adminService.sendEmailNotification(destEmail, subject, body);

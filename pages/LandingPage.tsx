@@ -60,9 +60,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [videos, setVideos] = useState<LandingVideo[]>([]);
   
-  // Config específica para INSCRIÇÃO (Modal de Curso) - Mantemos o "to" para passar ao Modal
+  // Config específica para INSCRIÇÃO
   const [enrollmentConfig, setEnrollmentConfig] = useState({
-      to: 'edutechpt@hotmail.com'
+      to: 'edutechpt@hotmail.com',
+      subject: '',
+      body: ''
   });
   
   useEffect(() => {
@@ -82,7 +84,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
           if (configResult.logoUrl) setLogoUrl(configResult.logoUrl);
           
           setEnrollmentConfig(prev => ({
-              to: configResult.enrollmentEmailTo || prev.to
+              to: configResult.enrollmentEmailTo || prev.to,
+              subject: configResult.enrollmentSubject || '',
+              body: configResult.enrollmentBody || ''
           }));
 
           if (configResult.landing_how_it_works) {
@@ -418,6 +422,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
           <EnrollmentFormModal 
               course={isGeneralRequest ? null : selectedCourse}
               destEmail={enrollmentConfig.to}
+              subjectTemplate={enrollmentConfig.subject}
+              bodyTemplate={enrollmentConfig.body}
               onClose={() => { setShowEnrollModal(false); setIsGeneralRequest(false); }}
           />
       )}
