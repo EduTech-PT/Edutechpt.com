@@ -173,7 +173,7 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
                      </div>
                      <div>
                          <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 dark:text-indigo-200 font-bold">Corpo da Mensagem</label><SaveBtn onClick={() => handleSaveConfigField('enrollment_email_body', config.enrollmentBody)} /></div>
-                         <textarea value={config.enrollmentBody || ''} onChange={e => setConfig({...config, enrollmentBody: e.target.value})} className="w-full h-32 p-2 rounded bg-white/50 dark:bg-black/30 border border-white/60 dark:border-white/20 text-sm text-indigo-900 dark:text-white" placeholder="Escreva aqui o modelo do email..."/>
+                         <textarea value={config.enrollmentBody || ''} onChange={e => setConfig({...config, enrollmentBody: e.target.value})} className="w-full h-32 p-2 rounded bg-white/50 dark:bg-black/30 border border-white/60 dark:border-white/20 text-sm text-indigo-900 dark:text-white" placeholder="Olá,\n\nGostaria de me inscrever no curso '{nome_curso}' (Ref: {id_curso}).\n\nNome: {nome_aluno}\nEmail: {email_aluno}"/>
                      </div>
                      <div className="text-xs text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 p-2 rounded border border-indigo-100 dark:border-indigo-800">
                          <b>Variáveis disponíveis:</b> <code>{'{nome_aluno}'}</code>, <code>{'{email_aluno}'}</code>, <code>{'{nome_curso}'}</code>, <code>{'{id_curso}'}</code>

@@ -115,6 +115,22 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
                                     🔴 Ao Vivo
                                 </span>
                             )}
+                            
+                            {/* LOCATION BADGE */}
+                            {course.location_type === 'presencial' ? (
+                                <span className="px-3 py-1 bg-orange-100 text-orange-700 border border-orange-200 text-[10px] font-bold uppercase rounded-full shadow-sm">
+                                    📍 Presencial
+                                </span>
+                            ) : course.location_type === 'hibrido' ? (
+                                <span className="px-3 py-1 bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold uppercase rounded-full shadow-sm">
+                                    🔄 Híbrido
+                                </span>
+                            ) : (
+                                <span className="px-3 py-1 bg-green-100 text-green-700 border border-green-200 text-[10px] font-bold uppercase rounded-full shadow-sm">
+                                    🌐 Online
+                                </span>
+                            )}
+
                             {course.duration && (
                                 <span className="px-3 py-1 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-slate-600 text-[10px] font-bold uppercase rounded-full shadow-sm">
                                     ⏱️ {course.duration} horas

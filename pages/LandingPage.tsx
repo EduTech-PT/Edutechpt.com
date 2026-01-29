@@ -121,8 +121,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
   const handleEnrollment = () => {
       // Cria um link mailto para inscrição no curso selecionado
       if (!selectedCourse) return;
+      const shortId = selectedCourse.id.split('-')[0];
       const subject = `Inscrição no Curso: ${selectedCourse.title}`;
-      const body = `Olá,\n\nGostaria de me inscrever no curso "${selectedCourse.title}".\n\nPor favor, enviem-me mais informações sobre como proceder.\n\nObrigado.`;
+      // Adicionado ID curto ao corpo para consistência
+      const body = `Olá,\n\nGostaria de me inscrever no curso "${selectedCourse.title}" (Ref: ${shortId}).\n\nPor favor, enviem-me mais informações sobre como proceder.\n\nObrigado.`;
       const mailto = `mailto:edutechpt@hotmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
       window.location.href = mailto;
   };
@@ -272,6 +274,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                                     ) : (
                                         <span className="px-3 py-1 bg-red-500/90 backdrop-blur-md rounded-lg text-xs font-bold text-white uppercase shadow-lg tracking-wider">
                                             🔴 Ao Vivo
+                                        </span>
+                                    )}
+
+                                    {/* Location Badge (NOVO) */}
+                                    {course.location_type === 'presencial' ? (
+                                        <span className="px-3 py-1 bg-orange-500/90 backdrop-blur-md rounded-lg text-xs font-bold text-white uppercase shadow-lg tracking-wider">
+                                            📍 Presencial
+                                        </span>
+                                    ) : course.location_type === 'hibrido' ? (
+                                        <span className="px-3 py-1 bg-purple-500/90 backdrop-blur-md rounded-lg text-xs font-bold text-white uppercase shadow-lg tracking-wider">
+                                            🔄 Híbrido
+                                        </span>
+                                    ) : (
+                                        <span className="px-3 py-1 bg-green-500/90 backdrop-blur-md rounded-lg text-xs font-bold text-white uppercase shadow-lg tracking-wider">
+                                            🌐 Online
                                         </span>
                                     )}
 

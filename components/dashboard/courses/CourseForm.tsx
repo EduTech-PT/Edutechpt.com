@@ -36,6 +36,39 @@ const STANDARD_PLAN_TYPES = [
     }
 ];
 
+const MarketingInput = ({ label, help, value, onChange, onSave, showSave, multiline }: any) => (
+    <div className="bg-white/40 dark:bg-slate-800/40 p-4 rounded-xl border border-indigo-100 dark:border-slate-700">
+        <div className="flex justify-between items-center mb-1">
+            <label className="text-xs font-bold text-indigo-800 dark:text-indigo-200 uppercase">{label}</label>
+            {showSave && (
+                <button 
+                    type="button"
+                    onClick={onSave}
+                    className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-colors flex items-center justify-center shrink-0"
+                    title="Guardar Campo"
+                >
+                    💾
+                </button>
+            )}
+        </div>
+        <p className="text-[10px] text-indigo-500 dark:text-indigo-400 mb-2">{help}</p>
+        {multiline ? (
+            <textarea 
+                value={value || ''} 
+                onChange={e => onChange(e.target.value)} 
+                className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-200 dark:border-slate-600 text-sm h-24 focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white"
+            />
+        ) : (
+            <input 
+                type="text" 
+                value={value || ''} 
+                onChange={e => onChange(e.target.value)} 
+                className="w-full p-2 rounded bg-white/50 dark:bg-slate-900/50 border border-indigo-200 dark:border-slate-600 text-sm focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white"
+            />
+        )}
+    </div>
+);
+
 export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, onCancel }) => {
     const [formData, setFormData] = useState<Partial<Course>>(initialData);
     const [marketingData, setMarketingData] = useState<MarketingData>({
@@ -60,7 +93,8 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
         setFormData({
             ...initialData,
             min_students: initialData.min_students ?? 10,
-            referral_text: initialData.referral_text ?? '10% de desconto'
+            referral_text: initialData.referral_text ?? '10% de desconto',
+            location_type: initialData.location_type || 'online'
         });
 
         if (initialData.marketing_data) {
@@ -313,6 +347,19 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                          >
                              <option value="live" className="dark:bg-slate-800">🔴 Com Formador (Ao Vivo / Turma)</option>
                              <option value="self_paced" className="dark:bg-slate-800">▶️ Auto-Estudo (Vídeo-Aulas)</option>
+                         </select>
+                     </div>
+
+                     <div>
+                         <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-900 dark:text-indigo-200 font-bold">Modalidade (Localização)</label><SaveBtn onClick={() => handleSaveField('location_type', formData.location_type)} /></div>
+                         <select 
+                            value={formData.location_type || 'online'} 
+                            onChange={e => setFormData({...formData, location_type: e.target.value as any})}
+                            className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 focus:ring-2 focus:ring-indigo-500 outline-none text-indigo-900 dark:text-white"
+                         >
+                             <option value="online" className="dark:bg-slate-800">🌐 Online (Remoto)</option>
+                             <option value="presencial" className="dark:bg-slate-800">📍 Presencial (Físico)</option>
+                             <option value="hibrido" className="dark:bg-slate-800">🔄 Híbrido (Misto)</option>
                          </select>
                      </div>
 
@@ -586,40 +633,3 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
         </form>
     );
 };
-
-const MarketingInput = ({ label, help, value, onChange, placeholder, multiline = false, onSave, showSave }: any) => (
-    <div className="flex flex-col">
-        <div className="flex justify-between items-center mb-1">
-            <label className="text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center flex-wrap">
-                {label}
-                {help && <span className="font-normal text-indigo-500 dark:text-indigo-400 ml-2 opacity-80 text-[10px]">({help})</span>}
-            </label>
-            {showSave && (
-                <button 
-                    type="button" 
-                    onClick={onSave}
-                    className="p-1.5 bg-indigo-600 text-white rounded shadow-sm hover:bg-indigo-700 transition-colors flex items-center justify-center shrink-0"
-                    title="Guardar Campo"
-                >
-                    💾
-                </button>
-            )}
-        </div>
-        {multiline ? (
-            <textarea 
-                value={value || ''} 
-                onChange={e => onChange(e.target.value)} 
-                placeholder={placeholder} 
-                className="w-full p-2 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-indigo-100 dark:border-white/10 focus:ring-2 focus:ring-indigo-400 outline-none text-sm min-h-[80px] text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-600" 
-            />
-        ) : (
-            <input 
-                type="text" 
-                value={value || ''} 
-                onChange={e => onChange(e.target.value)} 
-                placeholder={placeholder} 
-                className="w-full p-2 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-indigo-100 dark:border-white/10 focus:ring-2 focus:ring-indigo-400 outline-none text-sm text-indigo-900 dark:text-white placeholder-indigo-300 dark:placeholder-indigo-600" 
-            />
-        )}
-    </div>
-);

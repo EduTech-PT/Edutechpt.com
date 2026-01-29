@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
--- AÇÃO: MIGRATION COURSE CONDITIONS (V3.1.12)
+-- AÇÃO: MIGRATION COURSE LOCATION (V3.1.13)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -112,7 +112,8 @@ create table if not exists public.courses (
     hourly_rate text,
     extra_class_price text,
     min_students integer,
-    referral_text text
+    referral_text text,
+    location_type text default 'online'
 );
 
 -- MIGRATION: Colunas novas (Cursos)
@@ -141,6 +142,10 @@ begin
   end if;
   if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='referral_text') then
     alter table public.courses add column referral_text text default '10% de desconto';
+  end if;
+  -- V3.1.13: Location Type
+  if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='location_type') then
+    alter table public.courses add column location_type text default 'online';
   end if;
 end $$;
 

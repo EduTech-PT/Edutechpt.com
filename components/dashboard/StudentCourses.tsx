@@ -21,7 +21,7 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
   const [emailConfig, setEmailConfig] = useState({
       to: 'inscricao@edutechpt.com',
       subject: 'Inscrição no Curso: {nome_curso}',
-      body: 'Olá,\n\nGostaria de me inscrever no curso "{nome_curso}".\n\nNome: {nome_aluno}\nEmail: {email_aluno}'
+      body: 'Olá,\n\nGostaria de me inscrever no curso "{nome_curso}" (Ref: {id_curso}).\n\nNome: {nome_aluno}\nEmail: {email_aluno}'
   });
   
   // Modal State
@@ -36,7 +36,8 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
             setEmailConfig({
                 to: config.enrollmentEmailTo || 'inscricao@edutechpt.com',
                 subject: config.enrollmentSubject || 'Inscrição no Curso: {nome_curso}',
-                body: config.enrollmentBody || 'Olá,\n\nGostaria de me inscrever no curso "{nome_curso}".\n\nNome: {nome_aluno}\nEmail: {email_aluno}'
+                // Adicionado ID por omissão
+                body: config.enrollmentBody || 'Olá,\n\nGostaria de me inscrever no curso "{nome_curso}" (Ref: {id_curso}).\n\nNome: {nome_aluno}\nEmail: {email_aluno}'
             });
 
             if (profile.role === UserRole.ADMIN) {
@@ -268,13 +269,19 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                                         {formatPrice(course.price)}
                                     </div>
                                 )}
-                                {/* Format Badge Small */}
-                                <div className="absolute top-2 left-2">
+                                {/* Badges */}
+                                <div className="absolute top-2 left-2 flex flex-col gap-1">
                                     {course.format === 'self_paced' ? (
-                                        <span className="text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded shadow font-bold">▶️ Vídeo</span>
+                                        <span className="text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded shadow font-bold w-fit">▶️ Vídeo</span>
                                     ) : (
-                                        <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded shadow font-bold">🔴 Live</span>
+                                        <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded shadow font-bold w-fit">🔴 Live</span>
                                     )}
+                                    {/* Location Badge Small */}
+                                    {course.location_type === 'presencial' ? (
+                                        <span className="text-[10px] bg-orange-500 text-white px-2 py-0.5 rounded shadow font-bold w-fit">📍 Presencial</span>
+                                    ) : course.location_type === 'hibrido' ? (
+                                        <span className="text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded shadow font-bold w-fit">🔄 Híbrido</span>
+                                    ) : null}
                                 </div>
                             </div>
                             <h4 className="font-bold text-indigo-900 dark:text-white text-sm mb-1 line-clamp-2">{course.title}</h4>

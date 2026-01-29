@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Course } from '../../../types';
 import { GlassCard } from '../../GlassCard';
@@ -34,7 +35,19 @@ export const CourseList: React.FC<Props> = ({ courses, onEdit, onDelete }) => {
                      </div>
                      <div className="relative h-40 bg-indigo-100 dark:bg-slate-700 rounded-lg mb-4 overflow-hidden">
                         {course.image_url ? <img src={course.image_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-4xl">📚</div>}
-                        {course.is_public && <span className="absolute bottom-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded font-bold shadow">Público</span>}
+                        
+                        {/* Status Badges */}
+                        <div className="absolute bottom-2 right-2 flex gap-1">
+                            {course.is_public && <span className="bg-green-500 text-white text-[10px] px-2 py-1 rounded font-bold shadow">Público</span>}
+                            {/* Location Badge */}
+                            {course.location_type === 'presencial' ? (
+                                <span className="bg-orange-500 text-white text-[10px] px-2 py-1 rounded font-bold shadow">📍 Presencial</span>
+                            ) : course.location_type === 'hibrido' ? (
+                                <span className="bg-purple-500 text-white text-[10px] px-2 py-1 rounded font-bold shadow">🔄 Híbrido</span>
+                            ) : (
+                                <span className="bg-blue-500 text-white text-[10px] px-2 py-1 rounded font-bold shadow">🌐 Online</span>
+                            )}
+                        </div>
                      </div>
                      <h4 className="font-bold text-indigo-900 dark:text-white text-lg mb-2 line-clamp-1">{course.title}</h4>
                      <div className="text-sm text-indigo-700 dark:text-indigo-200 mb-4 flex-grow line-clamp-3 opacity-80">

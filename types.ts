@@ -108,6 +108,8 @@ export interface Course {
   // NOVOS CAMPOS CONDIÇÕES (v3.1.12)
   min_students?: number;
   referral_text?: string;
+  // NOVO CAMPO LOCALIZAÇÃO (v3.1.13)
+  location_type?: 'online' | 'presencial' | 'hibrido';
 }
 
 export interface Class {
