@@ -55,36 +55,32 @@ export const SettingsDrive: React.FC = () => {
         return text;
     };
 
-    const handleSave = async () => {
-        setIsSaving(true);
-        setTestStatus(null);
-        try {
-            const cleanId = cleanDriveId(config.driveFolderId || '');
-            const cleanUrl = config.googleScriptUrl?.trim();
-
-            if (!cleanUrl?.startsWith('https://script.google.com')) {
-                throw new Error("O URL do Script parece inválido. Deve começar por 'https://script.google.com'.");
+    const handleSaveField = async (key: string, value: string) => {
+        let finalValue = value?.trim() || '';
+        
+        if (key === 'google_drive_folder_id') {
+            finalValue = cleanDriveId(finalValue);
+            setConfig(prev => ({...prev, driveFolderId: finalValue}));
+        }
+        if (key === 'google_script_url') {
+            if (!finalValue.startsWith('https://script.google.com')) {
+                alert("O URL do Script parece inválido. Deve começar por 'https://script.google.com'.");
+                return;
             }
-            if (!cleanId) throw new Error("O campo ID da Pasta está vazio.");
+        }
 
-            await adminService.updateAppConfig('google_script_url', cleanUrl);
-            await adminService.updateAppConfig('google_drive_folder_id', cleanId);
-            await adminService.updateAppConfig('calendar_ids', config.calendarIds || '');
-
-            setConfig((prev: any) => ({...prev, driveFolderId: cleanId, googleScriptUrl: cleanUrl}));
-            await checkVersion(cleanUrl);
-            alert('Configuração Drive guardada!');
+        try {
+            await adminService.updateAppConfig(key, finalValue);
+            alert("Campo guardado!");
+            if (key === 'google_script_url') checkVersion(finalValue);
         } catch (e: any) {
-            alert('Erro: ' + e.message);
-        } finally {
-            setIsSaving(false);
+            alert("Erro: " + e.message);
         }
     };
 
     const handleTest = async () => {
         setTestStatus({ success: false, msg: 'A testar conexão...' });
         try {
-            // Usa os valores locais do input para testar antes de guardar se necessário
             const idToTest = cleanDriveId(config.driveFolderId || '');
             const urlToTest = config.googleScriptUrl || '';
 
@@ -128,6 +124,16 @@ export const SettingsDrive: React.FC = () => {
         );
     };
 
+    const SaveBtn = ({ onClick }: { onClick: () => void }) => (
+        <button 
+            onClick={onClick}
+            className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-colors flex items-center justify-center shrink-0 ml-2"
+            title="Guardar Campo"
+        >
+            💾
+        </button>
+    );
+
     if (loading) return <div className="p-8 text-center text-indigo-500">A carregar integração...</div>;
 
     return (
@@ -137,23 +143,22 @@ export const SettingsDrive: React.FC = () => {
                 {renderAlert()}
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm text-indigo-800 font-bold mb-1">Google Script Web App URL</label>
+                        <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 font-bold">Google Script Web App URL</label><SaveBtn onClick={() => handleSaveField('google_script_url', config.googleScriptUrl)} /></div>
                         <input type="text" value={config.googleScriptUrl || ''} onChange={e => setConfig({...config, googleScriptUrl: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm"/>
                     </div>
                     <div>
-                        <label className="block text-sm text-indigo-800 font-bold mb-1">IDs Calendários Extra (Opcional)</label>
+                        <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 font-bold">IDs Calendários Extra (Opcional)</label><SaveBtn onClick={() => handleSaveField('calendar_ids', config.calendarIds)} /></div>
                         <input type="text" value={config.calendarIds || ''} onChange={e => setConfig({...config, calendarIds: e.target.value})} placeholder="email1@group..., email2@group..." className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm"/>
                     </div>
                     <div>
-                        <label className="block text-sm text-indigo-800 font-bold mb-1">ID da Pasta Google Drive</label>
+                        <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 font-bold">ID da Pasta Google Drive</label><SaveBtn onClick={() => handleSaveField('google_drive_folder_id', config.driveFolderId)} /></div>
                         <div className="relative">
                             <input type="text" value={config.driveFolderId || ''} onChange={e => setConfig({...config, driveFolderId: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm pr-20"/>
                             {config.driveFolderId && config.driveFolderId.includes('/folders/') && <span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded font-bold">Link Detetado</span>}
                         </div>
                     </div>
                     <div className="flex gap-2 pt-2">
-                        <button onClick={handleSave} disabled={isSaving} className="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md">{isSaving ? 'A Guardar...' : 'Guardar Configuração'}</button>
-                        <button onClick={handleTest} className="px-4 py-3 bg-white text-indigo-600 border border-indigo-200 rounded-lg font-bold hover:bg-indigo-50 shadow-sm">Testar ⚡</button>
+                        <button onClick={handleTest} className="flex-1 px-4 py-3 bg-white text-indigo-600 border border-indigo-200 rounded-lg font-bold hover:bg-indigo-50 shadow-sm">Testar Conexão ⚡</button>
                     </div>
                     {testStatus && <div className={`p-3 rounded-lg text-sm font-medium border ${testStatus.success ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}`}>{testStatus.msg}</div>}
                 </div>

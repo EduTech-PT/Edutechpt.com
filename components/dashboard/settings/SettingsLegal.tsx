@@ -18,7 +18,6 @@ interface FaqCategory {
 
 export const SettingsLegal: React.FC = () => {
     const [config, setConfig] = useState<any>({});
-    const [isSaving, setIsSaving] = useState(false);
     
     // State para FAQ Categorizado
     const [categories, setCategories] = useState<FaqCategory[]>([]);
@@ -56,21 +55,23 @@ export const SettingsLegal: React.FC = () => {
         }).catch(console.error);
     }, []);
 
-    const handleSave = async () => {
-        setIsSaving(true);
+    const handleSaveField = async (key: string, value: string) => {
         try {
-            await adminService.updateAppConfig('legal_privacy_policy', config.privacyPolicyContent || '');
-            await adminService.updateAppConfig('legal_terms_service', config.termsServiceContent || '');
-            
+            await adminService.updateAppConfig(key, value);
+            alert("Conteúdo guardado com sucesso!");
+        } catch (e: any) {
+            alert("Erro: " + e.message);
+        }
+    };
+
+    const handleSaveFAQ = async () => {
+        try {
             // Removemos o estado de UI (isOpen) antes de salvar
             const cleanCategories = categories.map(({ isOpen, ...rest }) => rest);
             await adminService.updateAppConfig('legal_faq_json', JSON.stringify(cleanCategories));
-            
-            alert('Conteúdo legal e FAQ atualizados!');
+            alert("FAQ guardado com sucesso!");
         } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setIsSaving(false);
+            alert("Erro: " + e.message);
         }
     };
 
@@ -130,6 +131,16 @@ export const SettingsLegal: React.FC = () => {
         }));
     };
 
+    const SaveBtn = ({ onClick }: { onClick: () => void }) => (
+        <button 
+            onClick={onClick}
+            className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-colors flex items-center justify-center shrink-0 ml-2"
+            title="Guardar Conteúdo"
+        >
+            💾
+        </button>
+    );
+
     const TabButton = ({ id, label, icon }: { id: 'faq' | 'privacy' | 'terms', label: string, icon: string }) => (
         <button 
             onClick={() => setActiveTab(id)}
@@ -162,7 +173,10 @@ export const SettingsLegal: React.FC = () => {
                         <div className="space-y-6">
                             <div className="flex justify-between items-center bg-indigo-50 p-4 rounded-xl border border-indigo-100">
                                 <div>
-                                    <h3 className="font-bold text-xl text-indigo-900">Editor de FAQ</h3>
+                                    <div className="flex items-center">
+                                        <h3 className="font-bold text-xl text-indigo-900">Editor de FAQ</h3>
+                                        <SaveBtn onClick={handleSaveFAQ} />
+                                    </div>
                                     <p className="text-xs text-indigo-500">Organize as perguntas por categorias.</p>
                                 </div>
                                 <button 
@@ -268,7 +282,10 @@ export const SettingsLegal: React.FC = () => {
                     {/* ABA: PRIVACIDADE */}
                     {activeTab === 'privacy' && (
                         <div className="space-y-4">
-                            <h3 className="font-bold text-xl text-indigo-900 mb-2">Política de Privacidade</h3>
+                            <div className="flex items-center mb-2">
+                                <h3 className="font-bold text-xl text-indigo-900">Política de Privacidade</h3>
+                                <SaveBtn onClick={() => handleSaveField('legal_privacy_policy', config.privacyPolicyContent)} />
+                            </div>
                             <p className="text-sm text-indigo-600 mb-4">Edite o conteúdo HTML da página de Política de Privacidade.</p>
                             <RichTextEditor 
                                 value={config.privacyPolicyContent || ''} 
@@ -281,7 +298,10 @@ export const SettingsLegal: React.FC = () => {
                     {/* ABA: TERMOS */}
                     {activeTab === 'terms' && (
                         <div className="space-y-4">
-                            <h3 className="font-bold text-xl text-indigo-900 mb-2">Termos de Serviço</h3>
+                            <div className="flex items-center mb-2">
+                                <h3 className="font-bold text-xl text-indigo-900">Termos de Serviço</h3>
+                                <SaveBtn onClick={() => handleSaveField('legal_terms_service', config.termsServiceContent)} />
+                            </div>
                             <p className="text-sm text-indigo-600 mb-4">Edite o conteúdo HTML da página de Termos e Condições.</p>
                             <RichTextEditor 
                                 value={config.termsServiceContent || ''} 
@@ -291,17 +311,6 @@ export const SettingsLegal: React.FC = () => {
                         </div>
                     )}
 
-                </div>
-
-                {/* FOOTER ACTIONS */}
-                <div className="pt-4 mt-4 border-t border-indigo-100 flex justify-end gap-3 shrink-0">
-                    <button 
-                        onClick={handleSave} 
-                        disabled={isSaving} 
-                        className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 shadow-lg disabled:opacity-50 transform hover:-translate-y-1 transition-all"
-                    >
-                        {isSaving ? 'A Guardar...' : '💾 Guardar Tudo'}
-                    </button>
                 </div>
             </GlassCard>
         </div>
