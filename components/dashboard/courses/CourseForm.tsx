@@ -56,7 +56,13 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
     const [loadingGallery, setLoadingGallery] = useState(false);
 
     useEffect(() => {
-        setFormData(initialData);
+        // Inicialização robusta dos novos campos
+        setFormData({
+            ...initialData,
+            min_students: initialData.min_students ?? 10,
+            referral_text: initialData.referral_text ?? '10% de desconto'
+        });
+
         if (initialData.marketing_data) {
             setMarketingData(initialData.marketing_data);
         }
@@ -372,7 +378,7 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                          </div>
                          <input 
                             type="number" 
-                            value={formData.min_students || 10} 
+                            value={formData.min_students} 
                             onChange={e => setFormData({...formData, min_students: parseInt(e.target.value) || 0})}
                             className="w-full p-2 rounded bg-white dark:bg-slate-900/50 border border-amber-200 dark:border-amber-700 outline-none text-indigo-900 dark:text-white"
                          />
@@ -384,7 +390,7 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                          </div>
                          <input 
                             type="text" 
-                            value={formData.referral_text || '10% de desconto'} 
+                            value={formData.referral_text} 
                             onChange={e => setFormData({...formData, referral_text: e.target.value})}
                             className="w-full p-2 rounded bg-white dark:bg-slate-900/50 border border-amber-200 dark:border-amber-700 outline-none text-indigo-900 dark:text-white"
                             placeholder="Ex: 10% de desconto"

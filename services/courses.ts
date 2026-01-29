@@ -18,10 +18,11 @@ export const courseService = {
             if (error) throw error;
             return data as Course[];
         } catch (error: any) {
-            // Silently fall back to base columns to avoid UI clutter
+            // Fallback robusto: Seleciona TUDO (*) para evitar erros de coluna inexistente
+            // Isto permite que a UI carregue e o Admin possa ir às Definições corrigir o SQL
             const { data } = await supabase
                 .from('courses')
-                .select(BASE_COLUMNS)
+                .select('*') 
                 .order('created_at', { ascending: false });
             return data as Course[];
         }
@@ -45,7 +46,7 @@ export const courseService = {
         } catch (error: any) {
             let fallbackQuery = supabase
                 .from('courses')
-                .select(BASE_COLUMNS)
+                .select('*') // Fallback robusto
                 .eq('is_public', true)
                 .order('created_at', { ascending: false });
             
@@ -77,12 +78,12 @@ export const courseService = {
             if (error) throw error;
             return data;
         } catch (e: any) {
-            // Fallback para query simplificada
+            // Fallback para query simplificada com wildcard no curso
             const { data } = await supabase
                 .from('enrollments')
                 .select(`
                     *,
-                    course:courses(${BASE_COLUMNS}),
+                    course:courses(*),
                     class:classes(*)
                 `)
                 .eq('user_id', userId);
@@ -198,7 +199,7 @@ export const courseService = {
                 .from('classes')
                 .select(`
                     *,
-                    course:courses(${BASE_COLUMNS}),
+                    course:courses(*),
                     my_instruction:class_instructors!inner(profile_id),
                     instructors_details:class_instructors(profile:profiles(*))
                 `)
@@ -234,7 +235,7 @@ export const courseService = {
                 .from('classes')
                 .select(`
                     *,
-                    course:courses(${BASE_COLUMNS}),
+                    course:courses(*),
                     instructors:class_instructors(profile:profiles(*))
                 `)
                 .order('name');
@@ -268,7 +269,7 @@ export const courseService = {
             const { data } = await supabase
                 .from('courses')
                 .select(`
-                    ${BASE_COLUMNS},
+                    *,
                     classes (
                         *,
                         enrollments (
