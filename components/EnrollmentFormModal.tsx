@@ -29,6 +29,9 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
     const [phone, setPhone] = useState('');
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
+    
+    // Validation State
+    const [emailError, setEmailError] = useState('');
 
     const isGeneralRequest = !course;
 
@@ -41,9 +44,36 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
         return text;
     };
 
+    const validateEmail = (val: string) => {
+        if (!val) {
+            setEmailError('');
+            return false;
+        }
+        // Regex flexível para Google e Microsoft (qualquer TLD: .com, .pt, .com.br, etc.)
+        const allowedPattern = /@(gmail|googlemail|outlook|hotmail|live|msn)\.[a-z0-9.]+$/i;
+        
+        if (!allowedPattern.test(val)) {
+            setEmailError('Apenas permitimos contas Google (Gmail) ou Microsoft (Outlook, Hotmail).');
+            return false;
+        }
+        setEmailError('');
+        return true;
+    };
+
+    const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setEmail(val);
+        if (emailError) validateEmail(val);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
+        // Final Validation Check
+        if (!validateEmail(email)) {
+            return;
+        }
+
         if (!name.trim() || !email.trim()) {
             alert('Por favor preencha o nome e o email.');
             return;
@@ -179,10 +209,18 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
                                 type="email" 
                                 required
                                 value={email}
-                                onChange={e => setEmail(e.target.value)}
-                                className="w-full p-3 rounded-xl bg-gray-50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white"
-                                placeholder="seu@email.com"
+                                onChange={handleEmailChange}
+                                onBlur={() => validateEmail(email)}
+                                className={`w-full p-3 rounded-xl bg-gray-50 dark:bg-slate-800 border ${emailError ? 'border-red-500 focus:ring-red-500' : 'border-indigo-100 dark:border-slate-700 focus:ring-indigo-400'} focus:ring-2 outline-none text-indigo-900 dark:text-white`}
+                                placeholder="seu@gmail.com ou hotmail.com"
                             />
+                            {emailError ? (
+                                <p className="text-xs text-red-500 mt-1 font-bold animate-pulse">{emailError}</p>
+                            ) : (
+                                <p className="text-[10px] text-indigo-500 dark:text-indigo-400 mt-1 leading-tight">
+                                    ⚠️ Apenas contas <b>Google</b> ou <b>Microsoft</b> são permitidas para garantir a autenticação segura.
+                                </p>
+                            )}
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 uppercase mb-1">Telefone (Opcional)</label>
@@ -216,8 +254,8 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
                         </button>
                         <button 
                             type="submit" 
-                            disabled={loading}
-                            className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg flex items-center justify-center gap-2 disabled:opacity-70 transition-all"
+                            disabled={loading || !!emailError}
+                            className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                         >
                             {loading ? (
                                 <>
