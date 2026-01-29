@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { GlassCard } from '../../GlassCard';
 import { Profile, ProfileVisibility } from '../../../types';
@@ -9,10 +10,11 @@ interface Props {
     visibility: ProfileVisibility;
     isEditing: boolean;
     onUpdate: (field: string, value: string) => void;
+    onSaveField: (field: string) => void;
     onToggleVisibility: (field: string, value: boolean) => void;
 }
 
-export const ProfilePersonalInfo: React.FC<Props> = ({ user, formData, visibility, isEditing, onUpdate, onToggleVisibility }) => {
+export const ProfilePersonalInfo: React.FC<Props> = ({ user, formData, visibility, isEditing, onUpdate, onSaveField, onToggleVisibility }) => {
     
     const VisibilityToggle = ({ field }: { field: string }) => (
         <div className="flex items-center gap-2 mt-1 justify-end md:justify-start">
@@ -29,6 +31,16 @@ export const ProfilePersonalInfo: React.FC<Props> = ({ user, formData, visibilit
         </div>
     );
 
+    const SaveButton = ({ field }: { field: string }) => (
+        <button 
+            onClick={() => onSaveField(field)}
+            className="p-2 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-colors flex items-center justify-center"
+            title="Guardar Campo"
+        >
+            💾
+        </button>
+    );
+
     return (
         <GlassCard className="flex flex-col h-full">
             <h3 className="text-lg font-bold text-indigo-900 dark:text-white mb-4 border-b border-indigo-100 dark:border-slate-700 pb-2">Informação Pessoal</h3>
@@ -38,12 +50,15 @@ export const ProfilePersonalInfo: React.FC<Props> = ({ user, formData, visibilit
                 <div>
                     <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 uppercase mb-1">Nome Completo</label>
                     {isEditing ? (
-                        <input 
-                            type="text" 
-                            value={formData.full_name || ''} 
-                            onChange={e => onUpdate('full_name', e.target.value)}
-                            className="w-full p-2 bg-white/50 dark:bg-slate-800/50 border border-indigo-200 dark:border-slate-600 rounded focus:ring-2 focus:ring-indigo-400 outline-none font-medium text-indigo-900 dark:text-white dark:placeholder-slate-500"
-                        />
+                        <div className="flex gap-2">
+                            <input 
+                                type="text" 
+                                value={formData.full_name || ''} 
+                                onChange={e => onUpdate('full_name', e.target.value)}
+                                className="w-full p-2 bg-white/50 dark:bg-slate-800/50 border border-indigo-200 dark:border-slate-600 rounded focus:ring-2 focus:ring-indigo-400 outline-none font-medium text-indigo-900 dark:text-white dark:placeholder-slate-500"
+                            />
+                            <SaveButton field="full_name" />
+                        </div>
                     ) : (
                         <p className="text-indigo-900 dark:text-indigo-100 font-medium border-b border-white/20 dark:border-white/10 pb-1">{user.full_name}</p>
                     )}
@@ -54,12 +69,15 @@ export const ProfilePersonalInfo: React.FC<Props> = ({ user, formData, visibilit
                     <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 uppercase mb-1">Data de Nascimento</label>
                     {isEditing ? (
                         <div className="space-y-1">
-                            <input 
-                                type="date" 
-                                value={formData.birth_date || ''} 
-                                onChange={e => onUpdate('birth_date', e.target.value)}
-                                className="w-full p-2 bg-white/50 dark:bg-slate-800/50 border border-indigo-200 dark:border-slate-600 rounded focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white"
-                            />
+                            <div className="flex gap-2">
+                                <input 
+                                    type="date" 
+                                    value={formData.birth_date || ''} 
+                                    onChange={e => onUpdate('birth_date', e.target.value)}
+                                    className="w-full p-2 bg-white/50 dark:bg-slate-800/50 border border-indigo-200 dark:border-slate-600 rounded focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white"
+                                />
+                                <SaveButton field="birth_date" />
+                            </div>
                             <VisibilityToggle field="birth_date" />
                         </div>
                     ) : (
@@ -72,13 +90,16 @@ export const ProfilePersonalInfo: React.FC<Props> = ({ user, formData, visibilit
                     <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 uppercase mb-1">Localidade / Cidade</label>
                     {isEditing ? (
                         <div className="space-y-1">
-                            <input 
-                                type="text" 
-                                value={formData.city || ''} 
-                                onChange={e => onUpdate('city', e.target.value)}
-                                placeholder="Ex: Lisboa"
-                                className="w-full p-2 bg-white/50 dark:bg-slate-800/50 border border-indigo-200 dark:border-slate-600 rounded focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white dark:placeholder-slate-500"
-                            />
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={formData.city || ''} 
+                                    onChange={e => onUpdate('city', e.target.value)}
+                                    placeholder="Ex: Lisboa"
+                                    className="w-full p-2 bg-white/50 dark:bg-slate-800/50 border border-indigo-200 dark:border-slate-600 rounded focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white dark:placeholder-slate-500"
+                                />
+                                <SaveButton field="city" />
+                            </div>
                             <VisibilityToggle field="city" />
                         </div>
                     ) : (

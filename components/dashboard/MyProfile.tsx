@@ -66,6 +66,32 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
       setVisibility(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleSaveField = async (field: string) => {
+      const value = formData[field as keyof Profile];
+      try {
+          // Lógica especial para renomear pasta no Drive se o nome mudar
+          if (field === 'full_name' && value && value !== user.full_name && user.personal_folder_id) {
+               try {
+                   let newFolderName = value as string;
+                   if (user.role === 'formador') {
+                       newFolderName = `[Formador] ${newFolderName}`;
+                   }
+                   await driveService.renameFolder(user.personal_folder_id, newFolderName);
+               } catch (driveErr) {
+                   console.warn("Aviso Drive:", driveErr);
+               }
+          }
+
+          // Atualizar apenas o campo específico
+          await userService.updateProfile(user.id, { [field]: value });
+          
+          refreshProfile(); 
+          alert("Campo guardado com sucesso!");
+      } catch (e: any) {
+          alert("Erro ao guardar: " + e.message);
+      }
+  };
+
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
@@ -180,6 +206,7 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
               visibility={visibility}
               isEditing={isEditing}
               onUpdate={handleUpdateField}
+              onSaveField={handleSaveField}
               onToggleVisibility={handleToggleVisibility}
           />
 
@@ -189,6 +216,7 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
               visibility={visibility}
               isEditing={isEditing}
               onUpdate={handleUpdateField}
+              onSaveField={handleSaveField}
               onToggleVisibility={handleToggleVisibility}
           />
       </div>
@@ -200,6 +228,7 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
           visibility={visibility}
           isEditing={isEditing}
           onUpdate={(val) => handleUpdateField('bio', val)}
+          onSaveField={handleSaveField}
           onToggleVisibility={handleToggleVisibility}
       />
 

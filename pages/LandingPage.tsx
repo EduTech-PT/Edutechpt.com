@@ -165,7 +165,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       const ytMatch = url.match(ytRegExp);
       if (ytMatch && ytMatch[2].length === 11) {
           const videoId = ytMatch[2];
-          // Autoplay (Muted for browser policy), Loop (requires playlist=VIDEO_ID)
+          // Autoplay=1: Inicia automaticamente
+          // Mute=1: Sem som (obrigatório para autoplay na maioria dos browsers)
+          // Loop=1: Repete o vídeo
+          // Playlist=VIDEO_ID: Necessário para o loop funcionar em vídeos únicos no YouTube
           return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}`;
       }
 

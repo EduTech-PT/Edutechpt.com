@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { GlassCard } from '../../GlassCard';
 import { Profile, ProfileVisibility } from '../../../types';
@@ -8,10 +9,11 @@ interface Props {
     visibility: ProfileVisibility;
     isEditing: boolean;
     onUpdate: (field: string, value: string) => void;
+    onSaveField: (field: string) => void;
     onToggleVisibility: (field: string, value: boolean) => void;
 }
 
-export const ProfileContacts: React.FC<Props> = ({ user, formData, visibility, isEditing, onUpdate, onToggleVisibility }) => {
+export const ProfileContacts: React.FC<Props> = ({ user, formData, visibility, isEditing, onUpdate, onSaveField, onToggleVisibility }) => {
 
     const VisibilityToggle = ({ field }: { field: string }) => (
         <div className="flex items-center gap-2 mt-1 justify-end md:justify-start">
@@ -28,6 +30,16 @@ export const ProfileContacts: React.FC<Props> = ({ user, formData, visibility, i
         </div>
     );
 
+    const SaveButton = ({ field }: { field: string }) => (
+        <button 
+            onClick={() => onSaveField(field)}
+            className="p-2 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-colors flex items-center justify-center shrink-0"
+            title="Guardar Campo"
+        >
+            💾
+        </button>
+    );
+
     const renderSocialField = (key: keyof Profile, label: string, placeholder: string, icon: string) => (
         <div className="flex-1 min-w-[200px]">
             <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 uppercase mb-1 flex items-center gap-1">
@@ -35,13 +47,16 @@ export const ProfileContacts: React.FC<Props> = ({ user, formData, visibility, i
             </label>
             {isEditing ? (
                 <div className="space-y-1">
-                    <input 
-                        type="url" 
-                        value={formData[key] as string || ''} 
-                        onChange={e => onUpdate(key, e.target.value)}
-                        placeholder={placeholder}
-                        className="w-full p-2 bg-white/50 dark:bg-slate-800/50 border border-indigo-200 dark:border-slate-600 rounded focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white dark:placeholder-slate-500 text-sm"
-                    />
+                    <div className="flex gap-2">
+                        <input 
+                            type="url" 
+                            value={formData[key] as string || ''} 
+                            onChange={e => onUpdate(key, e.target.value)}
+                            placeholder={placeholder}
+                            className="w-full p-2 bg-white/50 dark:bg-slate-800/50 border border-indigo-200 dark:border-slate-600 rounded focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white dark:placeholder-slate-500 text-sm"
+                        />
+                        <SaveButton field={key} />
+                    </div>
                     <VisibilityToggle field={key} />
                 </div>
             ) : (
@@ -64,13 +79,16 @@ export const ProfileContacts: React.FC<Props> = ({ user, formData, visibility, i
                     <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 uppercase mb-1">Email Pessoal</label>
                     {isEditing ? (
                         <div className="space-y-1">
-                            <input 
-                                type="email" 
-                                value={formData.personal_email || ''} 
-                                onChange={e => onUpdate('personal_email', e.target.value)}
-                                placeholder="email@exemplo.com"
-                                className="w-full p-2 bg-white/50 dark:bg-slate-800/50 border border-indigo-200 dark:border-slate-600 rounded focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white dark:placeholder-slate-500"
-                            />
+                            <div className="flex gap-2">
+                                <input 
+                                    type="email" 
+                                    value={formData.personal_email || ''} 
+                                    onChange={e => onUpdate('personal_email', e.target.value)}
+                                    placeholder="email@exemplo.com"
+                                    className="w-full p-2 bg-white/50 dark:bg-slate-800/50 border border-indigo-200 dark:border-slate-600 rounded focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white dark:placeholder-slate-500"
+                                />
+                                <SaveButton field="personal_email" />
+                            </div>
                             <VisibilityToggle field="personal_email" />
                         </div>
                     ) : (
@@ -83,12 +101,15 @@ export const ProfileContacts: React.FC<Props> = ({ user, formData, visibility, i
                     <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 uppercase mb-1">Telefone / Telemóvel</label>
                     {isEditing ? (
                         <div className="space-y-1">
-                            <input 
-                                type="tel" 
-                                value={formData.phone || ''} 
-                                onChange={e => onUpdate('phone', e.target.value)}
-                                className="w-full p-2 bg-white/50 dark:bg-slate-800/50 border border-indigo-200 dark:border-slate-600 rounded focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white dark:placeholder-slate-500"
-                            />
+                            <div className="flex gap-2">
+                                <input 
+                                    type="tel" 
+                                    value={formData.phone || ''} 
+                                    onChange={e => onUpdate('phone', e.target.value)}
+                                    className="w-full p-2 bg-white/50 dark:bg-slate-800/50 border border-indigo-200 dark:border-slate-600 rounded focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white dark:placeholder-slate-500"
+                                />
+                                <SaveButton field="phone" />
+                            </div>
                             <VisibilityToggle field="phone" />
                         </div>
                     ) : (
