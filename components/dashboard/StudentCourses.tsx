@@ -4,7 +4,6 @@ import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
 import { adminService } from '../../services/admin';
 import { Profile, Course, UserRole } from '../../types';
-import { formatShortDate } from '../../utils/formatters';
 import { CourseDetailModal } from '../CourseDetailModal';
 
 interface Props {
@@ -17,7 +16,7 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
   const [publicCourses, setPublicCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Config state for emails
+  // Config state for emails (Default robusto)
   const [emailConfig, setEmailConfig] = useState({
       to: 'inscricao@edutechpt.com',
       subject: 'Inscrição no Curso: {nome_curso}',
@@ -33,12 +32,13 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
         try {
             // Load App Config for Emails
             const config = await adminService.getAppConfig();
-            setEmailConfig({
-                to: config.enrollmentEmailTo || 'inscricao@edutechpt.com',
-                subject: config.enrollmentSubject || 'Inscrição no Curso: {nome_curso}',
-                // Adicionado ID por omissão
-                body: config.enrollmentBody || 'Olá,\n\nGostaria de me inscrever no curso "{nome_curso}" (Ref: {id_curso}).\n\nNome: {nome_aluno}\nEmail: {email_aluno}'
-            });
+            
+            // Atualiza apenas se existirem valores na config, senão mantém o default
+            setEmailConfig(prev => ({
+                to: config.enrollmentEmailTo || prev.to,
+                subject: config.enrollmentSubject || prev.subject,
+                body: config.enrollmentBody || prev.body
+            }));
 
             if (profile.role === UserRole.ADMIN) {
                 const allClasses = await courseService.getAllClassesWithDetails();
@@ -55,7 +55,10 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                 const myCourses = await courseService.getStudentEnrollments(profile.id);
                 setEnrollments(myCourses || []);
             }
-        } catch (err) { console.error(err); setEnrollments([]); }
+        } catch (err) { 
+            console.error("Erro ao carregar dados:", err); 
+            // Fallback em caso de erro na config, mantém defaults
+        }
 
         try {
             const allPublic = await courseService.getPublicCourses();
@@ -104,25 +107,33 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
           else alert("Erro: Navegação indisponível.");
           setSelectedCourse(null);
       } else {
-          // --- NOVA LÓGICA DE EMAIL CONFIGURÁVEL ---
-          const replacements = {
-              '{nome_curso}': selectedCourse.title,
-              '{nome_aluno}': profile.full_name || '',
-              '{email_aluno}': profile.email,
-              '{id_curso}': selectedCourse.id.split('-')[0] // Short ID (First segment of UUID)
+          // --- NOVA LÓGICA DE EMAIL CONFIGURÁVEL (ROBUSTA) ---
+          const replacements: Record<string, string> = {
+              '{nome_curso}': selectedCourse.title || 'Curso',
+              '{nome_aluno}': profile.full_name || 'Aluno',
+              '{email_aluno}': profile.email || '',
+              '{id_curso}': (selectedCourse.id || '').split('-')[0] // Short ID
           };
 
-          let finalSubject = emailConfig.subject;
-          let finalBody = emailConfig.body;
+          let finalSubject = emailConfig.subject || "Inscrição";
+          let finalBody = emailConfig.body || "";
+
+          // Se o corpo estiver vazio (erro de config), usa um fallback seguro
+          if (!finalBody.trim()) {
+              finalBody = 'Olá,\n\nGostaria de me inscrever no curso "{nome_curso}" (Ref: {id_curso}).';
+          }
 
           // Apply replacements
           Object.entries(replacements).forEach(([key, value]) => {
-              // Replace all occurrences
+              // Replace all occurrences using split/join pattern for safety
               finalSubject = finalSubject.split(key).join(value);
               finalBody = finalBody.split(key).join(value);
           });
 
-          window.location.href = `mailto:${emailConfig.to}?subject=${encodeURIComponent(finalSubject)}&body=${encodeURIComponent(finalBody)}`;
+          // Create Mailto
+          const mailtoLink = `mailto:${emailConfig.to}?subject=${encodeURIComponent(finalSubject)}&body=${encodeURIComponent(finalBody)}`;
+          window.location.href = mailtoLink;
+          
           setSelectedCourse(null);
       }
   };
