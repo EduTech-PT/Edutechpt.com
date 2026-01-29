@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../../GlassCard';
 import { adminService } from '../../../services/admin';
@@ -114,8 +113,8 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
 
     const checkRealVersion = async (url: string) => {
         setRemoteGasVersion('checking');
-        const version = await driveService.checkScriptVersion(url);
-        setRemoteGasVersion(version);
+        const health = await driveService.checkScriptVersion(url);
+        setRemoteGasVersion(health.version);
     };
 
     const handleSaveField = async (key: string, value: string) => {
@@ -374,8 +373,6 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                 </div>
             </div>
 
-            {/* Listas Complexas mantêm o botão de guardar global por serem arrays */}
-            
             {/* LANDING PAGE - HOW IT WORKS */}
             <div className="border-t border-indigo-100 dark:border-white/10 pt-6">
                 <div className="flex justify-between items-center mb-4">
@@ -455,6 +452,41 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                         </div>
                     ))}
                     {videos.length === 0 && <p className="text-sm text-gray-400 italic text-center">Nenhum vídeo configurado.</p>}
+                </div>
+            </div>
+
+            {/* LANDING PAGE - CTA FINAL */}
+            <div className="border-t border-indigo-100 dark:border-white/10 pt-6">
+                <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4 flex items-center gap-2">
+                    <span>📣</span> Landing Page: Chamada para Ação (Final)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-indigo-50 dark:bg-slate-800/30 p-4 rounded-xl border border-indigo-100 dark:border-slate-700">
+                    <div>
+                        <div className="flex justify-between items-center mb-1">
+                            <label className="text-sm font-bold text-indigo-800 dark:text-indigo-200">Título Principal</label>
+                            <SaveBtn onClick={() => handleSaveField('landing_cta_title', config.landingCtaTitle)} />
+                        </div>
+                        <input 
+                            type="text" 
+                            value={config.landingCtaTitle || ''} 
+                            onChange={e => setConfig({...config, landingCtaTitle: e.target.value})} 
+                            className="w-full p-2 rounded bg-white dark:bg-slate-900/50 border border-indigo-200 dark:border-slate-600 text-indigo-900 dark:text-white"
+                            placeholder="Já faz parte da comunidade?"
+                        />
+                    </div>
+                    <div>
+                        <div className="flex justify-between items-center mb-1">
+                            <label className="text-sm font-bold text-indigo-800 dark:text-indigo-200">Texto Secundário</label>
+                            <SaveBtn onClick={() => handleSaveField('landing_cta_text', config.landingCtaText)} />
+                        </div>
+                        <input 
+                            type="text" 
+                            value={config.landingCtaText || ''} 
+                            onChange={e => setConfig({...config, landingCtaText: e.target.value})} 
+                            className="w-full p-2 rounded bg-white dark:bg-slate-900/50 border border-indigo-200 dark:border-slate-600 text-indigo-900 dark:text-white"
+                            placeholder="Aceda à sua área pessoal para continuar a evoluir."
+                        />
+                    </div>
                 </div>
             </div>
 

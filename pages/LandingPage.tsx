@@ -60,6 +60,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [videos, setVideos] = useState<LandingVideo[]>([]);
   
+  // CTA Content State
+  const [ctaTitle, setCtaTitle] = useState('Já faz parte da comunidade?');
+  const [ctaText, setCtaText] = useState('Aceda à sua área pessoal para continuar a evoluir.');
+  
   // Config específica para INSCRIÇÃO
   const [enrollmentConfig, setEnrollmentConfig] = useState({
       to: 'edutechpt@hotmail.com',
@@ -107,6 +111,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                   if (Array.isArray(parsed)) setVideos(parsed);
               } catch (e) { console.warn("Erro parsing videos", e); }
           }
+          
+          if (configResult.landingCtaTitle) setCtaTitle(configResult.landingCtaTitle);
+          if (configResult.landingCtaText) setCtaText(configResult.landingCtaText);
       }
     } catch (err) { console.error('Unexpected error:', err); } 
     finally { setLoading(false); }
@@ -396,8 +403,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       {/* FINAL CTA SECTION */}
       <div className="py-20 px-4 relative z-10">
           <GlassCard className="max-w-5xl mx-auto text-center py-16 bg-gradient-to-r from-indigo-600/90 to-purple-600/90 border-0 shadow-2xl">
-              <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">Já faz parte da comunidade?</h2>
-              <p className="text-indigo-100 text-lg max-w-2xl mx-auto mb-10 leading-relaxed">Aceda à sua área pessoal para continuar a evoluir.</p>
+              <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">{ctaTitle}</h2>
+              <p className="text-indigo-100 text-lg max-w-2xl mx-auto mb-10 leading-relaxed">{ctaText}</p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                   <button onClick={onLoginClick} className="px-10 py-4 bg-white text-indigo-700 rounded-xl font-bold text-lg hover:bg-indigo-50 transition-all shadow-lg transform hover:-translate-y-1 min-w-[250px]">Entrar na Plataforma</button>
                   <button onClick={handleRequestAccess} className="px-10 py-4 bg-transparent border-2 border-white text-white rounded-xl font-bold text-lg hover:bg-white/10 transition-all shadow-lg transform hover:-translate-y-1 min-w-[250px]">Solicitar Acesso</button>
