@@ -239,9 +239,22 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
                                 )}
                             </div>
                         )}
+
+                        {/* 5. MANUAL HTML DESCRIPTION (Edição Avançada) - VISÍVEL SEMPRE QUE EXISTIR CONTEÚDO */}
+                        {course.description && (
+                            <div className="bg-white/50 dark:bg-slate-800/50 p-6 rounded-2xl border border-indigo-100 dark:border-slate-700 mt-6">
+                                <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4 flex items-center gap-2">
+                                    <span>📝</span> Mais Detalhes
+                                </h3>
+                                <div 
+                                    className="prose prose-indigo dark:prose-invert prose-lg max-w-none text-indigo-900 dark:text-indigo-100 leading-relaxed"
+                                    dangerouslySetInnerHTML={{ __html: course.description }}
+                                />
+                            </div>
+                        )}
                     </>
                 ) : (
-                    /* Legacy Description */
+                    /* Legacy Description (Fallback se não houver Marketing Data) */
                     <div className="bg-white/50 dark:bg-slate-800/50 p-6 rounded-2xl border border-indigo-100 dark:border-slate-700">
                         <div 
                             className="prose prose-indigo dark:prose-invert prose-lg max-w-none text-indigo-900 dark:text-indigo-100 leading-relaxed"
