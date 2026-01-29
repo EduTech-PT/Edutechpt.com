@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { Course } from '../types';
 import { adminService } from '../services/admin';
@@ -70,10 +70,54 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       subject: '',
       body: ''
   });
+
+  // --- CAROUSEL STATE ---
+  const [currentTestimonialIndex, setCurrentTestimonialIndex] = useState(0);
+  const [itemsPerScreen, setItemsPerScreen] = useState(1);
+  const [isCarouselPaused, setIsCarouselPaused] = useState(false);
+  const autoPlayRef = useRef<any>(null);
   
   useEffect(() => {
     fetchData();
+    
+    // Responsive handler for Carousel
+    const handleResize = () => {
+        if (window.innerWidth >= 1024) setItemsPerScreen(3);
+        else if (window.innerWidth >= 768) setItemsPerScreen(2);
+        else setItemsPerScreen(1);
+    };
+    
+    handleResize(); // Initial check
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // --- CAROUSEL AUTO PLAY ---
+  useEffect(() => {
+      if (testimonials.length === 0 || isCarouselPaused) return;
+
+      const maxIndex = Math.max(0, testimonials.length - itemsPerScreen);
+      
+      autoPlayRef.current = setInterval(() => {
+          setCurrentTestimonialIndex(prev => {
+              // Se chegamos ao fim, volta ao início (loop)
+              if (prev >= maxIndex) return 0;
+              return prev + 1;
+          });
+      }, 5000); // 5 Segundos
+
+      return () => clearInterval(autoPlayRef.current);
+  }, [testimonials.length, itemsPerScreen, isCarouselPaused]);
+
+  const nextTestimonial = () => {
+      const maxIndex = Math.max(0, testimonials.length - itemsPerScreen);
+      setCurrentTestimonialIndex(prev => (prev >= maxIndex ? 0 : prev + 1));
+  };
+
+  const prevTestimonial = () => {
+      const maxIndex = Math.max(0, testimonials.length - itemsPerScreen);
+      setCurrentTestimonialIndex(prev => (prev <= 0 ? maxIndex : prev - 1));
+  };
 
   const fetchData = async () => {
     try {
@@ -316,33 +360,74 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
         )}
       </div>
 
-      {/* TESTIMONIALS & VIDEOS ... */}
+      {/* TESTIMONIALS (CAROUSEL) */}
       {testimonials.length > 0 && (
           <div className="py-16 bg-white/20 dark:bg-black/20 backdrop-blur-md border-y border-white/30 dark:border-white/10 relative z-10">
               <div className="max-w-7xl mx-auto px-4">
-                  <h2 className="text-3xl font-bold text-indigo-900 dark:text-white mb-12 text-center">O Que Dizem os Alunos</h2>
-                  <div className="flex gap-6 overflow-x-auto pb-8 snap-x snap-mandatory custom-scrollbar">
-                      {testimonials.map((test) => (
-                          <div key={test.id} className="min-w-[300px] md:min-w-[400px] snap-center">
-                              <GlassCard className="h-full flex flex-col p-6 border border-white/50 dark:border-white/10 bg-white/40 dark:bg-slate-800/40">
-                                  <div className="flex items-center gap-4 mb-4">
-                                      <div className="w-12 h-12 rounded-full bg-indigo-200 dark:bg-slate-700 overflow-hidden border-2 border-white dark:border-slate-500 shadow-sm shrink-0">
-                                          {test.avatar_url ? (
-                                              <img src={test.avatar_url} alt="" className="w-full h-full object-cover" />
-                                          ) : (
-                                              <div className="w-full h-full flex items-center justify-center text-indigo-600 dark:text-indigo-300 font-bold text-lg">{test.name?.[0]}</div>
-                                          )}
+                  <div className="flex justify-between items-center mb-12">
+                      <h2 className="text-3xl font-bold text-indigo-900 dark:text-white">O Que Dizem os Alunos</h2>
+                      
+                      {/* Navigation Arrows (Desktop) */}
+                      <div className="hidden md:flex gap-2">
+                          <button onClick={prevTestimonial} className="p-3 bg-white/50 dark:bg-slate-700/50 hover:bg-white dark:hover:bg-slate-600 rounded-full text-indigo-900 dark:text-white shadow-sm transition-all border border-indigo-100 dark:border-slate-600">
+                              ←
+                          </button>
+                          <button onClick={nextTestimonial} className="p-3 bg-white/50 dark:bg-slate-700/50 hover:bg-white dark:hover:bg-slate-600 rounded-full text-indigo-900 dark:text-white shadow-sm transition-all border border-indigo-100 dark:border-slate-600">
+                              →
+                          </button>
+                      </div>
+                  </div>
+
+                  <div 
+                    className="relative overflow-hidden group"
+                    onMouseEnter={() => setIsCarouselPaused(true)}
+                    onMouseLeave={() => setIsCarouselPaused(false)}
+                  >
+                      {/* Navigation Arrows (Mobile Overlay) */}
+                      <button onClick={prevTestimonial} className="md:hidden absolute left-0 top-1/2 -translate-y-1/2 z-20 p-2 bg-white/80 dark:bg-slate-800/80 rounded-r-lg shadow-lg text-indigo-900 dark:text-white">←</button>
+                      <button onClick={nextTestimonial} className="md:hidden absolute right-0 top-1/2 -translate-y-1/2 z-20 p-2 bg-white/80 dark:bg-slate-800/80 rounded-l-lg shadow-lg text-indigo-900 dark:text-white">→</button>
+
+                      <div 
+                        className="flex transition-transform duration-500 ease-in-out"
+                        style={{ transform: `translateX(-${currentTestimonialIndex * (100 / itemsPerScreen)}%)` }}
+                      >
+                          {testimonials.map((test) => (
+                              <div 
+                                key={test.id} 
+                                className="flex-shrink-0 px-3 w-full md:w-1/2 lg:w-1/3"
+                                style={{ flexBasis: `${100 / itemsPerScreen}%` }}
+                              >
+                                  <GlassCard className="h-full flex flex-col p-6 border border-white/50 dark:border-white/10 bg-white/40 dark:bg-slate-800/40 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-colors">
+                                      <div className="flex items-center gap-4 mb-4">
+                                          <div className="w-12 h-12 rounded-full bg-indigo-200 dark:bg-slate-700 overflow-hidden border-2 border-white dark:border-slate-500 shadow-sm shrink-0">
+                                              {test.avatar_url ? (
+                                                  <img src={test.avatar_url} alt="" className="w-full h-full object-cover" />
+                                              ) : (
+                                                  <div className="w-full h-full flex items-center justify-center text-indigo-600 dark:text-indigo-300 font-bold text-lg">{test.name?.[0]}</div>
+                                              )}
+                                          </div>
+                                          <div>
+                                              <div className="font-bold text-indigo-900 dark:text-white">{test.name}</div>
+                                              <div className="text-xs text-indigo-500 dark:text-indigo-300 font-bold uppercase">{test.role}</div>
+                                          </div>
                                       </div>
-                                      <div>
-                                          <div className="font-bold text-indigo-900 dark:text-white">{test.name}</div>
-                                          <div className="text-xs text-indigo-500 dark:text-indigo-300 font-bold uppercase">{test.role}</div>
+                                      <div className="text-indigo-800 dark:text-indigo-200 text-sm leading-relaxed italic opacity-90">
+                                          "{test.text}"
                                       </div>
-                                  </div>
-                                  <div className="text-indigo-800 dark:text-indigo-200 text-sm leading-relaxed italic opacity-90">
-                                      "{test.text}"
-                                  </div>
-                              </GlassCard>
-                          </div>
+                                  </GlassCard>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+
+                  {/* Pagination Dots */}
+                  <div className="flex justify-center gap-2 mt-8">
+                      {Array.from({ length: Math.ceil(testimonials.length - itemsPerScreen + 1) }).map((_, idx) => (
+                          <button 
+                            key={idx}
+                            onClick={() => setCurrentTestimonialIndex(idx)}
+                            className={`w-2.5 h-2.5 rounded-full transition-all ${idx === currentTestimonialIndex ? 'bg-indigo-600 w-6' : 'bg-indigo-300 dark:bg-slate-600 hover:bg-indigo-400'}`}
+                          />
                       ))}
                   </div>
               </div>
