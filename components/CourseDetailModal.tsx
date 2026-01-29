@@ -306,6 +306,32 @@ export const CourseDetailModal: React.FC<CourseDetailModalProps> = ({
                     </div>
                 )}
 
+                {/* FOOTER NOTICE - START CONDITIONS */}
+                <div className="mt-8 p-4 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800 shadow-sm">
+                    <div className="flex flex-col md:flex-row gap-6 items-center justify-center text-center md:text-left">
+                        {/* Minimum Quota */}
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl p-2 bg-white/50 dark:bg-black/20 rounded-lg">👥</span>
+                            <div>
+                                <h4 className="font-bold text-amber-900 dark:text-amber-100 text-sm uppercase tracking-wide">Turma Mínima</h4>
+                                <p className="text-xs text-amber-800 dark:text-amber-200">O curso inicia apenas com o mínimo de <strong>10 alunos</strong>.</p>
+                            </div>
+                        </div>
+                        
+                        {/* Divider */}
+                        <div className="hidden md:block w-px h-10 bg-amber-300/30 dark:bg-amber-700"></div>
+                        
+                        {/* Referral */}
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl p-2 bg-white/50 dark:bg-black/20 rounded-lg">🎟️</span>
+                            <div>
+                                <h4 className="font-bold text-amber-900 dark:text-amber-100 text-sm uppercase tracking-wide">Desconto de Amigo</h4>
+                                <p className="text-xs text-amber-800 dark:text-amber-200">Recomende o curso a 4 amigos e ganhe <strong>10% de desconto</strong>!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Footer Metadata (Small) */}
                 <div className="flex flex-wrap justify-center gap-6 text-xs text-indigo-400 dark:text-slate-500 font-mono pt-4">
                     <span>ID: {course.id.slice(0,8)}</span>
