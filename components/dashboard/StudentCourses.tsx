@@ -108,7 +108,7 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
               '{nome_curso}': selectedCourse.title,
               '{nome_aluno}': profile.full_name || '',
               '{email_aluno}': profile.email,
-              '{id_curso}': selectedCourse.id
+              '{id_curso}': selectedCourse.id.split('-')[0] // Short ID (First segment of UUID)
           };
 
           let finalSubject = emailConfig.subject;

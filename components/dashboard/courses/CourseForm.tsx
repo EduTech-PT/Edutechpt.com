@@ -211,7 +211,9 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
 
     const handleCopyId = () => {
         if (initialData.id) {
-            navigator.clipboard.writeText(initialData.id);
+            // Copia apenas a primeira parte do UUID (ID Curto)
+            const shortId = initialData.id.split('-')[0];
+            navigator.clipboard.writeText(shortId);
             alert('ID do curso copiado!');
         }
     };
@@ -238,7 +240,7 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                  <div className="flex flex-col">
                      <span className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400">ID do Curso</span>
                      <span className="font-mono text-sm text-indigo-900 dark:text-indigo-200 font-bold select-all">
-                         {initialData.id || '(Gerado automaticamente ao guardar)'}
+                         {initialData.id ? initialData.id.split('-')[0] : '(Gerado automaticamente ao guardar)'}
                      </span>
                  </div>
                  {initialData.id && (
@@ -493,7 +495,7 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                      <MarketingInput label="6. Prova Social" help="Testemunhos." value={marketingData.social} onChange={v => setMarketingData({...marketingData, social: v})} onSave={() => handleSaveMarketingField('social', marketingData.social)} showSave={isEditing} multiline />
                      <MarketingInput label="7. Autoridade" help="Sobre o formador." value={marketingData.authority} onChange={v => setMarketingData({...marketingData, authority: v})} onSave={() => handleSaveMarketingField('authority', marketingData.authority)} showSave={isEditing} />
                      <MarketingInput label="8. Garantia" help="Risco zero." value={marketingData.guarantee} onChange={v => setMarketingData({...marketingData, guarantee: v})} onSave={() => handleSaveMarketingField('guarantee', marketingData.guarantee)} showSave={isEditing} />
-                     <MarketingInput label="9. Bónus" help="Materiais extra." value={marketingData.bonuses} onChange={v => setMarketingData({...marketingData, bonuses: v})} onSave={() => handleSaveMarketingField('bonuses', marketingData.bonuses)} showSave={isEditing} />
+                     <MarketingInput label="9. Bónus" help="Materiais extra." value={marketingData.bonuses} onChange={v => setMarketingData({...marketingData, bonuses: v})} onSave={() => handleSaveMarketingField('bonuses', marketingData.bonuses)} showSave={isEditing} multiline />
                      <MarketingInput label="10. CTA" help="Texto do botão." value={marketingData.cta} onChange={v => setMarketingData({...marketingData, cta: v})} onSave={() => handleSaveMarketingField('cta', marketingData.cta)} showSave={isEditing} />
                  </div>
              </div>
