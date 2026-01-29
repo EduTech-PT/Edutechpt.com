@@ -2,15 +2,17 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../../GlassCard';
 import { adminService } from '../../../services/admin';
-import { driveService, GAS_TEMPLATE_CODE, GAS_VERSION } from '../../../services/drive';
+import { driveService, GAS_TEMPLATE_CODE, GAS_VERSION, GAS_MANIFEST_JSON } from '../../../services/drive';
 
 export const SettingsDrive: React.FC = () => {
     const [config, setConfig] = useState<any>({});
-    const [isSaving, setIsSaving] = useState(false);
     const [loading, setLoading] = useState(true);
     const [copyFeedback, setCopyFeedback] = useState('');
     const [testStatus, setTestStatus] = useState<{success: boolean, msg: string} | null>(null);
     const [remoteVersion, setRemoteVersion] = useState<string>('checking');
+    
+    // UI State
+    const [activeTab, setActiveTab] = useState<'code' | 'manifest'>('code');
 
     useEffect(() => {
         loadConfig();
@@ -39,7 +41,8 @@ export const SettingsDrive: React.FC = () => {
     };
 
     const handleCopyCode = async () => {
-        await navigator.clipboard.writeText(GAS_TEMPLATE_CODE);
+        const textToCopy = activeTab === 'code' ? GAS_TEMPLATE_CODE : GAS_MANIFEST_JSON;
+        await navigator.clipboard.writeText(textToCopy);
         setCopyFeedback('Copiado!');
         setTimeout(() => setCopyFeedback(''), 2000);
     };
@@ -166,21 +169,28 @@ export const SettingsDrive: React.FC = () => {
              
              <GlassCard className="flex flex-col min-h-0">
                  <div className="flex justify-between items-center mb-4">
-                     <h3 className="font-bold text-xl text-indigo-900">Código Google Script</h3>
+                     <div>
+                         <h3 className="font-bold text-xl text-indigo-900">Código do Script</h3>
+                         <div className="flex gap-2 mt-1">
+                             <button onClick={() => setActiveTab('code')} className={`text-xs px-3 py-1 rounded-full font-bold transition-colors ${activeTab === 'code' ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-700'}`}>Código (Código.gs)</button>
+                             <button onClick={() => setActiveTab('manifest')} className={`text-xs px-3 py-1 rounded-full font-bold transition-colors ${activeTab === 'manifest' ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-800'}`}>Manifesto (appsscript.json)</button>
+                         </div>
+                     </div>
                      <button onClick={handleCopyCode} className={`text-xs px-3 py-1 rounded font-bold ${copyFeedback ? 'bg-green-600 text-white' : 'bg-indigo-100 text-indigo-800'}`}>{copyFeedback || 'Copiar'}</button>
                  </div>
                  
                  {/* Alerta sobre o Manifesto */}
                  <div className="mb-4 bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-xs text-yellow-900">
-                     <strong className="block mb-1">🔧 CORREÇÃO DE ERRO DE EMAIL / PERMISSÕES:</strong>
-                     <p>Se receber o erro <code>"You do not have permission to call MailApp"</code>, terá de atualizar o ficheiro <b>appsscript.json</b> no editor da Google. O código abaixo inclui um comentário no topo com o JSON necessário.</p>
+                     <strong className="block mb-1">🔧 COMO RESOLVER ERRO DE PERMISSÃO EMAIL:</strong>
+                     <p>1. Copie o conteúdo da aba <b>Manifesto</b> acima.</p>
+                     <p>2. No editor Google Apps Script, vá a <b>Definições do Projeto</b> {'>'} Marque "Mostrar manifesto appsscript.json".</p>
+                     <p>3. Volte ao código, abra o ficheiro <b>appsscript.json</b> e cole o conteúdo.</p>
                  </div>
 
                  <div className="flex-1 overflow-auto bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner">
-                     <pre className="text-slate-300 font-mono text-xs whitespace-pre-wrap">{GAS_TEMPLATE_CODE}</pre>
-                 </div>
-                 <div className="mt-4 text-xs text-indigo-800 bg-indigo-50 p-3 rounded border border-indigo-200">
-                     <b>Passos Rápidos:</b> Copie o código {'>'} <a href="https://script.google.com" target="_blank" className="underline font-bold">Google Apps Script</a> {'>'} Colar {'>'} Executar <code>autorizarPermissoes</code> {'>'} Implementar.
+                     <pre className="text-slate-300 font-mono text-xs whitespace-pre-wrap">
+                        {activeTab === 'code' ? GAS_TEMPLATE_CODE : GAS_MANIFEST_JSON}
+                     </pre>
                  </div>
              </GlassCard>
         </div>

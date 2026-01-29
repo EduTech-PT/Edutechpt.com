@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.6.2";
+export const GAS_VERSION = "v1.6.3";
 
 export interface DriveFile {
   id: string;
@@ -239,17 +239,7 @@ export const driveService = {
   }
 };
 
-export const GAS_TEMPLATE_CODE = `
-// ==========================================
-// EDUTECH PT - GOOGLE DRIVE & CALENDAR API
-// VERSION: ${GAS_VERSION}
-// ==========================================
-
-/* 
-NOTA IMPORTANTE: Se tiver erro de permissões (MailApp/Scope),
-atualize o ficheiro 'appsscript.json' (Ver > Mostrar ficheiro de manifesto) com:
-
-{
+export const GAS_MANIFEST_JSON = `{
   "timeZone": "Europe/Lisbon",
   "dependencies": {},
   "exceptionLogging": "STACKDRIVER",
@@ -265,7 +255,21 @@ atualize o ficheiro 'appsscript.json' (Ver > Mostrar ficheiro de manifesto) com:
     "executeAs": "USER_ACCESSING",
     "access": "ANYONE"
   }
-}
+}`;
+
+export const GAS_TEMPLATE_CODE = `
+// ==========================================
+// EDUTECH PT - GOOGLE DRIVE & CALENDAR API
+// VERSION: ${GAS_VERSION}
+// ==========================================
+
+/* 
+INSTRUÇÕES PARA RESOLVER ERRO DE PERMISSÃO DE EMAIL:
+1. No editor do Google Apps Script, vá a "Definições do Projeto" (ícone roda dentada à esquerda).
+2. Marque a caixa "Mostrar ficheiro de manifesto 'appsscript.json' no editor".
+3. Volte ao editor (ícone código), abra o ficheiro 'appsscript.json'.
+4. Substitua TODO o conteúdo pelo JSON fornecido no painel de administração do site.
+5. Guarde e volte a executar 'autorizarPermissoes'.
 */
 
 function autorizarPermissoes() {
@@ -283,13 +287,14 @@ function autorizarPermissoes() {
     console.log("Calendar: OK (" + cals.length + " calendários)");
   } catch(e) { console.error("Calendar Error: " + e); }
 
-  // Mail
+  // Mail (Com Try-Catch para não bloquear execução se faltar scope)
   try {
     const quota = MailApp.getRemainingDailyQuota();
     console.log("Mail: OK (Quota restante: " + quota + ")");
   } catch(e) { 
-    console.error("Mail Error: " + e); 
-    console.log("DICA: Verifique se 'https://www.googleapis.com/auth/script.send_mail' está no appsscript.json");
+    console.error("ERRO MAIL: " + e); 
+    console.log("⚠️ AVISO CRÍTICO: Falta permissão de envio de email.");
+    console.log("👉 SOLUÇÃO: Atualize o ficheiro appsscript.json com o scope 'https://www.googleapis.com/auth/script.send_mail'.");
   }
   
   return "Verificação Concluída. Consulte os Logs (Ver > Execuções).";
