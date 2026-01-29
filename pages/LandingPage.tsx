@@ -5,7 +5,7 @@ import { Course } from '../types';
 import { adminService } from '../services/admin';
 import { courseService } from '../services/courses'; 
 import { CourseDetailModal } from '../components/CourseDetailModal';
-import { EnrollmentFormModal } from '../components/EnrollmentFormModal'; // IMPORTADO
+import { EnrollmentFormModal } from '../components/EnrollmentFormModal'; 
 import { Footer } from '../components/Footer';
 import { ThemeToggle } from '../components/ThemeToggle';
 
@@ -52,25 +52,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
   
   // Modal de Inscrição State
   const [showEnrollModal, setShowEnrollModal] = useState(false);
+  // Estado para saber se é um pedido geral (sem curso) ou inscrição
+  const [isGeneralRequest, setIsGeneralRequest] = useState(false);
 
   // Dynamic Content
   const [steps, setSteps] = useState<Step[]>(DEFAULT_STEPS);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [videos, setVideos] = useState<LandingVideo[]>([]);
   
-  // Config state for emails
-  const [appEmailConfig, setAppEmailConfig] = useState({
-      subject: 'Candidatura EduTech PT',
-      body: 'Olá,\n\nGostaria de saber mais informações sobre os vossos cursos...'
-  });
-
   // Config específica para INSCRIÇÃO (Modal de Curso) - Mantemos o "to" para passar ao Modal
   const [enrollmentConfig, setEnrollmentConfig] = useState({
-      to: 'edutechpt@hotmail.com',
-      // subject e body deixam de ser usados no mailto direto, pois o EnrollmentFormModal constrói o seu próprio body HTML
-      // mas mantemos a estrutura para compatibilidade se necessário
-      subject: '', 
-      body: ''
+      to: 'edutechpt@hotmail.com'
   });
   
   useEffect(() => {
@@ -89,17 +81,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       if (configResult) {
           if (configResult.logoUrl) setLogoUrl(configResult.logoUrl);
           
-          if (configResult.applicationSubject || configResult.applicationBody) {
-              setAppEmailConfig({
-                  subject: configResult.applicationSubject || appEmailConfig.subject,
-                  body: configResult.applicationBody || appEmailConfig.body
-              });
-          }
-
           setEnrollmentConfig(prev => ({
-              to: configResult.enrollmentEmailTo || prev.to,
-              subject: configResult.enrollmentSubject || prev.subject,
-              body: configResult.enrollmentBody || prev.body
+              to: configResult.enrollmentEmailTo || prev.to
           }));
 
           if (configResult.landing_how_it_works) {
@@ -138,7 +121,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
 
   const handleEnrollment = () => {
       if (!selectedCourse) return;
-      // Em vez de mailto, abrimos o modal de formulário
+      setIsGeneralRequest(false);
+      setShowEnrollModal(true);
+  };
+
+  const handleRequestAccess = () => {
+      setIsGeneralRequest(true);
       setShowEnrollModal(true);
   };
 
@@ -408,7 +396,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
               <p className="text-indigo-100 text-lg max-w-2xl mx-auto mb-10 leading-relaxed">Aceda à sua área pessoal para continuar a evoluir.</p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                   <button onClick={onLoginClick} className="px-10 py-4 bg-white text-indigo-700 rounded-xl font-bold text-lg hover:bg-indigo-50 transition-all shadow-lg transform hover:-translate-y-1 min-w-[250px]">Entrar na Plataforma</button>
-                  <a href={`mailto:edutechpt@hotmail.com?subject=${encodeURIComponent(appEmailConfig.subject)}&body=${encodeURIComponent(appEmailConfig.body)}`} className="px-10 py-4 bg-transparent border-2 border-white text-white rounded-xl font-bold text-lg hover:bg-white/10 transition-all shadow-lg transform hover:-translate-y-1 min-w-[250px]">Solicitar Acesso</a>
+                  <button onClick={handleRequestAccess} className="px-10 py-4 bg-transparent border-2 border-white text-white rounded-xl font-bold text-lg hover:bg-white/10 transition-all shadow-lg transform hover:-translate-y-1 min-w-[250px]">Solicitar Acesso</button>
               </div>
           </GlassCard>
       </div>
@@ -425,12 +413,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
           />
       )}
 
-      {/* MODAL DE INSCRIÇÃO */}
-      {showEnrollModal && selectedCourse && (
+      {/* MODAL DE INSCRIÇÃO OU PEDIDO DE ACESSO */}
+      {showEnrollModal && (
           <EnrollmentFormModal 
-              course={selectedCourse}
+              course={isGeneralRequest ? null : selectedCourse}
               destEmail={enrollmentConfig.to}
-              onClose={() => setShowEnrollModal(false)}
+              onClose={() => { setShowEnrollModal(false); setIsGeneralRequest(false); }}
           />
       )}
 

@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.6.0";
+export const GAS_VERSION = "v1.6.2";
 
 export interface DriveFile {
   id: string;
@@ -245,12 +245,54 @@ export const GAS_TEMPLATE_CODE = `
 // VERSION: ${GAS_VERSION}
 // ==========================================
 
+/* 
+NOTA IMPORTANTE: Se tiver erro de permissões (MailApp/Scope),
+atualize o ficheiro 'appsscript.json' (Ver > Mostrar ficheiro de manifesto) com:
+
+{
+  "timeZone": "Europe/Lisbon",
+  "dependencies": {},
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/drive.file",
+    "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/script.send_mail",
+    "https://www.googleapis.com/auth/userinfo.email"
+  ],
+  "webapp": {
+    "executeAs": "USER_ACCESSING",
+    "access": "ANYONE"
+  }
+}
+*/
+
 function autorizarPermissoes() {
-  const cals = CalendarApp.getAllCalendars();
-  const drive = DriveApp.getRootFolder();
-  const mail = MailApp.getRemainingDailyQuota();
-  console.log("SUCESSO! Acesso confirmado.");
-  console.log("Quota de Email Restante: " + mail);
+  console.log("A iniciar verificação de permissões...");
+  
+  // Drive
+  try {
+    const drive = DriveApp.getRootFolder();
+    console.log("Drive: OK (" + drive.getName() + ")");
+  } catch(e) { console.error("Drive Error: " + e); }
+
+  // Calendar
+  try {
+    const cals = CalendarApp.getAllCalendars();
+    console.log("Calendar: OK (" + cals.length + " calendários)");
+  } catch(e) { console.error("Calendar Error: " + e); }
+
+  // Mail
+  try {
+    const quota = MailApp.getRemainingDailyQuota();
+    console.log("Mail: OK (Quota restante: " + quota + ")");
+  } catch(e) { 
+    console.error("Mail Error: " + e); 
+    console.log("DICA: Verifique se 'https://www.googleapis.com/auth/script.send_mail' está no appsscript.json");
+  }
+  
+  return "Verificação Concluída. Consulte os Logs (Ver > Execuções).";
 }
 
 // -----------------------------------------------------
@@ -287,10 +329,6 @@ function doPost(e) {
     }
 
     else if (action === 'sendEmail') {
-        // Envio de Notificações Assíncronas
-        // Se 'to' tiver vírgulas, o MailApp interpreta como múltiplos destinatários (BCC ou To)
-        // Para privacidade, recomendamos usar noBcc se for lista, mas aqui usamos direto.
-        
         const recipient = data.to;
         const subject = data.subject;
         const body = data.body;
@@ -317,14 +355,12 @@ function doPost(e) {
         let debugLog = [];
         let processedIds = {}; // Para evitar duplicados
 
-        // Função auxiliar para processar calendário
         function processCalendar(cal, source) {
             if (!cal) return;
             const cid = cal.getId();
-            if (processedIds[cid]) return; // Já processado
+            if (processedIds[cid]) return; 
             
             try {
-                // Tenta ler eventos
                 const events = cal.getEvents(start, end);
                 const prefix = source === 'default' ? '' : '[' + cal.getName() + '] ';
                 
@@ -348,13 +384,11 @@ function doPost(e) {
             }
         }
 
-        // 1. Calendário Padrão
         try {
             const defCal = CalendarApp.getDefaultCalendar();
             processCalendar(defCal, 'default');
         } catch (e) { debugLog.push("Erro Default Cal: " + e.toString()); }
 
-        // 2. Todos os Calendários Detetáveis (Auto-discovery)
         try {
             const allCals = CalendarApp.getAllCalendars();
             debugLog.push("Auto-detetados: " + allCals.length);
@@ -363,20 +397,17 @@ function doPost(e) {
             }
         } catch (e) { debugLog.push("Erro Auto-Discovery: " + e.toString()); }
 
-        // 3. Calendários Manuais (IDs Específicos das Definições)
         if (extraIds.length > 0) {
-            debugLog.push("IDs Manuais solicitados: " + extraIds.length);
+            debugLog.push("IDs Manuais: " + extraIds.length);
             for (var j = 0; j < extraIds.length; j++) {
                 try {
-                    // Limpar espaços
                     const id = extraIds[j].trim();
                     if (!id) continue;
-                    
                     const manCal = CalendarApp.getCalendarById(id);
                     if (manCal) {
                         processCalendar(manCal, 'manual');
                     } else {
-                        debugLog.push("ID Manual não encontrado/acessível: " + id);
+                        debugLog.push("ID Manual não encontrado: " + id);
                     }
                 } catch (e) {
                     debugLog.push("Erro ID Manual (" + extraIds[j] + "): " + e.toString());
@@ -391,7 +422,6 @@ function doPost(e) {
         };
     }
 
-    // --- FILE OPERATIONS ---
     else if (action === 'list') {
       const folder = DriveApp.getFolderById(data.folderId);
       const list = [];
@@ -449,16 +479,14 @@ function doPost(e) {
 
     else if (action === 'delete') {
       try {
-        // Tenta apagar como ficheiro primeiro
         const file = DriveApp.getFileById(data.id);
         file.setTrashed(true);
       } catch (e) {
         try {
-          // Se falhar, tenta como pasta
           const folder = DriveApp.getFolderById(data.id);
           folder.setTrashed(true);
         } catch (errFolder) {
-           throw new Error("Item não encontrado ou sem permissão para eliminar. Apenas o proprietário pode apagar pastas.");
+           throw new Error("Item não encontrado ou sem permissão para eliminar.");
         }
       }
       result = { status: 'success' };

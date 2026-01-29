@@ -25,6 +25,8 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
 
+    const isGeneralRequest = !course;
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
@@ -35,23 +37,23 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
 
         setLoading(true);
 
-        const courseTitle = course ? course.title : 'Geral / Contacto';
+        const courseTitle = course ? course.title : 'Pedido de Acesso / Geral';
         const courseRef = course ? `(Ref: ${course.id.split('-')[0]})` : '';
-        const subject = `Nova Inscrição: ${courseTitle}`;
+        const subject = isGeneralRequest ? `Novo Pedido de Acesso: ${name}` : `Nova Inscrição: ${courseTitle}`;
         
         // Construção do corpo do email (HTML)
         const body = `
             <div style="font-family: sans-serif; color: #333;">
-                <h2 style="color: #4f46e5;">Nova Candidatura / Inscrição</h2>
-                <p>Recebeu um novo pedido de inscrição através da plataforma EduTech PT.</p>
+                <h2 style="color: #4f46e5;">${isGeneralRequest ? 'Pedido de Acesso / Contacto' : 'Nova Candidatura / Inscrição'}</h2>
+                <p>Recebeu um novo pedido através da plataforma EduTech PT.</p>
                 
                 <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
                     <tr style="background-color: #f3f4f6;">
-                        <td style="padding: 10px; border: 1px solid #ddd; width: 30%;"><strong>Curso:</strong></td>
+                        <td style="padding: 10px; border: 1px solid #ddd; width: 30%;"><strong>Assunto/Curso:</strong></td>
                         <td style="padding: 10px; border: 1px solid #ddd;">${courseTitle} ${courseRef}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 10px; border: 1px solid #ddd;"><strong>Nome do Aluno:</strong></td>
+                        <td style="padding: 10px; border: 1px solid #ddd;"><strong>Nome do Utilizador:</strong></td>
                         <td style="padding: 10px; border: 1px solid #ddd;">${name}</td>
                     </tr>
                     <tr style="background-color: #f3f4f6;">
@@ -70,7 +72,7 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
                 </div>
                 
                 <p style="margin-top: 30px; font-size: 12px; color: #666;">
-                    Este email foi enviado automaticamente pelo sistema EduTech PT.
+                    Este email foi enviado automaticamente pelo sistema EduTech PT (Backend GAS).
                 </p>
             </div>
         `;
@@ -79,7 +81,7 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
             const success = await adminService.sendEmailNotification(destEmail, subject, body);
             
             if (success) {
-                alert('O seu pedido foi enviado com sucesso! A equipa irá entrar em contacto brevemente para finalizar a inscrição.');
+                alert('O seu pedido foi enviado com sucesso! A equipa irá analisar e entrar em contacto brevemente.');
                 onClose();
             } else {
                 alert('Ocorreu um erro ao enviar o pedido. Por favor, tente mais tarde ou contacte diretamente por email.');
@@ -104,11 +106,11 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
 
                 <div className="mb-6 text-center">
                     <div className="w-14 h-14 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-3xl mx-auto mb-3">
-                        📝
+                        {isGeneralRequest ? '🔐' : '📝'}
                     </div>
-                    <h2 className="text-2xl font-bold text-indigo-900 dark:text-white">Ficha de Inscrição</h2>
+                    <h2 className="text-2xl font-bold text-indigo-900 dark:text-white">{isGeneralRequest ? 'Pedir Acesso' : 'Ficha de Inscrição'}</h2>
                     <p className="text-sm text-indigo-600 dark:text-indigo-300 font-medium mt-1">
-                        {course ? course.title : 'Candidatura Espontânea'}
+                        {course ? course.title : 'Solicitar conta na plataforma'}
                     </p>
                 </div>
 
@@ -150,12 +152,12 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
                     </div>
 
                     <div>
-                        <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 uppercase mb-1">Mensagem / Dúvidas</label>
+                        <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 uppercase mb-1">Mensagem / Motivo</label>
                         <textarea 
                             value={message}
                             onChange={e => setMessage(e.target.value)}
                             className="w-full p-3 rounded-xl bg-gray-50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white h-24 resize-none"
-                            placeholder="Gostaria de saber mais sobre..."
+                            placeholder={isGeneralRequest ? "Gostaria de ter acesso para..." : "Dúvidas sobre o curso..."}
                         />
                     </div>
 

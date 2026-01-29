@@ -163,16 +163,24 @@ export const SettingsDrive: React.FC = () => {
                     {testStatus && <div className={`p-3 rounded-lg text-sm font-medium border ${testStatus.success ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}`}>{testStatus.msg}</div>}
                 </div>
              </GlassCard>
+             
              <GlassCard className="flex flex-col min-h-0">
                  <div className="flex justify-between items-center mb-4">
                      <h3 className="font-bold text-xl text-indigo-900">Código Google Script</h3>
                      <button onClick={handleCopyCode} className={`text-xs px-3 py-1 rounded font-bold ${copyFeedback ? 'bg-green-600 text-white' : 'bg-indigo-100 text-indigo-800'}`}>{copyFeedback || 'Copiar'}</button>
                  </div>
+                 
+                 {/* Alerta sobre o Manifesto */}
+                 <div className="mb-4 bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-xs text-yellow-900">
+                     <strong className="block mb-1">🔧 CORREÇÃO DE ERRO DE EMAIL / PERMISSÕES:</strong>
+                     <p>Se receber o erro <code>"You do not have permission to call MailApp"</code>, terá de atualizar o ficheiro <b>appsscript.json</b> no editor da Google. O código abaixo inclui um comentário no topo com o JSON necessário.</p>
+                 </div>
+
                  <div className="flex-1 overflow-auto bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner">
                      <pre className="text-slate-300 font-mono text-xs whitespace-pre-wrap">{GAS_TEMPLATE_CODE}</pre>
                  </div>
                  <div className="mt-4 text-xs text-indigo-800 bg-indigo-50 p-3 rounded border border-indigo-200">
-                     <b>Passos Rápidos:</b> Copie o código {'>'} <a href="https://script.google.com" target="_blank" className="underline font-bold">Google Apps Script</a> {'>'} Colar {'>'} Implementar (Web App, Qualquer pessoa).
+                     <b>Passos Rápidos:</b> Copie o código {'>'} <a href="https://script.google.com" target="_blank" className="underline font-bold">Google Apps Script</a> {'>'} Colar {'>'} Executar <code>autorizarPermissoes</code> {'>'} Implementar.
                  </div>
              </GlassCard>
         </div>
