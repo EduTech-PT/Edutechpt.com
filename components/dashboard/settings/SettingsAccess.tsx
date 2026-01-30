@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../../GlassCard';
 import { adminService } from '../../../services/admin';
 import { userService } from '../../../services/users';
+import { storageService } from '../../../services/storage'; // Importado
 import { useToast } from '../../ui/ToastProvider';
 import { supabase } from '../../../lib/supabaseClient';
 import { Profile, UserRole } from '../../../types';
@@ -16,6 +17,10 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
     const [userSound, setUserSound] = useState<string>('pop');
     const [globalNotif, setGlobalNotif] = useState(true);
     const { toast } = useToast();
+
+    // Upload States
+    const [uploadingTop, setUploadingTop] = useState(false);
+    const [uploadingBottom, setUploadingBottom] = useState(false);
 
     useEffect(() => {
         adminService.getAppConfig().then(setConfig).catch(console.error);
@@ -51,6 +56,38 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
             toast.success("Preferência guardada!");
         } catch (e: any) {
             toast.error("Erro: " + e.message);
+        }
+    };
+
+    const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'top' | 'bottom') => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        const file = e.target.files[0];
+        
+        // Validação de Tamanho (2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error("Imagem muito grande. Máximo 2MB.");
+            return;
+        }
+
+        const setUploading = type === 'top' ? setUploadingTop : setUploadingBottom;
+        setUploading(true);
+
+        try {
+            const url = await storageService.uploadCourseImage(file); // Reutilizar bucket publico
+            const configKey = type === 'top' ? 'email_banner_top' : 'email_banner_bottom';
+            const stateKey = type === 'top' ? 'emailBannerTop' : 'emailBannerBottom';
+
+            // Guardar no Config Local
+            setConfig((prev: any) => ({ ...prev, [stateKey]: url }));
+            
+            // Guardar na BD
+            await adminService.updateAppConfig(configKey, url);
+            toast.success(`${type === 'top' ? 'Topo' : 'Rodapé'} atualizado!`);
+
+        } catch (err: any) {
+            toast.error("Erro no upload: " + err.message);
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -101,6 +138,13 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
         >
             💾
         </button>
+    );
+
+    const UploadBtn = ({ uploading, onChange }: { uploading: boolean, onChange: (e: any) => void }) => (
+        <label className={`p-1.5 bg-white dark:bg-slate-700 border border-indigo-200 dark:border-slate-600 text-indigo-600 dark:text-white rounded-lg shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-600 transition-colors flex items-center justify-center shrink-0 ml-2 cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`} title="Upload Imagem">
+            {uploading ? '...' : '📁'}
+            <input type="file" className="hidden" accept="image/*" onChange={onChange} />
+        </label>
     );
 
     return (
@@ -155,6 +199,66 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
 
              <div className="border-t border-indigo-200 dark:border-indigo-800 my-6"></div>
              <h4 className="text-sm font-bold text-gray-400 uppercase mb-4">Definições Globais do Sistema (Admin)</h4>
+
+             {/* NOVO: BRANDING DE EMAIL */}
+             <GlassCard className="border-l-4 border-l-blue-500">
+                 <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4 flex items-center gap-2"><span>🎨</span> Branding de Email</h3>
+                 <p className="text-sm text-indigo-600 dark:text-indigo-300 mb-6 opacity-80">
+                     Personalize o cabeçalho e rodapé de todos os emails automáticos enviados pela plataforma.
+                 </p>
+                 
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                     {/* Banner Topo */}
+                     <div className="bg-white/40 dark:bg-slate-800/40 p-4 rounded-xl border border-indigo-100 dark:border-slate-700">
+                         <div className="flex justify-between items-center mb-2">
+                             <label className="text-sm font-bold text-indigo-800 dark:text-indigo-200">Banner de Topo</label>
+                             <div className="flex">
+                                <UploadBtn uploading={uploadingTop} onChange={(e) => handleBannerUpload(e, 'top')} />
+                                <SaveBtn onClick={() => handleSaveConfigField('email_banner_top', config.emailBannerTop)} />
+                             </div>
+                         </div>
+                         <input 
+                            type="text" 
+                            placeholder="https://..." 
+                            value={config.emailBannerTop || ''} 
+                            onChange={e => setConfig({...config, emailBannerTop: e.target.value})} 
+                            className="w-full p-2 mb-3 rounded bg-white/50 dark:bg-black/30 border border-indigo-200 dark:border-slate-600 text-xs text-indigo-900 dark:text-white"
+                         />
+                         <div className="w-full h-32 bg-gray-100 dark:bg-slate-900 rounded border border-dashed border-gray-300 dark:border-slate-600 flex items-center justify-center overflow-hidden relative">
+                             {config.emailBannerTop ? (
+                                 <img src={config.emailBannerTop} alt="Banner Topo" className="w-full h-full object-cover" />
+                             ) : (
+                                 <span className="text-xs text-gray-400">Sem Imagem</span>
+                             )}
+                         </div>
+                     </div>
+
+                     {/* Banner Rodapé */}
+                     <div className="bg-white/40 dark:bg-slate-800/40 p-4 rounded-xl border border-indigo-100 dark:border-slate-700">
+                         <div className="flex justify-between items-center mb-2">
+                             <label className="text-sm font-bold text-indigo-800 dark:text-indigo-200">Banner de Rodapé</label>
+                             <div className="flex">
+                                <UploadBtn uploading={uploadingBottom} onChange={(e) => handleBannerUpload(e, 'bottom')} />
+                                <SaveBtn onClick={() => handleSaveConfigField('email_banner_bottom', config.emailBannerBottom)} />
+                             </div>
+                         </div>
+                         <input 
+                            type="text" 
+                            placeholder="https://..." 
+                            value={config.emailBannerBottom || ''} 
+                            onChange={e => setConfig({...config, emailBannerBottom: e.target.value})} 
+                            className="w-full p-2 mb-3 rounded bg-white/50 dark:bg-black/30 border border-indigo-200 dark:border-slate-600 text-xs text-indigo-900 dark:text-white"
+                         />
+                         <div className="w-full h-32 bg-gray-100 dark:bg-slate-900 rounded border border-dashed border-gray-300 dark:border-slate-600 flex items-center justify-center overflow-hidden relative">
+                             {config.emailBannerBottom ? (
+                                 <img src={config.emailBannerBottom} alt="Banner Rodapé" className="w-full h-full object-cover" />
+                             ) : (
+                                 <span className="text-xs text-gray-400">Sem Imagem</span>
+                             )}
+                         </div>
+                     </div>
+                 </div>
+             </GlassCard>
 
              {/* 1. INSCRIÇÃO EM CURSOS */}
              <GlassCard>

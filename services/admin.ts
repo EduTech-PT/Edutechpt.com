@@ -216,6 +216,25 @@ export const adminService = {
             return false;
         }
 
+        // LÓGICA DE BANNERS (TOPO E RODAPÉ)
+        let finalBody = htmlBody;
+        const bannerTop = config.emailBannerTop ? `<div style="text-align: center; width: 100%; margin-bottom: 20px;"><img src="${config.emailBannerTop}" style="width: 100%; max-width: 600px; height: auto; border-radius: 8px;" alt="Banner Topo" /></div>` : '';
+        const bannerBottom = config.emailBannerBottom ? `<div style="text-align: center; width: 100%; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;"><img src="${config.emailBannerBottom}" style="width: 100%; max-width: 600px; height: auto; border-radius: 8px;" alt="Banner Rodapé" /></div>` : '';
+
+        // Wrapper seguro para clientes de email
+        finalBody = `
+            <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 10px;">
+                ${bannerTop}
+                <div style="background-color: #ffffff; padding: 10px;">
+                    ${htmlBody}
+                </div>
+                ${bannerBottom}
+                <div style="text-align: center; font-size: 10px; color: #aaa; margin-top: 10px;">
+                    © ${new Date().getFullYear()} EduTech PT. Enviado automaticamente.
+                </div>
+            </div>
+        `;
+
         try {
             // Chamada Fire-and-Forget (mas com await para apanhar erro de rede)
             await fetch(config.googleScriptUrl, {
@@ -225,7 +244,7 @@ export const adminService = {
                     action: 'sendEmail',
                     to: to, // Suporta string única ou "email1, email2"
                     subject: subject,
-                    body: htmlBody
+                    body: finalBody
                 })
             });
             return true;
@@ -242,7 +261,6 @@ export const adminService = {
         
         if (error) {
             // Se a tabela não existir (42P01), retornamos vazio em vez de crashar
-            // Isto permite que o Dashboard detete o problema via checkTables
             if (error.code === '42P01') {
                 console.warn("Tabela app_config em falta.");
                 return {};
@@ -256,6 +274,10 @@ export const adminService = {
                 // General Settings
                 if (item.key === 'app_logo_url') config.logoUrl = item.value;
                 if (item.key === 'app_favicon_url') config.faviconUrl = item.value;
+
+                // Email Banners (NOVO)
+                if (item.key === 'email_banner_top') config.emailBannerTop = item.value;
+                if (item.key === 'email_banner_bottom') config.emailBannerBottom = item.value;
 
                 // Avatar Settings
                 if (item.key === 'avatar_resizer_link') config.resizerLink = item.value;
