@@ -50,11 +50,16 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
     
     // Test Tools
     const [showCertTest, setShowCertTest] = useState(false);
+    const [shouldCrash, setShouldCrash] = useState(false); // STATE PARA CRASH
 
     // Landing Page Content State
     const [steps, setSteps] = useState<Step[]>(DEFAULT_STEPS);
-    // REMOVIDO: const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
     const [videos, setVideos] = useState<LandingVideo[]>([]);
+
+    // CRASH SIMULATION LOGIC
+    if (shouldCrash) {
+        throw new Error("Teste manual do Error Boundary: O sistema recuperou corretamente.");
+    }
 
     useEffect(() => {
         loadConfig();
@@ -80,8 +85,6 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                     if (Array.isArray(parsedSteps)) setSteps(parsedSteps);
                 } catch (e) { console.warn("Erro steps", e); }
             }
-
-            // REMOVIDO: Load Testimonials
 
             // Load Videos
             if (data.landing_videos) {
@@ -126,7 +129,6 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
             await adminService.updateAppConfig('auth_warning_steps', config.authWarningSteps);
 
             await adminService.updateAppConfig('landing_how_it_works', JSON.stringify(steps));
-            // REMOVIDO: await adminService.updateAppConfig('landing_testimonials', JSON.stringify(testimonials));
             await adminService.updateAppConfig('landing_videos', JSON.stringify(videos));
 
             alert('Definições gerais guardadas.');
@@ -189,8 +191,6 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
         else if (direction === 'down' && index < newSteps.length - 1) { [newSteps[index], newSteps[index + 1]] = [newSteps[index + 1], newSteps[index]]; }
         setSteps(newSteps);
     };
-
-    // REMOVIDO: Funções de gestão de Testemunhos
 
     // --- Videos Management ---
     const addVideo = () => {
@@ -385,8 +385,6 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                 </div>
             </div>
 
-            {/* REMOVIDO: LANDING PAGE - TESTIMONIALS (MUDOU PARA ABA ESPECÍFICA) */}
-
             {/* LANDING PAGE - VIDEOS */}
             <div className="border-t border-indigo-100 dark:border-white/10 pt-6">
                 <div className="flex justify-between items-center mb-4">
@@ -450,16 +448,26 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
             {/* TEST TOOLS */}
             <div className="border-t border-indigo-100 dark:border-white/10 pt-6">
                 <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4 flex items-center gap-2">
-                    <span>🧪</span> Ferramentas de Teste
+                    <span>🧪</span> Ferramentas de Teste e Diagnóstico
                 </h3>
-                <div className="flex gap-4">
+                <div className="flex flex-wrap gap-4">
                     <button 
                         onClick={() => setShowCertTest(true)}
                         className="px-6 py-3 bg-white dark:bg-white/10 border border-indigo-200 dark:border-white/20 text-indigo-800 dark:text-white rounded-lg font-bold shadow-sm hover:bg-indigo-50 dark:hover:bg-white/20 transition-all flex items-center gap-2"
                     >
                         <span>🎓</span> Testar Emissão de Certificado
                     </button>
+
+                    <button 
+                        onClick={() => setShouldCrash(true)}
+                        className="px-6 py-3 bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 rounded-lg font-bold shadow-sm hover:bg-red-200 dark:hover:bg-red-900/40 transition-all flex items-center gap-2"
+                    >
+                        <span>💥</span> Simular Crash (Error Boundary)
+                    </button>
                 </div>
+                <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-2 opacity-80">
+                    Nota: O "Simular Crash" irá forçar um erro na aplicação para testar o ecrã de recuperação e o alerta ao administrador.
+                </p>
             </div>
 
             {/* LINKS RAPIDOS */}
