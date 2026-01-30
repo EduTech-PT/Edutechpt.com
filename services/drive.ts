@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.6.4";
+export const GAS_VERSION = "v1.6.5";
 
 export interface DriveFile {
   id: string;
@@ -259,7 +259,7 @@ export const GAS_MANIFEST_JSON = `{
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/drive.file",
     "https://www.googleapis.com/auth/calendar",
-    "https://www.googleapis.com/auth/script.send_mail",
+    "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/userinfo.email"
   ],
   "webapp": {
@@ -298,14 +298,14 @@ function autorizarPermissoes() {
     console.log("Calendar: OK (" + cals.length + " calendários)");
   } catch(e) { console.error("Calendar Error: " + e); }
 
-  // Mail (Com Try-Catch para não bloquear execução se faltar scope)
+  // Gmail / Aliases Check
   try {
-    const quota = MailApp.getRemainingDailyQuota();
-    console.log("Mail: OK (Quota restante: " + quota + ")");
+    const aliases = GmailApp.getAliases();
+    console.log("Gmail: OK. Aliases disponíveis: " + (aliases.length > 0 ? aliases.join(", ") : "Nenhum"));
   } catch(e) { 
-    console.error("ERRO MAIL: " + e); 
-    console.log("⚠️ AVISO CRÍTICO: Falta permissão de envio de email.");
-    console.log("👉 SOLUÇÃO: Atualize o ficheiro appsscript.json com o scope 'https://www.googleapis.com/auth/script.send_mail'.");
+    console.error("ERRO GMAIL: " + e); 
+    console.log("⚠️ AVISO CRÍTICO: Falta permissão de envio de email (Gmail).");
+    console.log("👉 SOLUÇÃO: Atualize o ficheiro appsscript.json com o scope 'https://www.googleapis.com/auth/gmail.send'.");
   }
   
   return "Verificação Concluída. Consulte os Logs (Ver > Execuções).";
@@ -337,9 +337,9 @@ function doPost(e) {
     let result = {};
 
     if (action === 'check_health') {
-        // Verifica permissão de email em runtime
+        // Verifica permissão de email em runtime via GmailApp
         var mailStatus = false;
-        try { MailApp.getRemainingDailyQuota(); mailStatus = true; } catch(e) {}
+        try { GmailApp.getAliases(); mailStatus = true; } catch(e) {}
 
         result = { 
             status: 'success', 
@@ -355,12 +355,22 @@ function doPost(e) {
         const body = data.body;
         
         if(recipient) {
-            MailApp.sendEmail({
-                to: recipient,
-                subject: subject,
-                htmlBody: body,
-                name: 'EduTech PT Notificações'
-            });
+            // Tenta enviar com o alias específico edutechpt@hotmail.com
+            // Requisito: O alias deve estar configurado nas Definições do Gmail da conta que executa o script.
+            try {
+                GmailApp.sendEmail(recipient, subject, '', {
+                    htmlBody: body,
+                    name: 'EduTech PT',
+                    from: 'edutechpt@hotmail.com'
+                });
+            } catch (e) {
+                // Fallback: Se o alias não existir ou falhar, envia com o email principal
+                console.log("Fallback: Alias falhou ou não existe. A enviar com email padrão.");
+                GmailApp.sendEmail(recipient, subject, '', {
+                    htmlBody: body,
+                    name: 'EduTech PT'
+                });
+            }
             result = { status: 'success', message: 'Email enviado.' };
         } else {
             throw new Error("Destinatário em falta.");
