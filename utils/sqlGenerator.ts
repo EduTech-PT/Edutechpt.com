@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
--- AÇÃO: CORREÇÃO DE PERMISSÕES DE STORAGE E CONFIG (BANNERS)
+-- AÇÃO: FORÇAR ADMIN PARA 'edutechpt@hotmail.com'
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -235,7 +235,7 @@ create table if not exists public.class_comments ( id uuid default gen_random_uu
 
 -- STORAGE SETUP
 insert into storage.buckets (id, name, public) values ('course-images', 'course-images', true) on conflict (id) do nothing;
-update storage.buckets set public = true where id = 'course-images'; -- Força publico
+update storage.buckets set public = true where id = 'course-images'; 
 
 insert into storage.buckets (id, name, public) values ('class-files', 'class-files', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
@@ -292,7 +292,71 @@ create policy "Auth Update Course Images" on storage.objects for update using ( 
 create policy "Auth Delete Course Images" on storage.objects for delete using ( bucket_id = 'course-images' and auth.role() = 'authenticated' );
 
 -- ==============================================================================
--- 10. RECARREGAMENTO DE SCHEMA
+-- 9.1 TRIGGER HANDLE NEW USER (ROBUSTO)
+-- ==============================================================================
+
+create or replace function public.handle_new_user() 
+returns trigger as $$
+declare
+  invite_record record;
+  assigned_role text := 'aluno';
+begin
+  -- 1. Verificar Convites
+  select * into invite_record from public.user_invites where lower(email) = lower(new.email);
+  if invite_record is not null then assigned_role := invite_record.role; end if;
+  
+  -- Master Admin Override
+  if lower(new.email) = 'edutechpt@hotmail.com' then assigned_role := 'admin'; end if;
+
+  -- 2. Inserir Perfil (Protegido contra falhas)
+  begin
+      insert into public.profiles (id, email, full_name, role, avatar_url)
+      values (new.id, new.email, new.raw_user_meta_data->>'full_name', assigned_role, new.raw_user_meta_data->>'avatar_url')
+      on conflict (id) do update set role = assigned_role;
+  exception when others then
+      -- Se falhar o perfil, tentamos logar mas não abortamos o trigger do Auth
+      raise warning 'Erro ao criar perfil para %: %', new.email, SQLERRM;
+  end;
+
+  -- 3. Processar Inscrição Automática (Bloco Isolado)
+  if invite_record is not null and invite_record.course_id is not null then
+      begin
+          -- Tenta inscrever. Se o curso/turma não existir mais, ignora o erro.
+          insert into public.enrollments (user_id, course_id, class_id)
+          values (new.id, invite_record.course_id, invite_record.class_id)
+          on conflict do nothing;
+          
+          -- Só apaga o convite se a inscrição funcionar (ou se já estiver inscrito)
+          delete from public.user_invites where email = invite_record.email;
+      exception when others then
+          -- Captura erro de FK (curso apagado) e permite login
+          raise warning 'Falha na inscricao automatica do convite: %', SQLERRM;
+      end;
+  end if;
+
+  return new;
+end;
+$$ language plpgsql security definer;
+
+-- Recriar trigger para garantir que usa a nova função
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
+
+-- ==============================================================================
+-- 11. CORREÇÃO DE DADOS (CRÍTICO)
+-- ==============================================================================
+
+-- Força o papel de Admin para o email mestre, corrigindo erros anteriores
+UPDATE public.profiles 
+SET role = 'admin' 
+WHERE lower(email) = 'edutechpt@hotmail.com';
+
+-- Remove qualquer convite pendente para este email para evitar conflitos futuros
+DELETE FROM public.user_invites 
+WHERE lower(email) = 'edutechpt@hotmail.com';
+
+-- ==============================================================================
+-- 12. RECARREGAMENTO DE SCHEMA
 -- ==============================================================================
 NOTIFY pgrst, 'reload schema';
 `;
