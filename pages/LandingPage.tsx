@@ -80,6 +80,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
   // --- CAROUSEL STATE (COURSES) ---
   const [currentCourseIndex, setCurrentCourseIndex] = useState(0);
   const [courseItemsPerScreen, setCourseItemsPerScreen] = useState(1);
+  const [isCourseCarouselPaused, setIsCourseCarouselPaused] = useState(false);
+  const courseAutoPlayRef = useRef<any>(null);
   
   useEffect(() => {
     fetchData();
@@ -102,7 +104,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // --- TESTIMONIALS AUTO PLAY ---
+  // --- TESTIMONIALS AUTO PLAY (3s) ---
   useEffect(() => {
       if (testimonials.length === 0 || isCarouselPaused) return;
 
@@ -113,10 +115,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
               if (prev >= maxIndex) return 0;
               return prev + 1;
           });
-      }, 5000);
+      }, 3000);
 
       return () => clearInterval(autoPlayRef.current);
   }, [testimonials.length, itemsPerScreen, isCarouselPaused]);
+
+  // --- COURSES AUTO PLAY (3s) ---
+  useEffect(() => {
+      if (courses.length === 0 || isCourseCarouselPaused) return;
+
+      const maxIndex = Math.max(0, courses.length - courseItemsPerScreen);
+      
+      courseAutoPlayRef.current = setInterval(() => {
+          setCurrentCourseIndex(prev => {
+              if (prev >= maxIndex) return 0;
+              return prev + 1;
+          });
+      }, 3000);
+
+      return () => clearInterval(courseAutoPlayRef.current);
+  }, [courses.length, courseItemsPerScreen, isCourseCarouselPaused]);
 
   // --- TESTIMONIAL NAV ---
   const nextTestimonial = () => {
@@ -319,7 +337,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                 <p className="text-indigo-800 dark:text-indigo-300 mt-2">Estamos a preparar conteúdos incríveis para si.</p>
             </GlassCard>
         ) : (
-            <div className="relative overflow-hidden">
+            <div 
+                className="relative overflow-hidden group"
+                onMouseEnter={() => setIsCourseCarouselPaused(true)}
+                onMouseLeave={() => setIsCourseCarouselPaused(false)}
+            >
                 <div 
                     className="flex transition-transform duration-500 ease-in-out"
                     style={{ transform: `translateX(-${currentCourseIndex * (100 / courseItemsPerScreen)}%)` }}
