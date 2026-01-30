@@ -14,6 +14,7 @@ interface LandingPageProps {
   onPrivacyClick: () => void;
   onTermsClick?: () => void;
   onFaqClick?: () => void;
+  onCatalogClick?: () => void; // NOVO PROP
 }
 
 interface Step {
@@ -44,7 +45,7 @@ const DEFAULT_STEPS: Step[] = [
     { id: '3', title: 'Evolua', description: 'Realize avaliações e domine novas competências.', badge: '3', color: 'pink' }
 ];
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivacyClick, onTermsClick, onFaqClick }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivacyClick, onTermsClick, onFaqClick, onCatalogClick }) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
@@ -52,7 +53,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
   
   // Modal de Inscrição State
   const [showEnrollModal, setShowEnrollModal] = useState(false);
-  // Estado para saber se é um pedido geral (sem curso) ou inscrição
   const [isGeneralRequest, setIsGeneralRequest] = useState(false);
 
   // Dynamic Content
@@ -71,20 +71,30 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       body: ''
   });
 
-  // --- CAROUSEL STATE ---
+  // --- CAROUSEL STATE (TESTIMONIALS) ---
   const [currentTestimonialIndex, setCurrentTestimonialIndex] = useState(0);
   const [itemsPerScreen, setItemsPerScreen] = useState(1);
   const [isCarouselPaused, setIsCarouselPaused] = useState(false);
   const autoPlayRef = useRef<any>(null);
+
+  // --- CAROUSEL STATE (COURSES) ---
+  const [currentCourseIndex, setCurrentCourseIndex] = useState(0);
+  const [courseItemsPerScreen, setCourseItemsPerScreen] = useState(1);
   
   useEffect(() => {
     fetchData();
     
-    // Responsive handler for Carousel
+    // Responsive handler for Carousels
     const handleResize = () => {
+        // Testimonials
         if (window.innerWidth >= 1024) setItemsPerScreen(3);
         else if (window.innerWidth >= 768) setItemsPerScreen(2);
         else setItemsPerScreen(1);
+
+        // Courses
+        if (window.innerWidth >= 1024) setCourseItemsPerScreen(3);
+        else if (window.innerWidth >= 768) setCourseItemsPerScreen(2);
+        else setCourseItemsPerScreen(1);
     };
     
     handleResize(); // Initial check
@@ -92,7 +102,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // --- CAROUSEL AUTO PLAY ---
+  // --- TESTIMONIALS AUTO PLAY ---
   useEffect(() => {
       if (testimonials.length === 0 || isCarouselPaused) return;
 
@@ -100,29 +110,38 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
       
       autoPlayRef.current = setInterval(() => {
           setCurrentTestimonialIndex(prev => {
-              // Se chegamos ao fim, volta ao início (loop)
               if (prev >= maxIndex) return 0;
               return prev + 1;
           });
-      }, 5000); // 5 Segundos
+      }, 5000);
 
       return () => clearInterval(autoPlayRef.current);
   }, [testimonials.length, itemsPerScreen, isCarouselPaused]);
 
+  // --- TESTIMONIAL NAV ---
   const nextTestimonial = () => {
       const maxIndex = Math.max(0, testimonials.length - itemsPerScreen);
       setCurrentTestimonialIndex(prev => (prev >= maxIndex ? 0 : prev + 1));
   };
-
   const prevTestimonial = () => {
       const maxIndex = Math.max(0, testimonials.length - itemsPerScreen);
       setCurrentTestimonialIndex(prev => (prev <= 0 ? maxIndex : prev - 1));
   };
 
+  // --- COURSE NAV ---
+  const nextCourse = () => {
+      const maxIndex = Math.max(0, courses.length - courseItemsPerScreen);
+      setCurrentCourseIndex(prev => (prev >= maxIndex ? 0 : prev + 1));
+  };
+  const prevCourse = () => {
+      const maxIndex = Math.max(0, courses.length - courseItemsPerScreen);
+      setCurrentCourseIndex(prev => (prev <= 0 ? maxIndex : prev - 1));
+  };
+
   const fetchData = async () => {
     try {
       const [coursesData, configResult] = await Promise.all([
-         courseService.getPublicCourses(6), 
+         courseService.getPublicCourses(), // Fetch ALL, no limit
          adminService.getAppConfig()
       ]);
 
@@ -274,11 +293,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
           </div>
       </div>
 
-      {/* Course Highlight Section */}
+      {/* Course Highlight Section - CAROUSEL MODE */}
       <div id="courses-section" className="px-4 pb-20 max-w-7xl mx-auto w-full z-10 scroll-mt-24">
-        <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-indigo-900 dark:text-white mb-4">Cursos em Destaque</h2>
-            <p className="text-indigo-600 dark:text-indigo-300 max-w-2xl mx-auto">Explore a nossa seleção de cursos mais procurados.</p>
+        <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
+            <div className="text-left">
+                <h2 className="text-3xl md:text-4xl font-bold text-indigo-900 dark:text-white mb-2">Cursos em Destaque</h2>
+                <p className="text-indigo-600 dark:text-indigo-300">Explore a nossa seleção de cursos mais procurados.</p>
+            </div>
+            
+            {/* Nav Arrows for Courses */}
+            {courses.length > 0 && (
+                <div className="flex gap-2">
+                    <button onClick={prevCourse} className="p-3 bg-white/50 dark:bg-slate-700/50 hover:bg-white dark:hover:bg-slate-600 rounded-full text-indigo-900 dark:text-white shadow-sm transition-all border border-indigo-100 dark:border-slate-600">←</button>
+                    <button onClick={nextCourse} className="p-3 bg-white/50 dark:bg-slate-700/50 hover:bg-white dark:hover:bg-slate-600 rounded-full text-indigo-900 dark:text-white shadow-sm transition-all border border-indigo-100 dark:border-slate-600">→</button>
+                </div>
+            )}
         </div>
         
         {loading ? (
@@ -290,72 +319,78 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
                 <p className="text-indigo-800 dark:text-indigo-300 mt-2">Estamos a preparar conteúdos incríveis para si.</p>
             </GlassCard>
         ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {courses.map(course => {
-                    const hasPlans = course.format === 'self_paced' && course.pricing_plans && course.pricing_plans.length > 0;
-                    const showPrice = hasPrice(course.price) && !hasPlans;
+            <div className="relative overflow-hidden">
+                <div 
+                    className="flex transition-transform duration-500 ease-in-out"
+                    style={{ transform: `translateX(-${currentCourseIndex * (100 / courseItemsPerScreen)}%)` }}
+                >
+                    {courses.map((course) => {
+                        const hasPlans = course.format === 'self_paced' && course.pricing_plans && course.pricing_plans.length > 0;
+                        const showPrice = hasPrice(course.price) && !hasPlans;
 
-                    return (
-                        <GlassCard key={course.id} hoverEffect={true} className="flex flex-col h-full group p-0 overflow-hidden border-0 bg-white/40 dark:bg-slate-800/40">
-                            <div className="h-56 bg-indigo-100 dark:bg-slate-700 relative overflow-hidden">
-                                {course.image_url ? (
-                                    <img src={course.image_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-400 to-purple-500"><span className="text-5xl">📚</span></div>
-                                )}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
+                        return (
+                            <div 
+                                key={course.id} 
+                                className="flex-shrink-0 px-3 w-full"
+                                style={{ flexBasis: `${100 / courseItemsPerScreen}%` }}
+                            >
+                                <GlassCard hoverEffect={true} className="flex flex-col h-full group p-0 overflow-hidden border-0 bg-white/40 dark:bg-slate-800/40">
+                                    <div className="h-56 bg-indigo-100 dark:bg-slate-700 relative overflow-hidden">
+                                        {course.image_url ? (
+                                            <img src={course.image_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-400 to-purple-500"><span className="text-5xl">📚</span></div>
+                                        )}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
+                                    </div>
+                                    
+                                    <div className="p-6 flex flex-col flex-grow">
+                                        <div className="flex flex-wrap gap-2 mb-3">
+                                            {course.format === 'self_paced' ? (
+                                                <span className="px-2 py-1 bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold uppercase rounded shadow-sm">▶️ Vídeo</span>
+                                            ) : (
+                                                <span className="px-2 py-1 bg-red-100 text-red-700 border border-red-200 text-[10px] font-bold uppercase rounded shadow-sm">🔴 Ao Vivo</span>
+                                            )}
+                                            {course.location_type === 'presencial' ? (
+                                                <span className="px-2 py-1 bg-orange-100 text-orange-700 border border-orange-200 text-[10px] font-bold uppercase rounded shadow-sm">📍 Presencial</span>
+                                            ) : course.location_type === 'hibrido' ? (
+                                                <span className="px-2 py-1 bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold uppercase rounded shadow-sm">🔄 Híbrido</span>
+                                            ) : (
+                                                <span className="px-2 py-1 bg-green-100 text-green-700 border border-green-200 text-[10px] font-bold uppercase rounded shadow-sm">🌐 Online</span>
+                                            )}
+                                            <span className="px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-600 text-[10px] font-bold uppercase rounded shadow-sm">{course.level}</span>
+                                            {showPrice && (
+                                                <span className="px-2 py-1 bg-green-100 text-green-800 border border-green-200 text-[10px] font-bold rounded shadow-sm">{formatPrice(course.price)}</span>
+                                            )}
+                                        </div>
+
+                                        <h3 className="text-xl font-bold text-indigo-900 dark:text-white mb-1 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{course.title}</h3>
+                                        {course.duration && <span className="text-xs font-bold text-indigo-400 uppercase mb-3 block">{course.duration} horas</span>}
+                                        
+                                        <div className="text-indigo-800 dark:text-indigo-200 opacity-80 text-sm flex-grow mb-6 line-clamp-3 leading-relaxed">
+                                            {course.description?.replace(/<[^>]*>?/gm, '') || 'Sem descrição.'}
+                                        </div>
+                                        <button onClick={() => setSelectedCourse(course)} className="w-full py-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-xl font-bold hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 dark:hover:text-white transition-all shadow-sm flex items-center justify-center gap-2 group-hover:shadow-md">
+                                            Ver Programa Completo <span>→</span>
+                                        </button>
+                                    </div>
+                                </GlassCard>
                             </div>
-                            
-                            <div className="p-6 flex flex-col flex-grow">
-                                <div className="flex flex-wrap gap-2 mb-3">
-                                    {course.format === 'self_paced' ? (
-                                        <span className="px-2 py-1 bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold uppercase rounded shadow-sm">
-                                            ▶️ Vídeo
-                                        </span>
-                                    ) : (
-                                        <span className="px-2 py-1 bg-red-100 text-red-700 border border-red-200 text-[10px] font-bold uppercase rounded shadow-sm">
-                                            🔴 Ao Vivo
-                                        </span>
-                                    )}
+                        );
+                    })}
+                </div>
+            </div>
+        )}
 
-                                    {course.location_type === 'presencial' ? (
-                                        <span className="px-2 py-1 bg-orange-100 text-orange-700 border border-orange-200 text-[10px] font-bold uppercase rounded shadow-sm">
-                                            📍 Presencial
-                                        </span>
-                                    ) : course.location_type === 'hibrido' ? (
-                                        <span className="px-2 py-1 bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold uppercase rounded shadow-sm">
-                                            🔄 Híbrido
-                                        </span>
-                                    ) : (
-                                        <span className="px-2 py-1 bg-green-100 text-green-700 border border-green-200 text-[10px] font-bold uppercase rounded shadow-sm">
-                                            🌐 Online
-                                        </span>
-                                    )}
-
-                                    <span className="px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-600 text-[10px] font-bold uppercase rounded shadow-sm">
-                                        {course.level}
-                                    </span>
-
-                                    {showPrice && (
-                                        <span className="px-2 py-1 bg-green-100 text-green-800 border border-green-200 text-[10px] font-bold rounded shadow-sm">
-                                            {formatPrice(course.price)}
-                                        </span>
-                                    )}
-                                </div>
-
-                                <h3 className="text-xl font-bold text-indigo-900 dark:text-white mb-1 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{course.title}</h3>
-                                {course.duration && <span className="text-xs font-bold text-indigo-400 uppercase mb-3 block">{course.duration} horas</span>}
-                                
-                                <div className="text-indigo-800 dark:text-indigo-200 opacity-80 text-sm flex-grow mb-6 line-clamp-3 leading-relaxed">
-                                {course.description?.replace(/<[^>]*>?/gm, '') || 'Sem descrição.'}
-                                </div>
-                                <button onClick={() => setSelectedCourse(course)} className="w-full py-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-xl font-bold hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 dark:hover:text-white transition-all shadow-sm flex items-center justify-center gap-2 group-hover:shadow-md">
-                                    Ver Programa Completo <span>→</span>
-                                </button>
-                            </div>
-                        </GlassCard>
-                    );
-                })}
+        {/* Catalog Button */}
+        {courses.length > 0 && (
+            <div className="mt-8 text-center">
+                <button 
+                    onClick={onCatalogClick}
+                    className="px-8 py-3 bg-white dark:bg-slate-800 border-2 border-indigo-600 dark:border-indigo-500 text-indigo-600 dark:text-indigo-300 rounded-full font-bold text-lg hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 dark:hover:text-white transition-all shadow-md"
+                >
+                    Ver Catálogo Completo
+                </button>
             </div>
         )}
       </div>
@@ -366,15 +401,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
               <div className="max-w-7xl mx-auto px-4">
                   <div className="flex justify-between items-center mb-12">
                       <h2 className="text-3xl font-bold text-indigo-900 dark:text-white">O Que Dizem os Alunos</h2>
-                      
-                      {/* Navigation Arrows (Desktop) */}
                       <div className="hidden md:flex gap-2">
-                          <button onClick={prevTestimonial} className="p-3 bg-white/50 dark:bg-slate-700/50 hover:bg-white dark:hover:bg-slate-600 rounded-full text-indigo-900 dark:text-white shadow-sm transition-all border border-indigo-100 dark:border-slate-600">
-                              ←
-                          </button>
-                          <button onClick={nextTestimonial} className="p-3 bg-white/50 dark:bg-slate-700/50 hover:bg-white dark:hover:bg-slate-600 rounded-full text-indigo-900 dark:text-white shadow-sm transition-all border border-indigo-100 dark:border-slate-600">
-                              →
-                          </button>
+                          <button onClick={prevTestimonial} className="p-3 bg-white/50 dark:bg-slate-700/50 hover:bg-white dark:hover:bg-slate-600 rounded-full text-indigo-900 dark:text-white shadow-sm transition-all border border-indigo-100 dark:border-slate-600">←</button>
+                          <button onClick={nextTestimonial} className="p-3 bg-white/50 dark:bg-slate-700/50 hover:bg-white dark:hover:bg-slate-600 rounded-full text-indigo-900 dark:text-white shadow-sm transition-all border border-indigo-100 dark:border-slate-600">→</button>
                       </div>
                   </div>
 

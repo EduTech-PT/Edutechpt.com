@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from './lib/supabaseClient';
 import { LandingPage } from './pages/LandingPage';
 import { Dashboard } from './pages/Dashboard';
+import { PublicCatalog } from './pages/PublicCatalog'; // IMPORTADO
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
 import { FAQPage } from './pages/FAQPage'; 
@@ -17,33 +18,32 @@ function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  const [publicView, setPublicView] = useState<'landing' | 'privacy' | 'terms' | 'faq'>(() => {
+  const [publicView, setPublicView] = useState<'landing' | 'catalog' | 'privacy' | 'terms' | 'faq'>(() => {
       const params = new URLSearchParams(window.location.search);
       const page = params.get('page');
+      if (page === 'catalog') return 'catalog';
       if (page === 'privacy') return 'privacy';
       if (page === 'terms') return 'terms';
       if (page === 'faq') return 'faq';
       return 'landing';
   });
 
-  const handleNavigate = (view: 'landing' | 'privacy' | 'terms' | 'faq') => {
+  const handleNavigate = (view: 'landing' | 'catalog' | 'privacy' | 'terms' | 'faq') => {
       setPublicView(view);
-      if (view === 'privacy') {
-          window.history.pushState({ view: 'privacy' }, '', '?page=privacy');
-      } else if (view === 'terms') {
-          window.history.pushState({ view: 'terms' }, '', '?page=terms');
-      } else if (view === 'faq') {
-          window.history.pushState({ view: 'faq' }, '', '?page=faq');
-      } else {
-          window.history.pushState({ view: 'landing' }, '', window.location.pathname);
-      }
+      const url = new URL(window.location.href);
+      
+      if (view === 'landing') url.searchParams.delete('page');
+      else url.searchParams.set('page', view);
+      
+      window.history.pushState({ view }, '', url.toString());
   };
 
   useEffect(() => {
       const handlePopState = () => {
           const params = new URLSearchParams(window.location.search);
           const page = params.get('page');
-          if (page === 'privacy') setPublicView('privacy');
+          if (page === 'catalog') setPublicView('catalog');
+          else if (page === 'privacy') setPublicView('privacy');
           else if (page === 'terms') setPublicView('terms');
           else if (page === 'faq') setPublicView('faq');
           else setPublicView('landing');
@@ -160,6 +160,15 @@ function App() {
               {publicView === 'landing' ? (
                   <LandingPage 
                       onLoginClick={() => setShowAuthModal(true)} 
+                      onPrivacyClick={() => handleNavigate('privacy')}
+                      onTermsClick={() => handleNavigate('terms')} 
+                      onFaqClick={() => handleNavigate('faq')} 
+                      onCatalogClick={() => handleNavigate('catalog')}
+                  />
+              ) : publicView === 'catalog' ? (
+                  <PublicCatalog 
+                      onLoginClick={() => setShowAuthModal(true)}
+                      onBack={() => handleNavigate('landing')}
                       onPrivacyClick={() => handleNavigate('privacy')}
                       onTermsClick={() => handleNavigate('terms')} 
                       onFaqClick={() => handleNavigate('faq')} 
