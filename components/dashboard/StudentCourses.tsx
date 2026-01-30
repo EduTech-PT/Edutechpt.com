@@ -19,9 +19,9 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
   
   // Config state for emails
   const [emailConfig, setEmailConfig] = useState({
-      to: 'inscricao@edutechpt.com',
-      subject: '', // Default vazio para usar hardcode se DB vazia
-      body: '' // Default vazio para usar hardcode se DB vazia
+      to: 'edutechpt@hotmail.com', // CORRIGIDO: Email Padrão Correto
+      subject: '', 
+      body: '' 
   });
   
   // Modal State

@@ -279,7 +279,7 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
                  <div className="space-y-4">
                      <div>
                          <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 dark:text-indigo-200 font-bold">Email Destino</label><SaveBtn onClick={() => handleSaveConfigField('enrollment_email_to', config.enrollmentEmailTo)} /></div>
-                         <input type="email" placeholder="inscricao@edutechpt.com" value={config.enrollmentEmailTo || ''} onChange={e => setConfig({...config, enrollmentEmailTo: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-black/30 border border-white/60 dark:border-white/20 text-indigo-900 dark:text-white"/>
+                         <input type="email" placeholder="edutechpt@hotmail.com" value={config.enrollmentEmailTo || ''} onChange={e => setConfig({...config, enrollmentEmailTo: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-black/30 border border-white/60 dark:border-white/20 text-indigo-900 dark:text-white"/>
                      </div>
                      <div>
                          <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 dark:text-indigo-200 font-bold">Assunto</label><SaveBtn onClick={() => handleSaveConfigField('enrollment_email_subject', config.enrollmentSubject)} /></div>
@@ -317,7 +317,21 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
                  </div>
              </GlassCard>
 
-             {/* 3. CONVITES */}
+             {/* 3. ACESSO NEGADO / RECUPERAÇÃO (NOVO) */}
+             <GlassCard>
+                 <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4 flex items-center gap-2"><span>🚫</span> Acesso Negado / Recuperação</h3>
+                 <p className="text-sm text-indigo-600 dark:text-indigo-300 mb-4 opacity-80">
+                     Para onde enviar os pedidos de ajuda quando o acesso é bloqueado.
+                 </p>
+                 <div className="space-y-4">
+                     <div>
+                         <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 dark:text-indigo-200 font-bold">Email Destino</label><SaveBtn onClick={() => handleSaveConfigField('access_denied_email', config.accessDeniedEmail)} /></div>
+                         <input type="email" placeholder="edutechpt@hotmail.com" value={config.accessDeniedEmail || 'edutechpt@hotmail.com'} onChange={e => setConfig({...config, accessDeniedEmail: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-black/30 border border-white/60 dark:border-white/20 text-indigo-900 dark:text-white"/>
+                     </div>
+                 </div>
+             </GlassCard>
+
+             {/* 4. CONVITES */}
              <GlassCard>
                  <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4 flex items-center gap-2"><span>✉️</span> Convites</h3>
                  <div className="space-y-4">

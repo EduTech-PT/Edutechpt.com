@@ -21,6 +21,7 @@ function App() {
   
   // Acesso Negado State
   const [showAccessDeniedModal, setShowAccessDeniedModal] = useState(false);
+  const [accessDeniedEmail, setAccessDeniedEmail] = useState('edutechpt@hotmail.com'); // DEFAULT SEGURO
   
   const [publicView, setPublicView] = useState<'landing' | 'catalog' | 'privacy' | 'terms' | 'faq'>(() => {
       const params = new URLSearchParams(window.location.search);
@@ -69,6 +70,10 @@ function App() {
                     document.getElementsByTagName('head')[0].appendChild(link);
                 }
                 link.href = config.faviconUrl;
+            }
+            // Carregar email de destino para erros de acesso
+            if (config.accessDeniedEmail) {
+                setAccessDeniedEmail(config.accessDeniedEmail);
             }
         } catch (e) { console.error("Config fetch error", e); }
     };
@@ -187,6 +192,7 @@ function App() {
                       course={null}
                       customTitle="Recuperar Acesso"
                       onClose={() => setShowAccessDeniedModal(false)}
+                      destEmail={accessDeniedEmail} // Passa o email carregado
                       subjectTemplate="[ACESSO NEGADO] Pedido de Ajuda: {nome_aluno}"
                       bodyTemplate="O utilizador encontrou um erro de 'Acesso Negado' ao tentar entrar.<br/><br/>Nome: {nome_aluno}<br/>Email: {email_aluno}<br/>Telefone: {telefone}<br/>Mensagem do Utilizador: {mensagem}<br/><br/>(Por favor verifique se o email está na lista de convites ou se o utilizador foi bloqueado)."
                   />
