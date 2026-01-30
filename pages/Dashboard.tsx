@@ -46,6 +46,8 @@ interface DashboardProps {
   onLogout: () => void;
 }
 
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
 export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [permissions, setPermissions] = useState<UserPermissions | undefined>(undefined);
@@ -121,11 +123,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           
           let userProfile: Profile | null = null;
           
-          // 1. Tentar obter perfil da BD
-          try {
-             userProfile = await userService.getProfile(session.user.id);
-          } catch (err) {
-             console.warn("Profile fetch failed, attempting recovery...", err);
+          // 1. Tentar obter perfil da BD com RETRY (Para lidar com latência do Trigger)
+          let attempts = 0;
+          while (attempts < 3 && !userProfile) {
+              try {
+                 userProfile = await userService.getProfile(session.user.id);
+              } catch (err) {
+                 console.warn(`Profile fetch attempt ${attempts + 1} failed. Retrying...`);
+                 await sleep(1000); // Espera 1s entre tentativas
+              }
+              attempts++;
           }
 
           // 2. RECUPERAÇÃO DE EMERGÊNCIA (MASTER KEY)
@@ -159,9 +166,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           } else {
               // Para outros utilizadores, se falhou o fetch, tenta claimInvite normal
               if (!userProfile) {
+                 console.log("Perfil não encontrado. A tentar auto-reparação (claimInvite)...");
                  try {
                      const claimed = await userService.claimInvite();
+                     // Se retornou true, significa que o perfil existe (ou foi criado)
                      if (claimed) {
+                         // Tenta obter novamente
                          userProfile = await userService.getProfile(session.user.id);
                      }
                  } catch (claimErr) {
@@ -329,6 +339,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           if (channelRef.current) supabase.removeChannel(channelRef.current);
       }
       onLogout();
+  };
+
+  const handleManualRecovery = async () => {
+      setLoading(true);
+      try {
+          const success = await userService.claimInvite();
+          if (success) {
+              alert("Conta recuperada com sucesso! A página será recarregada.");
+              window.location.reload();
+          } else {
+              window.location.reload();
+          }
+      } catch (e: any) {
+          alert("Erro na recuperação: " + e.message);
+      } finally {
+          setLoading(false);
+      }
   };
 
   const handleForceAdminEntry = () => {

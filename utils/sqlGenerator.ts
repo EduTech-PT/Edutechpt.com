@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
--- AÇÃO: CORREÇÃO TRIGGER HANDLE NEW USER (FORMADOR FIX)
+-- AÇÃO: CORREÇÃO RACE CONDITION (CLAIM INVITE)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -355,8 +355,9 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
 
 -- ==============================================================================
--- 9.2 FUNÇÃO DE REPARAÇÃO DE CONTA (STRICT MODE)
--- Só repara/cria perfil se existir convite.
+-- 9.2 FUNÇÃO DE REPARAÇÃO DE CONTA (STRICT MODE v3.1.22)
+-- Fix: Race Condition. Se o perfil já existe (criado pelo trigger), não falha
+-- por falta de convite. Retorna TRUE.
 -- ==============================================================================
 
 create or replace function public.claim_invite()
@@ -365,15 +366,23 @@ declare
   user_email text;
   my_id uuid;
   invite_record record;
+  profile_exists boolean;
 begin
   my_id := auth.uid();
   if my_id is null then return false; end if;
   
   select email into user_email from auth.users where id = my_id;
   
-  -- Rate Limit Check
-  if not public.check_rate_limit(user_email, 'claim_invite', 5, 10) then
-     raise exception 'Muitas tentativas. Aguarde 10 minutos.';
+  -- 0. CRÍTICO: Verificar se o perfil JÁ EXISTE (Evita Race Condition com Trigger)
+  select exists(select 1 from public.profiles where id = my_id) into profile_exists;
+  
+  if profile_exists then
+      return true; -- Sucesso, o perfil já lá está
+  end if;
+
+  -- Rate Limit Check (apenas se não existir perfil)
+  if not public.check_rate_limit(user_email, 'claim_invite', 10, 5) then
+     raise exception 'Muitas tentativas. Aguarde 5 minutos.';
   end if;
   
   -- 1. Check for Invites
@@ -388,7 +397,7 @@ begin
       return true;
   end if;
 
-  -- 2. SE NÃO HOUVER CONVITE, RETORNA FALSO (BLOQUEIA ACESSO)
+  -- 2. SE NÃO HOUVER CONVITE E NÃO HOUVER PERFIL -> FALSO
   if invite_record is null then
       return false;
   end if;
