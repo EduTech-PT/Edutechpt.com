@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
--- AÇÃO: MODO ESTRITO DE CONVITES (BLOQUEIO DE ACESSO SEM CONVITE)
+-- AÇÃO: IMPLEMENTAÇÃO DE HARD DELETE (ELIMINAÇÃO TOTAL DE CONTA)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -337,9 +337,6 @@ begin
       end if;
   end if;
   
-  -- Se não houver convite, o utilizador é criado em auth.users mas sem perfil público.
-  -- O acesso será bloqueado na UI até que claim_invite seja chamado com sucesso.
-
   return new;
 end;
 $$ language plpgsql security definer;
@@ -405,6 +402,51 @@ begin
   return true;
 end;
 $$ language plpgsql security definer;
+
+-- ==============================================================================
+-- 9.3 FUNÇÃO DE HARD DELETE (NOVO EM V3.1.19)
+-- Remove Utilizador do Auth, Perfil e Convites
+-- ==============================================================================
+
+create or replace function public.delete_users_completely(target_ids uuid[])
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_id uuid;
+  target_email text;
+begin
+  -- 1. Verificação de Segurança (Apenas Admin)
+  if not public.is_admin() then
+    raise exception 'Acesso Negado: Apenas administradores podem eliminar contas.';
+  end if;
+
+  -- 2. Loop pelos IDs
+  foreach target_id in array target_ids
+  loop
+      -- Obter email para limpar convites
+      select email into target_email from auth.users where id = target_id;
+      
+      -- Se não encontrou no Auth (já apagado), tenta no Profile
+      if target_email is null then
+          select email into target_email from public.profiles where id = target_id;
+      end if;
+
+      -- A. Apagar Convites Pendentes (Prevent Re-entry)
+      if target_email is not null then
+          delete from public.user_invites where lower(email) = lower(target_email);
+      end if;
+
+      -- B. Apagar Perfil (Cascade trataria disto, mas forçamos para garantir)
+      delete from public.profiles where id = target_id;
+
+      -- C. Apagar da Tabela Auth (Ação Principal)
+      delete from auth.users where id = target_id;
+  end loop;
+end;
+$$;
 
 -- ==============================================================================
 -- 11. CORREÇÃO DE DADOS

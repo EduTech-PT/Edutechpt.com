@@ -73,9 +73,21 @@ export const userService = {
         return data as boolean;
     },
 
+    // ATUALIZADO: Usar RPC para Hard Delete (Auth + Profiles)
     async deleteUsers(ids: string[]) {
-        const { error } = await supabase.from('profiles').delete().in('id', ids);
-        if (error) throw error;
+        // Tenta usar a nova função RPC de limpeza total
+        const { error } = await supabase.rpc('delete_users_completely', { target_ids: ids });
+        
+        if (error) {
+            // Se falhar (ex: função não existe na BD), tenta fallback antigo
+            if (error.code === '42883') { // Undefined function
+                console.warn("RPC delete_users_completely não encontrada. A usar soft delete.");
+                const { error: softError } = await supabase.from('profiles').delete().in('id', ids);
+                if (softError) throw softError;
+                return;
+            }
+            throw error;
+        }
     },
 
     async uploadAvatar(userId: string, file: File) {
