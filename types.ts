@@ -203,6 +203,11 @@ export interface SupabaseSession {
   user: {
     id: string;
     email?: string;
+    user_metadata?: {
+        full_name?: string;
+        avatar_url?: string;
+        [key: string]: any;
+    };
   } | null;
   access_token: string;
   provider_token?: string | null; // Token Google

@@ -14,6 +14,7 @@ import { useToast } from '../components/ui/ToastProvider';
 import { Skeleton } from '../components/ui/Skeleton';
 import { NotificationSystem } from '../components/dashboard/NotificationSystem'; 
 import { ThemeToggle } from '../components/ThemeToggle'; // IMPORTADO
+import { EnrollmentFormModal } from '../components/EnrollmentFormModal';
 
 // Views - Eager Load Critical Views
 import { Overview } from '../components/dashboard/Overview';
@@ -86,6 +87,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [isOnlineVisible, setIsOnlineVisible] = useState(true);
   const channelRef = useRef<any>(null); // Keep reference to channel to allow unsubscribe
+
+  // Access Request Modal State
+  const [showRequestAccessModal, setShowRequestAccessModal] = useState(false);
 
   // ONBOARDING CHECK: O utilizador precisa de configurar o nome?
   const needsSetup = profile 
@@ -434,18 +438,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   if (!profile) return (
       <div className="min-h-screen flex items-center justify-center p-8 bg-indigo-50 dark:bg-slate-900">
           <GlassCard className="text-center max-w-md w-full">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">⚠️</div>
-              <h2 className="text-2xl font-bold text-indigo-900 dark:text-white mb-2">Acesso Pendente</h2>
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">🚫</div>
+              <h2 className="text-2xl font-bold text-indigo-900 dark:text-white mb-2">Acesso Negado</h2>
               <p className="text-indigo-700 dark:text-indigo-300 mb-6 text-sm">
-                  Estamos a configurar o seu perfil. Se este ecrã persistir, clique no botão abaixo.
+                  Esta conta não tem permissão para aceder à plataforma. Por favor, solicite a ativação da sua conta.
               </p>
               
               <div className="space-y-3">
                   <button 
-                      onClick={handleManualRecovery}
+                      onClick={() => setShowRequestAccessModal(true)}
                       className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-md animate-pulse"
                   >
-                      Reparar o meu Acesso
+                      Pedir Acesso
                   </button>
                   
                   {/* EMERGENCY BUTTON FOR ADMIN */}
@@ -463,6 +467,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                   </button>
               </div>
           </GlassCard>
+
+          {showRequestAccessModal && (
+              <EnrollmentFormModal 
+                  course={null}
+                  initialEmail={session.user?.email || ''}
+                  initialName={session.user?.user_metadata?.full_name || ''}
+                  customTitle="Solicitar Acesso"
+                  onClose={() => setShowRequestAccessModal(false)}
+              />
+          )}
       </div>
   );
 
