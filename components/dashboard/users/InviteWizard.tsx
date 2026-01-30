@@ -78,28 +78,43 @@ export const InviteWizard: React.FC<InviteWizardProps> = ({ roles, courses, isAd
             const finalCourseId = selectedRole === 'aluno' ? selectedCourseId : undefined;
             const finalClassId = selectedRole === 'aluno' ? selectedClassId : undefined;
 
+            // 1. Guardar na Base de Dados
             await adminService.createBulkInvites(emailList, selectedRole, finalCourseId, finalClassId);
             
-            // --- NOTIFICAÇÃO VIA EMAIL (MAILTO) ---
-            if (window.confirm(`${emailList.length} convites registados na base de dados.\n\nDeseja abrir o seu cliente de email para notificar estes utilizadores agora?`)) {
-                
-                // Fetch config para personalizar mensagem
-                const config = await adminService.getAppConfig();
-                const subjectTemplate = config.inviteSubject || "Convite para EduTech PT";
-                const bodyTemplate = config.inviteBody || "Olá,\n\nFoste convidado para aceder à plataforma de formação EduTech PT.\n\nPodes entrar aqui: {link}\n\nObrigado.";
-                
-                const currentUrl = window.location.origin;
-                const finalBody = bodyTemplate.replace('{link}', currentUrl);
+            // 2. Preparar Email Automático
+            const config = await adminService.getAppConfig();
+            const subjectTemplate = config.inviteSubject || "Convite para EduTech PT";
+            const bodyTemplate = config.inviteBody || "Olá,\n\nFoste convidado para aceder à plataforma de formação EduTech PT.\n\nPodes entrar aqui: {link}\n\nObrigado.";
+            
+            const currentUrl = window.location.origin;
+            
+            // Preparar corpo HTML para o GmailApp
+            let htmlBody = bodyTemplate.replace('{link}', `<a href="${currentUrl}">${currentUrl}</a>`);
+            // Converter quebras de linha simples em <br> se não for HTML rico
+            if (!htmlBody.includes('<p>') && !htmlBody.includes('<div>')) {
+                htmlBody = htmlBody.replace(/\n/g, '<br/>');
+            }
 
-                const subject = encodeURIComponent(subjectTemplate);
-                const body = encodeURIComponent(finalBody);
-                const bcc = emailList.join(',');
-                
-                // Proteção básica contra URLs demasiado longos (browsers têm limite de ~2000 chars)
-                if (bcc.length > 1800) {
-                    alert("A lista de emails é demasiado longa para gerar o link automático. Os convites foram guardados na plataforma, mas terá de enviar o email manualmente.");
-                } else {
-                    window.location.href = `mailto:?bcc=${bcc}&subject=${subject}&body=${body}`;
+            const recipients = emailList.join(',');
+
+            // 3. Enviar via Backend (Gmail API via GAS)
+            // Isto usará o alias 'edutechpt@hotmail.com' se configurado no script
+            const emailSuccess = await adminService.sendEmailNotification(recipients, subjectTemplate, htmlBody);
+
+            if (emailSuccess) {
+                alert(`Sucesso! ${emailList.length} convites foram registados e enviados via email.`);
+            } else {
+                // Fallback: Se a API falhar, sugerir cliente local
+                if (window.confirm(`Os convites foram registados na base de dados, mas o envio automático falhou (verifique a configuração do Drive).\n\nDeseja abrir o seu email local para enviar manualmente?`)) {
+                    const mailtoBody = bodyTemplate.replace('{link}', currentUrl);
+                    const subject = encodeURIComponent(subjectTemplate);
+                    const body = encodeURIComponent(mailtoBody);
+                    
+                    if (recipients.length > 1800) {
+                        alert("Lista de emails demasiado longa para link automático.");
+                    } else {
+                        window.location.href = `mailto:?bcc=${recipients}&subject=${subject}&body=${body}`;
+                    }
                 }
             }
 
