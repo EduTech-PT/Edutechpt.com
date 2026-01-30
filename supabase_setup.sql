@@ -1,8 +1,8 @@
 
 -- ==============================================================================
--- EDUTECH PT - SCHEMA COMPLETO (v3.1.17)
+-- EDUTECH PT - SCHEMA COMPLETO (v3.1.18)
 -- Data: 2024
--- AÇÃO: CORREÇÃO DA ATRIBUIÇÃO DE CARGOS EM CONVITES
+-- AÇÃO: MODO ESTRITO DE CONVITES (BLOQUEIO DE ACESSO SEM CONVITE)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -11,8 +11,8 @@ create table if not exists public.app_config (
     value text
 );
 
-insert into public.app_config (key, value) values ('sql_version', 'v3.1.17')
-on conflict (key) do update set value = 'v3.1.17';
+insert into public.app_config (key, value) values ('sql_version', 'v3.1.18')
+on conflict (key) do update set value = 'v3.1.18';
 
 -- 2. FUNÇÃO DE SEGURANÇA (SECURITY DEFINER)
 create or replace function public.is_admin()
@@ -249,41 +249,41 @@ create or replace function public.handle_new_user()
 returns trigger as $$
 declare
   invite_record record;
-  assigned_role text := 'aluno';
 begin
-  -- 1. Verificar Convites (com TRIM e LOWER para garantir match)
+  -- 1. Verificar Convites
   select * into invite_record from public.user_invites 
   where lower(trim(email)) = lower(trim(new.email));
   
-  if invite_record is not null then assigned_role := invite_record.role; end if;
-  
-  -- Master Admin Override
-  if lower(trim(new.email)) = 'edutechpt@hotmail.com' then assigned_role := 'admin'; end if;
-
-  -- 2. Inserir Perfil (Protegido contra falhas)
-  begin
+  -- Master Admin Override (Cria sempre)
+  if lower(trim(new.email)) = 'edutechpt@hotmail.com' then 
       insert into public.profiles (id, email, full_name, role, avatar_url)
-      values (new.id, new.email, new.raw_user_meta_data->>'full_name', assigned_role, new.raw_user_meta_data->>'avatar_url')
-      on conflict (id) do update set role = assigned_role;
-  exception when others then
-      -- Se falhar o perfil, tentamos logar mas não abortamos o trigger do Auth
-      raise warning 'Erro ao criar perfil para %: %', new.email, SQLERRM;
-  end;
+      values (new.id, new.email, new.raw_user_meta_data->>'full_name', 'admin', new.raw_user_meta_data->>'avatar_url')
+      on conflict (id) do update set role = 'admin';
+      return new;
+  end if;
 
-  -- 3. Processar Inscrição Automática (Bloco Isolado)
-  if invite_record is not null and invite_record.course_id is not null then
+  -- 2. Inserir Perfil APENAS SE HOUVER CONVITE
+  if invite_record is not null then
       begin
-          -- Tenta inscrever. Se o curso/turma não existir mais, ignora o erro.
-          insert into public.enrollments (user_id, course_id, class_id)
-          values (new.id, invite_record.course_id, invite_record.class_id)
-          on conflict do nothing;
-          
-          -- Só apaga o convite se a inscrição funcionar (ou se já estiver inscrito)
-          delete from public.user_invites where email = invite_record.email;
+          insert into public.profiles (id, email, full_name, role, avatar_url)
+          values (new.id, new.email, new.raw_user_meta_data->>'full_name', invite_record.role, new.raw_user_meta_data->>'avatar_url')
+          on conflict (id) do update set role = invite_record.role;
       exception when others then
-          -- Captura erro de FK (curso apagado) e permite login
-          raise warning 'Falha na inscricao automatica do convite: %', SQLERRM;
+          raise warning 'Erro ao criar perfil para %: %', new.email, SQLERRM;
       end;
+
+      -- 3. Processar Inscrição Automática
+      if invite_record.course_id is not null then
+          begin
+              insert into public.enrollments (user_id, course_id, class_id)
+              values (new.id, invite_record.course_id, invite_record.class_id)
+              on conflict do nothing;
+              
+              delete from public.user_invites where email = invite_record.email;
+          exception when others then
+              raise warning 'Falha na inscricao automatica: %', SQLERRM;
+          end;
+      end if;
   end if;
 
   return new;
@@ -294,8 +294,8 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
 
 -- ==============================================================================
--- 9.2 FUNÇÃO DE REPARAÇÃO DE CONTA (CLAIM INVITE)
--- CORRIGIDA PARA VERIFICAR CONVITES ANTES DE DEFAULTAR PARA 'ALUNO'
+-- 9.2 FUNÇÃO DE REPARAÇÃO DE CONTA (STRICT MODE)
+-- Só repara/cria perfil se existir convite.
 -- ==============================================================================
 
 create or replace function public.claim_invite()
@@ -304,7 +304,6 @@ declare
   user_email text;
   my_id uuid;
   invite_record record;
-  role_to_assign text := 'aluno'; -- Default fallback
 begin
   my_id := auth.uid();
   if my_id is null then return false; end if;
@@ -316,32 +315,37 @@ begin
      raise exception 'Muitas tentativas. Aguarde 10 minutos.';
   end if;
   
-  -- 1. Check for Invites (Search by Email)
+  -- 1. Check for Invites
   select * into invite_record from public.user_invites 
   where lower(trim(email)) = lower(trim(user_email));
   
-  if invite_record is not null then
-      role_to_assign := invite_record.role;
-  end if;
-  
-  -- 2. Master Admin Override
+  -- Master Admin Override
   if lower(trim(user_email)) = 'edutechpt@hotmail.com' then
-      role_to_assign := 'admin';
+      insert into public.profiles (id, email, full_name, role)
+      values (my_id, user_email, 'Administrador', 'admin')
+      on conflict (id) do update set role = 'admin';
+      return true;
   end if;
 
-  -- 3. Upsert Profile with CORRECT Role (User Invites or Default)
-  insert into public.profiles (id, email, full_name, role)
-  values (my_id, user_email, 'Utilizador', role_to_assign)
-  on conflict (id) do update set role = role_to_assign; -- Force update role just in case
+  -- 2. SE NÃO HOUVER CONVITE, RETORNA FALSO (BLOQUEIA ACESSO)
+  if invite_record is null then
+      return false;
+  end if;
 
-  -- 4. Process Enrollment from Invite if exists
-  if invite_record is not null and invite_record.course_id is not null then
+  -- 3. Criar Perfil com base no convite
+  insert into public.profiles (id, email, full_name, role)
+  values (my_id, user_email, 'Utilizador', invite_record.role)
+  on conflict (id) do update set role = invite_record.role;
+
+  -- 4. Processar Inscrição
+  if invite_record.course_id is not null then
       insert into public.enrollments (user_id, course_id, class_id)
       values (my_id, invite_record.course_id, invite_record.class_id)
       on conflict do nothing;
-      
-      delete from public.user_invites where email = invite_record.email;
   end if;
+  
+  -- Consumir convite
+  delete from public.user_invites where email = invite_record.email;
 
   return true;
 end;
