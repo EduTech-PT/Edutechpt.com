@@ -13,6 +13,7 @@ interface EnrollmentFormModalProps {
     // Novos props para template dinâmico
     subjectTemplate?: string;
     bodyTemplate?: string;
+    customTitle?: string; // NOVO: Para override do título (ex: Acesso Negado)
 }
 
 export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({ 
@@ -22,7 +23,8 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
     initialEmail = '',
     destEmail = 'edutechpt@hotmail.com',
     subjectTemplate,
-    bodyTemplate
+    bodyTemplate,
+    customTitle
 }) => {
     const [name, setName] = useState(initialName);
     const [email, setEmail] = useState(initialEmail);
@@ -118,7 +120,7 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
             // Fallback: Layout Hardcoded Original (Bonito)
             body = `
                 <div style="font-family: sans-serif; color: #333;">
-                    <h2 style="color: #4f46e5;">${isGeneralRequest ? 'Pedido de Acesso / Contacto' : 'Nova Candidatura / Inscrição'}</h2>
+                    <h2 style="color: #4f46e5;">${customTitle || (isGeneralRequest ? 'Pedido de Acesso / Contacto' : 'Nova Candidatura / Inscrição')}</h2>
                     <p>Recebeu um novo pedido através da plataforma EduTech PT.</p>
                     
                     <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
@@ -181,11 +183,13 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
 
                 <div className="mb-6 text-center">
                     <div className="w-14 h-14 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-3xl mx-auto mb-3">
-                        {isGeneralRequest ? '🔐' : '📝'}
+                        {customTitle ? '⚠️' : (isGeneralRequest ? '🔐' : '📝')}
                     </div>
-                    <h2 className="text-2xl font-bold text-indigo-900 dark:text-white">{isGeneralRequest ? 'Pedir Acesso' : 'Ficha de Inscrição'}</h2>
+                    <h2 className="text-2xl font-bold text-indigo-900 dark:text-white">
+                        {customTitle || (isGeneralRequest ? 'Pedir Acesso' : 'Ficha de Inscrição')}
+                    </h2>
                     <p className="text-sm text-indigo-600 dark:text-indigo-300 font-medium mt-1">
-                        {course ? course.title : 'Solicitar conta na plataforma'}
+                        {course ? course.title : 'Solicitar suporte à administração'}
                     </p>
                 </div>
 
@@ -240,7 +244,7 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
                             value={message}
                             onChange={e => setMessage(e.target.value)}
                             className="w-full p-3 rounded-xl bg-gray-50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white h-24 resize-none"
-                            placeholder={isGeneralRequest ? "Gostaria de ter acesso para..." : "Dúvidas sobre o curso..."}
+                            placeholder={customTitle ? "Explique o problema de acesso..." : (isGeneralRequest ? "Gostaria de ter acesso para..." : "Dúvidas sobre o curso...")}
                         />
                     </div>
 

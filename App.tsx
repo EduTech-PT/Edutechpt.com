@@ -3,11 +3,12 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from './lib/supabaseClient';
 import { LandingPage } from './pages/LandingPage';
 import { Dashboard } from './pages/Dashboard';
-import { PublicCatalog } from './pages/PublicCatalog'; // IMPORTADO
+import { PublicCatalog } from './pages/PublicCatalog'; 
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
 import { FAQPage } from './pages/FAQPage'; 
 import { AuthForm } from './components/AuthForm';
+import { EnrollmentFormModal } from './components/EnrollmentFormModal'; // IMPORTADO
 import { SupabaseSession } from './types';
 import { adminService } from './services/admin';
 import { ToastProvider } from './components/ui/ToastProvider';
@@ -17,6 +18,9 @@ function App() {
   const [session, setSession] = useState<SupabaseSession | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // Acesso Negado State
+  const [showAccessDeniedModal, setShowAccessDeniedModal] = useState(false);
   
   const [publicView, setPublicView] = useState<'landing' | 'catalog' | 'privacy' | 'terms' | 'faq'>(() => {
       const params = new URLSearchParams(window.location.search);
@@ -80,31 +84,13 @@ function App() {
         const errorDesc = decodeURIComponent(params.get('error_description') || '');
         const errorCode = params.get('error_code') || '';
         
+        // Verifica se há erro de acesso na URL (retornado pelo Supabase)
         if (errorDesc.includes('ACESSO NEGADO') || errorDesc.includes('Database error saving new user') || errorCode === 'unexpected_failure') {
+            // Limpa a URL para não entrar em loop ou mostrar o erro feio
             window.history.replaceState(null, '', window.location.pathname);
             
-            const contact = window.confirm("ACESSO NEGADO: Este email não tem permissão para aceder à plataforma ou ocorreu um erro de validação.\n\nDeseja entrar em contacto com o Administrador?");
-            
-            if (contact) {
-                try {
-                    const { data } = await supabase.from('app_config').select('*');
-                    let email = 'edutechpt@hotmail.com';
-                    let subject = 'Pedido de Acesso';
-                    let body = 'Gostaria de solicitar acesso.';
-
-                    if (data) {
-                        data.forEach(item => {
-                            if (item.key === 'access_denied_email') email = item.value;
-                            if (item.key === 'access_denied_subject') subject = item.value;
-                            if (item.key === 'access_denied_body') body = item.value;
-                        });
-                    }
-                    window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-                } catch (e) {
-                    console.error("Erro ao obter config de email", e);
-                    alert("Erro ao preparar email. Contacte: edutechpt@hotmail.com");
-                }
-            }
+            // Abre o modal de contacto em vez do window.confirm
+            setShowAccessDeniedModal(true);
         }
     };
 
@@ -192,6 +178,17 @@ function App() {
                           setShowAuthModal(false);
                           handleNavigate('terms');
                       }}
+                  />
+              )}
+
+              {/* MODAL DE ACESSO NEGADO / RECUPERAÇÃO */}
+              {showAccessDeniedModal && (
+                  <EnrollmentFormModal 
+                      course={null}
+                      customTitle="Recuperar Acesso"
+                      onClose={() => setShowAccessDeniedModal(false)}
+                      subjectTemplate="[ACESSO NEGADO] Pedido de Ajuda: {nome_aluno}"
+                      bodyTemplate="O utilizador encontrou um erro de 'Acesso Negado' ao tentar entrar.<br/><br/>Nome: {nome_aluno}<br/>Email: {email_aluno}<br/>Telefone: {telefone}<br/>Mensagem do Utilizador: {mensagem}<br/><br/>(Por favor verifique se o email está na lista de convites ou se o utilizador foi bloqueado)."
                   />
               )}
               </>
