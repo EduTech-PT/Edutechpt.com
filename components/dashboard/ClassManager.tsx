@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Course, Class } from '../../types';
 import { courseService } from '../../services/courses';
 
@@ -22,35 +22,30 @@ export const ClassManager: React.FC = () => {
     const [formData, setFormData] = useState({ name: '', course_id: '' });
 
     useEffect(() => {
-        loadCourses();
+        loadInitialData();
     }, []);
 
-    // Se selecionar um curso, filtra as turmas
     useEffect(() => {
         if (selectedCourseId) {
             loadClasses(selectedCourseId);
-        } else if (courses.length > 0) {
-            // Se houver cursos mas nenhum selecionado, selecionar o primeiro
-            setSelectedCourseId(courses[0].id);
-        } else {
-            setClasses([]);
         }
-    }, [selectedCourseId, courses.length]);
+    }, [selectedCourseId]);
 
-    const loadCourses = async () => {
+    const loadInitialData = async () => {
+        setLoading(true);
         try {
-            setLoading(true);
             const coursesData = await courseService.getAll();
-            setCourses(coursesData || []);
+            const safeCourses = coursesData || [];
+            setCourses(safeCourses);
             
             // Auto-select first course if available and none selected
-            if (coursesData && coursesData.length > 0 && !selectedCourseId) {
-                setSelectedCourseId(coursesData[0].id);
+            if (safeCourses.length > 0) {
+                setSelectedCourseId(safeCourses[0].id);
             } else {
                 setLoading(false); // Stop loading if no courses found
             }
         } catch (err) {
-            console.error(err);
+            console.error("Erro ao carregar cursos:", err);
             setLoading(false);
         }
     };
@@ -62,7 +57,7 @@ export const ClassManager: React.FC = () => {
             const data = await courseService.getClasses(courseId);
             setClasses(data || []);
         } catch (err) { 
-            console.error(err);
+            console.error("Erro ao carregar turmas:", err);
             setClasses([]);
         } finally { 
             setLoading(false); 
