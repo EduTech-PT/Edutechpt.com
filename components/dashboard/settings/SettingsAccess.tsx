@@ -73,11 +73,13 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
         setUploading(true);
 
         try {
-            const url = await storageService.uploadCourseImage(file); // Reutilizar bucket publico
+            // Upload Storage
+            const url = await storageService.uploadCourseImage(file); 
+            
             const configKey = type === 'top' ? 'email_banner_top' : 'email_banner_bottom';
             const stateKey = type === 'top' ? 'emailBannerTop' : 'emailBannerBottom';
 
-            // Guardar no Config Local
+            // Atualiza UI Imediatamente
             setConfig((prev: any) => ({ ...prev, [stateKey]: url }));
             
             // Guardar na BD
@@ -85,9 +87,12 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
             toast.success(`${type === 'top' ? 'Topo' : 'Rodapé'} atualizado!`);
 
         } catch (err: any) {
+            console.error("Upload failed", err);
             toast.error("Erro no upload: " + err.message);
         } finally {
             setUploading(false);
+            // Reset input value to allow re-uploading same file if needed
+            e.target.value = '';
         }
     };
 

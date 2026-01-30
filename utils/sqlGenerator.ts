@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
--- AÇÃO: MIGRATION COURSE LOCATION (V3.1.13)
+-- AÇÃO: CORREÇÃO DE PERMISSÕES DE STORAGE E CONFIG (BANNERS)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -125,25 +125,21 @@ begin
   if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='access_days') then
     alter table public.courses add column access_days integer;
   end if;
-  -- V3.1.10: Pricing Plans
   if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='pricing_plans') then
     alter table public.courses add column pricing_plans jsonb default '[]'::jsonb;
   end if;
-  -- V3.1.11: Live Course Pricing
   if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='hourly_rate') then
     alter table public.courses add column hourly_rate text;
   end if;
   if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='extra_class_price') then
     alter table public.courses add column extra_class_price text;
   end if;
-  -- V3.1.12: Conditions
   if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='min_students') then
     alter table public.courses add column min_students integer default 10;
   end if;
   if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='referral_text') then
     alter table public.courses add column referral_text text default '10% de desconto';
   end if;
-  -- V3.1.13: Location Type
   if not exists (select 1 from information_schema.columns where table_name='courses' and column_name='location_type') then
     alter table public.courses add column location_type text default 'online';
   end if;
@@ -237,12 +233,12 @@ create table if not exists public.class_attendance ( id uuid default gen_random_
 create table if not exists public.student_grades ( id uuid default gen_random_uuid() primary key, assessment_id uuid references public.class_assessments(id) on delete cascade, student_id uuid references public.profiles(id) on delete cascade, grade text, feedback text, graded_at timestamp default now(), unique(assessment_id, student_id) );
 create table if not exists public.class_comments ( id uuid default gen_random_uuid() primary key, class_id uuid references public.classes(id) on delete cascade, user_id uuid references public.profiles(id) on delete cascade, content text not null, created_at timestamp default now() );
 
--- STORAGE
+-- STORAGE SETUP
 insert into storage.buckets (id, name, public) values ('course-images', 'course-images', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('class-files', 'class-files', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 
--- 8. SEGURANÇA E POLÍTICAS
+-- 8. SEGURANÇA E POLÍTICAS (RLS)
 DO $$ 
 DECLARE 
   pol record; 
@@ -281,6 +277,16 @@ drop policy if exists "Gerir Comentarios" on public.class_comments;
 create policy "Ver Comentarios" on public.class_comments for select using (true);
 create policy "Criar Comentarios" on public.class_comments for insert with check (auth.uid() = user_id);
 create policy "Gerir Comentarios" on public.class_comments for delete using (auth.uid() = user_id OR public.is_admin());
+
+-- 9. POLÍTICAS DE ARMAZENAMENTO (CRÍTICO PARA UPLOADS)
+drop policy if exists "Public Access Course Images" on storage.objects;
+drop policy if exists "Auth Upload Course Images" on storage.objects;
+drop policy if exists "Auth Delete Course Images" on storage.objects;
+
+create policy "Public Access Course Images" on storage.objects for select using ( bucket_id = 'course-images' );
+create policy "Auth Upload Course Images" on storage.objects for insert with check ( bucket_id = 'course-images' and auth.role() = 'authenticated' );
+create policy "Auth Update Course Images" on storage.objects for update using ( bucket_id = 'course-images' and auth.role() = 'authenticated' );
+create policy "Auth Delete Course Images" on storage.objects for delete using ( bucket_id = 'course-images' and auth.role() = 'authenticated' );
 
 -- ==============================================================================
 -- 10. RECARREGAMENTO DE SCHEMA
