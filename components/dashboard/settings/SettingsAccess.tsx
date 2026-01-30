@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../../GlassCard';
 import { adminService } from '../../../services/admin';
 import { userService } from '../../../services/users';
-import { storageService } from '../../../services/storage'; // Importado
+import { storageService } from '../../../services/storage';
 import { useToast } from '../../ui/ToastProvider';
 import { supabase } from '../../../lib/supabaseClient';
 import { Profile, UserRole } from '../../../types';
@@ -11,6 +11,28 @@ import { Profile, UserRole } from '../../../types';
 interface Props {
     profile?: Profile;
 }
+
+// Componentes Auxiliares (Definidos fora para estabilidade do React)
+const SaveBtn = ({ onClick }: { onClick: () => void }) => (
+    <button 
+        onClick={onClick}
+        className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-colors flex items-center justify-center shrink-0 ml-2"
+        title="Guardar Campo"
+    >
+        💾
+    </button>
+);
+
+const UploadBtn = ({ uploading, onChange, id }: { uploading: boolean, onChange: (e: any) => void, id: string }) => (
+    <label htmlFor={id} className={`p-1.5 bg-white dark:bg-slate-700 border border-indigo-200 dark:border-slate-600 text-indigo-600 dark:text-white rounded-lg shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-600 transition-colors flex items-center justify-center shrink-0 ml-2 cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`} title="Upload Imagem">
+        {uploading ? (
+            <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        ) : (
+            '📁'
+        )}
+        <input id={id} type="file" className="hidden" accept="image/*" onChange={onChange} disabled={uploading} />
+    </label>
+);
 
 export const SettingsAccess: React.FC<Props> = ({ profile }) => {
     const [config, setConfig] = useState<any>({});
@@ -65,7 +87,7 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
         
         // Validação de Tamanho (2MB)
         if (file.size > 2 * 1024 * 1024) {
-            toast.error("Imagem muito grande. Máximo 2MB.");
+            alert("Imagem muito grande. Máximo 2MB.");
             return;
         }
 
@@ -88,7 +110,8 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
 
         } catch (err: any) {
             console.error("Upload failed", err);
-            toast.error("Erro no upload: " + err.message);
+            // Alert explícito para debugging do utilizador
+            alert("Erro no upload: " + (err.message || JSON.stringify(err)) + "\n\nVerifique se executou o Script SQL de atualização.");
         } finally {
             setUploading(false);
             // Reset input value to allow re-uploading same file if needed
@@ -122,7 +145,6 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
             osc.stop(startTime + duration);
         };
 
-        // ... (Logica de som mantida igual) ...
         if (type === 'glass') { createOsc(1200, 'sine', t, 0.8); createOsc(1800, 'sine', t, 0.6); } 
         else if (type === 'digital') { createOsc(800, 'sine', t, 0.1); createOsc(1200, 'sine', t + 0.1, 0.1); } 
         else if (type === 'happy') { createOsc(523.25, 'sine', t, 0.2); createOsc(659.25, 'sine', t + 0.1, 0.2); createOsc(783.99, 'sine', t + 0.2, 0.4); }
@@ -134,23 +156,6 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
     };
 
     const canSeeGlobalToggle = profile?.role === UserRole.ADMIN || profile?.role === UserRole.EDITOR;
-
-    const SaveBtn = ({ onClick }: { onClick: () => void }) => (
-        <button 
-            onClick={onClick}
-            className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-colors flex items-center justify-center shrink-0 ml-2"
-            title="Guardar Campo"
-        >
-            💾
-        </button>
-    );
-
-    const UploadBtn = ({ uploading, onChange }: { uploading: boolean, onChange: (e: any) => void }) => (
-        <label className={`p-1.5 bg-white dark:bg-slate-700 border border-indigo-200 dark:border-slate-600 text-indigo-600 dark:text-white rounded-lg shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-600 transition-colors flex items-center justify-center shrink-0 ml-2 cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`} title="Upload Imagem">
-            {uploading ? '...' : '📁'}
-            <input type="file" className="hidden" accept="image/*" onChange={onChange} />
-        </label>
-    );
 
     return (
         <div className="space-y-6 animate-in fade-in">
@@ -218,7 +223,7 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
                          <div className="flex justify-between items-center mb-2">
                              <label className="text-sm font-bold text-indigo-800 dark:text-indigo-200">Banner de Topo</label>
                              <div className="flex">
-                                <UploadBtn uploading={uploadingTop} onChange={(e) => handleBannerUpload(e, 'top')} />
+                                <UploadBtn id="upload-top" uploading={uploadingTop} onChange={(e) => handleBannerUpload(e, 'top')} />
                                 <SaveBtn onClick={() => handleSaveConfigField('email_banner_top', config.emailBannerTop)} />
                              </div>
                          </div>
@@ -243,7 +248,7 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
                          <div className="flex justify-between items-center mb-2">
                              <label className="text-sm font-bold text-indigo-800 dark:text-indigo-200">Banner de Rodapé</label>
                              <div className="flex">
-                                <UploadBtn uploading={uploadingBottom} onChange={(e) => handleBannerUpload(e, 'bottom')} />
+                                <UploadBtn id="upload-bottom" uploading={uploadingBottom} onChange={(e) => handleBannerUpload(e, 'bottom')} />
                                 <SaveBtn onClick={() => handleSaveConfigField('email_banner_bottom', config.emailBannerBottom)} />
                              </div>
                          </div>

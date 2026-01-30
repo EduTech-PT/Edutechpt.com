@@ -235,6 +235,8 @@ create table if not exists public.class_comments ( id uuid default gen_random_uu
 
 -- STORAGE SETUP
 insert into storage.buckets (id, name, public) values ('course-images', 'course-images', true) on conflict (id) do nothing;
+update storage.buckets set public = true where id = 'course-images'; -- Força publico
+
 insert into storage.buckets (id, name, public) values ('class-files', 'class-files', true) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 
@@ -281,6 +283,7 @@ create policy "Gerir Comentarios" on public.class_comments for delete using (aut
 -- 9. POLÍTICAS DE ARMAZENAMENTO (CRÍTICO PARA UPLOADS)
 drop policy if exists "Public Access Course Images" on storage.objects;
 drop policy if exists "Auth Upload Course Images" on storage.objects;
+drop policy if exists "Auth Update Course Images" on storage.objects;
 drop policy if exists "Auth Delete Course Images" on storage.objects;
 
 create policy "Public Access Course Images" on storage.objects for select using ( bucket_id = 'course-images' );
