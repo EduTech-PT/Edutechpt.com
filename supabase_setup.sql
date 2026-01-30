@@ -1,8 +1,8 @@
 
 -- ==============================================================================
--- EDUTECH PT - SCHEMA COMPLETO (v3.1.19)
+-- EDUTECH PT - SCHEMA COMPLETO (v3.1.20)
 -- Data: 2024
--- AÇÃO: IMPLEMENTAÇÃO DE HARD DELETE (ELIMINAÇÃO TOTAL DE CONTA)
+-- AÇÃO: CORREÇÃO DE PERMISSÕES RPC (HARD DELETE)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -11,8 +11,8 @@ create table if not exists public.app_config (
     value text
 );
 
-insert into public.app_config (key, value) values ('sql_version', 'v3.1.19')
-on conflict (key) do update set value = 'v3.1.19';
+insert into public.app_config (key, value) values ('sql_version', 'v3.1.20')
+on conflict (key) do update set value = 'v3.1.20';
 
 -- 2. FUNÇÃO DE SEGURANÇA (SECURITY DEFINER)
 create or replace function public.is_admin()
@@ -352,9 +352,12 @@ end;
 $$ language plpgsql security definer;
 
 -- ==============================================================================
--- 9.3 FUNÇÃO DE HARD DELETE (NOVO EM V3.1.19)
--- Remove Utilizador do Auth, Perfil e Convites
+-- 9.3 FUNÇÃO DE HARD DELETE (FIX V3.1.20)
+-- Remove Utilizador do Auth, Perfil e Convites com permissões explícitas
 -- ==============================================================================
+
+-- DROP PREVENTIVO PARA GARANTIR RECRIAÇÃO LIMPA
+DROP FUNCTION IF EXISTS public.delete_users_completely(uuid[]);
 
 create or replace function public.delete_users_completely(target_ids uuid[])
 returns void
@@ -396,44 +399,9 @@ begin
 end;
 $$;
 
-create or replace function public.get_community_members()
-returns setof public.profiles as $$
-begin
-    return query select * from public.profiles order by full_name;
-end;
-$$ language plpgsql security definer;
-
-create or replace function public.cleanup_old_comments()
-returns trigger as $$
-begin
-  delete from public.class_comments where created_at < now() - interval '90 days';
-  return new;
-end;
-$$ language plpgsql security definer;
-
-drop trigger if exists on_comment_cleanup on public.class_comments;
-create trigger on_comment_cleanup after insert on public.class_comments for each statement execute procedure public.cleanup_old_comments();
-
-create or replace function public.moderate_chat()
-returns trigger as $$
-declare
-  bad_words_json jsonb;
-  bad_word text;
-  cleaned_content text;
-begin
-  select value::jsonb into bad_words_json from public.app_config where key = 'forbidden_words';
-  if bad_words_json is null or jsonb_typeof(bad_words_json) != 'array' then return new; end if;
-  cleaned_content := new.content;
-  for bad_word in select * from jsonb_array_elements_text(bad_words_json) loop
-    cleaned_content := regexp_replace(cleaned_content, bad_word, '****', 'gi');
-  end loop;
-  new.content := cleaned_content;
-  return new;
-end;
-$$ language plpgsql security definer;
-
-drop trigger if exists on_chat_moderation on public.class_comments;
-create trigger on_chat_moderation before insert or update on public.class_comments for each row execute procedure public.moderate_chat();
+-- GARANTIR PERMISSÕES DE EXECUÇÃO PARA A API
+GRANT EXECUTE ON FUNCTION public.delete_users_completely(uuid[]) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_users_completely(uuid[]) TO service_role;
 
 -- ==============================================================================
 -- 10. RECARREGAMENTO DE SCHEMA (CRÍTICO)

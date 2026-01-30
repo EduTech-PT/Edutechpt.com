@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
--- AÇÃO: IMPLEMENTAÇÃO DE HARD DELETE (ELIMINAÇÃO TOTAL DE CONTA)
+-- AÇÃO: CORREÇÃO DE PERMISSÕES RPC (HARD DELETE)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -404,9 +404,12 @@ end;
 $$ language plpgsql security definer;
 
 -- ==============================================================================
--- 9.3 FUNÇÃO DE HARD DELETE (NOVO EM V3.1.19)
--- Remove Utilizador do Auth, Perfil e Convites
+-- 9.3 FUNÇÃO DE HARD DELETE (FIX V3.1.20)
+-- Remove Utilizador do Auth, Perfil e Convites com permissões explícitas
 -- ==============================================================================
+
+-- DROP PREVENTIVO PARA GARANTIR RECRIAÇÃO LIMPA
+DROP FUNCTION IF EXISTS public.delete_users_completely(uuid[]);
 
 create or replace function public.delete_users_completely(target_ids uuid[])
 returns void
@@ -447,6 +450,10 @@ begin
   end loop;
 end;
 $$;
+
+-- GARANTIR PERMISSÕES DE EXECUÇÃO PARA A API
+GRANT EXECUTE ON FUNCTION public.delete_users_completely(uuid[]) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_users_completely(uuid[]) TO service_role;
 
 -- ==============================================================================
 -- 11. CORREÇÃO DE DADOS
