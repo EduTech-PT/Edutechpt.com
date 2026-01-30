@@ -331,23 +331,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       onLogout();
   };
 
-  const handleManualRecovery = async () => {
-      setLoading(true);
-      try {
-          const success = await userService.claimInvite();
-          if (success) {
-              alert("Conta recuperada com sucesso! A página será recarregada.");
-              window.location.reload();
-          } else {
-              window.location.reload();
-          }
-      } catch (e: any) {
-          alert("Erro na recuperação: " + e.message);
-      } finally {
-          setLoading(false);
-      }
-  };
-
   const handleForceAdminEntry = () => {
       if (!session.user) return;
       const fakeProfile: Profile = {
@@ -451,6 +434,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                   >
                       Pedir Acesso
                   </button>
+                  
+                  {/* Retry Logic - Manual Trigger for failed auto-repairs */}
+                  <div className="text-center">
+                      <button 
+                          onClick={() => { setLoading(true); init(); }}
+                          className="text-xs text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-white underline mt-2"
+                      >
+                          Tentar Novamente (Recarregar)
+                      </button>
+                  </div>
                   
                   {/* EMERGENCY BUTTON FOR ADMIN */}
                   {session.user?.email?.toLowerCase() === 'edutechpt@hotmail.com' && (

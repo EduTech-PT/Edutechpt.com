@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
--- AÇÃO: CORREÇÃO DE PERMISSÕES RPC (HARD DELETE)
+-- AÇÃO: CORREÇÃO TRIGGER HANDLE NEW USER (FORMADOR FIX)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -294,6 +294,7 @@ create policy "Auth Delete Course Images" on storage.objects for delete using ( 
 -- ==============================================================================
 -- 9.1 TRIGGER HANDLE NEW USER (STRICT MODE)
 -- Só cria perfil se existir convite ou for Master Admin.
+-- FIX v3.1.21: Garante limpeza do convite mesmo sem curso.
 -- ==============================================================================
 
 create or replace function public.handle_new_user() 
@@ -308,7 +309,7 @@ begin
   -- Master Admin Override (Cria sempre)
   if lower(trim(new.email)) = 'edutechpt@hotmail.com' then 
       insert into public.profiles (id, email, full_name, role, avatar_url)
-      values (new.id, new.email, new.raw_user_meta_data->>'full_name', 'admin', new.raw_user_meta_data->>'avatar_url')
+      values (new.id, new.email, COALESCE(new.raw_user_meta_data->>'full_name', 'Administrador'), 'admin', new.raw_user_meta_data->>'avatar_url')
       on conflict (id) do update set role = 'admin';
       return new;
   end if;
@@ -317,20 +318,28 @@ begin
   if invite_record is not null then
       begin
           insert into public.profiles (id, email, full_name, role, avatar_url)
-          values (new.id, new.email, new.raw_user_meta_data->>'full_name', invite_record.role, new.raw_user_meta_data->>'avatar_url')
+          values (
+            new.id, 
+            new.email, 
+            COALESCE(new.raw_user_meta_data->>'full_name', 'Utilizador'), -- Fallback para nome
+            invite_record.role, 
+            new.raw_user_meta_data->>'avatar_url'
+          )
           on conflict (id) do update set role = invite_record.role;
+          
+          -- ACAO CRITICA: CONSUMIR CONVITE (Independentemente de ter curso ou não)
+          delete from public.user_invites where email = invite_record.email;
+
       exception when others then
           raise warning 'Erro ao criar perfil para %: %', new.email, SQLERRM;
       end;
 
-      -- 3. Processar Inscrição Automática
+      -- 3. Processar Inscrição Automática (Opcional)
       if invite_record.course_id is not null then
           begin
               insert into public.enrollments (user_id, course_id, class_id)
               values (new.id, invite_record.course_id, invite_record.class_id)
               on conflict do nothing;
-              
-              delete from public.user_invites where email = invite_record.email;
           exception when others then
               raise warning 'Falha na inscricao automatica: %', SQLERRM;
           end;
