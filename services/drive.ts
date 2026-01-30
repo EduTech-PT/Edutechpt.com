@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.6.5";
+export const GAS_VERSION = "v1.6.6";
 
 export interface DriveFile {
   id: string;
@@ -260,6 +260,7 @@ export const GAS_MANIFEST_JSON = `{
     "https://www.googleapis.com/auth/drive.file",
     "https://www.googleapis.com/auth/calendar",
     "https://www.googleapis.com/auth/gmail.send",
+    "https://www.googleapis.com/auth/gmail.settings.basic",
     "https://www.googleapis.com/auth/userinfo.email"
   ],
   "webapp": {
@@ -304,8 +305,8 @@ function autorizarPermissoes() {
     console.log("Gmail: OK. Aliases disponíveis: " + (aliases.length > 0 ? aliases.join(", ") : "Nenhum"));
   } catch(e) { 
     console.error("ERRO GMAIL: " + e); 
-    console.log("⚠️ AVISO CRÍTICO: Falta permissão de envio de email (Gmail).");
-    console.log("👉 SOLUÇÃO: Atualize o ficheiro appsscript.json com o scope 'https://www.googleapis.com/auth/gmail.send'.");
+    console.log("⚠️ AVISO CRÍTICO: Falta permissão de leitura de definições do Gmail.");
+    console.log("👉 SOLUÇÃO: O manifesto 'appsscript.json' deve incluir 'https://www.googleapis.com/auth/gmail.settings.basic'.");
   }
   
   return "Verificação Concluída. Consulte os Logs (Ver > Execuções).";
