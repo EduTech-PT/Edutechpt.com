@@ -166,15 +166,15 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
 
     const progressPercentage = materials.length > 0 ? Math.round((completedMaterials.length / materials.length) * 100) : 0;
 
-    if (loading) return <div className="p-10 text-center text-indigo-600 font-bold">A carregar sala de aula...</div>;
+    if (loading) return <div className="p-10 text-center text-indigo-600 dark:text-indigo-300 font-bold">A carregar sala de aula...</div>;
 
     // --- SELECTION SCREEN ---
     if (showSelection && !activeCourseId) {
         return (
             <div className="space-y-6 animate-in fade-in">
-                <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-indigo-900">{initialCourseId ? 'Escolha a Turma' : 'As Minhas Salas de Aula'}</h2></div>
+                <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-indigo-900 dark:text-white">{initialCourseId ? 'Escolha a Turma' : 'As Minhas Salas de Aula'}</h2></div>
                 {myEnrollments.length === 0 ? (
-                    <GlassCard className="text-center py-12"><div className="text-4xl mb-4">🎓</div><h3 className="text-xl font-bold text-indigo-900 mb-2">Sem Cursos Ativos</h3><button onClick={onBack} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700">Ver Catálogo de Cursos</button></GlassCard>
+                    <GlassCard className="text-center py-12"><div className="text-4xl mb-4">🎓</div><h3 className="text-xl font-bold text-indigo-900 dark:text-white mb-2">Sem Cursos Ativos</h3><button onClick={onBack} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700">Ver Catálogo de Cursos</button></GlassCard>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {myEnrollments.map((enr, idx) => (
@@ -191,9 +191,9 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                                     if (enr.class) loadResources(enr.class.id); 
                                 }}
                             >
-                                <div className="h-32 bg-indigo-100 rounded-lg mb-4 overflow-hidden relative">{enr.course?.image_url ? <img src={enr.course.image_url} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" /> : <div className="w-full h-full flex items-center justify-center text-4xl">📚</div>}</div>
-                                <h3 className="font-bold text-indigo-900 text-lg leading-tight mb-1">{enr.course?.title}</h3>
-                                <p className="text-xs text-indigo-500 uppercase font-bold">{enr.class?.name || 'Sem Turma'}</p>
+                                <div className="h-32 bg-indigo-100 dark:bg-slate-700 rounded-lg mb-4 overflow-hidden relative">{enr.course?.image_url ? <img src={enr.course.image_url} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" /> : <div className="w-full h-full flex items-center justify-center text-4xl">📚</div>}</div>
+                                <h3 className="font-bold text-indigo-900 dark:text-white text-lg leading-tight mb-1">{enr.course?.title}</h3>
+                                <p className="text-xs text-indigo-500 dark:text-indigo-300 uppercase font-bold">{enr.class?.name || 'Sem Turma'}</p>
                             </GlassCard>
                         ))}
                     </div>
@@ -202,18 +202,18 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
         );
     }
 
-    if (!activeClass || !course) return <GlassCard className="text-center py-12"><h2 className="text-xl font-bold text-indigo-900 mb-2">Acesso Pendente</h2><p className="text-indigo-700 mb-4">Ainda não foste alocado a uma turma.</p><button onClick={() => { setActiveCourseId(undefined); setShowSelection(true); }} className="px-4 py-2 bg-indigo-100 text-indigo-800 rounded font-bold">Voltar</button></GlassCard>;
+    if (!activeClass || !course) return <GlassCard className="text-center py-12"><h2 className="text-xl font-bold text-indigo-900 dark:text-white mb-2">Acesso Pendente</h2><p className="text-indigo-700 dark:text-indigo-300 mb-4">Ainda não foste alocado a uma turma.</p><button onClick={() => { setActiveCourseId(undefined); setShowSelection(true); }} className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 rounded font-bold">Voltar</button></GlassCard>;
 
     // --- MAIN CLASSROOM UI ---
     return (
         <div className="h-full flex flex-col animate-in slide-in-from-right duration-300">
             <div className="flex justify-between items-center mb-6">
-                <div><h2 className="text-2xl font-bold text-indigo-900">{course.title}</h2><p className="text-indigo-600 font-medium">{activeClass.name}</p></div>
-                <button onClick={() => { if (initialCourseId) onBack(); else { setActiveCourseId(undefined); setShowSelection(true); } }} className="px-4 py-2 bg-white/50 text-indigo-800 rounded-lg font-bold hover:bg-white transition-colors">⬅ Voltar</button>
+                <div><h2 className="text-2xl font-bold text-indigo-900 dark:text-white">{course.title}</h2><p className="text-indigo-600 dark:text-indigo-300 font-medium">{activeClass.name}</p></div>
+                <button onClick={() => { if (initialCourseId) onBack(); else { setActiveCourseId(undefined); setShowSelection(true); } }} className="px-4 py-2 bg-white/50 dark:bg-slate-800/50 text-indigo-800 dark:text-indigo-200 rounded-lg font-bold hover:bg-white dark:hover:bg-slate-700 transition-colors">⬅ Voltar</button>
             </div>
 
             <GlassCard className="flex-1 flex flex-col min-h-[500px]">
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-6 border-b border-indigo-100 pb-6 overflow-x-auto">
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-6 border-b border-indigo-100 dark:border-slate-700 pb-6 overflow-x-auto">
                     {[
                         { id: 'home', icon: '🏠', label: 'Resumo' }, 
                         { id: 'materials', icon: '📚', label: 'Materiais' }, 
@@ -222,7 +222,7 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                         { id: 'assessments', icon: '📝', label: 'Avaliações' },
                         { id: 'forum', icon: '💬', label: 'Fórum' }
                     ].map(mod => (
-                        <button key={mod.id} onClick={() => setActiveModule(mod.id as ModuleType)} className={`p-3 rounded-xl flex flex-col items-center justify-center transition-all ${activeModule === mod.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-indigo-50 text-indigo-900 hover:bg-indigo-100'}`}>
+                        <button key={mod.id} onClick={() => setActiveModule(mod.id as ModuleType)} className={`p-3 rounded-xl flex flex-col items-center justify-center transition-all ${activeModule === mod.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-indigo-50 dark:bg-slate-700/50 text-indigo-900 dark:text-white hover:bg-indigo-100 dark:hover:bg-slate-600'}`}>
                             <span className="text-2xl mb-1">{mod.icon}</span><span className="text-xs font-bold whitespace-nowrap">{mod.label}</span>
                         </button>
                     ))}

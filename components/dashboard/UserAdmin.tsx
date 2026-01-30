@@ -58,26 +58,26 @@ export const UserAdmin: React.FC<UserAdminProps> = ({ onEditUser, currentUserRol
     return (
         <div className="space-y-6 animate-in slide-in-from-right duration-300 h-[calc(100vh-140px)] flex flex-col">
              <div className="flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
-                <h2 className="text-2xl font-bold text-indigo-900">Gestão de Utilizadores</h2>
+                <h2 className="text-2xl font-bold text-indigo-900 dark:text-white">Gestão de Utilizadores</h2>
                 
                 <div className="flex gap-2">
                     {/* TABS NAVIGATION */}
-                    <div className="bg-white/40 p-1 rounded-lg border border-white/50 flex gap-1">
+                    <div className="bg-white/40 dark:bg-slate-800/40 p-1 rounded-lg border border-white/50 dark:border-slate-700 flex gap-1">
                         <button 
                             onClick={() => setActiveTab('users')}
-                            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'users' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 hover:bg-white/50'}`}
+                            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'users' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 dark:text-indigo-200 hover:bg-white/50 dark:hover:bg-slate-700'}`}
                         >
                             Utilizadores
                         </button>
                         <button 
                             onClick={() => setActiveTab('invites')}
-                            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'invites' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 hover:bg-white/50'}`}
+                            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'invites' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 dark:text-indigo-200 hover:bg-white/50 dark:hover:bg-slate-700'}`}
                         >
                             Convites ({invites.length})
                         </button>
                         <button 
                             onClick={() => setActiveTab('attendance')}
-                            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'attendance' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 hover:bg-white/50'}`}
+                            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'attendance' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 dark:text-indigo-200 hover:bg-white/50 dark:hover:bg-slate-700'}`}
                         >
                             Relatório Assiduidade
                         </button>
