@@ -87,6 +87,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const [isOnlineVisible, setIsOnlineVisible] = useState(true);
   const channelRef = useRef<any>(null); // Keep reference to channel to allow unsubscribe
 
+  // ONBOARDING CHECK: O utilizador precisa de configurar o nome?
+  const needsSetup = profile 
+      ? (!profile.full_name || profile.full_name.trim() === '' || profile.full_name === 'Utilizador')
+      : false;
+
   // Load Initial Data
   useEffect(() => {
     init();
@@ -168,7 +173,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
               if (!sessionStorage.getItem('session_logged')) {
                   adminService.logAccess(userProfile.id, 'login');
                   sessionStorage.setItem('session_logged', 'true');
-                  toast.success(`Bem-vindo, ${userProfile.full_name?.split(' ')[0]}!`);
+                  toast.success(`Bem-vindo, ${userProfile.full_name?.split(' ')[0] || 'Utilizador'}!`);
               }
 
               // Inicia presença (se visível)
@@ -360,6 +365,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   }, []);
 
   const handleSetView = (newView: string) => {
+      // Bloqueio extra se tiver em setup
+      if (needsSetup) {
+          return;
+      }
+
       setCurrentView(newView);
       setSelectedUserToEdit(null);
       if (newView !== 'student_classroom') {
@@ -386,7 +396,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
             setSelectedUserToEdit(updated);
           } catch (e) { console.error(e); }
       } else {
-          init(); 
+          init(); // Reload own profile
       }
   };
 
@@ -457,6 +467,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   );
 
   const renderView = () => {
+      // FORCE ONBOARDING VIEW
+      if (needsSetup) {
+          return (
+              <Suspense fallback={<div className="p-6"><Skeleton className="h-64 w-full" /></div>}>
+                  <MyProfile 
+                      user={profile} 
+                      refreshProfile={handleRefreshProfile} 
+                      isOnboarding={true} // FORCE MODE
+                  />
+              </Suspense>
+          );
+      }
+
       const fallback = <div className="p-6"><Skeleton className="h-64 w-full" /></div>;
 
       return (
@@ -533,6 +556,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   const getPageTitle = (view: string) => {
+      if (needsSetup) return 'Configuração Obrigatória';
       if (view.startsWith('settings_')) return 'Definições / ' + view.replace('settings_', '').toUpperCase();
       if (view === 'my_profile') return 'Meu Perfil';
       if (view === 'admin_edit_profile') return 'Gestão / Editar Perfil';
@@ -557,7 +581,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
     <div className="flex min-h-screen bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 dark:from-slate-900 dark:via-slate-800 dark:to-black relative overflow-hidden font-sans transition-colors duration-500">
       
       {/* NOTIFICATION SYSTEM (Global) */}
-      <NotificationSystem profile={profile} onOpenClassroom={handleOpenClassroom} />
+      {!needsSetup && <NotificationSystem profile={profile} onOpenClassroom={handleOpenClassroom} />}
 
       {/* CRITICAL DB ERROR OVERLAY */}
       {criticalDbError && profile.role === 'admin' && (
@@ -603,7 +627,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 profile={profile} 
                 userPermissions={permissions}
                 appVersion={APP_VERSION} 
-                currentView={currentView === 'admin_edit_profile' ? 'users' : currentView}
+                currentView={needsSetup ? 'my_profile' : (currentView === 'admin_edit_profile' ? 'users' : currentView)}
                 setView={handleSetView} 
                 onLogout={handleLogoutAction}
                 onMobileClose={() => setMobileMenuOpen(false)}
@@ -611,6 +635,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 hasUpdates={systemNeedsUpdate}
                 isOnlineVisible={isOnlineVisible}
                 toggleOnlineVisibility={handleToggleOnline}
+                disabled={needsSetup} // DESATIVA SIDEBAR SE ONBOARDING
             />
         </div>
         

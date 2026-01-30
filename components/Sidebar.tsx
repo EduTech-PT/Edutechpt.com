@@ -16,6 +16,7 @@ interface SidebarProps {
   // Props para Toggle Online
   isOnlineVisible?: boolean;
   toggleOnlineVisibility?: () => void;
+  disabled?: boolean; // NOVO: Bloqueio de navegação
 }
 
 interface MenuItem {
@@ -32,13 +33,27 @@ interface MenuGroup {
   items: MenuItem[];
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appVersion, currentView, setView, onLogout, onMobileClose, logoUrl, hasUpdates = false, isOnlineVisible, toggleOnlineVisibility }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ 
+    profile, 
+    userPermissions, 
+    appVersion, 
+    currentView, 
+    setView, 
+    onLogout, 
+    onMobileClose, 
+    logoUrl, 
+    hasUpdates = false, 
+    isOnlineVisible, 
+    toggleOnlineVisibility,
+    disabled = false // Default false
+}) => {
   const role = profile?.role || UserRole.STUDENT;
   
   // Estado para controlar Mobile Accordion (Desktop usa Hover/CSS)
   const [openGroups, setOpenGroups] = useState<string[]>(['perfil', 'agenda', 'cursos']);
 
   const toggleGroup = (groupId: string) => {
+    if (disabled) return;
     setOpenGroups(prev => 
       prev.includes(groupId) 
         ? prev.filter(g => g !== groupId) 
@@ -47,6 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
   };
 
   const handleSetView = (view: string) => {
+      if (disabled) return;
       setView(view);
       if (onMobileClose) onMobileClose();
   };
@@ -130,7 +146,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
     
     const isActive = currentView === item.id;
     return (
-      <div key={item.id} className="mb-1 relative group">
+      <div key={item.id} className={`mb-1 relative group ${disabled ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
         <button
           onClick={() => handleSetView(item.id)}
           className={`w-full text-left px-4 py-3 rounded-xl transition-all duration-200 font-medium flex items-center gap-3 relative z-10 ${
@@ -159,7 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
     const isCentered = group.id === 'definicoes' || group.id === 'cursos';
 
     return (
-      <div key={group.id} className="mb-2 relative group">
+      <div key={group.id} className={`mb-2 relative group ${disabled ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
         {/* Main Group Button */}
         <button
           onClick={() => toggleGroup(group.id)}
@@ -236,8 +252,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
       {/* Top Section */}
       <div className="p-6 pb-4 flex-shrink-0 flex justify-between items-center bg-white/10 dark:bg-white/5 backdrop-blur-sm md:bg-transparent">
         <div 
-            onClick={() => handleSetView('dashboard')}
-            className="cursor-pointer"
+            onClick={() => !disabled && handleSetView('dashboard')}
+            className={`cursor-pointer ${disabled ? 'pointer-events-none' : ''}`}
             title="Ir para Dashboard"
         >
             {logoUrl ? (
@@ -299,7 +315,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ profile, userPermissions, appV
         )}
 
         {/* ONLINE/OFFLINE TOGGLE (PERMISSION BASED) */}
-        {canManageOnlineStatus && toggleOnlineVisibility && (
+        {canManageOnlineStatus && toggleOnlineVisibility && !disabled && (
             <div className="flex items-center justify-between text-xs font-bold text-indigo-800 dark:text-indigo-200 bg-white/40 dark:bg-slate-800/50 p-2 rounded-lg border border-white/50 dark:border-white/10">
                 <span>Estado Online</span>
                 <button 

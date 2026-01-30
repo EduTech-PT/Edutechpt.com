@@ -16,10 +16,12 @@ interface Props {
   refreshProfile: () => void;
   onBack?: () => void;
   isAdminMode?: boolean;
+  isOnboarding?: boolean; // NOVO: Modo de configuração obrigatória
 }
 
-export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdminMode = false }) => {
-  const [isEditing, setIsEditing] = useState(false);
+export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdminMode = false, isOnboarding = false }) => {
+  // Se estiver em onboarding, entra diretamente em modo de edição
+  const [isEditing, setIsEditing] = useState(isOnboarding);
   const [uploading, setUploading] = useState(false);
   const [avatarConfig, setAvatarConfig] = useState<any>(null);
   
@@ -30,7 +32,9 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
   useEffect(() => {
     resetForm();
     loadAvatarConfig();
-  }, [user]);
+    // Forçar edição se for onboarding
+    if (isOnboarding) setIsEditing(true);
+  }, [user, isOnboarding]);
 
   const loadAvatarConfig = async () => {
     try {
@@ -152,6 +156,14 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Validação Onboarding
+      if (isOnboarding) {
+          if (!formData.full_name || formData.full_name.trim() === '' || formData.full_name === 'Utilizador') {
+              alert("Por favor, introduza o seu nome completo para continuar.");
+              return;
+          }
+      }
+
       // 1. Integração Drive (Renomear Pasta)
       if (formData.full_name && formData.full_name !== user.full_name && user.personal_folder_id) {
            console.log("A atualizar nome da pasta no Drive...");
@@ -173,7 +185,7 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
       });
       
       refreshProfile();
-      setIsEditing(false);
+      if (!isOnboarding) setIsEditing(false); // Se for onboarding, o refresh tratará de mudar a view
       alert("Perfil atualizado com sucesso!");
     } catch (error: any) {
       alert("Erro ao atualizar: " + error.message);
@@ -183,6 +195,19 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
   return (
     <div className="animate-in slide-in-from-right duration-500 space-y-6">
       
+      {/* BANNER DE ONBOARDING */}
+      {isOnboarding && (
+          <div className="bg-amber-100 dark:bg-amber-900/40 border-l-4 border-amber-500 text-amber-800 dark:text-amber-200 p-4 rounded-r shadow-lg mb-6 animate-pulse">
+              <div className="flex items-center gap-3">
+                  <span className="text-2xl">👋</span>
+                  <div>
+                      <h3 className="font-bold text-lg">Bem-vindo(a)! Configuração Obrigatória</h3>
+                      <p className="text-sm">Para garantirmos a melhor experiência na comunidade, por favor defina o seu <b>Nome Completo</b> e atualize a sua foto de perfil.</p>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* Top Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
@@ -193,10 +218,10 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
               uploading={uploading}
               isAdminMode={isAdminMode}
               avatarConfig={avatarConfig}
-              onBack={onBack}
-              onToggleEdit={() => setIsEditing(true)}
+              onBack={!isOnboarding ? onBack : undefined} // Desativa voltar no onboarding
+              onToggleEdit={() => !isOnboarding && setIsEditing(true)} // Bloqueia toggle no onboarding
               onSave={handleSave}
-              onCancel={() => { setIsEditing(false); resetForm(); }}
+              onCancel={() => { if(!isOnboarding) { setIsEditing(false); resetForm(); } }} // Bloqueia cancelar no onboarding
               onUploadAvatar={handleAvatarUpload}
           />
 
