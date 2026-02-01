@@ -69,7 +69,11 @@ export const SettingsDrive: React.FC = () => {
         
         if (key === 'google_drive_folder_id') {
             finalValue = cleanDriveId(finalValue);
-            setConfig(prev => ({...prev, driveFolderId: finalValue}));
+            setConfig((prev: any) => ({...prev, driveFolderId: finalValue}));
+        }
+        if (key === 'live_drive_folder_id') {
+            finalValue = cleanDriveId(finalValue);
+            setConfig((prev: any) => ({...prev, liveDriveFolderId: finalValue}));
         }
         if (key === 'google_script_url') {
             if (!finalValue.startsWith('https://script.google.com')) {
@@ -184,13 +188,36 @@ export const SettingsDrive: React.FC = () => {
                         <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 font-bold">IDs Calendários Extra (Opcional)</label><SaveBtn onClick={() => handleSaveField('calendar_ids', config.calendarIds)} /></div>
                         <input type="text" value={config.calendarIds || ''} onChange={e => setConfig({...config, calendarIds: e.target.value})} placeholder="email1@group..., email2@group..." className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm"/>
                     </div>
-                    <div>
-                        <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 font-bold">ID da Pasta Google Drive</label><SaveBtn onClick={() => handleSaveField('google_drive_folder_id', config.driveFolderId)} /></div>
-                        <div className="relative">
-                            <input type="text" value={config.driveFolderId || ''} onChange={e => setConfig({...config, driveFolderId: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm pr-20"/>
-                            {config.driveFolderId && config.driveFolderId.includes('/folders/') && <span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded font-bold">Link Detetado</span>}
+                    
+                    {/* PASTAS GOOGLE DRIVE */}
+                    <div className="border-t border-indigo-100 pt-4 mt-2">
+                        <div className="mb-4">
+                            <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 font-bold">ID da Pasta Google Drive (Geral)</label><SaveBtn onClick={() => handleSaveField('google_drive_folder_id', config.driveFolderId)} /></div>
+                            <div className="relative">
+                                <input type="text" value={config.driveFolderId || ''} onChange={e => setConfig({...config, driveFolderId: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm pr-20"/>
+                                {config.driveFolderId && config.driveFolderId.includes('/folders/') && <span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded font-bold">Link Detetado</span>}
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="text-sm text-indigo-800 font-bold">ID Pasta "Ao Vivo" (Opcional)</label>
+                                <SaveBtn onClick={() => handleSaveField('live_drive_folder_id', config.liveDriveFolderId)} />
+                            </div>
+                            <div className="relative">
+                                <input 
+                                    type="text" 
+                                    value={config.liveDriveFolderId || ''} 
+                                    onChange={e => setConfig({...config, liveDriveFolderId: e.target.value})} 
+                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm pr-20"
+                                    placeholder="Deixe vazio para usar a pasta pessoal"
+                                />
+                                {config.liveDriveFolderId && config.liveDriveFolderId.includes('/folders/') && <span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded font-bold">Link Detetado</span>}
+                            </div>
+                            <p className="text-[10px] text-gray-500 mt-1">Se definido, o botão "Drive" na sala de aula abrirá diretamente esta pasta (ex: pasta partilhada de recursos).</p>
                         </div>
                     </div>
+
                     <div className="flex gap-2 pt-2">
                         <button onClick={handleTest} className="flex-1 px-4 py-3 bg-white text-indigo-600 border border-indigo-200 rounded-lg font-bold hover:bg-indigo-50 shadow-sm">Testar Conexão ⚡</button>
                     </div>

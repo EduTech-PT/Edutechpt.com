@@ -36,6 +36,9 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     const [loadingDrive, setLoadingDrive] = useState(false);
     const [driveFolderStack, setDriveFolderStack] = useState<{id: string, name: string}[]>([]);
     const [selectedDriveFiles, setSelectedDriveFiles] = useState<string[]>([]); // IDs
+    
+    // Store the specific root for the session to handle "Back" logic correctly
+    const [driveSessionRoot, setDriveSessionRoot] = useState<string | null>(null);
 
     // Permissões
     const isPresenter = ([UserRole.ADMIN, UserRole.TRAINER, UserRole.EDITOR] as string[]).includes(profile.role);
@@ -158,11 +161,21 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         setShowDrivePicker(true);
         setLoadingDrive(true);
         try {
-            // Se for admin, vê a raiz. Se for formador, vê a pasta pessoal.
-            const startId = profile.role === 'admin' 
-                ? (await driveService.getConfig()).driveFolderId 
-                : await driveService.getPersonalFolder(profile);
+            const config = await driveService.getConfig();
+            let startId;
             
+            // Lógica Específica para Ao Vivo
+            if (config.liveDriveFolderId && config.liveDriveFolderId.trim() !== '') {
+                startId = config.liveDriveFolderId;
+            } else {
+                // Fallback: Se for admin, vê a raiz. Se for formador, vê a pasta pessoal.
+                startId = profile.role === 'admin' 
+                    ? config.driveFolderId 
+                    : await driveService.getPersonalFolder(profile);
+            }
+            
+            setDriveSessionRoot(startId); // Memorizar a raiz desta sessão para o botão Voltar
+
             const data = await driveService.listFiles(startId);
             setDriveFiles(data.files);
             setDriveFolderStack([]);
@@ -196,14 +209,18 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             newStack.pop();
             setDriveFolderStack(newStack);
             
-            // Determinar ID pai (se stack vazio, é a raiz inicial)
+            // Determinar ID pai (se stack vazio, é a raiz da sessão atual)
             let parentId;
             if (newStack.length > 0) {
                 parentId = newStack[newStack.length - 1].id;
             } else {
-                parentId = profile.role === 'admin' 
-                    ? (await driveService.getConfig()).driveFolderId 
-                    : await driveService.getPersonalFolder(profile);
+                parentId = driveSessionRoot; // Usa a raiz calculada na abertura
+            }
+            
+            // Fallback de segurança se o root não estiver definido
+            if (!parentId) {
+                 const config = await driveService.getConfig();
+                 parentId = config.driveFolderId;
             }
             
             const data = await driveService.listFiles(parentId);
@@ -316,7 +333,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                     <button 
                         onClick={openDrivePicker}
                         className="px-4 py-2 bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 border border-indigo-200 dark:border-slate-600 rounded-lg font-bold hover:bg-indigo-50 dark:hover:bg-slate-600 transition-colors flex items-center gap-2"
-                        title="Importar do Google Drive (Zero Storage)"
+                        title="Importar do Google Drive"
                     >
                         ☁️ Drive
                     </button>
