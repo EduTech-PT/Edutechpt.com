@@ -1,4 +1,4 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { GlassCard } from './GlassCard';
 import { adminService } from '../services/admin';
 
@@ -14,7 +14,7 @@ interface State {
   reportStatus: 'idle' | 'success' | 'error';
 }
 
-export class ErrorBoundary extends React.Component<Props, State> {
+export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
       hasError: false,
       error: null,

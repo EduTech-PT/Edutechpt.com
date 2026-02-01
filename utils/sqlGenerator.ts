@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
--- AÇÃO: CORREÇÃO RACE CONDITION (CLAIM INVITE)
+-- AÇÃO: SUPORTE APRESENTAÇÃO SINCRONIZADA
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -149,8 +149,17 @@ create table if not exists public.classes (
     id uuid default gen_random_uuid() primary key,
     course_id uuid references public.courses(id) on delete cascade,
     name text not null, 
-    created_at timestamp with time zone default timezone('utc'::text, now())
+    created_at timestamp with time zone default timezone('utc'::text, now()),
+    live_session jsonb default '{}'::jsonb
 );
+
+-- MIGRATION: Colunas novas (Classes)
+do $$ 
+begin
+  if not exists (select 1 from information_schema.columns where table_name='classes' and column_name='live_session') then
+    alter table public.classes add column live_session jsonb default '{}'::jsonb;
+  end if;
+end $$;
 
 create table if not exists public.class_instructors (
     class_id uuid references public.classes(id) on delete cascade,
@@ -272,6 +281,17 @@ drop policy if exists "Admin Gere Cursos" on public.courses;
 create policy "Ver Cursos" on public.courses for select using (true);
 create policy "Admin Gere Cursos" on public.courses for all using ( public.is_admin() OR exists (select 1 from public.profiles where id = auth.uid() and role = 'formador') );
 
+-- CLASSES RLS
+alter table public.classes enable row level security;
+drop policy if exists "Ver Turmas" on public.classes;
+drop policy if exists "Admin Gere Turmas" on public.classes;
+create policy "Ver Turmas" on public.classes for select using (true);
+-- Atualização: Formador/Admin/Editor pode atualizar turmas (necessário para Live Session)
+create policy "Admin Gere Turmas" on public.classes for all using ( 
+    public.is_admin() 
+    OR exists (select 1 from public.profiles where id = auth.uid() and role in ('formador', 'editor')) 
+);
+
 alter table public.class_comments enable row level security;
 drop policy if exists "Ver Comentarios" on public.class_comments;
 drop policy if exists "Criar Comentarios" on public.class_comments;
@@ -292,9 +312,7 @@ create policy "Auth Update Course Images" on storage.objects for update using ( 
 create policy "Auth Delete Course Images" on storage.objects for delete using ( bucket_id = 'course-images' and auth.role() = 'authenticated' );
 
 -- ==============================================================================
--- 9.1 TRIGGER HANDLE NEW USER (STRICT MODE)
--- Só cria perfil se existir convite ou for Master Admin.
--- FIX v3.1.21: Garante limpeza do convite mesmo sem curso.
+-- 9.1 TRIGGER HANDLE NEW USER
 -- ==============================================================================
 
 create or replace function public.handle_new_user() 
@@ -302,11 +320,9 @@ returns trigger as $$
 declare
   invite_record record;
 begin
-  -- 1. Verificar Convites
   select * into invite_record from public.user_invites 
   where lower(trim(email)) = lower(trim(new.email));
   
-  -- Master Admin Override (Cria sempre)
   if lower(trim(new.email)) = 'edutechpt@hotmail.com' then 
       insert into public.profiles (id, email, full_name, role, avatar_url)
       values (new.id, new.email, COALESCE(new.raw_user_meta_data->>'full_name', 'Administrador'), 'admin', new.raw_user_meta_data->>'avatar_url')
@@ -314,27 +330,24 @@ begin
       return new;
   end if;
 
-  -- 2. Inserir Perfil APENAS SE HOUVER CONVITE
   if invite_record is not null then
       begin
           insert into public.profiles (id, email, full_name, role, avatar_url)
           values (
             new.id, 
             new.email, 
-            COALESCE(new.raw_user_meta_data->>'full_name', 'Utilizador'), -- Fallback para nome
+            COALESCE(new.raw_user_meta_data->>'full_name', 'Utilizador'),
             invite_record.role, 
             new.raw_user_meta_data->>'avatar_url'
           )
           on conflict (id) do update set role = invite_record.role;
           
-          -- ACAO CRITICA: CONSUMIR CONVITE (Independentemente de ter curso ou não)
           delete from public.user_invites where email = invite_record.email;
 
       exception when others then
           raise warning 'Erro ao criar perfil para %: %', new.email, SQLERRM;
       end;
 
-      -- 3. Processar Inscrição Automática (Opcional)
       if invite_record.course_id is not null then
           begin
               insert into public.enrollments (user_id, course_id, class_id)
@@ -350,14 +363,11 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- Recriar trigger
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
 
 -- ==============================================================================
--- 9.2 FUNÇÃO DE REPARAÇÃO DE CONTA (STRICT MODE v3.1.22)
--- Fix: Race Condition. Se o perfil já existe (criado pelo trigger), não falha
--- por falta de convite. Retorna TRUE.
+-- 9.2 FUNÇÃO DE REPARAÇÃO DE CONTA
 -- ==============================================================================
 
 create or replace function public.claim_invite()
@@ -373,23 +383,19 @@ begin
   
   select email into user_email from auth.users where id = my_id;
   
-  -- 0. CRÍTICO: Verificar se o perfil JÁ EXISTE (Evita Race Condition com Trigger)
   select exists(select 1 from public.profiles where id = my_id) into profile_exists;
   
   if profile_exists then
-      return true; -- Sucesso, o perfil já lá está
+      return true;
   end if;
 
-  -- Rate Limit Check (apenas se não existir perfil)
   if not public.check_rate_limit(user_email, 'claim_invite', 10, 5) then
      raise exception 'Muitas tentativas. Aguarde 5 minutos.';
   end if;
   
-  -- 1. Check for Invites
   select * into invite_record from public.user_invites 
   where lower(trim(email)) = lower(trim(user_email));
   
-  -- Master Admin Override
   if lower(trim(user_email)) = 'edutechpt@hotmail.com' then
       insert into public.profiles (id, email, full_name, role)
       values (my_id, user_email, 'Administrador', 'admin')
@@ -397,24 +403,20 @@ begin
       return true;
   end if;
 
-  -- 2. SE NÃO HOUVER CONVITE E NÃO HOUVER PERFIL -> FALSO
   if invite_record is null then
       return false;
   end if;
 
-  -- 3. Criar Perfil com base no convite
   insert into public.profiles (id, email, full_name, role)
   values (my_id, user_email, 'Utilizador', invite_record.role)
   on conflict (id) do update set role = invite_record.role;
 
-  -- 4. Processar Inscrição
   if invite_record.course_id is not null then
       insert into public.enrollments (user_id, course_id, class_id)
       values (my_id, invite_record.course_id, invite_record.class_id)
       on conflict do nothing;
   end if;
   
-  -- Consumir convite
   delete from public.user_invites where email = invite_record.email;
 
   return true;
@@ -422,11 +424,9 @@ end;
 $$ language plpgsql security definer;
 
 -- ==============================================================================
--- 9.3 FUNÇÃO DE HARD DELETE (FIX V3.1.20)
--- Remove Utilizador do Auth, Perfil e Convites com permissões explícitas
+-- 9.3 FUNÇÃO DE HARD DELETE
 -- ==============================================================================
 
--- DROP PREVENTIVO PARA GARANTIR RECRIAÇÃO LIMPA
 DROP FUNCTION IF EXISTS public.delete_users_completely(uuid[]);
 
 create or replace function public.delete_users_completely(target_ids uuid[])
@@ -439,37 +439,27 @@ declare
   target_id uuid;
   target_email text;
 begin
-  -- 1. Verificação de Segurança (Apenas Admin)
   if not public.is_admin() then
     raise exception 'Acesso Negado: Apenas administradores podem eliminar contas.';
   end if;
 
-  -- 2. Loop pelos IDs
   foreach target_id in array target_ids
   loop
-      -- Obter email para limpar convites
       select email into target_email from auth.users where id = target_id;
-      
-      -- Se não encontrou no Auth (já apagado), tenta no Profile
       if target_email is null then
           select email into target_email from public.profiles where id = target_id;
       end if;
 
-      -- A. Apagar Convites Pendentes (Prevent Re-entry)
       if target_email is not null then
           delete from public.user_invites where lower(email) = lower(target_email);
       end if;
 
-      -- B. Apagar Perfil (Cascade trataria disto, mas forçamos para garantir)
       delete from public.profiles where id = target_id;
-
-      -- C. Apagar da Tabela Auth (Ação Principal)
       delete from auth.users where id = target_id;
   end loop;
 end;
 $$;
 
--- GARANTIR PERMISSÕES DE EXECUÇÃO PARA A API
 GRANT EXECUTE ON FUNCTION public.delete_users_completely(uuid[]) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.delete_users_completely(uuid[]) TO service_role;
 
@@ -477,7 +467,6 @@ GRANT EXECUTE ON FUNCTION public.delete_users_completely(uuid[]) TO service_role
 -- 11. CORREÇÃO DE DADOS
 -- ==============================================================================
 
--- Força o papel de Admin para o email mestre
 UPDATE public.profiles 
 SET role = 'admin' 
 WHERE lower(email) = 'edutechpt@hotmail.com';

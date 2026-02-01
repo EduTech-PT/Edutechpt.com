@@ -11,6 +11,7 @@ import { ClassroomHome } from './classroom/ClassroomHome';
 import { ClassroomResources } from './classroom/ClassroomResources';
 import { ClassroomChat } from './classroom/ClassroomChat';
 import { ClassroomAttendance } from './classroom/ClassroomAttendance';
+import { ClassroomLiveSession } from './classroom/ClassroomLiveSession'; // IMPORTADO
 
 interface Props {
     profile: Profile;
@@ -19,7 +20,7 @@ interface Props {
     onlineUsers?: OnlineUser[]; // NOVO
 }
 
-type ModuleType = 'home' | 'materials' | 'announcements' | 'assessments' | 'forum' | 'attendance';
+type ModuleType = 'home' | 'materials' | 'announcements' | 'assessments' | 'forum' | 'attendance' | 'live';
 
 export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, onBack, onlineUsers }) => {
     // Internal State for Course ID (handles auto-select)
@@ -213,9 +214,10 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
             </div>
 
             <GlassCard className="flex-1 flex flex-col min-h-[500px]">
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-6 border-b border-indigo-100 dark:border-slate-700 pb-6 overflow-x-auto">
+                <div className="grid grid-cols-3 md:grid-cols-7 gap-2 mb-6 border-b border-indigo-100 dark:border-slate-700 pb-6 overflow-x-auto">
                     {[
                         { id: 'home', icon: '🏠', label: 'Resumo' }, 
+                        { id: 'live', icon: '📡', label: 'Ao Vivo' }, // NEW
                         { id: 'materials', icon: '📚', label: 'Materiais' }, 
                         { id: 'announcements', icon: '📢', label: 'Avisos' }, 
                         { id: 'attendance', icon: '📅', label: 'Presenças' },
@@ -231,6 +233,10 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
                     {activeModule === 'home' && <ClassroomHome progressPercentage={progressPercentage} completedCount={completedMaterials.length} totalCount={materials.length} announcements={announcements} onShowCertificate={() => setShowCertificate(true)} />}
                     
+                    {activeModule === 'live' && (
+                        <ClassroomLiveSession activeClass={activeClass} profile={profile} />
+                    )}
+
                     {(activeModule === 'materials' || activeModule === 'announcements' || activeModule === 'assessments') && (
                         <ClassroomResources 
                             type={activeModule} 

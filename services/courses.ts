@@ -1,15 +1,13 @@
 
 import { supabase } from '../lib/supabaseClient';
-import { Course, Class, Profile, ClassMaterial, ClassAnnouncement, ClassAssessment, CourseHierarchy, AttendanceRecord, StudentGrade, ClassComment } from '../types';
+import { Course, Class, Profile, ClassMaterial, ClassAnnouncement, ClassAssessment, CourseHierarchy, AttendanceRecord, StudentGrade, ClassComment, LiveSessionState } from '../types';
 
 // Colunas base que sabemos que existem garantidamente.
-// Atualizado com format, access_days, pricing_plans, hourly_rate, extra_class_price, min_students, referral_text, location_type
 const BASE_COLUMNS = 'id, title, description, level, image_url, is_public, marketing_data, created_at, instructor_id, format, access_days, pricing_plans, hourly_rate, extra_class_price, min_students, referral_text, location_type';
 
 export const courseService = {
     async getAll() {
         try {
-            // Tenta selecionar explicitamente as colunas novas + base
             const { data, error } = await supabase
                 .from('courses')
                 .select(`${BASE_COLUMNS}, duration, price`)
@@ -18,8 +16,6 @@ export const courseService = {
             if (error) throw error;
             return data as Course[];
         } catch (error: any) {
-            // Fallback robusto: Seleciona TUDO (*) para evitar erros de coluna inexistente
-            // Isto permite que a UI carregue e o Admin possa ir às Definições corrigir o SQL
             const { data } = await supabase
                 .from('courses')
                 .select('*') 
@@ -28,7 +24,6 @@ export const courseService = {
         }
     },
 
-    // Buscar apenas cursos públicos (vitrine)
     async getPublicCourses(limit?: number) {
         try {
             let query = supabase
@@ -46,7 +41,7 @@ export const courseService = {
         } catch (error: any) {
             let fallbackQuery = supabase
                 .from('courses')
-                .select('*') // Fallback robusto
+                .select('*')
                 .eq('is_public', true)
                 .order('created_at', { ascending: false });
             
@@ -57,10 +52,8 @@ export const courseService = {
         }
     },
 
-    // Buscar cursos onde o aluno está inscrito
     async getStudentEnrollments(userId: string) {
         try {
-            // Tenta query completa
             const { data, error } = await supabase
                 .from('enrollments')
                 .select(`
@@ -78,7 +71,6 @@ export const courseService = {
             if (error) throw error;
             return data;
         } catch (e: any) {
-            // Fallback para query simplificada com wildcard no curso
             const { data } = await supabase
                 .from('enrollments')
                 .select(`
@@ -91,10 +83,9 @@ export const courseService = {
         }
     },
 
-    // Buscar todas as inscrições (Enrollments) para gestão
     async getAllEnrollments() {
         const { data, error } = await supabase.from('enrollments').select('*');
-        if (error) return []; // Fail safe return empty array
+        if (error) return [];
         return data;
     },
 
@@ -194,7 +185,6 @@ export const courseService = {
                 instructors: item.instructors_details?.map((i: any) => i.profile) || []
             })) as (Class & { course: Course })[];
         } catch (e: any) {
-            // Fallback
             const { data } = await supabase
                 .from('classes')
                 .select(`
@@ -294,6 +284,15 @@ export const courseService = {
         if (error) throw error;
     },
 
+    // NOVO: Atualizar sessão ao vivo
+    async updateClassLiveSession(classId: string, state: LiveSessionState) {
+        const { error } = await supabase
+            .from('classes')
+            .update({ live_session: state })
+            .eq('id', classId);
+        if (error) throw error;
+    },
+
     async addInstructorToClass(classId: string, instructorId: string) {
         const { error } = await supabase.from('class_instructors').upsert({ class_id: classId, profile_id: instructorId }, { onConflict: 'class_id,profile_id' });
         if (error) throw error;
@@ -360,7 +359,6 @@ export const courseService = {
         if (error) return [];
         return data as AttendanceRecord[];
     },
-    // NOVO: Histórico completo da turma (para exportação)
     async getFullClassAttendance(classId: string) {
         const { data, error } = await supabase
             .from('class_attendance')
@@ -370,7 +368,6 @@ export const courseService = {
         if (error) return [];
         return data as AttendanceRecord[];
     },
-    // Histórico individual do aluno
     async getStudentAttendance(classId: string, studentId: string) {
         const { data, error } = await supabase
             .from('class_attendance')
@@ -398,17 +395,16 @@ export const courseService = {
         if (error) throw error;
     },
 
-    // --- CHAT (COMENTÁRIOS) ---
+    // --- CHAT ---
     async getComments(classId: string) {
         const { data, error } = await supabase
             .from('class_comments')
             .select(`*, user:profiles(*)`)
             .eq('class_id', classId)
-            .order('created_at', { ascending: true }); // Mensagens antigas no topo
+            .order('created_at', { ascending: true });
         if (error) return [];
         return data as ClassComment[];
     },
-    // NEW: Buscar mensagem única para Realtime Update
     async getCommentById(id: string) {
         const { data, error } = await supabase
             .from('class_comments')

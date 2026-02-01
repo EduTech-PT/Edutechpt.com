@@ -112,6 +112,12 @@ export interface Course {
   location_type?: 'online' | 'presencial' | 'hibrido';
 }
 
+export interface LiveSessionState {
+    is_presenting: boolean;
+    current_slide_index: number;
+    slides: string[]; // URLs das imagens
+}
+
 export interface Class {
   id: string;
   course_id: string;
@@ -119,7 +125,8 @@ export interface Class {
   created_at: string;
   instructor_id?: string; // Mantido para retrocompatibilidade
   instructors?: Profile[]; // NOVO: Lista de múltiplos formadores
-  instructor?: Profile; // Deprecado, mas mantido para UI antiga se necessário
+  instructor?: Profile; // Deprecado
+  live_session?: LiveSessionState; // NOVO: Estado da apresentação ao vivo
 }
 
 // Novos Tipos para Gestor de Recursos
