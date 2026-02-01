@@ -81,8 +81,8 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
             if (module === 'materials') data = await courseService.getClassMaterials(activeTab);
             else if (module === 'announcements') data = await courseService.getClassAnnouncements(activeTab);
             else if (module === 'assessments') data = await courseService.getClassAssessments(activeTab);
-            setItems(data);
-        } catch (err) { console.error(err); } 
+            setItems(data || []);
+        } catch (err) { console.error(err); setItems([]); } 
         finally { setLoadingResources(false); }
     };
 
@@ -200,11 +200,22 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
 
                             {/* Resource Lists */}
                             <div className="space-y-2">
-                                {loadingResources ? <p className="text-center opacity-50 dark:text-white">A carregar...</p> : items.length === 0 ? <p className="text-center text-gray-400 py-8">Vazio.</p> : items.map(item => (
+                                {loadingResources ? (
+                                    <p className="text-center opacity-50 dark:text-white">A carregar...</p> 
+                                ) : !items || items.length === 0 ? (
+                                    <p className="text-center text-gray-400 py-8">Vazio.</p> 
+                                ) : items.map(item => {
+                                    if (!item) return null;
+                                    return (
                                     <div key={item.id} className="flex justify-between p-3 bg-white/50 dark:bg-slate-700/50 border border-indigo-100 dark:border-slate-600 rounded-lg items-center">
                                         <div className="flex-1">
                                             <div className="font-bold text-indigo-900 dark:text-white">{item.title}</div>
-                                            {activeModule === 'announcements' && <div className="text-xs opacity-60 dark:text-indigo-200" dangerouslySetInnerHTML={{ __html: item.content?.substring(0,50) || '' }} />}
+                                            {activeModule === 'announcements' && (
+                                                <div 
+                                                    className="text-xs opacity-60 dark:text-indigo-200" 
+                                                    dangerouslySetInnerHTML={{ __html: (item.content && typeof item.content === 'string') ? item.content.substring(0,50) : '' }} 
+                                                />
+                                            )}
                                             {activeModule === 'assessments' && (
                                                 <div className="text-xs font-bold text-indigo-500 dark:text-indigo-300">
                                                     Entrega: {item.due_date ? formatShortDate(item.due_date) : 'Sem data'}
@@ -216,7 +227,8 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                             <button onClick={() => deleteItem(item.id)} className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">🗑️</button>
                                         </div>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     )}

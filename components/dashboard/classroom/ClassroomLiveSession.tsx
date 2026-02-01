@@ -12,11 +12,19 @@ interface Props {
 }
 
 export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) => {
-    const [sessionState, setSessionState] = useState<LiveSessionState>({
+    // Helper to ensure state validity
+    const sanitizeSessionState = (state: any): LiveSessionState => ({
+        is_presenting: !!state?.is_presenting,
+        current_slide_index: typeof state?.current_slide_index === 'number' ? state.current_slide_index : 0,
+        slides: Array.isArray(state?.slides) ? state.slides : []
+    });
+
+    const [sessionState, setSessionState] = useState<LiveSessionState>(sanitizeSessionState({
         is_presenting: false,
         current_slide_index: 0,
         slides: []
-    });
+    }));
+    
     const [uploading, setUploading] = useState(false);
     const [processingStatus, setProcessingStatus] = useState('');
 
@@ -38,7 +46,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
         // 1. Carregar estado inicial (se existir na DB)
         if (activeClass.live_session) {
-            setSessionState(activeClass.live_session);
+            setSessionState(sanitizeSessionState(activeClass.live_session));
         }
 
         // 2. Subscrição Realtime
@@ -50,9 +58,9 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                 table: 'classes',
                 filter: `id=eq.${activeClass.id}`
             }, (payload) => {
-                const newState = payload.new.live_session as LiveSessionState;
+                const newState = payload.new.live_session;
                 if (newState) {
-                    setSessionState(newState);
+                    setSessionState(sanitizeSessionState(newState));
                 }
             })
             .subscribe();
@@ -64,7 +72,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
     const updateState = async (newState: Partial<LiveSessionState>) => {
         if (!activeClass || !activeClass.id) return;
-        const updated = { ...sessionState, ...newState };
+        const updated = sanitizeSessionState({ ...sessionState, ...newState });
         setSessionState(updated); // Optimistic Update
         try {
             await courseService.updateClassLiveSession(activeClass.id, updated);
@@ -96,11 +104,11 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             const promises = filesToProcess.map((file: File) => courseService.uploadClassFile(file));
             const urls = await Promise.all(promises);
 
-            const updated = {
+            const updated = sanitizeSessionState({
                 ...sessionState,
                 slides: [...sessionState.slides, ...urls],
                 is_presenting: sessionState.slides.length === 0 ? true : sessionState.is_presenting
-            };
+            });
             await updateState(updated);
         } catch (e: any) {
             alert("Erro upload: " + e.message);
@@ -193,11 +201,11 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     const importFromDrive = async () => {
         const newUrls = selectedDriveFiles.map(id => `https://drive.google.com/uc?export=view&id=${id}`);
         
-        const updated = {
+        const updated = sanitizeSessionState({
             ...sessionState,
             slides: [...sessionState.slides, ...newUrls],
             is_presenting: sessionState.slides.length === 0 ? true : sessionState.is_presenting
-        };
+        });
         
         await updateState(updated);
         setShowDrivePicker(false);
@@ -245,11 +253,13 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         return (
             <div className="flex flex-col items-center justify-center h-full min-h-[500px] bg-black rounded-xl overflow-hidden relative shadow-2xl border-4 border-indigo-900">
                 <div className="w-full h-full flex items-center justify-center relative">
-                    <img 
-                        src={currentSlideUrl} 
-                        alt={`Slide ${sessionState.current_slide_index + 1}`} 
-                        className="max-w-full max-h-full object-contain"
-                    />
+                    {currentSlideUrl && (
+                        <img 
+                            src={currentSlideUrl} 
+                            alt={`Slide ${sessionState.current_slide_index + 1}`} 
+                            className="max-w-full max-h-full object-contain"
+                        />
+                    )}
                     <div className="absolute top-4 right-4 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse shadow-lg flex items-center gap-2">
                         <div className="w-2 h-2 bg-white rounded-full"></div> AO VIVO
                     </div>
@@ -308,7 +318,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                 
                 {/* Main View */}
                 <div className="lg:col-span-3 bg-black rounded-xl overflow-hidden flex items-center justify-center relative border-4 border-indigo-900 shadow-xl">
-                    {sessionState.slides.length > 0 ? (
+                    {sessionState.slides.length > 0 && currentSlideUrl ? (
                         <img 
                             src={currentSlideUrl} 
                             className="max-w-full max-h-full object-contain"
