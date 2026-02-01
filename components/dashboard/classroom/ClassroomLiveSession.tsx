@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../../lib/supabaseClient';
 import { courseService } from '../../../services/courses';
 import { driveService, DriveFile } from '../../../services/drive';
@@ -587,8 +588,8 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                 </div>
             </div>
 
-            {/* DRIVE PICKER MODAL - CENTERED */}
-            {showDrivePicker && (
+            {/* DRIVE PICKER MODAL - CENTERED VIA PORTAL */}
+            {showDrivePicker && createPortal(
                 <div 
                     className="fixed inset-0 z-[9999] flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in w-full h-full"
                     onClick={() => setShowDrivePicker(false)}
@@ -674,7 +675,8 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                             </div>
                         </div>
                     </GlassCard>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

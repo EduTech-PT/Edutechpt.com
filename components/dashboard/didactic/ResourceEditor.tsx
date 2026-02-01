@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { DriveFile, driveService } from '../../../services/drive';
 import { courseService } from '../../../services/courses';
 import { Profile, UserRole } from '../../../types';
@@ -269,8 +270,8 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                 </button>
             </div>
 
-            {/* DRIVE MODAL CENTERED */}
-            {showDrivePicker && (
+            {/* DRIVE MODAL CENTERED - USING PORTAL */}
+            {showDrivePicker && createPortal(
                 <div 
                     className="fixed inset-0 z-[9999] flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in w-full h-full"
                     onClick={() => setShowDrivePicker(false)}
@@ -327,7 +328,8 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                             )}
                         </div>
                     </GlassCard>
-                </div>
+                </div>,
+                document.body
             )}
         </form>
     );
