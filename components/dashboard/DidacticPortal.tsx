@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
@@ -8,12 +9,13 @@ import { formatShortDate } from '../../utils/formatters';
 import { ResourceEditor } from './didactic/ResourceEditor';
 import { AttendanceSheet } from './didactic/AttendanceSheet';
 import { Gradebook } from './didactic/Gradebook';
+import { ClassroomLiveSession } from './classroom/ClassroomLiveSession';
 
 interface Props {
     profile: Profile;
 }
 
-type ModuleType = 'home' | 'materials' | 'announcements' | 'assessments' | 'attendance' | 'grades';
+type ModuleType = 'home' | 'materials' | 'announcements' | 'assessments' | 'attendance' | 'grades' | 'live';
 
 export const DidacticPortal: React.FC<Props> = ({ profile }) => {
     const [myClasses, setMyClasses] = useState<(Class & { course: Course })[]>([]);
@@ -142,8 +144,9 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
 
                     {/* MÓDULO HOME */}
                     {activeModule === 'home' && (
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 animate-in fade-in zoom-in-95 duration-200">
                             {[
+                                { id: 'live', icon: '📡', label: 'Gestão Ao Vivo', color: 'text-red-600' },
                                 { id: 'materials', icon: '📤', label: 'Materiais' },
                                 { id: 'announcements', icon: '📢', label: 'Avisos' },
                                 { id: 'assessments', icon: '📝', label: 'Avaliações' },
@@ -151,7 +154,7 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                 { id: 'grades', icon: '📊', label: 'Pauta (Notas)' }
                             ].map(mod => (
                                 <button key={mod.id} onClick={() => setActiveModule(mod.id as any)} className="p-4 rounded-xl bg-indigo-50 dark:bg-slate-700/50 border border-indigo-100 dark:border-slate-600 flex flex-col items-center justify-center text-center hover:shadow-md transition-all hover:scale-105 group">
-                                     <span className="text-3xl mb-2">{mod.icon}</span><h4 className="font-bold text-indigo-900 dark:text-white text-sm">{mod.label}</h4>
+                                     <span className={`text-3xl mb-2 ${mod.color || ''}`}>{mod.icon}</span><h4 className="font-bold text-indigo-900 dark:text-white text-sm">{mod.label}</h4>
                                 </button>
                             ))}
                         </div>
@@ -160,6 +163,17 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                     {/* SUB-MÓDULOS DE GESTÃO */}
                     {activeModule === 'attendance' && activeTab && <AttendanceSheet classId={activeTab} students={students} />}
                     {activeModule === 'grades' && activeTab && <Gradebook classId={activeTab} students={students} />}
+                    
+                    {/* GESTÃO AO VIVO (PREPARAÇÃO) */}
+                    {activeModule === 'live' && activeTab && (
+                        <div className="flex-1 flex flex-col">
+                            <div className="bg-indigo-50 dark:bg-slate-900/50 p-4 rounded-xl mb-4 border border-indigo-100 dark:border-slate-700 text-sm">
+                                <p className="font-bold text-indigo-900 dark:text-white">📡 Modo de Preparação</p>
+                                <p className="text-indigo-700 dark:text-indigo-300">Carregue aqui os seus slides (PDF/Imagens) ou selecione do Drive. O que definir aqui aparecerá automaticamente na Sala de Aula quando iniciar a transmissão.</p>
+                            </div>
+                            <ClassroomLiveSession activeClass={activeClass} profile={profile} />
+                        </div>
+                    )}
 
                     {/* GESTÃO DE RECURSOS (MATERIAIS, AVISOS, AVALIAÇÕES) */}
                     {(['materials', 'announcements', 'assessments'].includes(activeModule)) && (
