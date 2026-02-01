@@ -47,7 +47,7 @@ export const ClassroomResources: React.FC<Props> = ({ type, items, completedIds,
                                             <div className="text-xs text-indigo-400 dark:text-indigo-400 uppercase font-bold mt-0.5">
                                                 {m.type === 'genially' ? (
                                                     <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400">
-                                                        🎯 Genially
+                                                        🎯 Conteúdo Interativo
                                                     </span>
                                                 ) : m.type}
                                             </div>
