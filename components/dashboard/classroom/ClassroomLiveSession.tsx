@@ -31,6 +31,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     
     // Student Fullscreen State
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const studentContainerRef = useRef<HTMLDivElement>(null);
 
     // References for polling control and file input
     const lastUpdateRef = useRef<number>(Date.now());
@@ -114,9 +115,22 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             }
         }, 3000);
 
+        // 4. Fullscreen Listener
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+        document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
         return () => {
             supabase.removeChannel(channel);
             clearInterval(intervalId);
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
         };
     }, [activeClass?.id]);
 
@@ -137,6 +151,44 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         setRefreshing(true);
         await fetchLatestState();
         setTimeout(() => setRefreshing(false), 500);
+    };
+
+    // NATIVE FULLSCREEN TOGGLE
+    const toggleFullscreenMode = () => {
+        // Se estiver em modo CSS puro (fallback), sai
+        if (isFullscreen && !document.fullscreenElement) {
+            setIsFullscreen(false);
+            return;
+        }
+
+        // Se estiver em modo Nativo, sai
+        if (document.fullscreenElement) {
+            const doc = document as any;
+            if (doc.exitFullscreen) doc.exitFullscreen();
+            else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
+            else if (doc.mozCancelFullScreen) doc.mozCancelFullScreen();
+            else if (doc.msExitFullscreen) doc.msExitFullscreen();
+            return;
+        }
+
+        // Tenta entrar em modo Nativo
+        if (studentContainerRef.current) {
+            const element = studentContainerRef.current as any;
+            const requestMethod = element.requestFullscreen || 
+                                  element.webkitRequestFullscreen || 
+                                  element.mozRequestFullScreen || 
+                                  element.msRequestFullscreen;
+
+            if (requestMethod) {
+                requestMethod.call(element).catch(() => {
+                    // Se falhar (ex: iOS Safari), usa fallback CSS
+                    setIsFullscreen(true);
+                });
+            } else {
+                // Se API não suportada, usa fallback CSS
+                setIsFullscreen(true);
+            }
+        }
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -381,9 +433,10 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
         return (
             <div 
+                ref={studentContainerRef}
                 className={`
                     flex flex-col items-center justify-center bg-black rounded-xl overflow-hidden relative shadow-2xl transition-all duration-300
-                    ${isFullscreen ? 'fixed inset-0 z-[9999] rounded-none' : 'h-full min-h-[500px] border-4 border-indigo-900'}
+                    ${isFullscreen ? 'fixed inset-0 z-[9999] rounded-none w-full h-full' : 'h-full min-h-[500px] border-4 border-indigo-900'}
                 `}
             >
                 <div className="w-full h-full flex items-center justify-center relative">
@@ -398,7 +451,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
                     {/* Botão de Fullscreen */}
                     <button 
-                        onClick={() => setIsFullscreen(!isFullscreen)}
+                        onClick={toggleFullscreenMode}
                         className="absolute bottom-4 right-4 z-50 p-3 bg-white/20 hover:bg-white/40 text-white rounded-lg backdrop-blur-md transition-all shadow-lg border border-white/10"
                         title={isFullscreen ? "Sair do Ecrã Inteiro" : "Ecrã Inteiro"}
                     >
