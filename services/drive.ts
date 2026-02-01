@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.6.17";
+export const GAS_VERSION = "v1.6.18";
 
 export interface DriveFile {
   id: string;
@@ -20,6 +20,17 @@ export interface ScriptHealth {
     mailPermission: boolean;
     status: 'ok' | 'error' | 'not_configured';
     message?: string;
+}
+
+export interface StorageQuota {
+    limit: number;
+    used: number;
+    folders: {
+        id: string;
+        name: string;
+        size: number;
+        error?: string;
+    }[];
 }
 
 export const driveService = {
@@ -80,6 +91,24 @@ export const driveService = {
           console.error("Health Check Failed:", e);
           return { version: 'connection_error', mailPermission: false, status: 'error', message: e.message };
       }
+  },
+
+  // Novo método para obter QUOTA e TAMANHOS
+  async getStorageQuota(folderIds: string[] = []): Promise<StorageQuota> {
+      const config = await this.getConfig();
+      const response = await fetch(config.googleScriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+              action: 'getQuota',
+              folderIds: folderIds
+          })
+      });
+      const result = await response.json();
+      if (result.status !== 'success') {
+          throw new Error(result.message || 'Erro ao obter quota');
+      }
+      return result.data as StorageQuota;
   },
 
   // Novo método genérico para Garantir Pasta (Encontrar ou Criar)
@@ -343,6 +372,44 @@ function doPost(e) {
         var mailStatus = false;
         try { GmailApp.getAliases(); mailStatus = true; } catch(e) {}
         result = { status: 'success', version: '${GAS_VERSION}', timestamp: new Date().toISOString(), mailPermission: mailStatus };
+    }
+    else if (action === 'getQuota') {
+        // QUOTA DA CONTA
+        var limit = DriveApp.getStorageLimit();
+        var used = DriveApp.getStorageUsed();
+        
+        // TAMANHO DE PASTAS ESPECÍFICAS
+        var folderIds = data.folderIds || [];
+        var foldersData = [];
+        
+        // Função Recursiva Segura (para evitar timeouts, limita profundidade ou ficheiros se necessário)
+        // Por agora, faz recursão simples
+        var calculateSize = function(folder) {
+            var size = 0;
+            var files = folder.getFiles();
+            while (files.hasNext()) {
+                size += files.next().getSize();
+            }
+            var subs = folder.getFolders();
+            while (subs.hasNext()) {
+                size += calculateSize(subs.next());
+            }
+            return size;
+        };
+
+        folderIds.forEach(function(fid) {
+            if (!fid) return;
+            try {
+                var folder = DriveApp.getFolderById(fid);
+                // Nota: calcular tamanho recursivo pode ser lento
+                var size = calculateSize(folder);
+                foldersData.push({ id: fid, name: folder.getName(), size: size });
+            } catch(e) {
+                foldersData.push({ id: fid, name: "Erro/Não Encontrada", size: 0, error: e.toString() });
+            }
+        });
+
+        result = { status: 'success', data: { limit: limit, used: used, folders: foldersData } };
     }
     else if (action === 'sendEmail') {
         const recipient = data.to;

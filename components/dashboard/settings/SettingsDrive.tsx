@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../../GlassCard';
 import { adminService } from '../../../services/admin';
-import { driveService, GAS_TEMPLATE_CODE, GAS_VERSION, GAS_MANIFEST_JSON, ScriptHealth } from '../../../services/drive';
+import { driveService, GAS_TEMPLATE_CODE, GAS_VERSION, GAS_MANIFEST_JSON, ScriptHealth, StorageQuota } from '../../../services/drive';
 
 export const SettingsDrive: React.FC = () => {
     const [config, setConfig] = useState<any>({});
@@ -13,6 +13,11 @@ export const SettingsDrive: React.FC = () => {
     // Status State
     const [remoteStatus, setRemoteStatus] = useState<ScriptHealth>({ version: 'checking', mailPermission: true, status: 'ok' });
     
+    // Monitoring State
+    const [quota, setQuota] = useState<StorageQuota | null>(null);
+    const [loadingQuota, setLoadingQuota] = useState(false);
+    const [monitoredFolders, setMonitoredFolders] = useState<string[]>(['', '', '']); // 3 slots
+
     // UI State
     const [activeTab, setActiveTab] = useState<'code' | 'manifest'>('code');
 
@@ -24,6 +29,15 @@ export const SettingsDrive: React.FC = () => {
         try {
             const data = await adminService.getAppConfig();
             setConfig(data);
+            
+            // Load monitored folders from config
+            if (data.monitoredFolders) {
+                const folders = data.monitoredFolders.split(',').map((id: string) => id.trim());
+                // Ensure always 3 slots
+                const padded = [...folders, '', '', ''].slice(0, 3);
+                setMonitoredFolders(padded);
+            }
+
             if (data.googleScriptUrl) {
                 checkVersion(data.googleScriptUrl);
             } else {
@@ -43,6 +57,23 @@ export const SettingsDrive: React.FC = () => {
         // Se detetar erro de permissão, muda automaticamente para a aba de manifesto
         if (!health.mailPermission && health.status === 'ok') {
             setActiveTab('manifest');
+        }
+    };
+
+    const fetchStorageData = async () => {
+        setLoadingQuota(true);
+        try {
+            // Save current folders first
+            const foldersStr = monitoredFolders.filter(f => f.trim() !== '').join(',');
+            await adminService.updateAppConfig('monitored_folders', foldersStr);
+
+            // Fetch Data
+            const data = await driveService.getStorageQuota(monitoredFolders.filter(f => f.trim() !== ''));
+            setQuota(data);
+        } catch (e: any) {
+            alert("Erro ao obter dados: " + e.message);
+        } finally {
+            setLoadingQuota(false);
         }
     };
 
@@ -127,7 +158,6 @@ export const SettingsDrive: React.FC = () => {
 
         if (version === 'checking' || !config.googleScriptUrl) return null;
 
-        // ALERTA CRÍTICO: FALTA PERMISSÃO DE EMAIL
         if (status === 'ok' && !mailPermission) {
             return (
                 <div className="mb-4 p-4 bg-red-100 border-l-4 border-red-500 text-red-800 rounded-r-lg shadow-md animate-pulse">
@@ -164,6 +194,14 @@ export const SettingsDrive: React.FC = () => {
                 <p>{message || alertMsg}</p>
             </div>
         );
+    };
+
+    const formatBytes = (bytes: number) => {
+        if (!+bytes) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
     };
 
     const SaveBtn = ({ onClick }: { onClick: () => void }) => (
@@ -239,34 +277,113 @@ export const SettingsDrive: React.FC = () => {
                 </div>
              </GlassCard>
              
-             <GlassCard className="flex flex-col min-h-0">
-                 <div className="flex justify-between items-center mb-4">
-                     <div>
-                         <h3 className="font-bold text-xl text-indigo-900">Código do Script</h3>
-                         <div className="flex gap-2 mt-1">
-                             <button onClick={() => setActiveTab('code')} className={`text-xs px-3 py-1 rounded-full font-bold transition-colors ${activeTab === 'code' ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-700'}`}>Código (Código.gs)</button>
-                             <button onClick={() => setActiveTab('manifest')} className={`text-xs px-3 py-1 rounded-full font-bold transition-colors ${activeTab === 'manifest' ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-800'}`}>Manifesto (appsscript.json)</button>
+             <div className="flex flex-col gap-6">
+                 {/* Storage Monitor Panel */}
+                 <GlassCard className="flex flex-col">
+                     <div className="flex justify-between items-center mb-4">
+                         <div>
+                             <h3 className="font-bold text-xl text-indigo-900">Monitorização de Armazenamento</h3>
+                             <p className="text-xs text-indigo-600">Espaço usado na conta Google do Administrador.</p>
                          </div>
+                         <button 
+                            onClick={fetchStorageData} 
+                            disabled={loadingQuota}
+                            className="text-xs px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg font-bold hover:bg-indigo-200 disabled:opacity-50"
+                         >
+                             {loadingQuota ? 'A carregar...' : 'Atualizar Dados'}
+                         </button>
                      </div>
-                     <button onClick={handleCopyCode} className={`text-xs px-3 py-1 rounded font-bold ${copyFeedback ? 'bg-green-600 text-white' : 'bg-indigo-100 text-indigo-800'}`}>{copyFeedback || 'Copiar'}</button>
-                 </div>
-                 
-                 {/* Alerta sobre o Manifesto */}
-                 {activeTab === 'manifest' && (
-                    <div className="mb-4 bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-xs text-yellow-900 animate-in fade-in">
-                        <strong className="block mb-1">🔧 COMO ATIVAR PERMISSÕES:</strong>
-                        <p>1. Copie o JSON abaixo.</p>
-                        <p>2. No editor Google Apps Script, vá a <b>Definições do Projeto</b> (ícone engrenagem) {'>'} Marque "Mostrar manifesto appsscript.json".</p>
-                        <p>3. Volte ao editor, abra o ficheiro <b>appsscript.json</b> e substitua tudo pelo código abaixo.</p>
-                    </div>
-                 )}
 
-                 <div className="flex-1 overflow-auto bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner">
-                     <pre className="text-slate-300 font-mono text-xs whitespace-pre-wrap">
-                        {activeTab === 'code' ? GAS_TEMPLATE_CODE : GAS_MANIFEST_JSON}
-                     </pre>
-                 </div>
-             </GlassCard>
+                     {quota ? (
+                         <div className="space-y-6">
+                             {/* Quota Geral */}
+                             <div>
+                                 <div className="flex justify-between text-xs font-bold text-gray-600 mb-1">
+                                     <span>Conta Principal (Quota)</span>
+                                     <span>{formatBytes(quota.used)} / {formatBytes(quota.limit)}</span>
+                                 </div>
+                                 <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                                     <div 
+                                        className={`h-full transition-all duration-500 ${
+                                            (quota.used / quota.limit) > 0.9 ? 'bg-red-500' : (quota.used / quota.limit) > 0.7 ? 'bg-yellow-500' : 'bg-blue-500'
+                                        }`} 
+                                        style={{ width: `${Math.min((quota.used / quota.limit) * 100, 100)}%` }}
+                                     ></div>
+                                 </div>
+                             </div>
+
+                             {/* Pastas Monitorizadas */}
+                             <div className="space-y-3">
+                                 <p className="text-xs font-bold uppercase text-indigo-400 border-b border-indigo-100 pb-1">Pastas Partilhadas (Monitorizadas)</p>
+                                 
+                                 {monitoredFolders.map((fid, idx) => {
+                                     const folderData = quota.folders.find(f => f.id === fid);
+                                     return (
+                                         <div key={idx} className="bg-white/50 p-2 rounded border border-indigo-50 flex flex-col gap-1">
+                                             <input 
+                                                type="text" 
+                                                placeholder={`ID Pasta ${idx + 1}`} 
+                                                value={fid} 
+                                                onChange={(e) => {
+                                                    const newFolders = [...monitoredFolders];
+                                                    newFolders[idx] = cleanDriveId(e.target.value);
+                                                    setMonitoredFolders(newFolders);
+                                                }}
+                                                className="w-full bg-transparent text-xs font-mono border-b border-dashed border-gray-300 outline-none mb-1"
+                                             />
+                                             {folderData ? (
+                                                 <div className="flex justify-between items-center text-xs">
+                                                     <span className="font-bold text-indigo-900 truncate flex-1 pr-2" title={folderData.name}>
+                                                         {folderData.error ? '⚠️ Erro' : `📂 ${folderData.name}`}
+                                                     </span>
+                                                     <span className="font-mono bg-indigo-100 px-1 rounded text-indigo-700">
+                                                         {folderData.error ? '-' : formatBytes(folderData.size)}
+                                                     </span>
+                                                 </div>
+                                             ) : (
+                                                 <span className="text-[10px] text-gray-400 italic">Insira o ID e clique em Atualizar</span>
+                                             )}
+                                         </div>
+                                     );
+                                 })}
+                             </div>
+                         </div>
+                     ) : (
+                         <div className="text-center py-8 opacity-50">
+                             <span className="text-4xl block mb-2">📊</span>
+                             <p>Clique em "Atualizar Dados" para ver o estado.</p>
+                         </div>
+                     )}
+                 </GlassCard>
+
+                 <GlassCard className="flex flex-col min-h-0 flex-1">
+                     <div className="flex justify-between items-center mb-4">
+                         <div>
+                             <h3 className="font-bold text-xl text-indigo-900">Código do Script</h3>
+                             <div className="flex gap-2 mt-1">
+                                 <button onClick={() => setActiveTab('code')} className={`text-xs px-3 py-1 rounded-full font-bold transition-colors ${activeTab === 'code' ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-700'}`}>Código (Código.gs)</button>
+                                 <button onClick={() => setActiveTab('manifest')} className={`text-xs px-3 py-1 rounded-full font-bold transition-colors ${activeTab === 'manifest' ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-800'}`}>Manifesto (appsscript.json)</button>
+                             </div>
+                         </div>
+                         <button onClick={handleCopyCode} className={`text-xs px-3 py-1 rounded font-bold ${copyFeedback ? 'bg-green-600 text-white' : 'bg-indigo-100 text-indigo-800'}`}>{copyFeedback || 'Copiar'}</button>
+                     </div>
+                     
+                     {activeTab === 'manifest' && (
+                        <div className="mb-4 bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-xs text-yellow-900 animate-in fade-in">
+                            <strong className="block mb-1">🔧 COMO ATIVAR PERMISSÕES:</strong>
+                            <p>1. Copie o JSON abaixo.</p>
+                            <p>2. No editor Google Apps Script, vá a <b>Definições do Projeto</b> (ícone engrenagem) {'>'} Marque "Mostrar manifesto appsscript.json".</p>
+                            <p>3. Volte ao editor, abra o ficheiro <b>appsscript.json</b> e substitua tudo pelo código abaixo.</p>
+                        </div>
+                     )}
+
+                     <div className="flex-1 overflow-auto bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner max-h-[300px]">
+                         <pre className="text-slate-300 font-mono text-xs whitespace-pre-wrap">
+                            {activeTab === 'code' ? GAS_TEMPLATE_CODE : GAS_MANIFEST_JSON}
+                         </pre>
+                     </div>
+                 </GlassCard>
+             </div>
         </div>
     );
 };

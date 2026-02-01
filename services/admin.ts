@@ -291,10 +291,12 @@ export const adminService = {
                 if (item.key === 'sql_version') config.sqlVersion = item.value;
                 if (item.key === 'google_script_url') config.googleScriptUrl = item.value;
                 if (item.key === 'google_drive_folder_id') config.driveFolderId = item.value;
-                if (item.key === 'google_drive_trash_folder_id') config.trashFolderId = item.value; // NOVO
+                if (item.key === 'google_drive_trash_folder_id') config.trashFolderId = item.value;
                 if (item.key === 'live_drive_folder_id') config.liveDriveFolderId = item.value;
                 if (item.key === 'gas_version') config.gasVersion = item.value;
                 if (item.key === 'calendar_ids') config.calendarIds = item.value; 
+                // Monitoring
+                if (item.key === 'monitored_folders') config.monitoredFolders = item.value; // CSV string
                 
                 // Access Settings
                 if (item.key === 'access_denied_email') config.accessDeniedEmail = item.value;
