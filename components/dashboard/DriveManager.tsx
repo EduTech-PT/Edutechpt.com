@@ -181,8 +181,8 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
         return '📄';
     };
 
-    // Helper para gerar links diretos de imagem
-    const getDirectLink = (id: string) => `https://lh3.googleusercontent.com/d/${id}`;
+    // Helper para gerar links diretos de imagem (USAR THUMBNAIL API)
+    const getDirectLink = (id: string) => `https://drive.google.com/thumbnail?id=${id}&sz=w800`;
 
     return (
         <div className="space-y-6 animate-in slide-in-from-right duration-300">

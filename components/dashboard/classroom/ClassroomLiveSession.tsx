@@ -121,8 +121,8 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             const results = await Promise.all(driveUploadPromises);
 
             // 3. Converter IDs do Drive em URLs de Visualização
-            // ATUALIZADO: Usar formato 'lh3.googleusercontent.com/d/' para contornar problemas de embed
-            const newUrls = results.map(res => `https://lh3.googleusercontent.com/d/${res.id}`);
+            // ATUALIZADO: Usar API Thumbnail para garantir visualização (sz=w2048 para alta definição)
+            const newUrls = results.map(res => `https://drive.google.com/thumbnail?id=${res.id}&sz=w2048`);
 
             const updated = sanitizeSessionState({
                 ...sessionState,
@@ -230,8 +230,8 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             // Isto resolve o problema de ficheiros antigos que estavam privados
             await driveService.setFilesPublic(selectedDriveFiles);
 
-            // ATUALIZADO: Formato URL robusto para imagens
-            const newUrls = selectedDriveFiles.map(id => `https://lh3.googleusercontent.com/d/${id}`);
+            // ATUALIZADO: Usar API Thumbnail para garantir visualização
+            const newUrls = selectedDriveFiles.map(id => `https://drive.google.com/thumbnail?id=${id}&sz=w2048`);
             
             const updated = sanitizeSessionState({
                 ...sessionState,
