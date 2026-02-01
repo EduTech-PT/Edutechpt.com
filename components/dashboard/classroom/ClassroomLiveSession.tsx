@@ -27,6 +27,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     
     const [uploading, setUploading] = useState(false);
     const [processingStatus, setProcessingStatus] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
 
     // DRIVE PICKER STATE
     const [showDrivePicker, setShowDrivePicker] = useState(false);
@@ -78,6 +79,28 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             await courseService.updateClassLiveSession(activeClass.id, updated);
         } catch (e) {
             console.error("Erro sync:", e);
+        }
+    };
+
+    // FUNÇÃO DE REFRESH MANUAL
+    const handleManualRefresh = async () => {
+        if (!activeClass?.id) return;
+        setRefreshing(true);
+        try {
+            const { data, error } = await supabase
+                .from('classes')
+                .select('live_session')
+                .eq('id', activeClass.id)
+                .single();
+            
+            if (data?.live_session) {
+                setSessionState(sanitizeSessionState(data.live_session));
+            }
+        } catch (e) {
+            console.error("Refresh error:", e);
+        } finally {
+            // Pequeno delay para feedback visual
+            setTimeout(() => setRefreshing(false), 500);
         }
     };
 
@@ -277,7 +300,14 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     if (!isPresenter) {
         if (!sessionState.is_presenting || sessionState.slides.length === 0) {
             return (
-                <div className="flex flex-col items-center justify-center h-[400px] text-center opacity-60">
+                <div className="flex flex-col items-center justify-center h-[400px] text-center opacity-60 relative">
+                    <button 
+                        onClick={handleManualRefresh}
+                        className="absolute top-4 right-4 p-2 bg-indigo-100 dark:bg-slate-700 text-indigo-600 dark:text-white rounded-full shadow-sm hover:bg-indigo-200 transition-colors z-50"
+                        title="Tentar Reconectar"
+                    >
+                        <span className={`block ${refreshing ? 'animate-spin' : ''}`}>🔄</span>
+                    </button>
                     <span className="text-6xl mb-4 animate-pulse">📡</span>
                     <h3 className="text-xl font-bold text-indigo-900 dark:text-white">A aguardar transmissão...</h3>
                     <p className="text-indigo-700 dark:text-indigo-300">O formador ainda não iniciou a apresentação.</p>
@@ -290,6 +320,15 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         return (
             <div className="flex flex-col items-center justify-center h-full min-h-[500px] bg-black rounded-xl overflow-hidden relative shadow-2xl border-4 border-indigo-900">
                 <div className="w-full h-full flex items-center justify-center relative">
+                    {/* Botão de Refresh para o Aluno */}
+                    <button 
+                        onClick={handleManualRefresh}
+                        className="absolute top-4 left-4 z-50 p-2 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md transition-all shadow-lg border border-white/10 group"
+                        title="Atualizar Transmissão (Recarregar Imagem)"
+                    >
+                        <span className={`block text-lg shadow-black drop-shadow-md ${refreshing ? 'animate-spin' : ''}`}>🔄</span>
+                    </button>
+
                     {currentSlideUrl && (
                         <img 
                             src={currentSlideUrl} 
@@ -331,6 +370,14 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                 </div>
 
                 <div className="flex gap-2">
+                    <button 
+                        onClick={handleManualRefresh}
+                        className="p-2 bg-white dark:bg-slate-700 text-indigo-600 dark:text-white rounded-lg border border-indigo-200 dark:border-slate-600 hover:bg-indigo-50"
+                        title="Sincronizar Estado"
+                    >
+                        <span className={`block ${refreshing ? 'animate-spin' : ''}`}>🔄</span>
+                    </button>
+
                     <button 
                         onClick={openDrivePicker}
                         className="px-4 py-2 bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 border border-indigo-200 dark:border-slate-600 rounded-lg font-bold hover:bg-indigo-50 dark:hover:bg-slate-600 transition-colors flex items-center gap-2"
