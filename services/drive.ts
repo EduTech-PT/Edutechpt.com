@@ -82,6 +82,27 @@ export const driveService = {
       }
   },
 
+  // Novo método genérico para Garantir Pasta (Encontrar ou Criar)
+  async ensureFolder(name: string, parentId: string): Promise<string> {
+      const config = await this.getConfig();
+      
+      const response = await fetch(config.googleScriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+              action: 'ensureFolder',
+              rootId: parentId,
+              name: name
+          })
+      });
+
+      const result = await response.json();
+      if (result.status !== 'success') {
+          throw new Error("Falha ao criar/obter pasta: " + result.message);
+      }
+      return result.id;
+  },
+
   async getPersonalFolder(profile: Profile): Promise<string> {
       if (profile.personal_folder_id) {
           return profile.personal_folder_id;
@@ -90,22 +111,8 @@ export const driveService = {
       const config = await this.getConfig();
       const folderName = `[Formador] ${profile.full_name || profile.email}`;
 
-      const response = await fetch(config.googleScriptUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({
-              action: 'ensureFolder',
-              rootId: config.driveFolderId,
-              name: folderName
-          })
-      });
-
-      const result = await response.json();
-      if (result.status !== 'success') {
-          throw new Error("Falha ao criar pasta pessoal: " + result.message);
-      }
-
-      const newFolderId = result.id;
+      // Usa o método genérico para criar na raiz principal
+      const newFolderId = await this.ensureFolder(folderName, config.driveFolderId);
 
       await supabase
           .from('profiles')
@@ -413,4 +420,3 @@ function doPost(e) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.toString() })).setMimeType(ContentService.MimeType.JSON);
   }
 }
-`;

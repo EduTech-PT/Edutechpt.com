@@ -157,10 +157,15 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             let targetFolderId;
             try {
                 const config = await driveService.getConfig();
+                
                 if (config.liveDriveFolderId && config.liveDriveFolderId.trim() !== '') {
-                    targetFolderId = config.liveDriveFolderId;
+                    // LÓGICA DE PASTA AO VIVO: 
+                    // Se existe pasta "Ao Vivo" configurada, cria uma subpasta para o formador lá dentro.
+                    // Isto mantém a raiz "Ao Vivo" organizada.
+                    const folderName = `[Formador] ${profile.full_name || profile.email}`;
+                    targetFolderId = await driveService.ensureFolder(folderName, config.liveDriveFolderId);
                 } else {
-                    // LÓGICA DE PASTA PESSOAL: Garante que o formador tem a sua pasta
+                    // LÓGICA DE PASTA PESSOAL (Fallback): Garante que o formador tem a sua pasta na raiz
                     targetFolderId = profile.role === 'admin' 
                         ? config.driveFolderId 
                         : await driveService.getPersonalFolder(profile);
