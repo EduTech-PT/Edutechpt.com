@@ -446,9 +446,9 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                         ref={fileInputRef}
                         type="file" 
                         multiple 
-                        accept="image/*" 
+                        accept="image/png, image/jpeg, image/gif, image/webp" 
                         onChange={handleFileUpload} 
-                        className="hidden" 
+                        style={{ display: 'none' }}
                         disabled={uploading} 
                     />
 
@@ -505,15 +505,21 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                 </div>
             </div>
 
-            {/* DRIVE PICKER MODAL */}
+            {/* DRIVE PICKER MODAL - CENTERED FIX */}
             {showDrivePicker && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <GlassCard className="w-full max-w-2xl bg-white dark:bg-slate-900 flex flex-col max-h-[80vh] p-0 overflow-hidden shadow-2xl relative">
+                <div 
+                    className="fixed inset-0 z-[9999] flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in w-screen h-[100dvh]"
+                    onClick={() => setShowDrivePicker(false)}
+                >
+                    <GlassCard 
+                        className="w-full max-w-2xl bg-white dark:bg-slate-900 flex flex-col max-h-[80vh] p-0 overflow-hidden shadow-2xl relative m-auto"
+                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                    >
                         <div className="p-4 border-b border-indigo-100 dark:border-slate-700 flex justify-between items-center bg-indigo-50 dark:bg-slate-800">
                             <h3 className="font-bold text-lg text-indigo-900 dark:text-white flex items-center gap-2">
                                 ☁️ Selecionar do Google Drive
                             </h3>
-                            <button onClick={() => setShowDrivePicker(false)} className="text-gray-500 hover:text-red-500">✕</button>
+                            <button onClick={() => setShowDrivePicker(false)} className="text-gray-500 hover:text-red-500 font-bold p-2">✕</button>
                         </div>
 
                         <div className="p-2 bg-indigo-50/50 dark:bg-slate-800/50 flex items-center gap-2 text-xs border-b border-indigo-100 dark:border-slate-700 overflow-x-auto whitespace-nowrap">
