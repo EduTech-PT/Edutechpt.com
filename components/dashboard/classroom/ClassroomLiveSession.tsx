@@ -5,10 +5,15 @@ import { courseService } from '../../../services/courses';
 import { driveService, DriveFile } from '../../../services/drive';
 import { Class, UserRole, LiveSessionState, Profile } from '../../../types';
 import { GlassCard } from '../../GlassCard';
-import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Fix for pdfjs-dist import issues in some ESM environments (esm.sh)
+const pdfjs: any = (pdfjsLib as any).default || pdfjsLib;
 
 // Configurar o Worker do PDF.js (Obrigatório para processamento no browser)
-GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+if (pdfjs.GlobalWorkerOptions) {
+    pdfjs.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+}
 
 interface Props {
     activeClass: Class;
@@ -77,7 +82,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         try {
             setProcessingStatus('A ler PDF...');
             const arrayBuffer = await file.arrayBuffer();
-            const pdf = await getDocument(arrayBuffer).promise;
+            const pdf = await pdfjs.getDocument(arrayBuffer).promise;
             const images: File[] = [];
             const totalPages = pdf.numPages;
 
