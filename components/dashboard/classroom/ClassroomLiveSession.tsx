@@ -121,7 +121,8 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             const results = await Promise.all(driveUploadPromises);
 
             // 3. Converter IDs do Drive em URLs de Visualização
-            const newUrls = results.map(res => `https://drive.google.com/uc?export=view&id=${res.id}`);
+            // ATUALIZADO: Usar formato 'lh3.googleusercontent.com/d/' para contornar problemas de embed
+            const newUrls = results.map(res => `https://lh3.googleusercontent.com/d/${res.id}`);
 
             const updated = sanitizeSessionState({
                 ...sessionState,
@@ -220,17 +221,32 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     };
 
     const importFromDrive = async () => {
-        const newUrls = selectedDriveFiles.map(id => `https://drive.google.com/uc?export=view&id=${id}`);
+        if (selectedDriveFiles.length === 0) return;
         
-        const updated = sanitizeSessionState({
-            ...sessionState,
-            slides: [...sessionState.slides, ...newUrls],
-            is_presenting: sessionState.slides.length === 0 ? true : sessionState.is_presenting
-        });
+        setLoadingDrive(true); // Reusa o loading state do picker
         
-        await updateState(updated);
-        setShowDrivePicker(false);
-        setSelectedDriveFiles([]);
+        try {
+            // FIX: Forçar que os ficheiros sejam públicos para garantir que a imagem aparece
+            // Isto resolve o problema de ficheiros antigos que estavam privados
+            await driveService.setFilesPublic(selectedDriveFiles);
+
+            // ATUALIZADO: Formato URL robusto para imagens
+            const newUrls = selectedDriveFiles.map(id => `https://lh3.googleusercontent.com/d/${id}`);
+            
+            const updated = sanitizeSessionState({
+                ...sessionState,
+                slides: [...sessionState.slides, ...newUrls],
+                is_presenting: sessionState.slides.length === 0 ? true : sessionState.is_presenting
+            });
+            
+            await updateState(updated);
+            setShowDrivePicker(false);
+            setSelectedDriveFiles([]);
+        } catch (err: any) {
+            alert("Erro ao importar: " + err.message);
+        } finally {
+            setLoadingDrive(false);
+        }
     };
 
     // --- CONTROLS ---
@@ -279,6 +295,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                             src={currentSlideUrl} 
                             alt={`Slide ${sessionState.current_slide_index + 1}`} 
                             className="max-w-full max-h-full object-contain"
+                            referrerPolicy="no-referrer"
                         />
                     )}
                     <div className="absolute top-4 right-4 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse shadow-lg flex items-center gap-2">
@@ -344,6 +361,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                             src={currentSlideUrl} 
                             className="max-w-full max-h-full object-contain"
                             alt="Current Slide"
+                            referrerPolicy="no-referrer"
                         />
                     ) : (
                         <div className="text-gray-500 flex flex-col items-center">
@@ -370,7 +388,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                                 ${idx === sessionState.current_slide_index ? 'border-indigo-600 ring-2 ring-indigo-300' : 'border-transparent hover:border-indigo-300'}
                             `}
                         >
-                            <img src={url} className="w-full h-24 object-cover" loading="lazy" />
+                            <img src={url} className="w-full h-24 object-cover" loading="lazy" referrerPolicy="no-referrer" />
                             <div className="absolute bottom-0 right-0 bg-black/60 text-white text-[10px] px-1.5 font-bold rounded-tl">
                                 {idx + 1}
                             </div>
@@ -443,9 +461,10 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                                 <button onClick={() => setShowDrivePicker(false)} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancelar</button>
                                 <button 
                                     onClick={importFromDrive}
-                                    disabled={selectedDriveFiles.length === 0}
-                                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow-md hover:bg-indigo-700 disabled:opacity-50"
+                                    disabled={selectedDriveFiles.length === 0 || loadingDrive}
+                                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow-md hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
                                 >
+                                    {loadingDrive && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
                                     Importar Selecionados
                                 </button>
                             </div>

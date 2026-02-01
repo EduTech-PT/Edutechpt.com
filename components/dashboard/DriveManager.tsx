@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../GlassCard';
 import { driveService, DriveFile } from '../../services/drive';
@@ -180,6 +181,9 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
         return '📄';
     };
 
+    // Helper para gerar links diretos de imagem
+    const getDirectLink = (id: string) => `https://lh3.googleusercontent.com/d/${id}`;
+
     return (
         <div className="space-y-6 animate-in slide-in-from-right duration-300">
              {/* Header & Actions */}
@@ -276,16 +280,35 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
 
                         {files.map(file => {
                             const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
+                            const isImage = file.mimeType.includes('image');
+                            
                             return (
                                 <div 
                                     key={file.id} 
                                     className={`
-                                        bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-slate-700 p-4 rounded-xl flex items-start gap-3 hover:shadow-md transition-all group relative select-none
+                                        bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-slate-700 p-4 rounded-xl flex items-start gap-3 hover:shadow-md transition-all group relative select-none overflow-hidden
                                         ${isFolder ? 'cursor-pointer hover:bg-indigo-50 dark:hover:bg-slate-700' : ''}
                                     `}
                                     onClick={() => isFolder && navigateToFolder(file)}
                                 >
-                                    <div className="text-3xl filter drop-shadow-sm">{getIcon(file.mimeType)}</div>
+                                    <div className="text-3xl filter drop-shadow-sm flex items-center justify-center w-10 h-10 shrink-0">
+                                        {isImage ? (
+                                            <img 
+                                                src={getDirectLink(file.id)} 
+                                                className="w-full h-full object-cover rounded bg-gray-100" 
+                                                alt=""
+                                                loading="lazy"
+                                                referrerPolicy="no-referrer"
+                                                onError={(e) => {
+                                                    // Fallback se falhar
+                                                    e.currentTarget.style.display = 'none';
+                                                    e.currentTarget.parentElement!.innerHTML = '🖼️';
+                                                }}
+                                            />
+                                        ) : (
+                                            getIcon(file.mimeType)
+                                        )}
+                                    </div>
                                     <div className="min-w-0 flex-1">
                                         <h4 className="font-bold text-indigo-900 dark:text-white text-sm truncate" title={file.name}>{file.name}</h4>
                                         <p className="text-xs text-indigo-700 dark:text-indigo-300 opacity-70">

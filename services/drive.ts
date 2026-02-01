@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.6.7";
+export const GAS_VERSION = "v1.6.9";
 
 export interface DriveFile {
   id: string;
@@ -239,6 +239,21 @@ export const driveService = {
     });
     const result = await response.json();
     if (result.status !== 'success') throw new Error(result.message);
+  },
+
+  // NOVO: Forçar permissões públicas em ficheiros existentes
+  async setFilesPublic(fileIds: string[]): Promise<void> {
+      const config = await this.getConfig();
+      const response = await fetch(config.googleScriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+              action: 'setPublic',
+              ids: fileIds
+          })
+      });
+      const result = await response.json();
+      if (result.status !== 'success') throw new Error(result.message || 'Erro ao definir permissões');
   }
 };
 
@@ -383,6 +398,13 @@ function doPost(e) {
     else if (action === 'delete') {
       try { DriveApp.getFileById(data.id).setTrashed(true); } 
       catch (e) { DriveApp.getFolderById(data.id).setTrashed(true); }
+      result = { status: 'success' };
+    }
+    else if (action === 'setPublic') {
+      const ids = data.ids || [data.id];
+      ids.forEach(function(id) {
+         try { DriveApp.getFileById(id).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) {}
+      });
       result = { status: 'success' };
     }
 
