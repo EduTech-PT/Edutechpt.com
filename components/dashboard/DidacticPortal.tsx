@@ -165,7 +165,7 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                     {activeModule === 'grades' && activeTab && <Gradebook classId={activeTab} students={students} />}
                     
                     {/* GESTÃO AO VIVO (PREPARAÇÃO) */}
-                    {activeModule === 'live' && activeTab && (
+                    {activeModule === 'live' && activeClass && (
                         <div className="flex-1 flex flex-col">
                             <div className="bg-indigo-50 dark:bg-slate-900/50 p-4 rounded-xl mb-4 border border-indigo-100 dark:border-slate-700 text-sm">
                                 <p className="font-bold text-indigo-900 dark:text-white">📡 Modo de Preparação</p>
