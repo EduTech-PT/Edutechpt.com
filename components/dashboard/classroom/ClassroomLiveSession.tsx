@@ -160,6 +160,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                 if (config.liveDriveFolderId && config.liveDriveFolderId.trim() !== '') {
                     targetFolderId = config.liveDriveFolderId;
                 } else {
+                    // LÓGICA DE PASTA PESSOAL: Garante que o formador tem a sua pasta
                     targetFolderId = profile.role === 'admin' 
                         ? config.driveFolderId 
                         : await driveService.getPersonalFolder(profile);
@@ -178,10 +179,11 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             // ATUALIZADO: Usar API Thumbnail para garantir visualização (sz=w2048 para alta definição)
             const newUrls = results.map(res => `https://drive.google.com/thumbnail?id=${res.id}&sz=w2048`);
 
-            // Adiciona ao final da lista SEM ALTERAR o current_slide_index
+            // Adiciona ao final da lista SEM ALTERAR o current_slide_index (UPLOAD SILENCIOSO)
             const updated = sanitizeSessionState({
                 ...sessionState,
                 slides: [...sessionState.slides, ...newUrls],
+                // Se a lista estava vazia, inicia a apresentação. Se já havia slides, mantém o estado.
                 is_presenting: sessionState.slides.length === 0 ? true : sessionState.is_presenting
             });
             await updateState(updated);
@@ -288,7 +290,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             // ATUALIZADO: Usar API Thumbnail para garantir visualização
             const newUrls = selectedDriveFiles.map(id => `https://drive.google.com/thumbnail?id=${id}&sz=w2048`);
             
-            // Adiciona ao final da lista
+            // Adiciona ao final da lista (UPLOAD SILENCIOSO)
             const updated = sanitizeSessionState({
                 ...sessionState,
                 slides: [...sessionState.slides, ...newUrls],
