@@ -1,10 +1,11 @@
+
 import { adminService } from './admin';
 import { supabase } from '../lib/supabaseClient';
 import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.6.6";
+export const GAS_VERSION = "v1.6.7";
 
 export interface DriveFile {
   id: string;
@@ -36,9 +37,6 @@ export const driveService = {
     return config;
   },
 
-  /**
-   * Verifica a versão real instalada no Google Apps Script e o estado das permissões
-   */
   async checkScriptVersion(urlOverride?: string): Promise<ScriptHealth> {
       try {
           const config = await adminService.getAppConfig();
@@ -46,7 +44,6 @@ export const driveService = {
 
           if (!url) return { version: '', mailPermission: false, status: 'not_configured' };
 
-          // Adicionado Timeout de 5s para evitar hanging
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -85,9 +82,6 @@ export const driveService = {
       }
   },
 
-  /**
-   * Obtém a pasta pessoal do utilizador.
-   */
   async getPersonalFolder(profile: Profile): Promise<string> {
       if (profile.personal_folder_id) {
           return profile.personal_folder_id;
@@ -121,9 +115,6 @@ export const driveService = {
       return newFolderId;
   },
 
-  /**
-   * Renomeia uma pasta no Google Drive
-   */
   async renameFolder(folderId: string, newName: string): Promise<void> {
       const config = await this.getConfig();
       
@@ -139,9 +130,8 @@ export const driveService = {
 
       const result = await response.json();
       
-      // Validação Extra para Scripts Antigos
       if (!result.status && !result.message) {
-          throw new Error("Funcionalidade de renomear não disponível. O Script Google está desatualizado (v1.4.9+ necessária).");
+          throw new Error("Funcionalidade de renomear não disponível. O Script Google está desatualizado.");
       }
 
       if (result.status !== 'success') {
@@ -278,43 +268,20 @@ export const GAS_TEMPLATE_CODE = `
 // ==========================================
 
 /* 
-INSTRUÇÕES PARA RESOLVER ERRO DE PERMISSÃO DE EMAIL:
+INSTRUÇÕES:
 1. No editor do Google Apps Script, vá a "Definições do Projeto" (ícone roda dentada à esquerda).
 2. Marque a caixa "Mostrar ficheiro de manifesto 'appsscript.json' no editor".
-3. Volte ao editor (ícone código), abra o ficheiro 'appsscript.json'.
-4. Substitua TODO o conteúdo pelo JSON fornecido no painel de administração do site.
-5. Guarde e volte a executar 'autorizarPermissoes'.
+3. Volte ao editor, abra 'appsscript.json' e substitua pelo JSON fornecido no site.
+4. Guarde e execute 'autorizarPermissoes'.
 */
 
 function autorizarPermissoes() {
   console.log("A iniciar verificação de permissões...");
-  
-  // Drive
-  try {
-    const drive = DriveApp.getRootFolder();
-    console.log("Drive: OK (" + drive.getName() + ")");
-  } catch(e) { console.error("Drive Error: " + e); }
-
-  // Calendar
-  try {
-    const cals = CalendarApp.getAllCalendars();
-    console.log("Calendar: OK (" + cals.length + " calendários)");
-  } catch(e) { console.error("Calendar Error: " + e); }
-
-  // Gmail / Aliases Check
-  try {
-    const aliases = GmailApp.getAliases();
-    console.log("Gmail: OK. Aliases disponíveis: " + (aliases.length > 0 ? aliases.join(", ") : "Nenhum"));
-  } catch(e) { 
-    console.error("ERRO GMAIL: " + e); 
-    console.log("⚠️ AVISO CRÍTICO: Falta permissão de leitura de definições do Gmail.");
-    console.log("👉 SOLUÇÃO: O manifesto 'appsscript.json' deve incluir 'https://www.googleapis.com/auth/gmail.settings.basic'.");
-  }
-  
-  return "Verificação Concluída. Consulte os Logs (Ver > Execuções).";
+  try { const drive = DriveApp.getRootFolder(); console.log("Drive: OK"); } catch(e) { console.error("Drive Error: " + e); }
+  try { const cals = CalendarApp.getAllCalendars(); console.log("Calendar: OK"); } catch(e) { console.error("Calendar Error: " + e); }
+  try { const aliases = GmailApp.getAliases(); console.log("Gmail: OK"); } catch(e) { console.error("Gmail Error: " + e); }
+  return "Verificação Concluída.";
 }
-
-// -----------------------------------------------------
 
 function doGet(e) {
   return ContentService.createTextOutput(JSON.stringify({
@@ -326,78 +293,41 @@ function doGet(e) {
 }
 
 function doPost(e) {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST',
-    'Access-Control-Allow-Headers': 'Content-Type'
-  };
+  const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST' };
 
   try {
     if (!e || !e.postData) throw new Error("No POST data received");
-
     const data = JSON.parse(e.postData.contents);
     const action = data.action;
     let result = {};
 
     if (action === 'check_health') {
-        // Verifica permissão de email em runtime via GmailApp
         var mailStatus = false;
         try { GmailApp.getAliases(); mailStatus = true; } catch(e) {}
-
-        result = { 
-            status: 'success', 
-            version: '${GAS_VERSION}',
-            timestamp: new Date().toISOString(),
-            mailPermission: mailStatus
-        };
+        result = { status: 'success', version: '${GAS_VERSION}', timestamp: new Date().toISOString(), mailPermission: mailStatus };
     }
-
     else if (action === 'sendEmail') {
         const recipient = data.to;
-        const subject = data.subject;
-        const body = data.body;
-        
         if(recipient) {
-            // Tenta enviar com o alias específico edutechpt@hotmail.com
-            // Requisito: O alias deve estar configurado nas Definições do Gmail da conta que executa o script.
             try {
-                GmailApp.sendEmail(recipient, subject, '', {
-                    htmlBody: body,
-                    name: 'EduTech PT',
-                    from: 'edutechpt@hotmail.com'
-                });
+                GmailApp.sendEmail(recipient, data.subject, '', { htmlBody: data.body, name: 'EduTech PT', from: 'edutechpt@hotmail.com' });
             } catch (e) {
-                // Fallback: Se o alias não existir ou falhar, envia com o email principal
-                console.log("Fallback: Alias falhou ou não existe. A enviar com email padrão.");
-                GmailApp.sendEmail(recipient, subject, '', {
-                    htmlBody: body,
-                    name: 'EduTech PT'
-                });
+                GmailApp.sendEmail(recipient, data.subject, '', { htmlBody: data.body, name: 'EduTech PT' });
             }
             result = { status: 'success', message: 'Email enviado.' };
-        } else {
-            throw new Error("Destinatário em falta.");
-        }
+        } else { throw new Error("Destinatário em falta."); }
     }
-
     else if (action === 'getCalendarEvents') {
         const start = new Date(data.timeMin);
         const end = new Date(data.timeMax);
-        const extraIds = data.extraCalendarIds || []; // IDs manuais
-        
+        const extraIds = data.extraCalendarIds || [];
         let allEvents = [];
-        let debugLog = [];
-        let processedIds = {}; // Para evitar duplicados
-
+        
         function processCalendar(cal, source) {
             if (!cal) return;
-            const cid = cal.getId();
-            if (processedIds[cid]) return; 
-            
             try {
                 const events = cal.getEvents(start, end);
                 const prefix = source === 'default' ? '' : '[' + cal.getName() + '] ';
-                
                 const mapped = events.map(function(e) {
                     return {
                         id: e.getId(),
@@ -409,125 +339,54 @@ function doPost(e) {
                         htmlLink: 'https://calendar.google.com'
                     };
                 });
-                
                 allEvents = allEvents.concat(mapped);
-                processedIds[cid] = true;
-                debugLog.push("Lido (" + source + "): " + cal.getName() + " - " + events.length + " ev.");
-            } catch (err) {
-                debugLog.push("ERRO em " + cal.getName() + ": " + err.toString());
-            }
+            } catch (err) {}
         }
 
-        try {
-            const defCal = CalendarApp.getDefaultCalendar();
-            processCalendar(defCal, 'default');
-        } catch (e) { debugLog.push("Erro Default Cal: " + e.toString()); }
-
-        try {
-            const allCals = CalendarApp.getAllCalendars();
-            debugLog.push("Auto-detetados: " + allCals.length);
-            for (var i = 0; i < allCals.length; i++) {
-                processCalendar(allCals[i], 'auto');
-            }
-        } catch (e) { debugLog.push("Erro Auto-Discovery: " + e.toString()); }
-
-        if (extraIds.length > 0) {
-            debugLog.push("IDs Manuais: " + extraIds.length);
-            for (var j = 0; j < extraIds.length; j++) {
-                try {
-                    const id = extraIds[j].trim();
-                    if (!id) continue;
-                    const manCal = CalendarApp.getCalendarById(id);
-                    if (manCal) {
-                        processCalendar(manCal, 'manual');
-                    } else {
-                        debugLog.push("ID Manual não encontrado: " + id);
-                    }
-                } catch (e) {
-                    debugLog.push("Erro ID Manual (" + extraIds[j] + "): " + e.toString());
-                }
-            }
-        }
+        try { processCalendar(CalendarApp.getDefaultCalendar(), 'default'); } catch (e) {}
+        try { const allCals = CalendarApp.getAllCalendars(); for (var i = 0; i < allCals.length; i++) processCalendar(allCals[i], 'auto'); } catch (e) {}
+        if (extraIds.length > 0) { for (var j = 0; j < extraIds.length; j++) { try { const manCal = CalendarApp.getCalendarById(extraIds[j].trim()); if (manCal) processCalendar(manCal, 'manual'); } catch (e) {} } }
         
-        result = { 
-            status: 'success', 
-            items: allEvents,
-            debug: debugLog 
-        };
+        result = { status: 'success', items: allEvents };
     }
-
     else if (action === 'list') {
       const folder = DriveApp.getFolderById(data.folderId);
       const list = [];
       const subfolders = folder.getFolders();
-      while (subfolders.hasNext()) {
-        const sub = subfolders.next();
-        list.push({ id: sub.getId(), name: sub.getName(), mimeType: 'application/vnd.google-apps.folder', url: sub.getUrl(), size: 0 });
-      }
+      while (subfolders.hasNext()) { const sub = subfolders.next(); list.push({ id: sub.getId(), name: sub.getName(), mimeType: 'application/vnd.google-apps.folder', url: sub.getUrl(), size: 0 }); }
       const files = folder.getFiles();
-      while (files.hasNext()) {
-        const file = files.next();
-        list.push({ id: file.getId(), name: file.getName(), mimeType: file.getMimeType(), url: file.getUrl(), size: file.getSize() });
-      }
+      while (files.hasNext()) { const file = files.next(); list.push({ id: file.getId(), name: file.getName(), mimeType: file.getMimeType(), url: file.getUrl(), size: file.getSize() }); }
       result = { status: 'success', files: list };
     }
-
     else if (action === 'createFolder') {
-      const parent = DriveApp.getFolderById(data.folderId);
-      const newFolder = parent.createFolder(data.name);
+      const newFolder = DriveApp.getFolderById(data.folderId).createFolder(data.name);
       newFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       result = { status: 'success', id: newFolder.getId(), url: newFolder.getUrl() };
     }
-
     else if (action === 'ensureFolder') {
       const root = DriveApp.getFolderById(data.rootId);
       const folders = root.getFoldersByName(data.name);
-      let targetFolder;
-      if (folders.hasNext()) targetFolder = folders.next();
-      else {
-        targetFolder = root.createFolder(data.name);
-        targetFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      }
+      let targetFolder = folders.hasNext() ? folders.next() : root.createFolder(data.name);
+      targetFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       result = { status: 'success', id: targetFolder.getId(), url: targetFolder.getUrl() };
     }
-
     else if (action === 'renameFolder') {
-      try {
-          const folder = DriveApp.getFolderById(data.id);
-          folder.setName(data.name);
-          result = { status: 'success' };
-      } catch (e) {
-          const file = DriveApp.getFileById(data.id);
-          file.setName(data.name);
-          result = { status: 'success' };
-      }
+      try { DriveApp.getFolderById(data.id).setName(data.name); result = { status: 'success' }; }
+      catch (e) { DriveApp.getFileById(data.id).setName(data.name); result = { status: 'success' }; }
     }
-
     else if (action === 'upload') {
-      const folder = DriveApp.getFolderById(data.folderId);
       const blob = Utilities.newBlob(Utilities.base64Decode(data.file), data.mimeType, data.filename);
-      const file = folder.createFile(blob);
+      const file = DriveApp.getFolderById(data.folderId).createFile(blob);
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       result = { status: 'success', url: file.getUrl(), id: file.getId() };
     }
-
     else if (action === 'delete') {
-      try {
-        const file = DriveApp.getFileById(data.id);
-        file.setTrashed(true);
-      } catch (e) {
-        try {
-          const folder = DriveApp.getFolderById(data.id);
-          folder.setTrashed(true);
-        } catch (errFolder) {
-           throw new Error("Item não encontrado ou sem permissão para eliminar.");
-        }
-      }
+      try { DriveApp.getFileById(data.id).setTrashed(true); } 
+      catch (e) { DriveApp.getFolderById(data.id).setTrashed(true); }
       result = { status: 'success' };
     }
 
     return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
-
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.toString() })).setMimeType(ContentService.MimeType.JSON);
   }
