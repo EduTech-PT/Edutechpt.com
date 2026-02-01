@@ -29,8 +29,9 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     const [processingStatus, setProcessingStatus] = useState('');
     const [refreshing, setRefreshing] = useState(false);
 
-    // References for polling control
+    // References for polling control and file input
     const lastUpdateRef = useRef<number>(Date.now());
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // DRIVE PICKER STATE
     const [showDrivePicker, setShowDrivePicker] = useState(false);
@@ -334,6 +335,12 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         updateState({ is_presenting: !sessionState.is_presenting });
     };
 
+    const triggerFileUpload = () => {
+        if (fileInputRef.current) {
+            fileInputRef.current.click();
+        }
+    };
+
     if (!activeClass || !activeClass.id) return <div className="text-red-500 p-4">Erro: Turma não selecionada.</div>;
 
     // --- VIEW: ESPETADOR ---
@@ -427,12 +434,24 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                         ☁️ Drive
                     </button>
 
-                    <label className={`px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 rounded-lg font-bold cursor-pointer hover:bg-indigo-200 transition-colors flex flex-col items-center justify-center leading-tight ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <button 
+                        onClick={triggerFileUpload}
+                        className={`px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 rounded-lg font-bold hover:bg-indigo-200 transition-colors flex flex-col items-center justify-center leading-tight ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+                    >
                         <span className="text-sm">
                             {uploading ? processingStatus || 'A carregar...' : '+ Upload (Drive)'}
                         </span>
-                        <input type="file" multiple accept="image/*" onChange={handleFileUpload} className="hidden" disabled={uploading} />
-                    </label>
+                    </button>
+                    <input 
+                        ref={fileInputRef}
+                        type="file" 
+                        multiple 
+                        accept="image/*" 
+                        onChange={handleFileUpload} 
+                        className="hidden" 
+                        disabled={uploading} 
+                    />
+
                     {sessionState.slides.length > 0 && (
                         <button onClick={clearSlides} className="px-3 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200" title="Apagar todos os slides">🗑️</button>
                     )}
@@ -488,8 +507,8 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
             {/* DRIVE PICKER MODAL */}
             {showDrivePicker && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <GlassCard className="w-full max-w-2xl bg-white dark:bg-slate-900 flex flex-col max-h-[80vh] p-0 overflow-hidden">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+                    <GlassCard className="w-full max-w-2xl bg-white dark:bg-slate-900 flex flex-col max-h-[80vh] p-0 overflow-hidden shadow-2xl relative">
                         <div className="p-4 border-b border-indigo-100 dark:border-slate-700 flex justify-between items-center bg-indigo-50 dark:bg-slate-800">
                             <h3 className="font-bold text-lg text-indigo-900 dark:text-white flex items-center gap-2">
                                 ☁️ Selecionar do Google Drive
