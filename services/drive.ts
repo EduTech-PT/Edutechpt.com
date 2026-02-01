@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.6.13";
+export const GAS_VERSION = "v1.6.14";
 
 export interface DriveFile {
   id: string;
@@ -292,7 +292,7 @@ export const GAS_MANIFEST_JSON = `{
     "https://www.googleapis.com/auth/userinfo.email"
   ],
   "webapp": {
-    "executeAs": "USER_ACCESSING",
+    "executeAs": "USER_DEPLOYING",
     "access": "ANYONE"
   }
 }`;
@@ -417,13 +417,22 @@ function doPost(e) {
       result = { status: 'success', url: file.getUrl(), id: file.getId() };
     }
     else if (action === 'delete') {
-      // Suporte para ID unico ou Array de IDs (Ficheiros E Pastas)
       const ids = data.ids || (data.id ? [data.id] : []);
+      const errors = [];
       ids.forEach(function(id){
-         try { DriveApp.getFileById(id).setTrashed(true); } 
-         catch (e) { try { DriveApp.getFolderById(id).setTrashed(true); } catch(err){} }
+         var deleted = false;
+         try { DriveApp.getFileById(id).setTrashed(true); deleted = true; } catch(e) {}
+         if (!deleted) {
+             try { DriveApp.getFolderById(id).setTrashed(true); deleted = true; } catch(e) {}
+         }
+         if (!deleted) errors.push("Falha ao apagar ID: " + id);
       });
-      result = { status: 'success' };
+      
+      if (errors.length > 0) {
+          result = { status: 'warning', message: 'Alguns itens não foram apagados', errors: errors };
+      } else {
+          result = { status: 'success' };
+      }
     }
     else if (action === 'setPublic') {
       const ids = data.ids || [data.id];
