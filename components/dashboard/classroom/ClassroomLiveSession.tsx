@@ -1,8 +1,14 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { courseService } from '../../../services/courses';
+import { driveService, DriveFile } from '../../../services/drive';
 import { Class, UserRole, LiveSessionState, Profile } from '../../../types';
 import { GlassCard } from '../../GlassCard';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configurar o Worker do PDF.js (Obrigatório para processamento no browser)
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 
 interface Props {
     activeClass: Class;
@@ -17,6 +23,14 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     });
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [processingStatus, setProcessingStatus] = useState('');
+
+    // DRIVE PICKER STATE
+    const [showDrivePicker, setShowDrivePicker] = useState(false);
+    const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
+    const [loadingDrive, setLoadingDrive] = useState(false);
+    const [driveFolderStack, setDriveFolderStack] = useState<{id: string, name: string}[]>([]);
+    const [selectedDriveFiles, setSelectedDriveFiles] = useState<string[]>([]); // IDs
 
     // Permissões
     const isPresenter = ([UserRole.ADMIN, UserRole.TRAINER, UserRole.EDITOR] as string[]).includes(profile.role);
@@ -58,20 +72,70 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         }
     };
 
+    // --- PDF / UPLOAD LOGIC ---
+    const convertPdfToImages = async (file: File): Promise<File[]> => {
+        try {
+            setProcessingStatus('A ler PDF...');
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            const images: File[] = [];
+            const totalPages = pdf.numPages;
+
+            for (let i = 1; i <= totalPages; i++) {
+                setProcessingStatus(`A converter página ${i} de ${totalPages}...`);
+                const page = await pdf.getPage(i);
+                
+                const viewport = page.getViewport({ scale: 1.5 });
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                
+                if (context) {
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+
+                    await page.render({ canvasContext: context, viewport } as any).promise;
+                    
+                    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+                    
+                    if (blob) {
+                        const imageFile = new File([blob], `slide-${Date.now()}-${i}.jpg`, { type: 'image/jpeg' });
+                        images.push(imageFile);
+                    }
+                }
+            }
+            return images;
+        } catch (error) {
+            console.error("Erro ao converter PDF", error);
+            throw new Error("Falha ao processar o ficheiro PDF.");
+        }
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
         setUploading(true);
+        setProcessingStatus('A iniciar...');
+        
         try {
-            const newSlides: string[] = [];
-            // Upload paralelo
-            const promises = Array.from(e.target.files).map((file: File) => courseService.uploadClassFile(file));
+            const filesToProcess = Array.from(e.target.files);
+            const finalFilesToUpload: File[] = [];
+
+            for (const file of filesToProcess) {
+                if (file.type === 'application/pdf') {
+                    const pdfImages = await convertPdfToImages(file);
+                    finalFilesToUpload.push(...pdfImages);
+                } else if (file.type.startsWith('image/')) {
+                    finalFilesToUpload.push(file);
+                }
+            }
+
+            setProcessingStatus(`A enviar ${finalFilesToUpload.length} slides...`);
+
+            const promises = finalFilesToUpload.map((file: File) => courseService.uploadClassFile(file));
             const urls = await Promise.all(promises);
-            newSlides.push(...urls);
 
             const updated = {
                 ...sessionState,
-                slides: [...sessionState.slides, ...newSlides],
-                // Se for a primeira vez, já ativa a apresentação
+                slides: [...sessionState.slides, ...urls],
                 is_presenting: sessionState.slides.length === 0 ? true : sessionState.is_presenting
             };
             await updateState(updated);
@@ -79,9 +143,95 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             alert("Erro upload: " + e.message);
         } finally {
             setUploading(false);
+            setProcessingStatus('');
+            e.target.value = '';
         }
     };
 
+    // --- DRIVE LOGIC ---
+    const openDrivePicker = async () => {
+        setShowDrivePicker(true);
+        setLoadingDrive(true);
+        try {
+            // Se for admin, vê a raiz. Se for formador, vê a pasta pessoal.
+            const startId = profile.role === 'admin' 
+                ? (await driveService.getConfig()).driveFolderId 
+                : await driveService.getPersonalFolder(profile);
+            
+            const data = await driveService.listFiles(startId);
+            setDriveFiles(data.files);
+            setDriveFolderStack([]);
+            setSelectedDriveFiles([]);
+        } catch (e: any) {
+            alert("Erro ao abrir Drive: " + e.message);
+            setShowDrivePicker(false);
+        } finally {
+            setLoadingDrive(false);
+        }
+    };
+
+    const handleDriveNavigate = async (folderId: string, folderName: string) => {
+        setLoadingDrive(true);
+        try {
+            const data = await driveService.listFiles(folderId);
+            setDriveFiles(data.files);
+            setDriveFolderStack(prev => [...prev, { id: folderId, name: folderName }]);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoadingDrive(false);
+        }
+    };
+
+    const handleDriveBack = async () => {
+        if (driveFolderStack.length === 0) return;
+        setLoadingDrive(true);
+        try {
+            const newStack = [...driveFolderStack];
+            newStack.pop();
+            setDriveFolderStack(newStack);
+            
+            // Determinar ID pai (se stack vazio, é a raiz inicial)
+            let parentId;
+            if (newStack.length > 0) {
+                parentId = newStack[newStack.length - 1].id;
+            } else {
+                parentId = profile.role === 'admin' 
+                    ? (await driveService.getConfig()).driveFolderId 
+                    : await driveService.getPersonalFolder(profile);
+            }
+            
+            const data = await driveService.listFiles(parentId);
+            setDriveFiles(data.files);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoadingDrive(false);
+        }
+    };
+
+    const toggleDriveSelection = (fileId: string) => {
+        setSelectedDriveFiles(prev => 
+            prev.includes(fileId) ? prev.filter(id => id !== fileId) : [...prev, fileId]
+        );
+    };
+
+    const importFromDrive = async () => {
+        // Converter IDs selecionados em URLs diretos
+        const newUrls = selectedDriveFiles.map(id => `https://drive.google.com/uc?export=view&id=${id}`);
+        
+        const updated = {
+            ...sessionState,
+            slides: [...sessionState.slides, ...newUrls],
+            is_presenting: sessionState.slides.length === 0 ? true : sessionState.is_presenting
+        };
+        
+        await updateState(updated);
+        setShowDrivePicker(false);
+        setSelectedDriveFiles([]);
+    };
+
+    // --- CONTROLS ---
     const clearSlides = async () => {
         if (!window.confirm("Limpar todos os slides?")) return;
         await updateState({ slides: [], current_slide_index: 0, is_presenting: false });
@@ -119,7 +269,6 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
         return (
             <div className="flex flex-col items-center justify-center h-full min-h-[500px] bg-black rounded-xl overflow-hidden relative shadow-2xl border-4 border-indigo-900">
-                {/* Ecrã de Projeção */}
                 <div className="w-full h-full flex items-center justify-center relative">
                     <img 
                         src={currentSlideUrl} 
@@ -159,12 +308,22 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                 </div>
 
                 <div className="flex gap-2">
-                    <label className={`px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 rounded-lg font-bold cursor-pointer hover:bg-indigo-200 transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                        {uploading ? 'A carregar...' : '+ Adicionar Slides'}
-                        <input type="file" multiple accept="image/*" onChange={handleFileUpload} className="hidden" disabled={uploading} />
+                    <button 
+                        onClick={openDrivePicker}
+                        className="px-4 py-2 bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 border border-indigo-200 dark:border-slate-600 rounded-lg font-bold hover:bg-indigo-50 dark:hover:bg-slate-600 transition-colors flex items-center gap-2"
+                        title="Importar do Google Drive (Zero Storage)"
+                    >
+                        ☁️ Drive
+                    </button>
+
+                    <label className={`px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 rounded-lg font-bold cursor-pointer hover:bg-indigo-200 transition-colors flex flex-col items-center justify-center leading-tight ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <span className="text-sm">
+                            {uploading ? processingStatus || 'A carregar...' : '+ Upload Local'}
+                        </span>
+                        <input type="file" multiple accept="application/pdf,image/*" onChange={handleFileUpload} className="hidden" disabled={uploading} />
                     </label>
                     {sessionState.slides.length > 0 && (
-                        <button onClick={clearSlides} className="px-3 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200">🗑️</button>
+                        <button onClick={clearSlides} className="px-3 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200" title="Apagar todos os slides">🗑️</button>
                     )}
                 </div>
             </div>
@@ -183,7 +342,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                     ) : (
                         <div className="text-gray-500 flex flex-col items-center">
                             <span className="text-4xl mb-2">🖼️</span>
-                            <p>Adicione imagens para começar.</p>
+                            <p>Adicione PDFs ou imagens para começar.</p>
                         </div>
                     )}
                     
@@ -213,6 +372,81 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                     ))}
                 </div>
             </div>
+
+            {/* DRIVE PICKER MODAL */}
+            {showDrivePicker && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+                    <GlassCard className="w-full max-w-2xl bg-white dark:bg-slate-900 flex flex-col max-h-[80vh] p-0 overflow-hidden">
+                        <div className="p-4 border-b border-indigo-100 dark:border-slate-700 flex justify-between items-center bg-indigo-50 dark:bg-slate-800">
+                            <h3 className="font-bold text-lg text-indigo-900 dark:text-white flex items-center gap-2">
+                                ☁️ Selecionar do Google Drive
+                            </h3>
+                            <button onClick={() => setShowDrivePicker(false)} className="text-gray-500 hover:text-red-500">✕</button>
+                        </div>
+
+                        <div className="p-2 bg-indigo-50/50 dark:bg-slate-800/50 flex items-center gap-2 text-xs border-b border-indigo-100 dark:border-slate-700 overflow-x-auto whitespace-nowrap">
+                            <button onClick={openDrivePicker} className="font-bold hover:text-indigo-600">🏠 Raiz</button>
+                            {driveFolderStack.map((folder, i) => (
+                                <React.Fragment key={folder.id}>
+                                    <span className="opacity-50">/</span>
+                                    <span className={i === driveFolderStack.length - 1 ? 'font-bold' : ''}>{folder.name}</span>
+                                </React.Fragment>
+                            ))}
+                            {driveFolderStack.length > 0 && (
+                                <button onClick={handleDriveBack} className="ml-auto text-indigo-600 font-bold hover:underline">⬅ Voltar</button>
+                            )}
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
+                            {loadingDrive ? (
+                                <div className="text-center py-10 text-indigo-500">A carregar...</div>
+                            ) : driveFiles.length === 0 ? (
+                                <div className="text-center py-10 text-gray-400">Pasta vazia.</div>
+                            ) : (
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    {driveFiles.map(file => {
+                                        const isFolder = file.mimeType.includes('folder');
+                                        const isImage = file.mimeType.includes('image');
+                                        const isSelected = selectedDriveFiles.includes(file.id);
+
+                                        // Filtra para mostrar apenas Pastas e Imagens para slides
+                                        if (!isFolder && !isImage) return null;
+
+                                        return (
+                                            <div 
+                                                key={file.id}
+                                                onClick={() => isFolder ? handleDriveNavigate(file.id, file.name) : toggleDriveSelection(file.id)}
+                                                className={`
+                                                    p-3 rounded-lg border-2 flex flex-col items-center text-center cursor-pointer transition-all
+                                                    ${isSelected ? 'border-indigo-500 bg-indigo-50 dark:bg-slate-700 ring-1 ring-indigo-400' : 'border-transparent hover:bg-gray-50 dark:hover:bg-slate-800 hover:border-gray-200'}
+                                                `}
+                                            >
+                                                <div className="text-3xl mb-2">{isFolder ? '📁' : '🖼️'}</div>
+                                                <div className="text-xs font-bold truncate w-full text-gray-700 dark:text-gray-300">{file.name}</div>
+                                                {isSelected && <div className="absolute top-2 right-2 w-4 h-4 bg-indigo-600 rounded-full border-2 border-white"></div>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-4 border-t border-indigo-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-900">
+                            <span className="text-xs text-gray-500">{selectedDriveFiles.length} ficheiros selecionados</span>
+                            <div className="flex gap-2">
+                                <button onClick={() => setShowDrivePicker(false)} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancelar</button>
+                                <button 
+                                    onClick={importFromDrive}
+                                    disabled={selectedDriveFiles.length === 0}
+                                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow-md hover:bg-indigo-700 disabled:opacity-50"
+                                >
+                                    Importar Selecionados
+                                </button>
+                            </div>
+                        </div>
+                    </GlassCard>
+                </div>
+            )}
         </div>
     );
 };
