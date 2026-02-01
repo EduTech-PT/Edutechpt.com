@@ -5,7 +5,6 @@ import { courseService } from '../../../services/courses';
 import { driveService, DriveFile } from '../../../services/drive';
 import { Class, UserRole, LiveSessionState, Profile } from '../../../types';
 import { GlassCard } from '../../GlassCard';
-import * as pdfjsLib from 'pdfjs-dist';
 
 interface Props {
     activeClass: Class;
@@ -34,21 +33,6 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
     // Permissões
     const isPresenter = ([UserRole.ADMIN, UserRole.TRAINER, UserRole.EDITOR] as string[]).includes(profile.role);
-
-    // PDFJS Init Effect
-    useEffect(() => {
-        const initPdf = async () => {
-            try {
-                const pdfjs: any = (pdfjsLib as any).default || pdfjsLib;
-                if (pdfjs && !pdfjs.GlobalWorkerOptions.workerSrc) {
-                    pdfjs.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
-                }
-            } catch (e) {
-                console.warn("PDFJS Init Warning:", e);
-            }
-        };
-        initPdf();
-    }, []);
 
     useEffect(() => {
         if (!activeClass || !activeClass.id) return;
@@ -90,47 +74,6 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         }
     };
 
-    // --- PDF / UPLOAD LOGIC ---
-    const convertPdfToImages = async (file: File): Promise<File[]> => {
-        try {
-            const pdfjs: any = (pdfjsLib as any).default || pdfjsLib;
-            if (!pdfjs) throw new Error("Biblioteca PDF não disponível.");
-
-            setProcessingStatus('A ler PDF...');
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjs.getDocument(arrayBuffer).promise;
-            const images: File[] = [];
-            const totalPages = pdf.numPages;
-
-            for (let i = 1; i <= totalPages; i++) {
-                setProcessingStatus(`A converter página ${i} de ${totalPages}...`);
-                const page = await pdf.getPage(i);
-                
-                const viewport = page.getViewport({ scale: 1.5 });
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-                
-                if (context) {
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
-
-                    await page.render({ canvasContext: context, viewport } as any).promise;
-                    
-                    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
-                    
-                    if (blob) {
-                        const imageFile = new File([blob], `slide-${Date.now()}-${i}.jpg`, { type: 'image/jpeg' });
-                        images.push(imageFile);
-                    }
-                }
-            }
-            return images;
-        } catch (error) {
-            console.error("Erro ao converter PDF", error);
-            throw new Error("Falha ao processar o ficheiro PDF. Tente recarregar a página.");
-        }
-    };
-
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
         setUploading(true);
@@ -138,15 +81,16 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         
         try {
             const filesToProcess = Array.from(e.target.files);
-            const finalFilesToUpload: File[] = [];
+            
+            // Filtrar apenas imagens
+            const finalFilesToUpload = filesToProcess.filter(f => f.type.startsWith('image/'));
 
-            for (const file of filesToProcess) {
-                if (file.type === 'application/pdf') {
-                    const pdfImages = await convertPdfToImages(file);
-                    finalFilesToUpload.push(...pdfImages);
-                } else if (file.type.startsWith('image/')) {
-                    finalFilesToUpload.push(file);
-                }
+            if (finalFilesToUpload.length === 0) {
+                alert("Por favor selecione apenas imagens.");
+                setUploading(false);
+                setProcessingStatus('');
+                e.target.value = '';
+                return;
             }
 
             setProcessingStatus(`A enviar ${finalFilesToUpload.length} slides...`);
@@ -356,9 +300,9 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
                     <label className={`px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 rounded-lg font-bold cursor-pointer hover:bg-indigo-200 transition-colors flex flex-col items-center justify-center leading-tight ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
                         <span className="text-sm">
-                            {uploading ? processingStatus || 'A carregar...' : '+ Upload Local'}
+                            {uploading ? processingStatus || 'A carregar...' : '+ Upload Imagens'}
                         </span>
-                        <input type="file" multiple accept="application/pdf,image/*" onChange={handleFileUpload} className="hidden" disabled={uploading} />
+                        <input type="file" multiple accept="image/*" onChange={handleFileUpload} className="hidden" disabled={uploading} />
                     </label>
                     {sessionState.slides.length > 0 && (
                         <button onClick={clearSlides} className="px-3 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200" title="Apagar todos os slides">🗑️</button>
@@ -380,7 +324,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                     ) : (
                         <div className="text-gray-500 flex flex-col items-center">
                             <span className="text-4xl mb-2">🖼️</span>
-                            <p>Adicione PDFs ou imagens para começar.</p>
+                            <p>Adicione imagens para começar.</p>
                         </div>
                     )}
                     
