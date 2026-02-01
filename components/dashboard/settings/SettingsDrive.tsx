@@ -318,6 +318,12 @@ export const SettingsDrive: React.FC = () => {
                                  
                                  {monitoredFolders.map((fid, idx) => {
                                      const folderData = quota.folders.find(f => f.id === fid);
+                                     
+                                     // Calcular percentagem de uso em relação à quota total da conta
+                                     const usagePercent = (folderData && quota.limit > 0) ? (folderData.size / quota.limit) * 100 : 0;
+                                     // Definir cor baseada no tamanho relativo (apenas visual)
+                                     const barColor = usagePercent > 10 ? 'bg-purple-500' : 'bg-indigo-400';
+
                                      return (
                                          <div key={idx} className="bg-white/50 p-2 rounded border border-indigo-50 flex flex-col gap-1">
                                              <input 
@@ -329,16 +335,31 @@ export const SettingsDrive: React.FC = () => {
                                                     newFolders[idx] = cleanDriveId(e.target.value);
                                                     setMonitoredFolders(newFolders);
                                                 }}
-                                                className="w-full bg-transparent text-xs font-mono border-b border-dashed border-gray-300 outline-none mb-1"
+                                                className="w-full bg-transparent text-xs font-mono border-b border-dashed border-gray-300 outline-none mb-1 text-indigo-900 placeholder-indigo-300"
                                              />
                                              {folderData ? (
-                                                 <div className="flex justify-between items-center text-xs">
-                                                     <span className="font-bold text-indigo-900 truncate flex-1 pr-2" title={folderData.name}>
-                                                         {folderData.error ? '⚠️ Erro' : `📂 ${folderData.name}`}
-                                                     </span>
-                                                     <span className="font-mono bg-indigo-100 px-1 rounded text-indigo-700">
-                                                         {folderData.error ? '-' : formatBytes(folderData.size)}
-                                                     </span>
+                                                 <div className="flex flex-col gap-1">
+                                                     <div className="flex justify-between items-center text-xs">
+                                                         <span className="font-bold text-indigo-900 truncate flex-1 pr-2" title={folderData.name}>
+                                                             {folderData.error ? '⚠️ Erro' : `📂 ${folderData.name}`}
+                                                         </span>
+                                                         <span className="font-mono bg-indigo-100 px-1 rounded text-indigo-700">
+                                                             {folderData.error ? '-' : formatBytes(folderData.size)}
+                                                         </span>
+                                                     </div>
+                                                     {!folderData.error && (
+                                                         <>
+                                                            <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden mt-0.5">
+                                                                <div 
+                                                                    className={`h-full transition-all duration-500 ${barColor}`} 
+                                                                    style={{ width: `${Math.min(usagePercent, 100)}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <p className="text-[9px] text-right text-indigo-400 opacity-80">
+                                                                Ocupa {usagePercent.toFixed(2)}% da conta
+                                                            </p>
+                                                         </>
+                                                     )}
                                                  </div>
                                              ) : (
                                                  <span className="text-[10px] text-gray-400 italic">Insira o ID e clique em Atualizar</span>
