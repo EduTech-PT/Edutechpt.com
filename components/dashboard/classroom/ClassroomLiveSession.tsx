@@ -178,13 +178,14 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             // ATUALIZADO: Usar API Thumbnail para garantir visualização (sz=w2048 para alta definição)
             const newUrls = results.map(res => `https://drive.google.com/thumbnail?id=${res.id}&sz=w2048`);
 
+            // Adiciona ao final da lista SEM ALTERAR o current_slide_index
             const updated = sanitizeSessionState({
                 ...sessionState,
                 slides: [...sessionState.slides, ...newUrls],
                 is_presenting: sessionState.slides.length === 0 ? true : sessionState.is_presenting
             });
             await updateState(updated);
-            alert("Upload concluído! As imagens foram guardadas no Google Drive.");
+            alert("Upload concluído! As imagens foram adicionadas ao final da lista.");
 
         } catch (e: any) {
             alert("Erro upload para Drive: " + e.message);
@@ -287,6 +288,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             // ATUALIZADO: Usar API Thumbnail para garantir visualização
             const newUrls = selectedDriveFiles.map(id => `https://drive.google.com/thumbnail?id=${id}&sz=w2048`);
             
+            // Adiciona ao final da lista
             const updated = sanitizeSessionState({
                 ...sessionState,
                 slides: [...sessionState.slides, ...newUrls],
@@ -516,6 +518,8 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                                         // Filtra para mostrar apenas Pastas e Imagens para slides
                                         if (!isFolder && !isImage) return null;
 
+                                        const thumbnailUrl = `https://drive.google.com/thumbnail?id=${file.id}&sz=w500`;
+
                                         return (
                                             <div 
                                                 key={file.id}
@@ -525,8 +529,14 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                                                     ${isSelected ? 'border-indigo-500 bg-indigo-50 dark:bg-slate-700 ring-1 ring-indigo-400' : 'border-transparent hover:bg-gray-50 dark:hover:bg-slate-800 hover:border-gray-200'}
                                                 `}
                                             >
-                                                <div className="text-3xl mb-2">{isFolder ? '📁' : '🖼️'}</div>
-                                                <div className="text-xs font-bold truncate w-full text-gray-700 dark:text-gray-300">{file.name}</div>
+                                                {isImage ? (
+                                                    <div className="w-full h-24 mb-2 rounded bg-gray-200 dark:bg-slate-700 overflow-hidden relative shadow-sm">
+                                                        <img src={thumbnailUrl} alt={file.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" loading="lazy" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-3xl mb-2">{isFolder ? '📁' : '📄'}</div>
+                                                )}
+                                                <div className="text-xs font-bold truncate w-full text-gray-700 dark:text-gray-300" title={file.name}>{file.name}</div>
                                                 {isSelected && <div className="absolute top-2 right-2 w-4 h-4 bg-indigo-600 rounded-full border-2 border-white"></div>}
                                             </div>
                                         );
