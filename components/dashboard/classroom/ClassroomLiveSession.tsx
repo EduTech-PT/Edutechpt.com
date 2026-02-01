@@ -28,6 +28,9 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     const [uploading, setUploading] = useState(false);
     const [processingStatus, setProcessingStatus] = useState('');
     const [refreshing, setRefreshing] = useState(false);
+    
+    // Student Fullscreen State
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     // References for polling control and file input
     const lastUpdateRef = useRef<number>(Date.now());
@@ -212,15 +215,25 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             const config = await driveService.getConfig();
             let startId;
             
-            // Lógica Específica para Ao Vivo
-            if (config.liveDriveFolderId && config.liveDriveFolderId.trim() !== '') {
-                startId = config.liveDriveFolderId;
+            // LÓGICA DE ISOLAMENTO DE PASTA
+            if (profile.role === UserRole.ADMIN) {
+                // Admin vê a raiz configurada (pode ser a global ou a "Ao Vivo")
+                startId = config.liveDriveFolderId && config.liveDriveFolderId.trim() !== '' 
+                    ? config.liveDriveFolderId 
+                    : config.driveFolderId;
             } else {
-                startId = profile.role === 'admin' 
-                    ? config.driveFolderId 
-                    : await driveService.getPersonalFolder(profile);
+                // Formador vê APENAS a sua pasta pessoal
+                // 1. Se estivermos em modo "Ao Vivo", garantimos a pasta dele DENTRO da pasta Ao Vivo
+                if (config.liveDriveFolderId && config.liveDriveFolderId.trim() !== '') {
+                    const folderName = `[Formador] ${profile.full_name || profile.email}`;
+                    startId = await driveService.ensureFolder(folderName, config.liveDriveFolderId);
+                } else {
+                    // 2. Fallback para pasta pessoal normal
+                    startId = await driveService.getPersonalFolder(profile);
+                }
             }
             
+            // Define o "teto" da navegação. O botão voltar não subirá acima disto.
             setDriveSessionRoot(startId); 
 
             const data = await driveService.listFiles(startId);
@@ -260,9 +273,11 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             if (newStack.length > 0) {
                 parentId = newStack[newStack.length - 1].id;
             } else {
+                // VOLTAR PARA A RAIZ DA SESSÃO (ISOLADA)
                 parentId = driveSessionRoot;
             }
             
+            // Safety fallback
             if (!parentId) {
                  const config = await driveService.getConfig();
                  parentId = config.driveFolderId;
@@ -365,7 +380,12 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         const currentSlideUrl = sessionState.slides[sessionState.current_slide_index];
 
         return (
-            <div className="flex flex-col items-center justify-center h-full min-h-[500px] bg-black rounded-xl overflow-hidden relative shadow-2xl border-4 border-indigo-900">
+            <div 
+                className={`
+                    flex flex-col items-center justify-center bg-black rounded-xl overflow-hidden relative shadow-2xl transition-all duration-300
+                    ${isFullscreen ? 'fixed inset-0 z-[9999] rounded-none' : 'h-full min-h-[500px] border-4 border-indigo-900'}
+                `}
+            >
                 <div className="w-full h-full flex items-center justify-center relative">
                     {/* Botão de Refresh para o Aluno */}
                     <button 
@@ -374,6 +394,15 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                         title="Atualizar Transmissão (Recarregar Imagem)"
                     >
                         <span className={`block text-lg shadow-black drop-shadow-md ${refreshing ? 'animate-spin' : ''}`}>🔄</span>
+                    </button>
+
+                    {/* Botão de Fullscreen */}
+                    <button 
+                        onClick={() => setIsFullscreen(!isFullscreen)}
+                        className="absolute bottom-4 right-4 z-50 p-3 bg-white/20 hover:bg-white/40 text-white rounded-lg backdrop-blur-md transition-all shadow-lg border border-white/10"
+                        title={isFullscreen ? "Sair do Ecrã Inteiro" : "Ecrã Inteiro"}
+                    >
+                        {isFullscreen ? '✕ Sair' : '⛶ Maximizar'}
                     </button>
 
                     {currentSlideUrl && (
