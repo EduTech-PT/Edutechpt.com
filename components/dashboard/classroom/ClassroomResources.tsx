@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ClassMaterial, ClassAnnouncement, ClassAssessment } from '../../../types';
 import { formatShortDate } from '../../../utils/formatters';
@@ -30,22 +31,43 @@ export const ClassroomResources: React.FC<Props> = ({ type, items, completedIds,
                     {items.map((m: ClassMaterial) => {
                         const isDone = completedIds?.includes(m.id);
                         return (
-                            <div key={m.id} className={`flex items-center justify-between p-4 rounded-xl border transition-all ${isDone ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-white/60 dark:bg-slate-800/60 border-indigo-100 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500'}`}>
-                                <div className="flex items-center gap-4">
-                                    <button 
-                                        onClick={() => onToggleProgress && onToggleProgress(m.id)}
-                                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isDone ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-slate-500 hover:border-indigo-400 dark:hover:border-indigo-400'}`}
-                                    >
-                                        {isDone && '✓'}
-                                    </button>
-                                    <div>
-                                        <a href={m.url} target="_blank" rel="noreferrer" className="font-bold text-indigo-900 dark:text-white hover:underline hover:text-indigo-700 dark:hover:text-indigo-300">
-                                            {m.title}
-                                        </a>
-                                        <div className="text-xs text-indigo-400 dark:text-indigo-400 uppercase font-bold mt-0.5">{m.type}</div>
+                            <div key={m.id} className={`flex flex-col p-4 rounded-xl border transition-all ${isDone ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-white/60 dark:bg-slate-800/60 border-indigo-100 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500'}`}>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <button 
+                                            onClick={() => onToggleProgress && onToggleProgress(m.id)}
+                                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isDone ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-slate-500 hover:border-indigo-400 dark:hover:border-indigo-400'}`}
+                                        >
+                                            {isDone && '✓'}
+                                        </button>
+                                        <div>
+                                            <a href={m.url} target="_blank" rel="noreferrer" className="font-bold text-indigo-900 dark:text-white hover:underline hover:text-indigo-700 dark:hover:text-indigo-300">
+                                                {m.title}
+                                            </a>
+                                            <div className="text-xs text-indigo-400 dark:text-indigo-400 uppercase font-bold mt-0.5">
+                                                {m.type === 'genially' ? (
+                                                    <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400">
+                                                        🎯 Genially
+                                                    </span>
+                                                ) : m.type}
+                                            </div>
+                                        </div>
                                     </div>
+                                    <a href={m.url} target="_blank" rel="noreferrer" className="p-2 bg-white dark:bg-slate-700 rounded-lg text-indigo-600 dark:text-indigo-300 shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-600">↗</a>
                                 </div>
-                                <a href={m.url} target="_blank" rel="noreferrer" className="p-2 bg-white dark:bg-slate-700 rounded-lg text-indigo-600 dark:text-indigo-300 shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-600">↗</a>
+
+                                {/* Renderização Genially Inline */}
+                                {m.type === 'genially' && m.url && (
+                                    <div className="mt-4 w-full rounded-xl overflow-hidden shadow-sm border border-purple-200 dark:border-purple-900 relative" style={{ paddingTop: '56.25%' }}>
+                                        <iframe 
+                                            src={m.url} 
+                                            className="absolute top-0 left-0 w-full h-full"
+                                            allowFullScreen 
+                                            loading="lazy"
+                                            title={m.title}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
@@ -71,20 +93,35 @@ export const ClassroomResources: React.FC<Props> = ({ type, items, completedIds,
             ))}
 
             {type === 'assessments' && items.map((a: ClassAssessment) => (
-                <div key={a.id} className="bg-white/60 dark:bg-slate-800/60 border border-indigo-100 dark:border-slate-700 p-5 rounded-xl flex flex-col md:flex-row justify-between gap-4">
-                    <div>
-                        <h4 className="font-bold text-indigo-900 dark:text-white">{a.title}</h4>
-                        <p className="text-sm text-indigo-700 dark:text-indigo-300 opacity-80 mb-2">{a.description}</p>
-                        {a.due_date && (
-                            <div className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-900/20 inline-block px-2 py-1 rounded border border-red-100 dark:border-red-800">
-                                Entrega: {formatShortDate(a.due_date)}
-                            </div>
+                <div key={a.id} className="bg-white/60 dark:bg-slate-800/60 border border-indigo-100 dark:border-slate-700 p-5 rounded-xl flex flex-col gap-4">
+                    <div className="flex flex-col md:flex-row justify-between gap-4">
+                        <div>
+                            <h4 className="font-bold text-indigo-900 dark:text-white">{a.title}</h4>
+                            <p className="text-sm text-indigo-700 dark:text-indigo-300 opacity-80 mb-2">{a.description}</p>
+                            {a.due_date && (
+                                <div className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-900/20 inline-block px-2 py-1 rounded border border-red-100 dark:border-red-800">
+                                    Entrega: {formatShortDate(a.due_date)}
+                                </div>
+                            )}
+                        </div>
+                        {a.resource_url && a.resource_type !== 'genially' && (
+                            <a href={a.resource_url} target="_blank" rel="noreferrer" className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-200 rounded-lg font-bold hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors text-sm flex items-center gap-2 h-fit whitespace-nowrap">
+                                <span>📄</span> Ver Enunciado
+                            </a>
                         )}
                     </div>
-                    {a.resource_url && (
-                        <a href={a.resource_url} target="_blank" rel="noreferrer" className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-200 rounded-lg font-bold hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors text-sm flex items-center gap-2 h-fit whitespace-nowrap">
-                            <span>📄</span> Ver Enunciado
-                        </a>
+
+                    {/* Renderização Genially em Avaliações */}
+                    {a.resource_type === 'genially' && a.resource_url && (
+                        <div className="w-full rounded-xl overflow-hidden shadow-sm border border-purple-200 dark:border-purple-900 relative" style={{ paddingTop: '56.25%' }}>
+                            <iframe 
+                                src={a.resource_url} 
+                                className="absolute top-0 left-0 w-full h-full"
+                                allowFullScreen 
+                                loading="lazy"
+                                title="Enunciado Interativo"
+                            />
+                        </div>
                     )}
                 </div>
             ))}

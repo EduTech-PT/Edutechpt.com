@@ -1,10 +1,9 @@
-
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { GlassCard } from './GlassCard';
 import { adminService } from '../services/admin';
 
 interface Props {
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 interface State {
@@ -16,19 +15,15 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
-    super(props);
-    this.state = { 
-        hasError: false, 
-        error: null, 
-        errorInfo: null,
-        isReporting: false,
-        reportStatus: 'idle'
-    };
-  }
+  public state: State = {
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      isReporting: false,
+      reportStatus: 'idle'
+  };
 
   public static getDerivedStateFromError(error: Error): State {
-    // Atualiza o state para que a próxima renderização mostre a UI de fallback.
     return { 
         hasError: true, 
         error, 
@@ -44,7 +39,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleReload = () => {
-      window.location.href = '/'; // Hard reload para a raiz
+      window.location.href = '/'; 
   };
 
   private handleReportToAdmin = async () => {
@@ -69,8 +64,6 @@ export class ErrorBoundary extends Component<Props, State> {
       `;
 
       try {
-          // Tenta usar o serviço de notificação existente
-          // Nota: Se o erro for na camada de rede, isto pode falhar, por isso temos o fallback
           const success = await adminService.sendEmailNotification('edutechpt@hotmail.com', subject, body);
           
           if (success) {
@@ -82,7 +75,6 @@ export class ErrorBoundary extends Component<Props, State> {
           console.error("Falha ao reportar erro automaticamente:", e);
           this.setState({ isReporting: false, reportStatus: 'error' });
           
-          // Fallback para Mailto
           const mailtoBody = `ERRO:\n${errorMsg}\n\nSTACK:\n${stack}\n\n(Por favor envie este email para ajudar a resolver o problema.)`;
           window.location.href = `mailto:edutechpt@hotmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(mailtoBody)}`;
       }

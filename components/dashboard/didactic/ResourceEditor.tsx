@@ -39,6 +39,25 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
         } catch (err: any) { alert("Erro upload: " + err.message); } finally { setUploading(false); }
     };
 
+    // Parser inteligente para Genially (Suporta Link Direto ou Iframe Code)
+    const handleGeniallyInput = (input: string, fieldPrefix: string = '') => {
+        let cleanUrl = input.trim();
+        
+        // Se for um código iframe, extrair o src
+        if (input.includes('<iframe')) {
+            const match = input.match(/src="([^"]+)"/);
+            if (match && match[1]) {
+                cleanUrl = match[1];
+            }
+        }
+
+        if (fieldPrefix) {
+            setFormData({ ...formData, [`${fieldPrefix}url`]: cleanUrl });
+        } else {
+            setFormData({ ...formData, url: cleanUrl });
+        }
+    };
+
     // Drive Logic Reuse
     const handleDriveNavigate = async (folder: DriveFile) => { 
         setLoadingDrive(true);
@@ -157,14 +176,35 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                         <SaveBtn onClick={() => handleSingleSave('title', formData.title)} />
                     </div>
                     <select value={formData.type || 'file'} onChange={e => setFormData({...formData, type: e.target.value})} className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white">
-                        <option value="file">Ficheiro</option><option value="link">Link</option><option value="drive">Drive</option>
+                        <option value="file">Ficheiro</option>
+                        <option value="link">Link</option>
+                        <option value="drive">Drive</option>
+                        <option value="genially">Genially (Interativo)</option>
                     </select>
+                    
                     {formData.type === 'link' && (
                         <div className="flex gap-2">
                             <input type="url" placeholder="URL" className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.url || ''} onChange={e => setFormData({...formData, url: e.target.value})} />
                             <SaveBtn onClick={() => handleSingleSave('url', formData.url)} />
                         </div>
                     )}
+                    
+                    {formData.type === 'genially' && (
+                        <div className="flex gap-2 flex-col">
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    placeholder="Cole aqui o código Iframe ou o Link do Genially" 
+                                    className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" 
+                                    value={formData.url || ''} 
+                                    onChange={e => handleGeniallyInput(e.target.value)} 
+                                />
+                                <SaveBtn onClick={() => handleSingleSave('url', formData.url)} />
+                            </div>
+                            <p className="text-[10px] text-indigo-500 dark:text-indigo-400">O sistema deteta automaticamente o código de partilha.</p>
+                        </div>
+                    )}
+
                     {formData.type === 'file' && <input type="file" onChange={(e) => handleFileUpload(e)} className="dark:text-white" />}
                     {formData.type === 'drive' && <DrivePickerUI />}
                 </div>
@@ -201,9 +241,16 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                     <div className="pt-2 border-t border-indigo-200 dark:border-slate-700 mt-2">
                         <p className="text-xs font-bold mb-1 dark:text-white">Anexo do Enunciado (Opcional)</p>
                         <select value={formData.resource_type || 'file'} onChange={e => setFormData({...formData, resource_type: e.target.value})} className="w-full p-2 rounded mb-2 text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white">
-                            <option value="file">Ficheiro</option><option value="link">Link</option><option value="drive">Drive</option>
+                            <option value="file">Ficheiro</option>
+                            <option value="link">Link</option>
+                            <option value="drive">Drive</option>
+                            <option value="genially">Genially (Interativo)</option>
                         </select>
+                        
                         {formData.resource_type === 'link' && <input type="url" placeholder="URL Recurso" className="w-full p-2 rounded text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.resource_url || ''} onChange={e => setFormData({...formData, resource_url: e.target.value})} />}
+                        
+                        {formData.resource_type === 'genially' && <input type="text" placeholder="Código Embed ou Link Genially" className="w-full p-2 rounded text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.resource_url || ''} onChange={e => handleGeniallyInput(e.target.value, 'resource_')} />}
+
                         {formData.resource_type === 'file' && <input type="file" className="text-xs dark:text-white" onChange={(e) => handleFileUpload(e, 'resource_')} />}
                         {formData.resource_type === 'drive' && <DrivePickerUI fieldPrefix="resource_" />}
                     </div>

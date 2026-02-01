@@ -128,7 +128,7 @@ export interface ClassMaterial {
   class_id: string;
   title: string;
   url: string;
-  type: 'file' | 'link' | 'drive'; // ADICIONADO 'drive'
+  type: 'file' | 'link' | 'drive' | 'genially'; // ADICIONADO 'genially'
   created_at: string;
 }
 
@@ -151,7 +151,7 @@ export interface ClassAssessment {
   created_at: string;
   // Novos campos para anexos no teste
   resource_url?: string;
-  resource_type?: 'file' | 'link' | 'drive';
+  resource_type?: 'file' | 'link' | 'drive' | 'genially'; // ADICIONADO 'genially'
   resource_title?: string;
   quiz_data?: any; // JSONB para estrutura de testes nativos
 }
