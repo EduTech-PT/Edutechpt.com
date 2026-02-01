@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.6.14";
+export const GAS_VERSION = "v1.6.15";
 
 export interface DriveFile {
   id: string;
@@ -419,17 +419,36 @@ function doPost(e) {
     else if (action === 'delete') {
       const ids = data.ids || (data.id ? [data.id] : []);
       const errors = [];
+      
       ids.forEach(function(id){
          var deleted = false;
-         try { DriveApp.getFileById(id).setTrashed(true); deleted = true; } catch(e) {}
-         if (!deleted) {
-             try { DriveApp.getFolderById(id).setTrashed(true); deleted = true; } catch(e) {}
+         var errorMsg = "";
+         
+         // Tentar apagar ficheiro
+         try { 
+           var file = DriveApp.getFileById(id);
+           file.setTrashed(true); 
+           deleted = true; 
+         } catch(e) {
+           errorMsg = e.toString();
          }
-         if (!deleted) errors.push("Falha ao apagar ID: " + id);
+         
+         // Se falhou, tentar como pasta
+         if (!deleted) {
+             try { 
+               var folder = DriveApp.getFolderById(id);
+               folder.setTrashed(true); 
+               deleted = true; 
+             } catch(e) {
+               if(errorMsg === "") errorMsg = e.toString();
+             }
+         }
+         
+         if (!deleted) errors.push("ID " + id + ": " + errorMsg);
       });
       
       if (errors.length > 0) {
-          result = { status: 'warning', message: 'Alguns itens não foram apagados', errors: errors };
+          result = { status: 'error', message: 'Falha ao eliminar: ' + errors.join('; ') };
       } else {
           result = { status: 'success' };
       }
