@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { courseService } from '../../../services/courses';
 import { driveService, DriveFile } from '../../../services/drive';
@@ -29,6 +29,9 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     const [processingStatus, setProcessingStatus] = useState('');
     const [refreshing, setRefreshing] = useState(false);
 
+    // References for polling control
+    const lastUpdateRef = useRef<number>(Date.now());
+
     // DRIVE PICKER STATE
     const [showDrivePicker, setShowDrivePicker] = useState(false);
     const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
@@ -42,50 +45,9 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     // Permissões
     const isPresenter = ([UserRole.ADMIN, UserRole.TRAINER, UserRole.EDITOR] as string[]).includes(profile.role);
 
-    useEffect(() => {
-        if (!activeClass || !activeClass.id) return;
-
-        // 1. Carregar estado inicial (se existir na DB)
-        if (activeClass.live_session) {
-            setSessionState(sanitizeSessionState(activeClass.live_session));
-        }
-
-        // 2. Subscrição Realtime
-        const channel = supabase
-            .channel(`live_session:${activeClass.id}`)
-            .on('postgres_changes', {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'classes',
-                filter: `id=eq.${activeClass.id}`
-            }, (payload) => {
-                const newState = payload.new.live_session;
-                if (newState) {
-                    setSessionState(sanitizeSessionState(newState));
-                }
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [activeClass?.id]);
-
-    const updateState = async (newState: Partial<LiveSessionState>) => {
-        if (!activeClass || !activeClass.id) return;
-        const updated = sanitizeSessionState({ ...sessionState, ...newState });
-        setSessionState(updated); // Optimistic Update
-        try {
-            await courseService.updateClassLiveSession(activeClass.id, updated);
-        } catch (e) {
-            console.error("Erro sync:", e);
-        }
-    };
-
-    // FUNÇÃO DE REFRESH MANUAL
-    const handleManualRefresh = async () => {
+    // FUNÇÃO CORE DE SINCRONIZAÇÃO
+    const fetchLatestState = async () => {
         if (!activeClass?.id) return;
-        setRefreshing(true);
         try {
             const { data, error } = await supabase
                 .from('classes')
@@ -94,14 +56,83 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                 .single();
             
             if (data?.live_session) {
-                setSessionState(sanitizeSessionState(data.live_session));
+                // Compara se mudou para evitar re-renders desnecessários
+                const newState = sanitizeSessionState(data.live_session);
+                setSessionState(prev => {
+                    if (JSON.stringify(prev) !== JSON.stringify(newState)) {
+                        lastUpdateRef.current = Date.now();
+                        return newState;
+                    }
+                    return prev;
+                });
             }
         } catch (e) {
-            console.error("Refresh error:", e);
-        } finally {
-            // Pequeno delay para feedback visual
-            setTimeout(() => setRefreshing(false), 500);
+            console.error("Sync error:", e);
         }
+    };
+
+    useEffect(() => {
+        if (!activeClass || !activeClass.id) return;
+
+        // 1. Carga Inicial
+        if (activeClass.live_session) {
+            setSessionState(sanitizeSessionState(activeClass.live_session));
+        } else {
+            fetchLatestState();
+        }
+
+        // 2. Subscrição Realtime (Otimizada)
+        const channel = supabase
+            .channel(`live_session_sync:${activeClass.id}`)
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'classes',
+                filter: `id=eq.${activeClass.id}`
+            }, (payload) => {
+                // Assim que recebe sinal de mudança, força atualização
+                // Usamos o payload se existir, mas fazemos fetch de segurança
+                if (payload.new && payload.new.live_session) {
+                    setSessionState(sanitizeSessionState(payload.new.live_session));
+                    lastUpdateRef.current = Date.now();
+                } else {
+                    fetchLatestState();
+                }
+            })
+            .subscribe();
+
+        // 3. Polling de Segurança (A cada 3 segundos)
+        // Garante que se o socket falhar, o aluno recebe a atualização em max 3s
+        const intervalId = setInterval(() => {
+            // Só faz fetch se passaram mais de 2s desde a última atualização realtime
+            if (Date.now() - lastUpdateRef.current > 2000) {
+                fetchLatestState();
+            }
+        }, 3000);
+
+        return () => {
+            supabase.removeChannel(channel);
+            clearInterval(intervalId);
+        };
+    }, [activeClass?.id]);
+
+    const updateState = async (newState: Partial<LiveSessionState>) => {
+        if (!activeClass || !activeClass.id) return;
+        const updated = sanitizeSessionState({ ...sessionState, ...newState });
+        setSessionState(updated); // Optimistic Update
+        lastUpdateRef.current = Date.now(); // Prevents immediate polling override
+        try {
+            await courseService.updateClassLiveSession(activeClass.id, updated);
+        } catch (e) {
+            console.error("Erro sync:", e);
+        }
+    };
+
+    // FUNÇÃO DE REFRESH MANUAL (Botão)
+    const handleManualRefresh = async () => {
+        setRefreshing(true);
+        await fetchLatestState();
+        setTimeout(() => setRefreshing(false), 500);
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -331,6 +362,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
                     {currentSlideUrl && (
                         <img 
+                            key={currentSlideUrl} // Key forces re-render if URL changes
                             src={currentSlideUrl} 
                             alt={`Slide ${sessionState.current_slide_index + 1}`} 
                             className="max-w-full max-h-full object-contain"
@@ -405,6 +437,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                 <div className="lg:col-span-3 bg-black rounded-xl overflow-hidden flex items-center justify-center relative border-4 border-indigo-900 shadow-xl">
                     {sessionState.slides.length > 0 && currentSlideUrl ? (
                         <img 
+                            key={currentSlideUrl}
                             src={currentSlideUrl} 
                             className="max-w-full max-h-full object-contain"
                             alt="Current Slide"
