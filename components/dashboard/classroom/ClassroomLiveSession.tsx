@@ -587,14 +587,14 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                 </div>
             </div>
 
-            {/* DRIVE PICKER MODAL - TOP ALIGNED */}
+            {/* DRIVE PICKER MODAL - CENTERED */}
             {showDrivePicker && (
                 <div 
-                    className="fixed inset-0 z-[9999] flex items-start justify-center bg-indigo-900/60 backdrop-blur-sm p-2 animate-in fade-in w-full h-full"
+                    className="fixed inset-0 z-[9999] flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in w-full h-full"
                     onClick={() => setShowDrivePicker(false)}
                 >
                     <GlassCard 
-                        className="w-full max-w-2xl bg-white dark:bg-slate-900 flex flex-col max-h-[95vh] p-0 overflow-hidden shadow-2xl relative"
+                        className="w-full max-w-2xl bg-white dark:bg-slate-900 flex flex-col max-h-[85vh] p-0 overflow-hidden shadow-2xl relative"
                         onClick={(e: React.MouseEvent) => e.stopPropagation()}
                     >
                         <div className="p-4 border-b border-indigo-100 dark:border-slate-700 flex justify-between items-center bg-indigo-50 dark:bg-slate-800">
