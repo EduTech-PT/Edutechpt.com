@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { DriveFile, driveService } from '../../../services/drive';
 import { courseService } from '../../../services/courses';
 import { Profile, UserRole } from '../../../types';
+import { GlassCard } from '../../GlassCard';
 
 interface Props {
     type: 'materials' | 'announcements' | 'assessments';
@@ -18,6 +19,8 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
     const [uploading, setUploading] = useState(false);
     
     // Drive Picker States
+    const [showDrivePicker, setShowDrivePicker] = useState(false);
+    const [activeDriveField, setActiveDriveField] = useState<string | null>(null);
     const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
     const [loadingDrive, setLoadingDrive] = useState(false);
     const [driveCurrentFolder, setDriveCurrentFolder] = useState<string | null>(null);
@@ -77,8 +80,8 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
             setDriveCurrentFolder(parentId); const data = await driveService.listFiles(parentId); setDriveFiles(data.files);
         } catch (e) { console.error(e); } finally { setLoadingDrive(false); }
     };
+    
     const initializeDrivePicker = async () => {
-        if (loadingDrive || driveFiles.length > 0) return; 
         setLoadingDrive(true);
         try {
             let startFolderId = profile.role === 'admin' ? (await driveService.getConfig()).driveFolderId : await driveService.getPersonalFolder(profile);
@@ -86,38 +89,40 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
             const data = await driveService.listFiles(startFolderId); setDriveFiles(data.files);
         } catch (e: any) { alert(e.message); } finally { setLoadingDrive(false); }
     };
+
+    const openDriveModal = (prefix: string) => {
+        setActiveDriveField(prefix);
+        setShowDrivePicker(true);
+        initializeDrivePicker();
+    };
+
+    const handleDriveSelect = (file: DriveFile) => {
+        const prefix = activeDriveField || '';
+        if (prefix) {
+             setFormData({ ...formData, [`${prefix}url`]: file.url, [`${prefix}title`]: file.name, [`${prefix}type`]: 'drive' });
+        } else {
+             setFormData({ ...formData, url: file.url, title: file.name, type: 'drive' });
+        }
+        setShowDrivePicker(false);
+    };
     
-    // UI for Drive
-    const DrivePickerUI = ({ fieldPrefix = '' }: { fieldPrefix?: string }) => {
+    // UI for Drive Trigger
+    const DrivePickerTrigger = ({ fieldPrefix = '' }: { fieldPrefix?: string }) => {
         const selectedUrl = fieldPrefix ? formData[`${fieldPrefix}url`] : formData.url;
         const selectedTitle = fieldPrefix ? formData[`${fieldPrefix}title`] : formData.title;
         return (
             <div className="border border-indigo-200 dark:border-slate-600 rounded-lg p-3 bg-white/50 dark:bg-slate-800/50">
-                <label className="block text-xs font-bold text-indigo-900 dark:text-white mb-2 cursor-pointer" onClick={initializeDrivePicker}>Selecione do seu Drive (Clique para carregar)</label>
-                {loadingDrive ? <div className="text-center text-xs dark:text-indigo-200">Carregando...</div> : driveFiles.length > 0 && (
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-300 mb-2 font-bold">
-                            {driveFolderStack.length > 0 && <button type="button" onClick={handleDriveBack} className="hover:underline mr-2">⬅ Voltar</button>}
-                            <span>{profile.role === 'admin' ? 'Raiz' : 'Pasta Pessoal'}</span>{driveFolderStack.map(f => <span key={f.id}> / {f.name}</span>)}
-                        </div>
-                        <div className="max-h-40 overflow-y-auto custom-scrollbar border border-gray-200 dark:border-slate-600 rounded bg-white dark:bg-slate-900">
-                            {driveFiles.map(file => {
-                                const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
-                                const isSelected = selectedUrl === file.url;
-                                return (
-                                    <div key={file.id} onClick={() => {
-                                        if (isFolder) handleDriveNavigate(file);
-                                        else {
-                                            if (fieldPrefix) setFormData({...formData, [`${fieldPrefix}url`]: file.url, [`${fieldPrefix}title`]: file.name, [`${fieldPrefix}type`]: 'drive'});
-                                            else setFormData({...formData, url: file.url, title: file.name, type: 'drive'});
-                                        }
-                                    }} className={`flex items-center gap-2 p-2 cursor-pointer text-xs hover:bg-indigo-50 dark:hover:bg-slate-800 dark:text-gray-300 ${isSelected ? 'bg-indigo-100 dark:bg-slate-700 font-bold' : ''}`}>
-                                        <span>{isFolder ? '📁' : '📄'}</span><span className="truncate flex-1">{file.name}</span>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                        {selectedUrl && <div className="text-xs text-green-600 dark:text-green-400 font-bold mt-1">Selecionado: {selectedTitle}</div>}
+                <button 
+                    type="button"
+                    onClick={() => openDriveModal(fieldPrefix)}
+                    className="w-full py-2 bg-white dark:bg-slate-700 border border-indigo-200 dark:border-slate-600 rounded text-indigo-700 dark:text-indigo-200 text-sm font-bold flex items-center justify-center gap-2 hover:bg-indigo-50 dark:hover:bg-slate-600 transition-colors"
+                >
+                    <span>☁️</span> Selecionar do Google Drive
+                </button>
+                
+                {selectedTitle && (
+                    <div className="mt-2 text-xs text-green-600 dark:text-green-400 font-bold flex items-center gap-1">
+                        <span>✓</span> Selecionado: {selectedTitle}
                     </div>
                 )}
             </div>
@@ -166,7 +171,7 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
     };
 
     return (
-        <form onSubmit={handleSubmit} className="bg-indigo-50 dark:bg-slate-900/50 p-4 rounded-xl border border-indigo-200 dark:border-slate-700 mb-6 space-y-4">
+        <form onSubmit={handleSubmit} className="bg-indigo-50 dark:bg-slate-900/50 p-4 rounded-xl border border-indigo-200 dark:border-slate-700 mb-6 space-y-4 relative">
             <p className="text-sm font-bold text-indigo-800 dark:text-indigo-200 capitalize">Editor de {type}</p>
             
             {type === 'materials' && (
@@ -206,7 +211,7 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                     )}
 
                     {formData.type === 'file' && <input type="file" onChange={(e) => handleFileUpload(e)} className="dark:text-white" />}
-                    {formData.type === 'drive' && <DrivePickerUI />}
+                    {formData.type === 'drive' && <DrivePickerTrigger />}
                 </div>
             )}
 
@@ -252,7 +257,7 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                         {formData.resource_type === 'genially' && <input type="text" placeholder="Código Embed ou Link (Genially, H5P, Canva...)" className="w-full p-2 rounded text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.resource_url || ''} onChange={e => handleGeniallyInput(e.target.value, 'resource_')} />}
 
                         {formData.resource_type === 'file' && <input type="file" className="text-xs dark:text-white" onChange={(e) => handleFileUpload(e, 'resource_')} />}
-                        {formData.resource_type === 'drive' && <DrivePickerUI fieldPrefix="resource_" />}
+                        {formData.resource_type === 'drive' && <DrivePickerTrigger fieldPrefix="resource_" />}
                     </div>
                 </div>
             )}
@@ -263,6 +268,67 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                     {uploading ? '...' : 'Guardar Tudo'}
                 </button>
             </div>
+
+            {/* DRIVE MODAL CENTERED */}
+            {showDrivePicker && (
+                <div 
+                    className="fixed inset-0 z-[9999] flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in w-full h-full"
+                    onClick={() => setShowDrivePicker(false)}
+                >
+                    <GlassCard 
+                        className="w-full max-w-2xl bg-white dark:bg-slate-900 flex flex-col max-h-[85vh] p-0 overflow-hidden shadow-2xl relative"
+                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                    >
+                        <div className="p-4 border-b border-indigo-100 dark:border-slate-700 flex justify-between items-center bg-indigo-50 dark:bg-slate-800">
+                            <h3 className="font-bold text-lg text-indigo-900 dark:text-white flex items-center gap-2">
+                                ☁️ Selecionar do Google Drive
+                            </h3>
+                            <button onClick={() => setShowDrivePicker(false)} className="text-gray-500 hover:text-red-500 font-bold p-2">✕</button>
+                        </div>
+
+                        <div className="p-2 bg-indigo-50/50 dark:bg-slate-800/50 flex items-center gap-2 text-xs border-b border-indigo-100 dark:border-slate-700 overflow-x-auto whitespace-nowrap">
+                             <button onClick={initializeDrivePicker} className="font-bold hover:text-indigo-600 dark:text-gray-300 dark:hover:text-white">🏠 Raiz</button>
+                             {driveFolderStack.map((folder, i) => (
+                                <React.Fragment key={folder.id}>
+                                    <span className="opacity-50">/</span>
+                                    <span className={i === driveFolderStack.length - 1 ? 'font-bold dark:text-white' : 'dark:text-gray-300'}>{folder.name}</span>
+                                </React.Fragment>
+                            ))}
+                            {driveFolderStack.length > 0 && (
+                                <button onClick={handleDriveBack} className="ml-auto text-indigo-600 dark:text-indigo-400 font-bold hover:underline">⬅ Voltar</button>
+                            )}
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-white dark:bg-slate-900">
+                            {loadingDrive ? (
+                                <div className="text-center py-10 text-indigo-500">A carregar...</div>
+                            ) : driveFiles.length === 0 ? (
+                                <div className="text-center py-10 text-gray-400">Pasta vazia.</div>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-2">
+                                    {driveFiles.map(file => {
+                                        const isFolder = file.mimeType.includes('folder');
+                                        return (
+                                            <div 
+                                                key={file.id}
+                                                onClick={() => isFolder ? handleDriveNavigate(file) : handleDriveSelect(file)}
+                                                className={`
+                                                    flex items-center gap-3 p-3 rounded-lg border border-transparent hover:bg-indigo-50 dark:hover:bg-slate-800 cursor-pointer transition-all
+                                                    ${isFolder ? 'text-indigo-900 dark:text-indigo-200' : 'text-gray-700 dark:text-gray-300 hover:border-indigo-200'}
+                                                `}
+                                            >
+                                                <span className="text-xl">{isFolder ? '📁' : '📄'}</span>
+                                                <span className="font-medium text-sm truncate flex-1">{file.name}</span>
+                                                {!isFolder && <span className="text-xs bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded">Selecionar</span>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </GlassCard>
+                </div>
+            )}
         </form>
     );
 };
