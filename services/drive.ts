@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.6.15";
+export const GAS_VERSION = "v1.6.17";
 
 export interface DriveFile {
   id: string;
@@ -241,7 +241,8 @@ export const driveService = {
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'delete',
-        id: fileId
+        id: fileId,
+        trashFolderId: config.trashFolderId // Passa o ID da lixeira (se existir)
       })
     });
     const result = await response.json();
@@ -255,7 +256,8 @@ export const driveService = {
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'delete',
-        ids: fileIds
+        ids: fileIds,
+        trashFolderId: config.trashFolderId // Passa o ID da lixeira (se existir)
       })
     });
     const result = await response.json();
@@ -418,29 +420,93 @@ function doPost(e) {
     }
     else if (action === 'delete') {
       const ids = data.ids || (data.id ? [data.id] : []);
+      const trashId = data.trashFolderId; // ID da pasta de lixo (opcional)
       const errors = [];
       
       ids.forEach(function(id){
          var deleted = false;
          var errorMsg = "";
          
-         // Tentar apagar ficheiro
+         // 1. Tentar apagar ficheiro (Mover para o lixo do sistema)
          try { 
            var file = DriveApp.getFileById(id);
-           file.setTrashed(true); 
-           deleted = true; 
+           try {
+               file.setTrashed(true); 
+               deleted = true; 
+           } catch(trashErr) {
+               // FALHOU O DELETE NORMAL (Provavelmente permissão)
+               
+               // 2. Se houver Trash Folder ID, tenta MOVER para lá
+               if (trashId) {
+                   try {
+                       var trashFolder = DriveApp.getFolderById(trashId);
+                       // Adiciona à lixeira
+                       trashFolder.addFile(file);
+                       // Remove das pastas atuais
+                       var parents = file.getParents();
+                       while (parents.hasNext()) {
+                           var parent = parents.next();
+                           parent.removeFile(file);
+                       }
+                       deleted = true;
+                   } catch(moveErr) {
+                       errorMsg = "MoveTrash Error: " + moveErr;
+                   }
+               }
+               
+               // 3. Fallback Final: Unparent (Remove da pasta atual sem apagar)
+               if (!deleted) {
+                   var parents = file.getParents();
+                   var parentFound = false;
+                   while (parents.hasNext()) {
+                       var parent = parents.next();
+                       try {
+                           parent.removeFile(file);
+                           parentFound = true;
+                       } catch(removeErr) {
+                           errorMsg += " [Unparent Error: " + removeErr + "]";
+                       }
+                   }
+                   if (parentFound) deleted = true;
+                   else errorMsg = trashErr.toString();
+               }
+           }
          } catch(e) {
            errorMsg = e.toString();
          }
          
-         // Se falhou, tentar como pasta
-         if (!deleted) {
+         // Lógica similar para PASTAS
+         if (!deleted && errorMsg.includes("not found")) {
              try { 
                var folder = DriveApp.getFolderById(id);
-               folder.setTrashed(true); 
-               deleted = true; 
+               try {
+                   folder.setTrashed(true); 
+                   deleted = true; 
+               } catch(trashErr) {
+                   if (trashId) {
+                       try {
+                           var trashFolder = DriveApp.getFolderById(trashId);
+                           trashFolder.addFolder(folder);
+                           var parents = folder.getParents();
+                           while (parents.hasNext()) { parents.next().removeFolder(folder); }
+                           deleted = true;
+                       } catch(e){}
+                   }
+                   
+                   if (!deleted) {
+                       // Fallback: Remover da pasta pai
+                       var parents = folder.getParents();
+                       var parentFound = false;
+                       while (parents.hasNext()) {
+                           var parent = parents.next();
+                           try { parent.removeFolder(folder); parentFound = true; } catch(removeErr) {}
+                       }
+                       if (parentFound) deleted = true;
+                       else errorMsg = trashErr.toString();
+                   }
+               }
              } catch(e) {
-               if(errorMsg === "") errorMsg = e.toString();
+               errorMsg = e.toString();
              }
          }
          
@@ -448,7 +514,7 @@ function doPost(e) {
       });
       
       if (errors.length > 0) {
-          result = { status: 'error', message: 'Falha ao eliminar: ' + errors.join('; ') };
+          result = { status: 'error', message: 'Alguns itens falharam: ' + errors.join('; ') };
       } else {
           result = { status: 'success' };
       }

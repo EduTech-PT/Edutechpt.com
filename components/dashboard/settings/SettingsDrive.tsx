@@ -71,6 +71,10 @@ export const SettingsDrive: React.FC = () => {
             finalValue = cleanDriveId(finalValue);
             setConfig((prev: any) => ({...prev, driveFolderId: finalValue}));
         }
+        if (key === 'google_drive_trash_folder_id') {
+            finalValue = cleanDriveId(finalValue);
+            setConfig((prev: any) => ({...prev, trashFolderId: finalValue}));
+        }
         if (key === 'live_drive_folder_id') {
             finalValue = cleanDriveId(finalValue);
             setConfig((prev: any) => ({...prev, liveDriveFolderId: finalValue}));
@@ -197,6 +201,16 @@ export const SettingsDrive: React.FC = () => {
                                 <input type="text" value={config.driveFolderId || ''} onChange={e => setConfig({...config, driveFolderId: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm pr-20"/>
                                 {config.driveFolderId && config.driveFolderId.includes('/folders/') && <span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded font-bold">Link Detetado</span>}
                             </div>
+                        </div>
+
+                        {/* NOVO: PASTA LIXEIRA */}
+                        <div className="mb-4">
+                            <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 font-bold">ID Pasta Lixeira (Reciclagem)</label><SaveBtn onClick={() => handleSaveField('google_drive_trash_folder_id', config.trashFolderId)} /></div>
+                            <div className="relative">
+                                <input type="text" value={config.trashFolderId || ''} onChange={e => setConfig({...config, trashFolderId: e.target.value})} placeholder="Para onde vão os ficheiros apagados" className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm pr-20"/>
+                                {config.trashFolderId && config.trashFolderId.includes('/folders/') && <span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded font-bold">Link Detetado</span>}
+                            </div>
+                            <p className="text-[10px] text-gray-500 mt-1">Ao definir esta pasta, os ficheiros apagados serão movidos para aqui em vez de serem eliminados permanentemente (evita erros de permissão).</p>
                         </div>
                         
                         <div>
