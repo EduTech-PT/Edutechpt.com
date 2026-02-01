@@ -351,6 +351,24 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         );
     };
 
+    const handleDeleteFile = async (e: React.MouseEvent, fileId: string) => {
+        e.stopPropagation();
+        if (!window.confirm("Tem a certeza que deseja eliminar este ficheiro do Google Drive permanentemente?")) return;
+
+        // Optimistic update
+        const originalFiles = [...driveFiles];
+        setDriveFiles(prev => prev.filter(f => f.id !== fileId));
+        setSelectedDriveFiles(prev => prev.filter(id => id !== fileId));
+
+        try {
+            await driveService.deleteFile(fileId);
+        } catch (error: any) {
+            alert("Erro ao eliminar: " + error.message);
+            // Revert state on error
+            setDriveFiles(originalFiles);
+        }
+    };
+
     const importFromDrive = async () => {
         if (selectedDriveFiles.length === 0) return;
         
@@ -640,7 +658,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                                                 key={file.id}
                                                 onClick={() => isFolder ? handleDriveNavigate(file.id, file.name) : toggleDriveSelection(file.id)}
                                                 className={`
-                                                    p-3 rounded-lg border-2 flex flex-col items-center text-center cursor-pointer transition-all
+                                                    p-3 rounded-lg border-2 flex flex-col items-center text-center cursor-pointer transition-all relative group
                                                     ${isSelected ? 'border-indigo-500 bg-indigo-50 dark:bg-slate-700 ring-1 ring-indigo-400' : 'border-transparent hover:bg-gray-50 dark:hover:bg-slate-800 hover:border-gray-200'}
                                                 `}
                                             >
@@ -653,6 +671,14 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                                                 )}
                                                 <div className="text-xs font-bold truncate w-full text-gray-700 dark:text-gray-300" title={file.name}>{file.name}</div>
                                                 {isSelected && <div className="absolute top-2 right-2 w-4 h-4 bg-indigo-600 rounded-full border-2 border-white"></div>}
+                                                
+                                                <button 
+                                                    onClick={(e) => handleDeleteFile(e, file.id)}
+                                                    className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-white/90 dark:bg-slate-800/90 rounded-full text-red-500 hover:text-red-700 hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-all z-20"
+                                                    title="Eliminar"
+                                                >
+                                                    ✕
+                                                </button>
                                             </div>
                                         );
                                     })}

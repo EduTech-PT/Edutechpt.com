@@ -106,6 +106,22 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
         }
         setShowDrivePicker(false);
     };
+
+    const handleDeleteFile = async (e: React.MouseEvent, fileId: string) => {
+        e.stopPropagation();
+        if (!window.confirm("Tem a certeza que deseja eliminar este ficheiro do Google Drive permanentemente?")) return;
+
+        // Optimistic update
+        const originalFiles = [...driveFiles];
+        setDriveFiles(prev => prev.filter(f => f.id !== fileId));
+
+        try {
+            await driveService.deleteFile(fileId);
+        } catch (error: any) {
+            alert("Erro ao eliminar: " + error.message);
+            setDriveFiles(originalFiles); // Revert
+        }
+    };
     
     // UI for Drive Trigger
     const DrivePickerTrigger = ({ fieldPrefix = '' }: { fieldPrefix?: string }) => {
@@ -314,13 +330,21 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                                                 key={file.id}
                                                 onClick={() => isFolder ? handleDriveNavigate(file) : handleDriveSelect(file)}
                                                 className={`
-                                                    flex items-center gap-3 p-3 rounded-lg border border-transparent hover:bg-indigo-50 dark:hover:bg-slate-800 cursor-pointer transition-all
+                                                    flex items-center gap-3 p-3 rounded-lg border border-transparent hover:bg-indigo-50 dark:hover:bg-slate-800 cursor-pointer transition-all group relative
                                                     ${isFolder ? 'text-indigo-900 dark:text-indigo-200' : 'text-gray-700 dark:text-gray-300 hover:border-indigo-200'}
                                                 `}
                                             >
                                                 <span className="text-xl">{isFolder ? '📁' : '📄'}</span>
                                                 <span className="font-medium text-sm truncate flex-1">{file.name}</span>
                                                 {!isFolder && <span className="text-xs bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded">Selecionar</span>}
+                                                
+                                                <button 
+                                                    onClick={(e) => handleDeleteFile(e, file.id)}
+                                                    className="absolute top-2 right-2 p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                                    title="Eliminar"
+                                                >
+                                                    🗑️
+                                                </button>
                                             </div>
                                         );
                                     })}
