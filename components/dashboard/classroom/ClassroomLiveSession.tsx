@@ -289,10 +289,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             // Define o "teto" da navegação. O botão voltar não subirá acima disto.
             setDriveSessionRoot(startId); 
 
-            const data = await driveService.listFiles(startId);
-            setDriveFiles(data.files);
-            setDriveFolderStack([]);
-            setSelectedDriveFiles([]);
+            await refreshDriveList(startId);
         } catch (e: any) {
             alert("Erro ao abrir Drive: " + e.message);
             setShowDrivePicker(false);
@@ -301,12 +298,12 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         }
     };
 
-    const handleDriveNavigate = async (folderId: string, folderName: string) => {
+    const refreshDriveList = async (folderId: string) => {
         setLoadingDrive(true);
         try {
             const data = await driveService.listFiles(folderId);
             setDriveFiles(data.files);
-            setDriveFolderStack(prev => [...prev, { id: folderId, name: folderName }]);
+            setSelectedDriveFiles([]); // Limpa seleção ao mudar de pasta
         } catch (e) {
             console.error(e);
         } finally {
@@ -314,35 +311,33 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         }
     };
 
+    const handleDriveNavigate = async (folderId: string, folderName: string) => {
+        setDriveFolderStack(prev => [...prev, { id: folderId, name: folderName }]);
+        await refreshDriveList(folderId);
+    };
+
     const handleDriveBack = async () => {
         if (driveFolderStack.length === 0) return;
-        setLoadingDrive(true);
-        try {
-            const newStack = [...driveFolderStack];
-            newStack.pop();
-            setDriveFolderStack(newStack);
-            
-            let parentId;
-            if (newStack.length > 0) {
-                parentId = newStack[newStack.length - 1].id;
-            } else {
-                // VOLTAR PARA A RAIZ DA SESSÃO (ISOLADA)
-                parentId = driveSessionRoot;
-            }
-            
-            // Safety fallback
-            if (!parentId) {
-                 const config = await driveService.getConfig();
-                 parentId = config.driveFolderId;
-            }
-            
-            const data = await driveService.listFiles(parentId);
-            setDriveFiles(data.files);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoadingDrive(false);
+        
+        const newStack = [...driveFolderStack];
+        newStack.pop();
+        setDriveFolderStack(newStack);
+        
+        let parentId;
+        if (newStack.length > 0) {
+            parentId = newStack[newStack.length - 1].id;
+        } else {
+            // VOLTAR PARA A RAIZ DA SESSÃO (ISOLADA)
+            parentId = driveSessionRoot;
         }
+        
+        // Safety fallback
+        if (!parentId) {
+             const config = await driveService.getConfig();
+             parentId = config.driveFolderId;
+        }
+        
+        await refreshDriveList(parentId);
     };
 
     const toggleDriveSelection = (fileId: string) => {
@@ -351,9 +346,51 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         );
     };
 
-    const handleDeleteFile = async (e: React.MouseEvent, fileId: string) => {
+    const handleSelectAllImages = () => {
+        // Filtra apenas imagens para seleção automática
+        const allImageIds = driveFiles
+            .filter(f => f.mimeType.includes('image'))
+            .map(f => f.id);
+        
+        // Se todas já estiverem selecionadas, desmarca tudo. Senão, marca tudo.
+        const allSelected = allImageIds.length > 0 && allImageIds.every(id => selectedDriveFiles.includes(id));
+
+        if (allSelected) {
+            setSelectedDriveFiles(prev => prev.filter(id => !allImageIds.includes(id)));
+        } else {
+            // Adiciona as que faltam, mantendo outras seleções (ex: se selecionou algo não imagem manualmente)
+            setSelectedDriveFiles(prev => Array.from(new Set([...prev, ...allImageIds])));
+        }
+    };
+
+    const handleCreateFolder = async () => {
+        const name = prompt("Nome da nova pasta:");
+        if (!name) return;
+
+        setLoadingDrive(true);
+        try {
+            // Determina a pasta atual
+            const currentId = driveFolderStack.length > 0 
+                ? driveFolderStack[driveFolderStack.length - 1].id 
+                : driveSessionRoot;
+
+            if (currentId) {
+                await driveService.createFolder(name, currentId);
+                await refreshDriveList(currentId);
+            }
+        } catch (e: any) {
+            alert("Erro ao criar pasta: " + e.message);
+            setLoadingDrive(false);
+        }
+    };
+
+    const handleDeleteFile = async (e: React.MouseEvent, fileId: string, isFolder: boolean) => {
         e.stopPropagation();
-        if (!window.confirm("Tem a certeza que deseja eliminar este ficheiro do Google Drive permanentemente?")) return;
+        const msg = isFolder 
+            ? "ATENÇÃO: Deseja eliminar esta PASTA e todo o seu conteúdo permanentemente?"
+            : "Tem a certeza que deseja eliminar este ficheiro do Google Drive permanentemente?";
+            
+        if (!window.confirm(msg)) return;
 
         // Optimistic update
         const originalFiles = [...driveFiles];
@@ -371,7 +408,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
     const handleBulkDelete = async () => {
         if (selectedDriveFiles.length === 0) return;
-        if (!window.confirm(`Tem a certeza que deseja eliminar ${selectedDriveFiles.length} ficheiros permanentemente?`)) return;
+        if (!window.confirm(`Tem a certeza que deseja eliminar ${selectedDriveFiles.length} itens permanentemente?`)) return;
 
         setLoadingDrive(true);
         // Optimistic Update
@@ -382,7 +419,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             await driveService.deleteFiles(selectedDriveFiles);
             setSelectedDriveFiles([]);
         } catch (error: any) {
-            alert("Erro ao eliminar ficheiros: " + error.message);
+            alert("Erro ao eliminar itens: " + error.message);
             setDriveFiles(originalFiles); // Revert
         } finally {
             setLoadingDrive(false);
@@ -640,20 +677,38 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                             <h3 className="font-bold text-lg text-indigo-900 dark:text-white flex items-center gap-2">
                                 ☁️ Selecionar do Google Drive
                             </h3>
-                            <button onClick={() => setShowDrivePicker(false)} className="text-gray-500 hover:text-red-500 font-bold p-2">✕</button>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={handleCreateFolder}
+                                    className="px-3 py-1 bg-white dark:bg-slate-700 border border-indigo-200 dark:border-slate-600 text-indigo-700 dark:text-indigo-200 text-xs font-bold rounded hover:bg-indigo-50 dark:hover:bg-slate-600"
+                                >
+                                    + Nova Pasta
+                                </button>
+                                <button onClick={() => setShowDrivePicker(false)} className="text-gray-500 hover:text-red-500 font-bold p-2">✕</button>
+                            </div>
                         </div>
 
                         <div className="p-2 bg-indigo-50/50 dark:bg-slate-800/50 flex items-center gap-2 text-xs border-b border-indigo-100 dark:border-slate-700 overflow-x-auto whitespace-nowrap">
-                            <button onClick={openDrivePicker} className="font-bold hover:text-indigo-600">🏠 Raiz</button>
+                            <button onClick={openDrivePicker} className="font-bold hover:text-indigo-600 dark:text-gray-300 dark:hover:text-white">🏠 Raiz</button>
                             {driveFolderStack.map((folder, i) => (
                                 <React.Fragment key={folder.id}>
                                     <span className="opacity-50">/</span>
-                                    <span className={i === driveFolderStack.length - 1 ? 'font-bold' : ''}>{folder.name}</span>
+                                    <span className={i === driveFolderStack.length - 1 ? 'font-bold dark:text-white' : 'dark:text-gray-300'}>{folder.name}</span>
                                 </React.Fragment>
                             ))}
                             {driveFolderStack.length > 0 && (
-                                <button onClick={handleDriveBack} className="ml-auto text-indigo-600 font-bold hover:underline">⬅ Voltar</button>
+                                <button onClick={handleDriveBack} className="ml-auto text-indigo-600 dark:text-indigo-400 font-bold hover:underline">⬅ Voltar</button>
                             )}
+                        </div>
+
+                        {/* Toolbar: Select All */}
+                        <div className="px-4 py-2 bg-white dark:bg-slate-900 border-b border-indigo-100 dark:border-slate-700 flex justify-end">
+                            <button 
+                                onClick={handleSelectAllImages}
+                                className="text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1"
+                            >
+                                <span>☑️</span> Selecionar Todas as Imagens
+                            </button>
                         </div>
 
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
@@ -693,9 +748,9 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                                                 {isSelected && <div className="absolute top-2 right-2 w-4 h-4 bg-indigo-600 rounded-full border-2 border-white"></div>}
                                                 
                                                 <button 
-                                                    onClick={(e) => handleDeleteFile(e, file.id)}
+                                                    onClick={(e) => handleDeleteFile(e, file.id, isFolder)}
                                                     className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-white/90 dark:bg-slate-800/90 rounded-full text-red-500 hover:text-red-700 hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-all z-20"
-                                                    title="Eliminar"
+                                                    title={isFolder ? "Eliminar Pasta" : "Eliminar Ficheiro"}
                                                 >
                                                     ✕
                                                 </button>

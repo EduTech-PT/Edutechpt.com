@@ -5,7 +5,7 @@ import { Profile } from '../types';
 
 // CONSTANTE DE VERSÃO DO SCRIPT
 // Sempre que alterar o template abaixo, incremente esta versão.
-export const GAS_VERSION = "v1.6.11";
+export const GAS_VERSION = "v1.6.13";
 
 export interface DriveFile {
   id: string;
@@ -255,7 +255,7 @@ export const driveService = {
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'delete',
-        ids: fileIds // Envia array de IDs
+        ids: fileIds
       })
     });
     const result = await response.json();
@@ -417,6 +417,7 @@ function doPost(e) {
       result = { status: 'success', url: file.getUrl(), id: file.getId() };
     }
     else if (action === 'delete') {
+      // Suporte para ID unico ou Array de IDs (Ficheiros E Pastas)
       const ids = data.ids || (data.id ? [data.id] : []);
       ids.forEach(function(id){
          try { DriveApp.getFileById(id).setTrashed(true); } 
