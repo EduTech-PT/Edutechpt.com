@@ -201,6 +201,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     
     // 1. Abrir Modal de Destino
     const openUploadDestinationPicker = async () => {
+        if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input
         setShowUploadPicker(true);
         setUploadNavLoading(true);
         try {
@@ -248,7 +249,10 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     };
 
     // 4. Confirmar Pasta e Abrir File Input
-    const confirmUploadLocation = () => {
+    const confirmUploadLocation = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
         // A pasta atual é a última da stack, ou a raiz se a stack estiver vazia
         const currentFolderId = uploadNavStack.length > 0 
             ? uploadNavStack[uploadNavStack.length - 1].id 
@@ -258,9 +262,11 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             setTargetUploadId(currentFolderId);
             setShowUploadPicker(false);
             // Trigger File Input
-            if (fileInputRef.current) {
-                fileInputRef.current.click();
-            }
+            setTimeout(() => {
+                if (fileInputRef.current) {
+                    fileInputRef.current.click();
+                }
+            }, 100);
         }
     };
 
@@ -658,6 +664,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                         onChange={handleFileUpload} 
                         style={{ display: 'none' }}
                         disabled={uploading} 
+                        onClick={(e) => e.stopPropagation()}
                     />
 
                     {sessionState.slides.length > 0 && (
@@ -902,9 +909,10 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                                 Destino: <b>{uploadNavStack.length > 0 ? uploadNavStack[uploadNavStack.length - 1].name : 'Raiz'}</b>
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={() => setShowUploadPicker(false)} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancelar</button>
+                                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowUploadPicker(false); }} type="button" className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancelar</button>
                                 <button 
                                     onClick={confirmUploadLocation}
+                                    type="button"
                                     className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow-md hover:bg-indigo-700 flex items-center gap-2"
                                 >
                                     Carregar Aqui ⬆️
