@@ -7,17 +7,6 @@ import { Class, UserRole, LiveSessionState, Profile } from '../../../types';
 import { GlassCard } from '../../GlassCard';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Safer PDFJS Init
-let pdfjs: any = null;
-try {
-    pdfjs = (pdfjsLib as any).default || pdfjsLib;
-    if (pdfjs && pdfjs.GlobalWorkerOptions) {
-        pdfjs.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
-    }
-} catch (e) {
-    console.warn("PDFJS Init Warning:", e);
-}
-
 interface Props {
     activeClass: Class;
     profile: Profile;
@@ -46,8 +35,23 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     // Permissões
     const isPresenter = ([UserRole.ADMIN, UserRole.TRAINER, UserRole.EDITOR] as string[]).includes(profile.role);
 
+    // PDFJS Init Effect
     useEffect(() => {
-        if (!activeClass) return;
+        const initPdf = async () => {
+            try {
+                const pdfjs: any = (pdfjsLib as any).default || pdfjsLib;
+                if (pdfjs && !pdfjs.GlobalWorkerOptions.workerSrc) {
+                    pdfjs.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+                }
+            } catch (e) {
+                console.warn("PDFJS Init Warning:", e);
+            }
+        };
+        initPdf();
+    }, []);
+
+    useEffect(() => {
+        if (!activeClass || !activeClass.id) return;
 
         // 1. Carregar estado inicial (se existir na DB)
         if (activeClass.live_session) {
@@ -73,10 +77,10 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [activeClass?.id]); // Optional chaining safe check
+    }, [activeClass?.id]);
 
     const updateState = async (newState: Partial<LiveSessionState>) => {
-        if (!activeClass) return;
+        if (!activeClass || !activeClass.id) return;
         const updated = { ...sessionState, ...newState };
         setSessionState(updated); // Optimistic Update
         try {
@@ -88,11 +92,10 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
     // --- PDF / UPLOAD LOGIC ---
     const convertPdfToImages = async (file: File): Promise<File[]> => {
-        if (!pdfjs) {
-            alert("Erro: Biblioteca PDF não carregada. Tente recarregar a página.");
-            return [];
-        }
         try {
+            const pdfjs: any = (pdfjsLib as any).default || pdfjsLib;
+            if (!pdfjs) throw new Error("Biblioteca PDF não disponível.");
+
             setProcessingStatus('A ler PDF...');
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjs.getDocument(arrayBuffer).promise;
@@ -124,7 +127,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             return images;
         } catch (error) {
             console.error("Erro ao converter PDF", error);
-            throw new Error("Falha ao processar o ficheiro PDF.");
+            throw new Error("Falha ao processar o ficheiro PDF. Tente recarregar a página.");
         }
     };
 
@@ -285,7 +288,8 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         updateState({ is_presenting: !sessionState.is_presenting });
     };
 
-    if (!activeClass) return <div className="text-red-500">Erro: Turma não selecionada.</div>;
+    // Safety check for critical prop
+    if (!activeClass || !activeClass.id) return <div className="text-red-500 p-4">Erro: Turma não selecionada.</div>;
 
     // --- VIEW: ESPETADOR ---
     if (!isPresenter) {
