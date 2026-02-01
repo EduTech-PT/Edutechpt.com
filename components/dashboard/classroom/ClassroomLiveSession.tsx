@@ -38,15 +38,20 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     const lastUpdateRef = useRef<number>(Date.now());
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // DRIVE PICKER STATE
+    // DRIVE IMPORT PICKER STATE (Para selecionar slides existentes)
     const [showDrivePicker, setShowDrivePicker] = useState(false);
     const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
     const [loadingDrive, setLoadingDrive] = useState(false);
     const [driveFolderStack, setDriveFolderStack] = useState<{id: string, name: string}[]>([]);
     const [selectedDriveFiles, setSelectedDriveFiles] = useState<string[]>([]); // IDs
-    
-    // Store the specific root for the session to handle "Back" logic correctly
     const [driveSessionRoot, setDriveSessionRoot] = useState<string | null>(null);
+
+    // UPLOAD DESTINATION PICKER STATE (Para escolher onde guardar novos uploads)
+    const [showUploadPicker, setShowUploadPicker] = useState(false);
+    const [uploadNavFiles, setUploadNavFiles] = useState<DriveFile[]>([]);
+    const [uploadNavStack, setUploadNavStack] = useState<{id: string, name: string}[]>([]);
+    const [uploadNavLoading, setUploadNavLoading] = useState(false);
+    const [targetUploadId, setTargetUploadId] = useState<string | null>(null);
 
     // Permissões
     const isPresenter = ([UserRole.ADMIN, UserRole.TRAINER, UserRole.EDITOR] as string[]).includes(profile.role);
@@ -192,8 +197,104 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         }
     };
 
+    // --- UPLOAD FLOW ---
+    
+    // 1. Abrir Modal de Destino
+    const openUploadDestinationPicker = async () => {
+        setShowUploadPicker(true);
+        setUploadNavLoading(true);
+        try {
+            const startId = await getStartFolderId();
+            // Define o root para navegação do upload também
+            setDriveSessionRoot(startId); 
+            
+            await refreshUploadList(startId);
+            setUploadNavStack([]);
+        } catch (e: any) {
+            alert("Erro ao abrir Drive: " + e.message);
+            setShowUploadPicker(false);
+        } finally {
+            setUploadNavLoading(false);
+        }
+    };
+
+    // 2. Auxiliar para carregar lista do Upload Picker
+    const refreshUploadList = async (folderId: string) => {
+        setUploadNavLoading(true);
+        try {
+            const data = await driveService.listFiles(folderId);
+            setUploadNavFiles(data.files);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setUploadNavLoading(false);
+        }
+    };
+
+    // 3. Navegação no Upload Picker
+    const handleUploadNavigate = async (folderId: string, folderName: string) => {
+        setUploadNavStack(prev => [...prev, { id: folderId, name: folderName }]);
+        await refreshUploadList(folderId);
+    };
+
+    const handleUploadBack = async () => {
+        if (uploadNavStack.length === 0) return;
+        const newStack = [...uploadNavStack];
+        newStack.pop();
+        setUploadNavStack(newStack);
+        
+        const parentId = newStack.length > 0 ? newStack[newStack.length - 1].id : driveSessionRoot;
+        if (parentId) await refreshUploadList(parentId);
+    };
+
+    // 4. Confirmar Pasta e Abrir File Input
+    const confirmUploadLocation = () => {
+        // A pasta atual é a última da stack, ou a raiz se a stack estiver vazia
+        const currentFolderId = uploadNavStack.length > 0 
+            ? uploadNavStack[uploadNavStack.length - 1].id 
+            : driveSessionRoot;
+            
+        if (currentFolderId) {
+            setTargetUploadId(currentFolderId);
+            setShowUploadPicker(false);
+            // Trigger File Input
+            if (fileInputRef.current) {
+                fileInputRef.current.click();
+            }
+        }
+    };
+
+    // 5. Criar Pasta no Upload Picker
+    const handleCreateUploadFolder = async () => {
+        const name = prompt("Nome da nova pasta:");
+        if (!name) return;
+
+        setUploadNavLoading(true);
+        try {
+            const currentId = uploadNavStack.length > 0 
+                ? uploadNavStack[uploadNavStack.length - 1].id 
+                : driveSessionRoot;
+
+            if (currentId) {
+                await driveService.createFolder(name, currentId);
+                await refreshUploadList(currentId);
+            }
+        } catch (e: any) {
+            alert("Erro ao criar pasta: " + e.message);
+            setUploadNavLoading(false);
+        }
+    };
+
+    // 6. Processar Ficheiros (Callback do Input)
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
+        
+        // Se por algum motivo não houver target ID (ex: erro no fluxo), tenta calcular fallback
+        let finalTargetId = targetUploadId;
+        if (!finalTargetId) {
+             finalTargetId = await getStartFolderId();
+        }
+
         setUploading(true);
         setProcessingStatus('A verificar Drive...');
         
@@ -210,42 +311,19 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                 return;
             }
 
-            // 1. Determinar Pasta de Destino (Ao Vivo ou Pessoal)
-            let targetFolderId;
-            try {
-                const config = await driveService.getConfig();
-                
-                if (config.liveDriveFolderId && config.liveDriveFolderId.trim() !== '') {
-                    // LÓGICA DE PASTA AO VIVO: 
-                    // Se existe pasta "Ao Vivo" configurada, cria uma subpasta para o formador lá dentro.
-                    // Isto mantém a raiz "Ao Vivo" organizada.
-                    const folderName = `[Formador] ${profile.full_name || profile.email}`;
-                    targetFolderId = await driveService.ensureFolder(folderName, config.liveDriveFolderId);
-                } else {
-                    // LÓGICA DE PASTA PESSOAL (Fallback): Garante que o formador tem a sua pasta na raiz
-                    targetFolderId = profile.role === 'admin' 
-                        ? config.driveFolderId 
-                        : await driveService.getPersonalFolder(profile);
-                }
-            } catch (err) {
-                console.warn("Erro ao obter config Drive, a usar fallback. " + err);
-            }
+            setProcessingStatus(`A enviar ${filesToProcess.length} ficheiros para a pasta selecionada...`);
 
-            setProcessingStatus(`A enviar ${filesToProcess.length} ficheiros para o Google Drive...`);
-
-            // 2. Upload para o Drive (Sequencial ou Paralelo)
-            const driveUploadPromises = filesToProcess.map(file => driveService.uploadFile(file, targetFolderId));
+            // Upload para o Drive
+            const driveUploadPromises = filesToProcess.map(file => driveService.uploadFile(file, finalTargetId));
             const results = await Promise.all(driveUploadPromises);
 
-            // 3. Converter IDs do Drive em URLs de Visualização
-            // ATUALIZADO: Usar API Thumbnail para garantir visualização (sz=w2048 para alta definição)
+            // Converter IDs do Drive em URLs de Visualização
             const newUrls = results.map(res => `https://drive.google.com/thumbnail?id=${res.id}&sz=w2048`);
 
-            // Adiciona ao final da lista SEM ALTERAR o current_slide_index (UPLOAD SILENCIOSO)
+            // Adiciona ao final da lista
             const updated = sanitizeSessionState({
                 ...sessionState,
                 slides: [...sessionState.slides, ...newUrls],
-                // Se a lista estava vazia, inicia a apresentação. Se já havia slides, mantém o estado.
                 is_presenting: sessionState.slides.length === 0 ? true : sessionState.is_presenting
             });
             await updateState(updated);
@@ -256,39 +334,35 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         } finally {
             setUploading(false);
             setProcessingStatus('');
+            setTargetUploadId(null); // Reset target
             e.target.value = '';
         }
     };
 
-    // --- DRIVE LOGIC ---
+    // --- SHARED HELPERS ---
+    const getStartFolderId = async () => {
+        const config = await driveService.getConfig();
+        if (profile.role === UserRole.ADMIN) {
+            return config.liveDriveFolderId && config.liveDriveFolderId.trim() !== '' 
+                ? config.liveDriveFolderId 
+                : config.driveFolderId;
+        } else {
+            if (config.liveDriveFolderId && config.liveDriveFolderId.trim() !== '') {
+                const folderName = `[Formador] ${profile.full_name || profile.email}`;
+                return await driveService.ensureFolder(folderName, config.liveDriveFolderId);
+            } else {
+                return await driveService.getPersonalFolder(profile);
+            }
+        }
+    };
+
+    // --- IMPORT PICKER LOGIC (Existing) ---
     const openDrivePicker = async () => {
         setShowDrivePicker(true);
         setLoadingDrive(true);
         try {
-            const config = await driveService.getConfig();
-            let startId;
-            
-            // LÓGICA DE ISOLAMENTO DE PASTA
-            if (profile.role === UserRole.ADMIN) {
-                // Admin vê a raiz configurada (pode ser a global ou a "Ao Vivo")
-                startId = config.liveDriveFolderId && config.liveDriveFolderId.trim() !== '' 
-                    ? config.liveDriveFolderId 
-                    : config.driveFolderId;
-            } else {
-                // Formador vê APENAS a sua pasta pessoal
-                // 1. Se estivermos em modo "Ao Vivo", garantimos a pasta dele DENTRO da pasta Ao Vivo
-                if (config.liveDriveFolderId && config.liveDriveFolderId.trim() !== '') {
-                    const folderName = `[Formador] ${profile.full_name || profile.email}`;
-                    startId = await driveService.ensureFolder(folderName, config.liveDriveFolderId);
-                } else {
-                    // 2. Fallback para pasta pessoal normal
-                    startId = await driveService.getPersonalFolder(profile);
-                }
-            }
-            
-            // Define o "teto" da navegação. O botão voltar não subirá acima disto.
+            const startId = await getStartFolderId();
             setDriveSessionRoot(startId); 
-
             await refreshDriveList(startId);
         } catch (e: any) {
             alert("Erro ao abrir Drive: " + e.message);
@@ -303,7 +377,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         try {
             const data = await driveService.listFiles(folderId);
             setDriveFiles(data.files);
-            setSelectedDriveFiles([]); // Limpa seleção ao mudar de pasta
+            setSelectedDriveFiles([]); 
         } catch (e) {
             console.error(e);
         } finally {
@@ -327,11 +401,9 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         if (newStack.length > 0) {
             parentId = newStack[newStack.length - 1].id;
         } else {
-            // VOLTAR PARA A RAIZ DA SESSÃO (ISOLADA)
             parentId = driveSessionRoot;
         }
         
-        // Safety fallback
         if (!parentId) {
              const config = await driveService.getConfig();
              parentId = config.driveFolderId;
@@ -347,18 +419,15 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     };
 
     const handleSelectAllImages = () => {
-        // Filtra apenas imagens para seleção automática
         const allImageIds = driveFiles
             .filter(f => f.mimeType.includes('image'))
             .map(f => f.id);
         
-        // Se todas já estiverem selecionadas, desmarca tudo. Senão, marca tudo.
         const allSelected = allImageIds.length > 0 && allImageIds.every(id => selectedDriveFiles.includes(id));
 
         if (allSelected) {
             setSelectedDriveFiles(prev => prev.filter(id => !allImageIds.includes(id)));
         } else {
-            // Adiciona as que faltam, mantendo outras seleções (ex: se selecionou algo não imagem manualmente)
             setSelectedDriveFiles(prev => Array.from(new Set([...prev, ...allImageIds])));
         }
     };
@@ -369,7 +438,6 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
         setLoadingDrive(true);
         try {
-            // Determina a pasta atual
             const currentId = driveFolderStack.length > 0 
                 ? driveFolderStack[driveFolderStack.length - 1].id 
                 : driveSessionRoot;
@@ -401,7 +469,6 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             await driveService.deleteFile(fileId);
         } catch (error: any) {
             alert("Erro ao eliminar: " + error.message);
-            // Revert state on error
             setDriveFiles(originalFiles);
         }
     };
@@ -411,7 +478,6 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         if (!window.confirm(`Tem a certeza que deseja eliminar ${selectedDriveFiles.length} itens permanentemente?`)) return;
 
         setLoadingDrive(true);
-        // Optimistic Update
         const originalFiles = [...driveFiles];
         setDriveFiles(prev => prev.filter(f => !selectedDriveFiles.includes(f.id)));
 
@@ -420,7 +486,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             setSelectedDriveFiles([]);
         } catch (error: any) {
             alert("Erro ao eliminar itens: " + error.message);
-            setDriveFiles(originalFiles); // Revert
+            setDriveFiles(originalFiles);
         } finally {
             setLoadingDrive(false);
         }
@@ -428,24 +494,15 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
     const importFromDrive = async () => {
         if (selectedDriveFiles.length === 0) return;
-        
-        setLoadingDrive(true); // Reusa o loading state do picker
-        
+        setLoadingDrive(true);
         try {
-            // FIX: Forçar que os ficheiros sejam públicos para garantir que a imagem aparece
-            // Isto resolve o problema de ficheiros antigos que estavam privados
             await driveService.setFilesPublic(selectedDriveFiles);
-
-            // ATUALIZADO: Usar API Thumbnail para garantir visualização
             const newUrls = selectedDriveFiles.map(id => `https://drive.google.com/thumbnail?id=${id}&sz=w2048`);
-            
-            // Adiciona ao final da lista (UPLOAD SILENCIOSO)
             const updated = sanitizeSessionState({
                 ...sessionState,
                 slides: [...sessionState.slides, ...newUrls],
                 is_presenting: sessionState.slides.length === 0 ? true : sessionState.is_presenting
             });
-            
             await updateState(updated);
             setShowDrivePicker(false);
             setSelectedDriveFiles([]);
@@ -476,12 +533,6 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
     const togglePresentation = () => {
         updateState({ is_presenting: !sessionState.is_presenting });
-    };
-
-    const triggerFileUpload = () => {
-        if (fileInputRef.current) {
-            fileInputRef.current.click();
-        }
     };
 
     if (!activeClass || !activeClass.id) return <div className="text-red-500 p-4">Erro: Turma não selecionada.</div>;
@@ -516,16 +567,14 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                 `}
             >
                 <div className="w-full h-full flex items-center justify-center relative">
-                    {/* Botão de Refresh para o Aluno */}
                     <button 
                         onClick={handleManualRefresh}
                         className="absolute top-4 left-4 z-50 p-2 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md transition-all shadow-lg border border-white/10 group"
-                        title="Atualizar Transmissão (Recarregar Imagem)"
+                        title="Atualizar Transmissão"
                     >
                         <span className={`block text-lg shadow-black drop-shadow-md ${refreshing ? 'animate-spin' : ''}`}>🔄</span>
                     </button>
 
-                    {/* Botão de Fullscreen */}
                     <button 
                         onClick={toggleFullscreenMode}
                         className="absolute bottom-4 right-4 z-50 p-3 bg-white/20 hover:bg-white/40 text-white rounded-lg backdrop-blur-md transition-all shadow-lg border border-white/10"
@@ -536,7 +585,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
                     {currentSlideUrl && (
                         <img 
-                            key={currentSlideUrl} // Key forces re-render if URL changes
+                            key={currentSlideUrl} 
                             src={currentSlideUrl} 
                             alt={`Slide ${sessionState.current_slide_index + 1}`} 
                             className="max-w-full max-h-full object-contain"
@@ -593,13 +642,14 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                     </button>
 
                     <button 
-                        onClick={triggerFileUpload}
+                        onClick={openUploadDestinationPicker}
                         className={`px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 rounded-lg font-bold hover:bg-indigo-200 transition-colors flex flex-col items-center justify-center leading-tight ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
                     >
                         <span className="text-sm">
                             {uploading ? processingStatus || 'A carregar...' : '+ Upload (Drive)'}
                         </span>
                     </button>
+                    {/* Hidden Input for File Upload - triggered by Modal */}
                     <input 
                         ref={fileInputRef}
                         type="file" 
@@ -663,7 +713,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                 </div>
             </div>
 
-            {/* DRIVE PICKER MODAL - CENTERED VIA PORTAL */}
+            {/* IMPORT PICKER MODAL (SELECT SLIDES) */}
             {showDrivePicker && createPortal(
                 <div 
                     className="fixed inset-0 z-[9999] flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in w-full h-full"
@@ -675,7 +725,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                     >
                         <div className="p-4 border-b border-indigo-100 dark:border-slate-700 flex justify-between items-center bg-indigo-50 dark:bg-slate-800">
                             <h3 className="font-bold text-lg text-indigo-900 dark:text-white flex items-center gap-2">
-                                ☁️ Selecionar do Google Drive
+                                ☁️ Importar Slides do Drive
                             </h3>
                             <div className="flex gap-2">
                                 <button 
@@ -723,7 +773,6 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                                         const isImage = file.mimeType.includes('image');
                                         const isSelected = selectedDriveFiles.includes(file.id);
 
-                                        // Filtra para mostrar apenas Pastas e Imagens para slides
                                         if (!isFolder && !isImage) return null;
 
                                         const thumbnailUrl = `https://drive.google.com/thumbnail?id=${file.id}&sz=w500`;
@@ -782,6 +831,83 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                                 >
                                     {loadingDrive && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
                                     Importar Selecionados
+                                </button>
+                            </div>
+                        </div>
+                    </GlassCard>
+                </div>,
+                document.body
+            )}
+
+            {/* UPLOAD DESTINATION PICKER MODAL (NOVO) */}
+            {showUploadPicker && createPortal(
+                <div 
+                    className="fixed inset-0 z-[9999] flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in w-full h-full"
+                    onClick={() => setShowUploadPicker(false)}
+                >
+                    <GlassCard 
+                        className="w-full max-w-xl bg-white dark:bg-slate-900 flex flex-col max-h-[85vh] p-0 overflow-hidden shadow-2xl relative"
+                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                    >
+                        <div className="p-4 border-b border-indigo-100 dark:border-slate-700 flex justify-between items-center bg-indigo-50 dark:bg-slate-800">
+                            <h3 className="font-bold text-lg text-indigo-900 dark:text-white flex items-center gap-2">
+                                📤 Escolher Pasta de Destino
+                            </h3>
+                            <button onClick={handleCreateUploadFolder} className="px-3 py-1 bg-white dark:bg-slate-700 border border-indigo-200 dark:border-slate-600 text-indigo-700 dark:text-indigo-200 text-xs font-bold rounded hover:bg-indigo-50 dark:hover:bg-slate-600">
+                                + Nova Pasta
+                            </button>
+                        </div>
+
+                        <div className="p-2 bg-indigo-50/50 dark:bg-slate-800/50 flex items-center gap-2 text-xs border-b border-indigo-100 dark:border-slate-700 overflow-x-auto whitespace-nowrap">
+                             <button onClick={() => openUploadDestinationPicker()} className="font-bold hover:text-indigo-600 dark:text-gray-300 dark:hover:text-white">🏠 Raiz</button>
+                             {uploadNavStack.map((folder, i) => (
+                                <React.Fragment key={folder.id}>
+                                    <span className="opacity-50">/</span>
+                                    <span className={i === uploadNavStack.length - 1 ? 'font-bold dark:text-white' : 'dark:text-gray-300'}>{folder.name}</span>
+                                </React.Fragment>
+                            ))}
+                            {uploadNavStack.length > 0 && (
+                                <button onClick={handleUploadBack} className="ml-auto text-indigo-600 dark:text-indigo-400 font-bold hover:underline">⬅ Voltar</button>
+                            )}
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-white dark:bg-slate-900">
+                            {uploadNavLoading ? (
+                                <div className="text-center py-10 text-indigo-500">A carregar...</div>
+                            ) : uploadNavFiles.filter(f => f.mimeType.includes('folder')).length === 0 ? (
+                                <div className="text-center py-10 text-gray-400 flex flex-col items-center">
+                                    <span className="text-4xl mb-2">📂</span>
+                                    <p>Nenhuma sub-pasta.</p>
+                                    <p className="text-xs">Pode carregar aqui ou criar nova.</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-2">
+                                    {uploadNavFiles.filter(f => f.mimeType.includes('folder')).map(folder => (
+                                        <div 
+                                            key={folder.id}
+                                            onClick={() => handleUploadNavigate(folder.id, folder.name)}
+                                            className="flex items-center gap-3 p-3 rounded-lg border border-transparent hover:bg-indigo-50 dark:hover:bg-slate-800 cursor-pointer transition-all group text-indigo-900 dark:text-indigo-200"
+                                        >
+                                            <span className="text-xl">📁</span>
+                                            <span className="font-medium text-sm truncate flex-1">{folder.name}</span>
+                                            <span className="text-xs text-indigo-400 group-hover:text-indigo-600">Abrir ➡</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-4 border-t border-indigo-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-900">
+                            <div className="text-xs text-gray-500">
+                                Destino: <b>{uploadNavStack.length > 0 ? uploadNavStack[uploadNavStack.length - 1].name : 'Raiz'}</b>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={() => setShowUploadPicker(false)} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancelar</button>
+                                <button 
+                                    onClick={confirmUploadLocation}
+                                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow-md hover:bg-indigo-700 flex items-center gap-2"
+                                >
+                                    Carregar Aqui ⬆️
                                 </button>
                             </div>
                         </div>
