@@ -84,7 +84,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
         setUploading(true);
-        setProcessingStatus('A carregar...');
+        setProcessingStatus('A verificar Drive...');
         
         try {
             const filesToProcess = Array.from(e.target.files);
@@ -92,26 +92,47 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             // Validar apenas imagens
             const invalidFiles = filesToProcess.filter(f => !f.type.startsWith('image/'));
             if (invalidFiles.length > 0) {
-                alert("Apenas imagens (JPG, PNG, GIF) são permitidas. Ficheiros PDF não são suportados.");
+                alert("Apenas imagens (JPG, PNG, GIF) são permitidas.");
                 setUploading(false);
                 setProcessingStatus('');
                 e.target.value = '';
                 return;
             }
 
-            setProcessingStatus(`A enviar ${filesToProcess.length} slides...`);
+            // 1. Determinar Pasta de Destino (Ao Vivo ou Pessoal)
+            let targetFolderId;
+            try {
+                const config = await driveService.getConfig();
+                if (config.liveDriveFolderId && config.liveDriveFolderId.trim() !== '') {
+                    targetFolderId = config.liveDriveFolderId;
+                } else {
+                    targetFolderId = profile.role === 'admin' 
+                        ? config.driveFolderId 
+                        : await driveService.getPersonalFolder(profile);
+                }
+            } catch (err) {
+                console.warn("Erro ao obter config Drive, a usar fallback. " + err);
+            }
 
-            const promises = filesToProcess.map((file: File) => courseService.uploadClassFile(file));
-            const urls = await Promise.all(promises);
+            setProcessingStatus(`A enviar ${filesToProcess.length} ficheiros para o Google Drive...`);
+
+            // 2. Upload para o Drive (Sequencial ou Paralelo)
+            const driveUploadPromises = filesToProcess.map(file => driveService.uploadFile(file, targetFolderId));
+            const results = await Promise.all(driveUploadPromises);
+
+            // 3. Converter IDs do Drive em URLs de Visualização
+            const newUrls = results.map(res => `https://drive.google.com/uc?export=view&id=${res.id}`);
 
             const updated = sanitizeSessionState({
                 ...sessionState,
-                slides: [...sessionState.slides, ...urls],
+                slides: [...sessionState.slides, ...newUrls],
                 is_presenting: sessionState.slides.length === 0 ? true : sessionState.is_presenting
             });
             await updateState(updated);
+            alert("Upload concluído! As imagens foram guardadas no Google Drive.");
+
         } catch (e: any) {
-            alert("Erro upload: " + e.message);
+            alert("Erro upload para Drive: " + e.message);
         } finally {
             setUploading(false);
             setProcessingStatus('');
@@ -303,7 +324,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
                     <label className={`px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 rounded-lg font-bold cursor-pointer hover:bg-indigo-200 transition-colors flex flex-col items-center justify-center leading-tight ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
                         <span className="text-sm">
-                            {uploading ? processingStatus || 'A carregar...' : '+ Upload Imagens'}
+                            {uploading ? processingStatus || 'A carregar...' : '+ Upload (Drive)'}
                         </span>
                         <input type="file" multiple accept="image/*" onChange={handleFileUpload} className="hidden" disabled={uploading} />
                     </label>

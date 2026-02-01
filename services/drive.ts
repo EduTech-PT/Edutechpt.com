@@ -1,4 +1,3 @@
-
 import { adminService } from './admin';
 import { supabase } from '../lib/supabaseClient';
 import { Profile } from '../types';
@@ -184,7 +183,7 @@ export const driveService = {
     }
   },
 
-  async uploadFile(file: File, parentFolderId?: string | null): Promise<void> {
+  async uploadFile(file: File, parentFolderId?: string | null): Promise<{ url: string, id: string }> {
     const config = await this.getConfig();
     const targetId = parentFolderId || config.driveFolderId;
 
@@ -207,8 +206,11 @@ export const driveService = {
           });
           
           const result = await response.json();
-          if (result.status === 'success') resolve();
-          else reject(new Error(result.message || 'Erro upload'));
+          if (result.status === 'success') {
+              resolve({ url: result.url, id: result.id });
+          } else {
+              reject(new Error(result.message || 'Erro upload'));
+          }
         } catch (e) {
           reject(e);
         }
