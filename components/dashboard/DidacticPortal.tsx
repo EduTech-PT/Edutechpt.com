@@ -204,7 +204,7 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                     <div key={item.id} className="flex justify-between p-3 bg-white/50 dark:bg-slate-700/50 border border-indigo-100 dark:border-slate-600 rounded-lg items-center">
                                         <div className="flex-1">
                                             <div className="font-bold text-indigo-900 dark:text-white">{item.title}</div>
-                                            {activeModule === 'announcements' && <div className="text-xs opacity-60 dark:text-indigo-200" dangerouslySetInnerHTML={{ __html: item.content?.substring(0,50) }} />}
+                                            {activeModule === 'announcements' && <div className="text-xs opacity-60 dark:text-indigo-200" dangerouslySetInnerHTML={{ __html: item.content?.substring(0,50) || '' }} />}
                                             {activeModule === 'assessments' && (
                                                 <div className="text-xs font-bold text-indigo-500 dark:text-indigo-300">
                                                     Entrega: {item.due_date ? formatShortDate(item.due_date) : 'Sem data'}

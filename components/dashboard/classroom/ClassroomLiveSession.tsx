@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { courseService } from '../../../services/courses';
 import { driveService, DriveFile } from '../../../services/drive';
@@ -17,7 +17,6 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         current_slide_index: 0,
         slides: []
     });
-    const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [processingStatus, setProcessingStatus] = useState('');
 
@@ -77,25 +76,24 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
         setUploading(true);
-        setProcessingStatus('A iniciar...');
+        setProcessingStatus('A carregar...');
         
         try {
             const filesToProcess = Array.from(e.target.files);
             
-            // Filtrar apenas imagens
-            const finalFilesToUpload = filesToProcess.filter(f => f.type.startsWith('image/'));
-
-            if (finalFilesToUpload.length === 0) {
-                alert("Por favor selecione apenas imagens.");
+            // Validar apenas imagens
+            const invalidFiles = filesToProcess.filter(f => !f.type.startsWith('image/'));
+            if (invalidFiles.length > 0) {
+                alert("Apenas imagens (JPG, PNG, GIF) são permitidas. Ficheiros PDF não são suportados.");
                 setUploading(false);
                 setProcessingStatus('');
                 e.target.value = '';
                 return;
             }
 
-            setProcessingStatus(`A enviar ${finalFilesToUpload.length} slides...`);
+            setProcessingStatus(`A enviar ${filesToProcess.length} slides...`);
 
-            const promises = finalFilesToUpload.map((file: File) => courseService.uploadClassFile(file));
+            const promises = filesToProcess.map((file: File) => courseService.uploadClassFile(file));
             const urls = await Promise.all(promises);
 
             const updated = {
@@ -125,13 +123,12 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             if (config.liveDriveFolderId && config.liveDriveFolderId.trim() !== '') {
                 startId = config.liveDriveFolderId;
             } else {
-                // Fallback: Se for admin, vê a raiz. Se for formador, vê a pasta pessoal.
                 startId = profile.role === 'admin' 
                     ? config.driveFolderId 
                     : await driveService.getPersonalFolder(profile);
             }
             
-            setDriveSessionRoot(startId); // Memorizar a raiz desta sessão para o botão Voltar
+            setDriveSessionRoot(startId); 
 
             const data = await driveService.listFiles(startId);
             setDriveFiles(data.files);
@@ -166,15 +163,13 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
             newStack.pop();
             setDriveFolderStack(newStack);
             
-            // Determinar ID pai (se stack vazio, é a raiz da sessão atual)
             let parentId;
             if (newStack.length > 0) {
                 parentId = newStack[newStack.length - 1].id;
             } else {
-                parentId = driveSessionRoot; // Usa a raiz calculada na abertura
+                parentId = driveSessionRoot;
             }
             
-            // Fallback de segurança se o root não estiver definido
             if (!parentId) {
                  const config = await driveService.getConfig();
                  parentId = config.driveFolderId;
@@ -196,7 +191,6 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     };
 
     const importFromDrive = async () => {
-        // Converter IDs selecionados em URLs diretos
         const newUrls = selectedDriveFiles.map(id => `https://drive.google.com/uc?export=view&id=${id}`);
         
         const updated = {
@@ -232,7 +226,6 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         updateState({ is_presenting: !sessionState.is_presenting });
     };
 
-    // Safety check for critical prop
     if (!activeClass || !activeClass.id) return <div className="text-red-500 p-4">Erro: Turma não selecionada.</div>;
 
     // --- VIEW: ESPETADOR ---
