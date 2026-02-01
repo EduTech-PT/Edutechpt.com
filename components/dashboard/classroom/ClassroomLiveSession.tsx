@@ -369,6 +369,26 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         }
     };
 
+    const handleBulkDelete = async () => {
+        if (selectedDriveFiles.length === 0) return;
+        if (!window.confirm(`Tem a certeza que deseja eliminar ${selectedDriveFiles.length} ficheiros permanentemente?`)) return;
+
+        setLoadingDrive(true);
+        // Optimistic Update
+        const originalFiles = [...driveFiles];
+        setDriveFiles(prev => prev.filter(f => !selectedDriveFiles.includes(f.id)));
+
+        try {
+            await driveService.deleteFiles(selectedDriveFiles);
+            setSelectedDriveFiles([]);
+        } catch (error: any) {
+            alert("Erro ao eliminar ficheiros: " + error.message);
+            setDriveFiles(originalFiles); // Revert
+        } finally {
+            setLoadingDrive(false);
+        }
+    };
+
     const importFromDrive = async () => {
         if (selectedDriveFiles.length === 0) return;
         
@@ -687,7 +707,17 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                         </div>
 
                         <div className="p-4 border-t border-indigo-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-900">
-                            <span className="text-xs text-gray-500">{selectedDriveFiles.length} ficheiros selecionados</span>
+                            <div className="flex items-center gap-4">
+                                <span className="text-xs text-gray-500">{selectedDriveFiles.length} ficheiros selecionados</span>
+                                {selectedDriveFiles.length > 0 && (
+                                    <button 
+                                        onClick={handleBulkDelete}
+                                        className="text-xs text-red-500 hover:text-red-700 font-bold flex items-center gap-1 hover:bg-red-50 dark:hover:bg-red-900/20 px-2 py-1 rounded transition-colors"
+                                    >
+                                        🗑️ Eliminar ({selectedDriveFiles.length})
+                                    </button>
+                                )}
+                            </div>
                             <div className="flex gap-2">
                                 <button onClick={() => setShowDrivePicker(false)} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancelar</button>
                                 <button 
