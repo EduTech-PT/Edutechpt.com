@@ -1,7 +1,7 @@
 
 -- ==============================================================================
--- EDUTECH PT - SCHEMA COMPLETO (v3.1.23)
--- AÇÃO: SUPORTE APRESENTAÇÃO SINCRONIZADA
+-- EDUTECH PT - SCHEMA COMPLETO (v3.1.24)
+-- AÇÃO: SUPORTE UPLOAD ARQUIVOS AULA (CORREÇÃO RLS)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -10,8 +10,8 @@ create table if not exists public.app_config (
     value text
 );
 
-insert into public.app_config (key, value) values ('sql_version', 'v3.1.23')
-on conflict (key) do update set value = 'v3.1.23';
+insert into public.app_config (key, value) values ('sql_version', 'v3.1.24')
+on conflict (key) do update set value = 'v3.1.24';
 
 -- 2. FUNÇÃO DE SEGURANÇA
 create or replace function public.is_admin()
@@ -150,7 +150,7 @@ create table if not exists public.classes (
     live_session jsonb default '{}'::jsonb
 );
 
--- MIGRATION: Colunas novas (Classes) - LIVE SESSION
+-- MIGRATION: Colunas novas (Classes)
 do $$ 
 begin
   if not exists (select 1 from information_schema.columns where table_name='classes' and column_name='live_session') then
@@ -244,7 +244,10 @@ insert into storage.buckets (id, name, public) values ('course-images', 'course-
 update storage.buckets set public = true where id = 'course-images'; 
 
 insert into storage.buckets (id, name, public) values ('class-files', 'class-files', true) on conflict (id) do nothing;
+update storage.buckets set public = true where id = 'class-files'; 
+
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
+update storage.buckets set public = true where id = 'avatars'; 
 
 -- 8. SEGURANÇA E POLÍTICAS (RLS)
 DO $$ 
@@ -278,11 +281,11 @@ drop policy if exists "Admin Gere Cursos" on public.courses;
 create policy "Ver Cursos" on public.courses for select using (true);
 create policy "Admin Gere Cursos" on public.courses for all using ( public.is_admin() OR exists (select 1 from public.profiles where id = auth.uid() and role = 'formador') );
 
+-- CLASSES RLS
 alter table public.classes enable row level security;
 drop policy if exists "Ver Turmas" on public.classes;
 drop policy if exists "Admin Gere Turmas" on public.classes;
 create policy "Ver Turmas" on public.classes for select using (true);
--- Atualização: Formador/Admin/Editor pode atualizar turmas (necessário para Live Session)
 create policy "Admin Gere Turmas" on public.classes for all using ( 
     public.is_admin() 
     OR exists (select 1 from public.profiles where id = auth.uid() and role in ('formador', 'editor')) 
@@ -307,8 +310,19 @@ create policy "Auth Upload Course Images" on storage.objects for insert with che
 create policy "Auth Update Course Images" on storage.objects for update using ( bucket_id = 'course-images' and auth.role() = 'authenticated' );
 create policy "Auth Delete Course Images" on storage.objects for delete using ( bucket_id = 'course-images' and auth.role() = 'authenticated' );
 
+-- POLÍTICAS PARA AULA (SLIDES / MATERIAIS) - FIX
+drop policy if exists "Public Access Class Files" on storage.objects;
+drop policy if exists "Auth Upload Class Files" on storage.objects;
+drop policy if exists "Auth Update Class Files" on storage.objects;
+drop policy if exists "Auth Delete Class Files" on storage.objects;
+
+create policy "Public Access Class Files" on storage.objects for select using ( bucket_id = 'class-files' );
+create policy "Auth Upload Class Files" on storage.objects for insert with check ( bucket_id = 'class-files' and auth.role() = 'authenticated' );
+create policy "Auth Update Class Files" on storage.objects for update using ( bucket_id = 'class-files' and auth.role() = 'authenticated' );
+create policy "Auth Delete Class Files" on storage.objects for delete using ( bucket_id = 'class-files' and auth.role() = 'authenticated' );
+
 -- ==============================================================================
--- 9.1 TRIGGER HANDLE NEW USER (STRICT MODE)
+-- 9.1 TRIGGER HANDLE NEW USER
 -- ==============================================================================
 
 create or replace function public.handle_new_user() 
@@ -316,11 +330,9 @@ returns trigger as $$
 declare
   invite_record record;
 begin
-  -- 1. Verificar Convites
   select * into invite_record from public.user_invites 
   where lower(trim(email)) = lower(trim(new.email));
   
-  -- Master Admin Override (Cria sempre)
   if lower(trim(new.email)) = 'edutechpt@hotmail.com' then 
       insert into public.profiles (id, email, full_name, role, avatar_url)
       values (new.id, new.email, COALESCE(new.raw_user_meta_data->>'full_name', 'Administrador'), 'admin', new.raw_user_meta_data->>'avatar_url')
@@ -328,14 +340,13 @@ begin
       return new;
   end if;
 
-  -- 2. Inserir Perfil APENAS SE HOUVER CONVITE
   if invite_record is not null then
       begin
           insert into public.profiles (id, email, full_name, role, avatar_url)
           values (
             new.id, 
             new.email, 
-            COALESCE(new.raw_user_meta_data->>'full_name', 'Utilizador'), -- Fallback para nome
+            COALESCE(new.raw_user_meta_data->>'full_name', 'Utilizador'),
             invite_record.role, 
             new.raw_user_meta_data->>'avatar_url'
           )

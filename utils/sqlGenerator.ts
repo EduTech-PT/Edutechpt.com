@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
--- AÇÃO: SUPORTE APRESENTAÇÃO SINCRONIZADA
+-- AÇÃO: SUPORTE UPLOAD ARQUIVOS AULA (CORREÇÃO RLS)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -247,7 +247,10 @@ insert into storage.buckets (id, name, public) values ('course-images', 'course-
 update storage.buckets set public = true where id = 'course-images'; 
 
 insert into storage.buckets (id, name, public) values ('class-files', 'class-files', true) on conflict (id) do nothing;
+update storage.buckets set public = true where id = 'class-files'; 
+
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
+update storage.buckets set public = true where id = 'avatars'; 
 
 -- 8. SEGURANÇA E POLÍTICAS (RLS)
 DO $$ 
@@ -286,7 +289,6 @@ alter table public.classes enable row level security;
 drop policy if exists "Ver Turmas" on public.classes;
 drop policy if exists "Admin Gere Turmas" on public.classes;
 create policy "Ver Turmas" on public.classes for select using (true);
--- Atualização: Formador/Admin/Editor pode atualizar turmas (necessário para Live Session)
 create policy "Admin Gere Turmas" on public.classes for all using ( 
     public.is_admin() 
     OR exists (select 1 from public.profiles where id = auth.uid() and role in ('formador', 'editor')) 
@@ -310,6 +312,17 @@ create policy "Public Access Course Images" on storage.objects for select using 
 create policy "Auth Upload Course Images" on storage.objects for insert with check ( bucket_id = 'course-images' and auth.role() = 'authenticated' );
 create policy "Auth Update Course Images" on storage.objects for update using ( bucket_id = 'course-images' and auth.role() = 'authenticated' );
 create policy "Auth Delete Course Images" on storage.objects for delete using ( bucket_id = 'course-images' and auth.role() = 'authenticated' );
+
+-- POLÍTICAS PARA AULA (SLIDES / MATERIAIS) - FIX
+drop policy if exists "Public Access Class Files" on storage.objects;
+drop policy if exists "Auth Upload Class Files" on storage.objects;
+drop policy if exists "Auth Update Class Files" on storage.objects;
+drop policy if exists "Auth Delete Class Files" on storage.objects;
+
+create policy "Public Access Class Files" on storage.objects for select using ( bucket_id = 'class-files' );
+create policy "Auth Upload Class Files" on storage.objects for insert with check ( bucket_id = 'class-files' and auth.role() = 'authenticated' );
+create policy "Auth Update Class Files" on storage.objects for update using ( bucket_id = 'class-files' and auth.role() = 'authenticated' );
+create policy "Auth Delete Class Files" on storage.objects for delete using ( bucket_id = 'class-files' and auth.role() = 'authenticated' );
 
 -- ==============================================================================
 -- 9.1 TRIGGER HANDLE NEW USER
