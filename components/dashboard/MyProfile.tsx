@@ -98,6 +98,19 @@ export const MyProfile: React.FC<Props> = ({ user, refreshProfile, onBack, isAdm
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
+    
+    // AVISO DE ARMAZENAMENTO
+    const confirmMsg = "⚠️ AVISO DE ARMAZENAMENTO\n\n" +
+        "O espaço disponível é limitado (1GB).\n" +
+        "Por favor, confirme que os ficheiros estão otimizados e têm um tamanho reduzido antes de continuar.\n\n" +
+        "Ferramenta sugerida: https://www.compress2go.com/\n\n" +
+        "Deseja prosseguir com o carregamento?";
+
+    if (!window.confirm(confirmMsg)) {
+        e.target.value = '';
+        return;
+    }
+
     const file = e.target.files[0];
 
     const maxKb = avatarConfig?.maxSizeKb || 100;

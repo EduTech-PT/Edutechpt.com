@@ -178,6 +178,19 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
+        
+        // AVISO DE ARMAZENAMENTO
+        const confirmMsg = "⚠️ AVISO DE ARMAZENAMENTO\n\n" +
+            "O espaço disponível é limitado (1GB).\n" +
+            "Por favor, confirme que os ficheiros estão otimizados e têm um tamanho reduzido antes de continuar.\n\n" +
+            "Ferramenta sugerida: https://www.compress2go.com/\n\n" +
+            "Deseja prosseguir com o carregamento?";
+
+        if (!window.confirm(confirmMsg)) {
+            e.target.value = '';
+            return;
+        }
+
         const file = e.target.files[0];
         if (file.size > 2 * 1024 * 1024) {
             alert("Imagem muito grande. Máximo 2MB."); return;
@@ -302,7 +315,13 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                  </div>
                  
                  <div>
-                     <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-900 dark:text-indigo-200 font-bold">Imagem de Capa</label><SaveBtn onClick={() => handleSaveField('image_url', formData.image_url)} /></div>
+                     <div className="flex justify-between items-center mb-1">
+                         <label className="text-sm text-indigo-900 dark:text-indigo-200 font-bold">Imagem de Capa</label>
+                         <div className="flex items-center gap-2">
+                             <a href="https://www.compress2go.com/" target="_blank" rel="noreferrer" className="text-[10px] font-bold text-indigo-500 hover:underline bg-white/50 px-2 py-0.5 rounded border border-indigo-100">📉 Comprimir</a>
+                             <SaveBtn onClick={() => handleSaveField('image_url', formData.image_url)} />
+                         </div>
+                     </div>
                      <div className="flex gap-2 items-center">
                          <div className="flex-1 relative">
                             <input 

@@ -141,6 +141,19 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'favicon') => {
         if (!e.target.files || e.target.files.length === 0) return;
+        
+        // AVISO DE ARMAZENAMENTO
+        const confirmMsg = "⚠️ AVISO DE ARMAZENAMENTO\n\n" +
+            "O espaço disponível é limitado (1GB).\n" +
+            "Por favor, confirme que os ficheiros estão otimizados e têm um tamanho reduzido antes de continuar.\n\n" +
+            "Ferramenta sugerida: https://www.compress2go.com/\n\n" +
+            "Deseja prosseguir com o carregamento?";
+
+        if (!window.confirm(confirmMsg)) {
+            e.target.value = '';
+            return;
+        }
+
         const file = e.target.files[0];
         
         if (type === 'logo' && file.size > 2 * 1024 * 1024) {
@@ -218,6 +231,19 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
         >
             💾
         </button>
+    );
+
+    // Compress Button Helper
+    const CompressLink = () => (
+        <a 
+            href="https://www.compress2go.com/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-[9px] text-indigo-500 hover:text-indigo-700 font-bold ml-2 bg-white px-2 py-0.5 rounded border border-indigo-100"
+            title="Ferramenta para reduzir tamanho do ficheiro"
+        >
+            📉 Comprimir
+        </a>
     );
 
     if (loading) return <div className="p-8 text-center text-indigo-500">A carregar configurações...</div>;
@@ -324,7 +350,10 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
                      <div className="bg-white/40 dark:bg-slate-800/40 p-6 rounded-xl border border-white/50 dark:border-white/10">
-                         <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-3 uppercase tracking-wide">Logótipo</label>
+                         <div className="flex items-center justify-between mb-3">
+                            <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold uppercase tracking-wide">Logótipo</label>
+                            <CompressLink />
+                         </div>
                          <div className="flex gap-2 items-center mb-3">
                              <input type="text" value={config.logoUrl || ''} onChange={e => setConfig({...config, logoUrl: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-black/20 border border-white/60 dark:border-white/20 text-xs dark:text-white"/>
                              <SaveBtn onClick={() => handleSaveField('app_logo_url', config.logoUrl)} />
@@ -339,7 +368,10 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                      </div>
 
                      <div className="bg-white/40 dark:bg-slate-800/40 p-6 rounded-xl border border-white/50 dark:border-white/10">
-                         <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold mb-3 uppercase tracking-wide">Favicon</label>
+                         <div className="flex items-center justify-between mb-3">
+                            <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold uppercase tracking-wide">Favicon</label>
+                            <CompressLink />
+                         </div>
                          <div className="flex gap-2 items-center mb-3">
                              <input type="text" value={config.faviconUrl || ''} onChange={e => setConfig({...config, faviconUrl: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-black/20 border border-white/60 dark:border-white/20 text-xs dark:text-white"/>
                              <SaveBtn onClick={() => handleSaveField('app_favicon_url', config.faviconUrl)} />

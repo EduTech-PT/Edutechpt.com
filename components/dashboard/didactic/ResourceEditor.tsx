@@ -31,6 +31,19 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldPrefix: string = '') => {
         if (!e.target.files || e.target.files.length === 0) return;
+        
+        // AVISO DE ARMAZENAMENTO
+        const confirmMsg = "⚠️ AVISO DE ARMAZENAMENTO\n\n" +
+            "O espaço disponível é limitado (1GB).\n" +
+            "Por favor, confirme que os ficheiros estão otimizados e têm um tamanho reduzido antes de continuar.\n\n" +
+            "Ferramenta sugerida: https://www.compress2go.com/\n\n" +
+            "Deseja prosseguir com o carregamento?";
+
+        if (!window.confirm(confirmMsg)) {
+            e.target.value = '';
+            return;
+        }
+
         setUploading(true);
         try {
             const file = e.target.files[0];
@@ -187,6 +200,19 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
         );
     };
 
+    // Helper for Compress Button
+    const CompressLink = () => (
+        <a 
+            href="https://www.compress2go.com/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-[10px] text-indigo-500 hover:text-indigo-700 dark:text-indigo-300 font-bold bg-indigo-50 dark:bg-slate-700 px-2 py-1 rounded border border-indigo-100 dark:border-slate-600 flex items-center gap-1"
+            title="Ferramenta para reduzir tamanho do ficheiro"
+        >
+            📉 Comprimir
+        </a>
+    );
+
     return (
         <form onSubmit={handleSubmit} className="bg-indigo-50 dark:bg-slate-900/50 p-4 rounded-xl border border-indigo-200 dark:border-slate-700 mb-6 space-y-4 relative">
             <p className="text-sm font-bold text-indigo-800 dark:text-indigo-200 capitalize">Editor de {type}</p>
@@ -227,7 +253,12 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                         </div>
                     )}
 
-                    {formData.type === 'file' && <input type="file" onChange={(e) => handleFileUpload(e)} className="dark:text-white" />}
+                    {formData.type === 'file' && (
+                        <div className="flex items-center gap-2">
+                            <input type="file" onChange={(e) => handleFileUpload(e)} className="dark:text-white text-xs flex-1" />
+                            <CompressLink />
+                        </div>
+                    )}
                     {formData.type === 'drive' && <DrivePickerTrigger />}
                 </div>
             )}
@@ -273,7 +304,12 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                         
                         {formData.resource_type === 'genially' && <input type="text" placeholder="Código Embed ou Link (Genially, H5P, Canva...)" className="w-full p-2 rounded text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.resource_url || ''} onChange={e => handleGeniallyInput(e.target.value, 'resource_')} />}
 
-                        {formData.resource_type === 'file' && <input type="file" className="text-xs dark:text-white" onChange={(e) => handleFileUpload(e, 'resource_')} />}
+                        {formData.resource_type === 'file' && (
+                            <div className="flex items-center gap-2">
+                                <input type="file" className="text-xs dark:text-white flex-1" onChange={(e) => handleFileUpload(e, 'resource_')} />
+                                <CompressLink />
+                            </div>
+                        )}
                         {formData.resource_type === 'drive' && <DrivePickerTrigger fieldPrefix="resource_" />}
                     </div>
                 </div>

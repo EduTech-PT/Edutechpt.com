@@ -348,7 +348,7 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                         href="https://www.compress2go.com/" 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="hidden md:flex items-center px-3 py-2 bg-white/50 dark:bg-slate-800/50 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-slate-600 rounded-lg font-bold hover:bg-white dark:hover:bg-slate-700 text-xs gap-1 transition-colors"
+                        className="flex items-center px-3 py-2 bg-white/50 dark:bg-slate-800/50 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-slate-600 rounded-lg font-bold hover:bg-white dark:hover:bg-slate-700 text-xs gap-1 transition-colors"
                         title="Ferramenta Online para reduzir tamanho dos ficheiros"
                     >
                         📉 Comprimir

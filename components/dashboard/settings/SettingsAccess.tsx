@@ -34,6 +34,18 @@ const UploadBtn = ({ uploading, onChange, id }: { uploading: boolean, onChange: 
     </label>
 );
 
+const CompressLink = () => (
+    <a 
+        href="https://www.compress2go.com/" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="text-[9px] text-indigo-500 hover:text-indigo-700 dark:text-indigo-300 font-bold ml-2 bg-white/50 px-2 py-0.5 rounded border border-indigo-100 dark:border-slate-600 flex items-center gap-1"
+        title="Ferramenta para reduzir tamanho do ficheiro"
+    >
+        📉 Comprimir
+    </a>
+);
+
 export const SettingsAccess: React.FC<Props> = ({ profile }) => {
     const [config, setConfig] = useState<any>({});
     const [userSound, setUserSound] = useState<string>('pop');
@@ -83,6 +95,19 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
 
     const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'top' | 'bottom') => {
         if (!e.target.files || e.target.files.length === 0) return;
+        
+        // AVISO DE ARMAZENAMENTO
+        const confirmMsg = "⚠️ AVISO DE ARMAZENAMENTO\n\n" +
+            "O espaço disponível é limitado (1GB).\n" +
+            "Por favor, confirme que os ficheiros estão otimizados e têm um tamanho reduzido antes de continuar.\n\n" +
+            "Ferramenta sugerida: https://www.compress2go.com/\n\n" +
+            "Deseja prosseguir com o carregamento?";
+
+        if (!window.confirm(confirmMsg)) {
+            e.target.value = '';
+            return;
+        }
+
         const file = e.target.files[0];
         
         // Validação de Tamanho (2MB)
@@ -222,7 +247,8 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
                      <div className="bg-white/40 dark:bg-slate-800/40 p-4 rounded-xl border border-indigo-100 dark:border-slate-700">
                          <div className="flex justify-between items-center mb-2">
                              <label className="text-sm font-bold text-indigo-800 dark:text-indigo-200">Banner de Topo</label>
-                             <div className="flex">
+                             <div className="flex items-center">
+                                <CompressLink />
                                 <UploadBtn id="upload-top" uploading={uploadingTop} onChange={(e) => handleBannerUpload(e, 'top')} />
                                 <SaveBtn onClick={() => handleSaveConfigField('email_banner_top', config.emailBannerTop)} />
                              </div>
@@ -247,7 +273,8 @@ export const SettingsAccess: React.FC<Props> = ({ profile }) => {
                      <div className="bg-white/40 dark:bg-slate-800/40 p-4 rounded-xl border border-indigo-100 dark:border-slate-700">
                          <div className="flex justify-between items-center mb-2">
                              <label className="text-sm font-bold text-indigo-800 dark:text-indigo-200">Banner de Rodapé</label>
-                             <div className="flex">
+                             <div className="flex items-center">
+                                <CompressLink />
                                 <UploadBtn id="upload-bottom" uploading={uploadingBottom} onChange={(e) => handleBannerUpload(e, 'bottom')} />
                                 <SaveBtn onClick={() => handleSaveConfigField('email_banner_bottom', config.emailBannerBottom)} />
                              </div>
