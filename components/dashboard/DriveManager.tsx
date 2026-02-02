@@ -129,7 +129,13 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
         if (!e.target.files || e.target.files.length === 0) return;
         
         // AVISO DE TAMANHO REDUZIDO (Solicitado)
-        if (!window.confirm("⚠️ AVISO DE ARMAZENAMENTO\n\nO espaço disponível é limitado (1GB).\nPor favor, confirme que os ficheiros estão otimizados e têm um tamanho reduzido antes de continuar.\n\nDeseja prosseguir com o carregamento?")) {
+        const confirmMsg = "⚠️ AVISO DE ARMAZENAMENTO\n\n" +
+            "O espaço disponível é limitado (1GB).\n" +
+            "Por favor, confirme que os ficheiros estão otimizados e têm um tamanho reduzido antes de continuar.\n\n" +
+            "Ferramenta sugerida: https://www.compress2go.com/\n\n" +
+            "Deseja prosseguir com o carregamento?";
+
+        if (!window.confirm(confirmMsg)) {
             e.target.value = '';
             return;
         }
@@ -301,6 +307,10 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
+    // Calculation for Progress Bar
+    const percentUsed = usage ? Math.min((usage.used / usage.limit) * 100, 100) : 0;
+    const percentFree = (100 - percentUsed).toFixed(1);
+
     return (
         <div className="space-y-6 animate-in slide-in-from-right duration-300">
              {/* Header & Actions */}
@@ -325,7 +335,7 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                     </div>
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center flex-wrap md:flex-nowrap">
                     {selectedFiles.length > 0 && (
                         <button 
                             onClick={handleBulkDelete}
@@ -334,14 +344,23 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                             Eliminar ({selectedFiles.length})
                         </button>
                     )}
+                    <a 
+                        href="https://www.compress2go.com/" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="hidden md:flex items-center px-3 py-2 bg-white/50 dark:bg-slate-800/50 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-slate-600 rounded-lg font-bold hover:bg-white dark:hover:bg-slate-700 text-xs gap-1 transition-colors"
+                        title="Ferramenta Online para reduzir tamanho dos ficheiros"
+                    >
+                        📉 Comprimir
+                    </a>
                     <button onClick={() => { loadFiles(currentFolderId || undefined); if(rootId) checkUsage(rootId); }} className="px-4 py-2 text-indigo-600 dark:text-white hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg" title="Atualizar">
                         🔄
                     </button>
                     <button onClick={handleCreateFolder} className="px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 hover:bg-indigo-200 dark:hover:bg-slate-600 rounded-lg font-bold shadow-sm">
-                        + Nova Pasta
+                        + Pasta
                     </button>
                     <label className={`px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold shadow-lg cursor-pointer flex items-center gap-2 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                        {uploading ? (uploadStatus || 'A enviar...') : 'Novo(s) Ficheiro(s)'}
+                        {uploading ? (uploadStatus || 'A enviar...') : 'Upload'}
                         <input type="file" multiple className="hidden" onChange={handleUpload} />
                     </label>
                 </div>
@@ -352,7 +371,10 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                  <GlassCard className="py-3 px-4 border border-indigo-100 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 shadow-sm">
                      <div className="flex justify-between items-end mb-1 text-xs font-bold">
                          <span className="text-indigo-900 dark:text-white flex items-center gap-2">
-                             💾 Armazenamento Disponível
+                             💾 Armazenamento Disponível 
+                             <span className="opacity-70 text-[10px] bg-indigo-50 dark:bg-slate-700 px-1.5 rounded text-indigo-700 dark:text-indigo-300">
+                                ({percentFree}% Livre)
+                             </span>
                              {loadingUsage && <span className="text-indigo-400 font-normal animate-pulse">(A atualizar...)</span>}
                          </span>
                          <span className="text-indigo-600 dark:text-indigo-300">
@@ -362,16 +384,21 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                      <div className="w-full h-2.5 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
                          <div 
                             className={`h-full transition-all duration-1000 ease-out rounded-full ${
-                                (usage.used / usage.limit) > 0.9 ? 'bg-red-600' : 
-                                (usage.used / usage.limit) > 0.75 ? 'bg-yellow-500' : 'bg-green-500'
+                                percentUsed > 90 ? 'bg-red-600' : 
+                                percentUsed > 75 ? 'bg-yellow-500' : 'bg-green-500'
                             }`}
-                            style={{ width: `${Math.min((usage.used / usage.limit) * 100, 100)}%` }}
+                            style={{ width: `${percentUsed}%` }}
                          ></div>
                      </div>
-                     {(usage.used / usage.limit) > 0.75 && (
-                         <p className="text-[10px] text-red-500 mt-1 font-bold animate-pulse flex items-center gap-1">
-                             ⚠️ Atenção: Estás perto do limite. Elimina ficheiros antigos que já não estejam em uso.
-                         </p>
+                     {percentUsed > 75 && (
+                         <div className="flex justify-between items-center mt-1">
+                            <p className="text-[10px] text-red-500 font-bold animate-pulse flex items-center gap-1">
+                                ⚠️ Atenção: Estás perto do limite. Elimina ficheiros antigos que já não estejam em uso.
+                            </p>
+                            <a href="https://www.compress2go.com/" target="_blank" rel="noreferrer" className="text-[9px] font-bold text-indigo-500 hover:underline">
+                                Reduzir tamanho dos ficheiros &rarr;
+                            </a>
+                         </div>
                      )}
                  </GlassCard>
              )}
