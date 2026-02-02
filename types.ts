@@ -47,7 +47,9 @@ export interface Profile {
   // Notificações (v3.1.6)
   notification_sound?: 'pop' | 'glass' | 'digital' | 'happy' | 'sonar' | 'magic' | 'success' | 'ping' | 'none';
   // Notificações Globais (v3.1.5)
-  global_notifications?: boolean; 
+  global_notifications?: boolean;
+  // Moderação (v3.1.25)
+  is_hidden_from_community?: boolean; 
 }
 
 export interface UserPermissions {

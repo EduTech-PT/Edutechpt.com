@@ -45,6 +45,7 @@ export const Community: React.FC = () => {
 
     const filteredMembers = members.filter(m => 
         m.role !== UserRole.ADMIN && // HIDE ADMIN FROM COMMUNITY
+        !m.is_hidden_from_community && // HIDE USERS MARKED AS HIDDEN
         (
             (m.full_name?.toLowerCase() || '').includes(search.toLowerCase()) ||
             (m.city?.toLowerCase() || '').includes(search.toLowerCase())

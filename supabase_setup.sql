@@ -1,7 +1,7 @@
 
 -- ==============================================================================
--- EDUTECH PT - SCHEMA COMPLETO (v3.1.24)
--- AÇÃO: SUPORTE UPLOAD ARQUIVOS AULA (CORREÇÃO RLS)
+-- EDUTECH PT - SCHEMA COMPLETO (v3.1.25)
+-- AÇÃO: SUPORTE HIDE USER FROM COMMUNITY (MODERAÇÃO)
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -10,8 +10,8 @@ create table if not exists public.app_config (
     value text
 );
 
-insert into public.app_config (key, value) values ('sql_version', 'v3.1.24')
-on conflict (key) do update set value = 'v3.1.24';
+insert into public.app_config (key, value) values ('sql_version', 'v3.1.25')
+on conflict (key) do update set value = 'v3.1.25';
 
 -- 2. FUNÇÃO DE SEGURANÇA
 create or replace function public.is_admin()
@@ -49,6 +49,7 @@ create table if not exists public.profiles (
     personal_folder_id text,
     notification_sound text default 'pop',
     global_notifications boolean default true,
+    is_hidden_from_community boolean default false,
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
@@ -60,6 +61,9 @@ begin
   end if;
   if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='global_notifications') then
     alter table public.profiles add column global_notifications boolean default true;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='is_hidden_from_community') then
+    alter table public.profiles add column is_hidden_from_community boolean default false;
   end if;
   if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='tiktok_url') then
     alter table public.profiles add column tiktok_url text;

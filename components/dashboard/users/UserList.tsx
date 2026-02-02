@@ -15,6 +15,7 @@ interface UserListProps {
 export const UserList: React.FC<UserListProps> = ({ users, roles, currentUserRole, onEditUser, onRefresh }) => {
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [updatingRoleFor, setUpdatingRoleFor] = useState<string | null>(null);
+    const [togglingVisibilityFor, setTogglingVisibilityFor] = useState<string | null>(null);
 
     const isAdmin = currentUserRole === 'admin';
 
@@ -39,6 +40,19 @@ export const UserList: React.FC<UserListProps> = ({ users, roles, currentUserRol
             alert("Erro ao atualizar cargo: " + err.message);
         } finally {
             setUpdatingRoleFor(null);
+        }
+    };
+
+    const handleToggleVisibility = async (userId: string, isVisible: boolean) => {
+        setTogglingVisibilityFor(userId);
+        try {
+            // isVisible = true significa is_hidden_from_community = false
+            await userService.updateProfile(userId, { is_hidden_from_community: !isVisible });
+            onRefresh();
+        } catch (err: any) {
+            alert("Erro ao atualizar visibilidade: " + err.message);
+        } finally {
+            setTogglingVisibilityFor(null);
         }
     };
 
@@ -67,6 +81,7 @@ export const UserList: React.FC<UserListProps> = ({ users, roles, currentUserRol
                             <th>Nome</th>
                             <th>Email</th>
                             <th>Cargo</th>
+                            <th className="text-center" title="Visível na Comunidade?">Visível</th>
                             <th className="w-10"></th>
                         </tr>
                     </thead>
@@ -74,6 +89,7 @@ export const UserList: React.FC<UserListProps> = ({ users, roles, currentUserRol
                         {users.map(u => {
                             const isTargetAdmin = u.role === 'admin';
                             const canEditThisUser = isAdmin || !isTargetAdmin;
+                            const isVisible = !u.is_hidden_from_community;
 
                             return (
                                 <tr key={u.id} className="border-b border-indigo-50 dark:border-slate-700 hover:bg-white/30 dark:hover:bg-slate-800/30 group">
@@ -113,6 +129,21 @@ export const UserList: React.FC<UserListProps> = ({ users, roles, currentUserRol
                                                     ))
                                                 }
                                             </select>
+                                        </div>
+                                    </td>
+                                    <td className="py-3 text-center">
+                                        <div className="relative flex justify-center">
+                                            {togglingVisibilityFor === u.id ? (
+                                                <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                                            ) : (
+                                                <input 
+                                                    type="checkbox"
+                                                    checked={isVisible}
+                                                    onChange={(e) => handleToggleVisibility(u.id, e.target.checked)}
+                                                    className="rounded text-green-600 focus:ring-green-500 cursor-pointer w-4 h-4"
+                                                    title={isVisible ? "Visível na comunidade" : "Oculto da comunidade"}
+                                                />
+                                            )}
                                         </div>
                                     </td>
                                     <td className="py-3 text-right">
