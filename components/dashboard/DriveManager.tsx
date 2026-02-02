@@ -128,6 +128,12 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
         
+        // AVISO DE TAMANHO REDUZIDO (Solicitado)
+        if (!window.confirm("⚠️ AVISO DE ARMAZENAMENTO\n\nO espaço disponível é limitado (1GB).\nPor favor, confirme que os ficheiros estão otimizados e têm um tamanho reduzido antes de continuar.\n\nDeseja prosseguir com o carregamento?")) {
+            e.target.value = '';
+            return;
+        }
+
         // Converter FileList para Array para poder iterar
         const filesToUpload = Array.from(e.target.files);
         
