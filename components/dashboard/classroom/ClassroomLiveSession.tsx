@@ -509,9 +509,10 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                             referrerPolicy="no-referrer"
                         />
                     ) : (
-                        <div className="text-gray-500 flex flex-col items-center">
-                            <span className="text-4xl mb-2">🖼️</span>
-                            <p>Adicione imagens para começar.</p>
+                        <div className="text-gray-500 flex flex-col items-center text-center opacity-60">
+                            <span className="text-4xl mb-3">🖼️</span>
+                            <p className="font-bold">Adicione slides para começar</p>
+                            <p className="text-xs mt-1 max-w-[200px]">Suportado: JPG, PNG, GIF, WEBP</p>
                         </div>
                     )}
                     
@@ -524,9 +525,21 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
                 {/* Thumbnails Sidebar */}
                 <div className="flex flex-col gap-4">
-                    <div className="bg-indigo-50 dark:bg-slate-900/50 p-4 rounded-xl border border-indigo-100 dark:border-slate-700 text-sm">
-                        <p className="font-bold text-indigo-900 dark:text-white">📡 Modo de Preparação</p>
-                        <p className="text-indigo-700 dark:text-indigo-300">Carregue aqui os seus slides (Imagens) ou selecione do Drive. O que definir aqui aparecerá automaticamente na Sala de Aula quando iniciar a transmissão.</p>
+                    <div className="bg-indigo-50 dark:bg-slate-900/50 p-4 rounded-xl border border-indigo-100 dark:border-slate-700 text-sm space-y-2">
+                        <div>
+                            <p className="font-bold text-indigo-900 dark:text-white">📡 Modo de Preparação</p>
+                            <p className="text-indigo-700 dark:text-indigo-300">Prepare aqui a sua apresentação. O que definir aqui aparecerá automaticamente na Sala de Aula.</p>
+                        </div>
+                        <div className="bg-white/50 dark:bg-slate-800/50 p-2 rounded border border-indigo-100 dark:border-slate-600">
+                            <p className="text-xs font-bold text-indigo-800 dark:text-indigo-200">⚠️ IMPORTANTE: Apenas Imagens</p>
+                            <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">
+                                A transmissão suporta exclusivamente ficheiros de imagem: <br/>
+                                <span className="font-mono bg-indigo-100 dark:bg-slate-700 px-1 rounded">JPG</span>
+                                <span className="font-mono bg-indigo-100 dark:bg-slate-700 px-1 rounded ml-1">PNG</span>
+                                <span className="font-mono bg-indigo-100 dark:bg-slate-700 px-1 rounded ml-1">GIF</span>
+                                <span className="font-mono bg-indigo-100 dark:bg-slate-700 px-1 rounded ml-1">WEBP</span>
+                            </p>
+                        </div>
                     </div>
                     
                     <div className="flex-1 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-indigo-100 dark:border-slate-700 overflow-y-auto custom-scrollbar p-2 space-y-2 h-[400px] lg:h-auto">
