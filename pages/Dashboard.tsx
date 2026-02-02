@@ -35,6 +35,7 @@ const ClassManager = React.lazy(() => import('../components/dashboard/ClassManag
 const DidacticPortal = React.lazy(() => import('../components/dashboard/DidacticPortal').then(m => ({ default: m.DidacticPortal })));
 const AccessLogs = React.lazy(() => import('../components/dashboard/AccessLogs').then(m => ({ default: m.AccessLogs })));
 const StudentAllocation = React.lazy(() => import('../components/dashboard/StudentAllocation').then(m => ({ default: m.StudentAllocation })));
+const ClassAllocation = React.lazy(() => import('../components/dashboard/ClassAllocation').then(m => ({ default: m.ClassAllocation }))); // IMPORTADO
 
 // Legal Pages (Embedded)
 import { PrivacyPolicy } from './PrivacyPolicy';
@@ -558,6 +559,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 case 'manage_courses': return <CourseManager profile={profile} />;
                 case 'manage_classes': return <ClassManager />;
                 case 'manage_student_allocation': return <StudentAllocation />;
+                case 'manage_trainer_allocation': return <ClassAllocation />; // NOVO
                 case 'didactic_portal': return <DidacticPortal profile={profile} />;
 
                 case 'media': return <MediaManager />;
@@ -597,6 +599,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
       if (view === 'manage_courses') return 'Gestão de Cursos';
       if (view === 'manage_classes') return 'Gestão de Turmas';
       if (view === 'manage_student_allocation') return 'Alocação de Alunos';
+      if (view === 'manage_trainer_allocation') return 'Alocação de Formadores'; // NOVO
       if (view === 'didactic_portal') return 'Recursos da Sala de Aula'; 
       if (view === 'student_classroom') return 'Sala de Aula';
       if (view === 'courses') return 'Meus Cursos e Oferta';

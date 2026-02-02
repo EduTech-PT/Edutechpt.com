@@ -50,7 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const role = profile?.role || UserRole.STUDENT;
   
   // Estado para controlar Mobile Accordion (Desktop usa Hover/CSS)
-  const [openGroups, setOpenGroups] = useState<string[]>(['perfil', 'agenda', 'cursos']);
+  const [openGroups, setOpenGroups] = useState<string[]>(['perfil', 'agenda', 'cursos', 'alocacao']);
 
   const toggleGroup = (groupId: string) => {
     if (disabled) return;
@@ -118,9 +118,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'didactic_portal', label: 'Recursos da Sala de Aula', permissionKey: 'view_didactic_portal', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
         { id: 'manage_courses', label: 'Gestão de Cursos', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
         { id: 'manage_classes', label: 'Gestão de Turmas', permissionKey: 'manage_classes', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] }, 
-        { id: 'manage_student_allocation', label: 'Alocação Alunos', permissionKey: 'manage_classes', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
         { id: 'media', label: 'Galeria', permissionKey: 'manage_courses', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
         { id: 'drive', label: 'Arquivos Drive', permissionKey: 'view_drive', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR, UserRole.TRAINER] },
+      ]
+    },
+    {
+      id: 'alocacao',
+      label: 'Alocação',
+      icon: '⇄',
+      items: [
+        { id: 'manage_student_allocation', label: 'Alocação Alunos', permissionKey: 'manage_classes', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR] },
+        { id: 'manage_trainer_allocation', label: 'Alocação Formadores', permissionKey: 'manage_allocations', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR] },
       ]
     },
     {
@@ -131,7 +139,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'users', label: 'Utilizadores', permissionKey: 'view_users', fallbackRoles: [UserRole.ADMIN] },
         { id: 'settings_logs', label: 'Monitorização', permissionKey: 'view_users', fallbackRoles: [UserRole.ADMIN] }, 
         { id: 'settings_roles', label: 'Cargos e Permissões', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
-        { id: 'settings_allocation', label: 'Alocação Formadores', permissionKey: 'manage_allocations', fallbackRoles: [UserRole.ADMIN, UserRole.EDITOR] }, 
         { id: 'settings_geral', label: 'Sistema', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
         { id: 'settings_sql', label: 'Base de Dados', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
         { id: 'settings_drive', label: 'Integração Drive', permissionKey: 'view_settings', fallbackRoles: [UserRole.ADMIN] },
@@ -171,8 +178,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const isOpen = openGroups.includes(group.id);
     const hasActiveChild = accessibleItems.some(i => i.id === currentView);
     
-    // CORREÇÃO: Grupos "definicoes" e "cursos" ficam centrados na vertical para evitar cortes
-    const isCentered = group.id === 'definicoes' || group.id === 'cursos';
+    // CORREÇÃO: Grupos "definicoes", "cursos" e "alocacao" ficam centrados na vertical para evitar cortes
+    const isCentered = group.id === 'definicoes' || group.id === 'cursos' || group.id === 'alocacao';
 
     return (
       <div key={group.id} className={`mb-2 relative group ${disabled ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
