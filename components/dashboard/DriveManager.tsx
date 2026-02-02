@@ -15,6 +15,9 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
     const [uploadStatus, setUploadStatus] = useState(''); // Estado para feedback detalhado
     const [error, setError] = useState<string | null>(null);
 
+    // Selection State
+    const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+
     // Navigation State
     const [rootId, setRootId] = useState<string | null>(null);
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -59,6 +62,7 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
             // 3. Carregar ficheiros
             const data = await driveService.listFiles(startFolderId);
             setFiles(data.files);
+            setSelectedFiles([]);
 
         } catch (err: any) {
             console.error("Init Drive Error:", err);
@@ -78,6 +82,7 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
 
             const data = await driveService.listFiles(targetId);
             setFiles(data.files);
+            setSelectedFiles([]); // Limpar seleção ao mudar/recarregar
             
             if (folderId) setCurrentFolderId(folderId);
 
@@ -165,6 +170,35 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
         }
     };
 
+    const handleBulkDelete = async () => {
+        if (selectedFiles.length === 0) return;
+        if (!window.confirm(`Tem a certeza que deseja eliminar ${selectedFiles.length} itens permanentemente?`)) return;
+
+        try {
+            setLoading(true);
+            await driveService.deleteFiles(selectedFiles);
+            alert(`${selectedFiles.length} itens eliminados com sucesso.`);
+            loadFiles(currentFolderId || undefined);
+        } catch (err: any) {
+            alert("Erro ao eliminar itens: " + err.message);
+            setLoading(false);
+        }
+    };
+
+    const toggleSelection = (id: string) => {
+        setSelectedFiles(prev => 
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedFiles.length === files.length) {
+            setSelectedFiles([]);
+        } else {
+            setSelectedFiles(files.map(f => f.id));
+        }
+    };
+
     // Navegação
     const navigateToFolder = (folder: DriveFile) => {
         setFolderStack([...folderStack, { id: folder.id, name: folder.name }]);
@@ -230,6 +264,14 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                 </div>
                 
                 <div className="flex gap-2">
+                    {selectedFiles.length > 0 && (
+                        <button 
+                            onClick={handleBulkDelete}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold shadow-md hover:bg-red-700 animate-in fade-in"
+                        >
+                            Eliminar ({selectedFiles.length})
+                        </button>
+                    )}
                     <button onClick={() => loadFiles(currentFolderId || undefined)} className="px-4 py-2 text-indigo-600 dark:text-white hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg" title="Atualizar">
                         🔄
                     </button>
@@ -288,86 +330,120 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                         <p className="text-sm text-indigo-600 dark:text-indigo-300">Carregue ficheiros ou crie pastas para organizar o seu material.</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {/* Botão de Voltar se não estiver na raiz */}
-                        {folderStack.length > 0 && (
-                            <div 
-                                onClick={navigateUp}
-                                className="bg-indigo-50/50 dark:bg-slate-800/50 border border-indigo-100 dark:border-slate-700 p-4 rounded-xl flex items-center justify-center gap-3 hover:bg-indigo-100 dark:hover:bg-slate-700 cursor-pointer text-indigo-800 dark:text-indigo-200 font-bold transition-colors"
-                            >
-                                ⬅️ Voltar
+                    <>
+                        {/* Toolbar: Select All */}
+                        <div className="flex items-center justify-between mb-4 border-b border-gray-100 dark:border-slate-700 pb-2 px-1">
+                            <div className="flex items-center gap-2">
+                                <input 
+                                    type="checkbox" 
+                                    checked={selectedFiles.length === files.length && files.length > 0}
+                                    onChange={toggleSelectAll}
+                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                    id="select-all-drive"
+                                />
+                                <label htmlFor="select-all-drive" className="text-sm font-bold text-indigo-900 dark:text-white cursor-pointer select-none">
+                                    Selecionar Tudo
+                                </label>
                             </div>
-                        )}
+                            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{selectedFiles.length} selecionado(s)</span>
+                        </div>
 
-                        {files.map(file => {
-                            const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
-                            const isImage = file.mimeType.includes('image');
-                            
-                            return (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {/* Botão de Voltar se não estiver na raiz */}
+                            {folderStack.length > 0 && (
                                 <div 
-                                    key={file.id} 
-                                    className={`
-                                        bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-slate-700 p-4 rounded-xl flex items-start gap-3 hover:shadow-md transition-all group relative select-none overflow-hidden
-                                        ${isFolder ? 'cursor-pointer hover:bg-indigo-50 dark:hover:bg-slate-700' : ''}
-                                    `}
-                                    onClick={() => isFolder && navigateToFolder(file)}
+                                    onClick={navigateUp}
+                                    className="bg-indigo-50/50 dark:bg-slate-800/50 border border-indigo-100 dark:border-slate-700 p-4 rounded-xl flex items-center justify-center gap-3 hover:bg-indigo-100 dark:hover:bg-slate-700 cursor-pointer text-indigo-800 dark:text-indigo-200 font-bold transition-colors"
                                 >
-                                    <div className="text-3xl filter drop-shadow-sm flex items-center justify-center w-10 h-10 shrink-0">
-                                        {isImage ? (
-                                            <img 
-                                                src={getDirectLink(file.id)} 
-                                                className="w-full h-full object-cover rounded bg-gray-100" 
-                                                alt=""
-                                                loading="lazy"
-                                                referrerPolicy="no-referrer"
-                                                onError={(e) => {
-                                                    // Fallback se falhar
-                                                    e.currentTarget.style.display = 'none';
-                                                    e.currentTarget.parentElement!.innerHTML = '🖼️';
-                                                }}
-                                            />
-                                        ) : (
-                                            getIcon(file.mimeType)
-                                        )}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <h4 className="font-bold text-indigo-900 dark:text-white text-sm truncate" title={file.name}>{file.name}</h4>
-                                        <p className="text-xs text-indigo-700 dark:text-indigo-300 opacity-70">
-                                            {isFolder ? 'Pasta' : `${(file.size / 1024 / 1024).toFixed(2)} MB`}
-                                        </p>
-                                        {!isFolder && (
-                                            <div className="flex gap-3 mt-1">
-                                                <a 
-                                                    href={file.url} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer" 
-                                                    className="text-xs text-indigo-600 dark:text-indigo-300 font-bold hover:underline"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    Abrir
-                                                </a>
-                                                <a 
-                                                    href={`https://drive.google.com/uc?export=download&id=${file.id}`}
-                                                    className="text-xs text-green-600 dark:text-green-400 font-bold hover:underline flex items-center gap-1"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    title="Download"
-                                                >
-                                                    Download ⬇️
-                                                </a>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <button 
-                                        onClick={(e) => handleDelete(e, file.id, isFolder)}
-                                        className="absolute top-2 right-2 text-red-500 bg-white/80 dark:bg-slate-700 rounded-full w-6 h-6 flex items-center justify-center shadow-sm hover:bg-red-100 hover:text-red-700 transition-all opacity-0 group-hover:opacity-100"
-                                        title="Eliminar"
-                                    >
-                                        ✕
-                                    </button>
+                                    ⬅️ Voltar
                                 </div>
-                            );
-                        })}
-                    </div>
+                            )}
+
+                            {files.map(file => {
+                                const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
+                                const isImage = file.mimeType.includes('image');
+                                const isSelected = selectedFiles.includes(file.id);
+                                
+                                return (
+                                    <div 
+                                        key={file.id} 
+                                        className={`
+                                            bg-white/50 dark:bg-slate-800/50 border p-4 rounded-xl flex items-start gap-3 hover:shadow-md transition-all group relative select-none overflow-hidden
+                                            ${isFolder ? 'cursor-pointer hover:bg-indigo-50 dark:hover:bg-slate-700' : ''}
+                                            ${isSelected ? 'border-indigo-500 ring-1 ring-indigo-500 bg-indigo-50 dark:bg-slate-800' : 'border-white/60 dark:border-slate-700'}
+                                        `}
+                                        onClick={(e) => {
+                                            // Se clicar no cartão e for pasta, navega. Se não, não faz nada (seleção é explícita no checkbox)
+                                            if (isFolder && !e.defaultPrevented) navigateToFolder(file);
+                                        }}
+                                    >
+                                        {/* Selection Checkbox */}
+                                        <div className="absolute top-2 left-2 z-20" onClick={(e) => e.stopPropagation()}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={isSelected}
+                                                onChange={() => toggleSelection(file.id)}
+                                                className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                            />
+                                        </div>
+
+                                        <div className="text-3xl filter drop-shadow-sm flex items-center justify-center w-10 h-10 shrink-0 ml-4">
+                                            {isImage ? (
+                                                <img 
+                                                    src={getDirectLink(file.id)} 
+                                                    className="w-full h-full object-cover rounded bg-gray-100" 
+                                                    alt=""
+                                                    loading="lazy"
+                                                    referrerPolicy="no-referrer"
+                                                    onError={(e) => {
+                                                        // Fallback se falhar
+                                                        e.currentTarget.style.display = 'none';
+                                                        e.currentTarget.parentElement!.innerHTML = '🖼️';
+                                                    }}
+                                                />
+                                            ) : (
+                                                getIcon(file.mimeType)
+                                            )}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <h4 className="font-bold text-indigo-900 dark:text-white text-sm truncate" title={file.name}>{file.name}</h4>
+                                            <p className="text-xs text-indigo-700 dark:text-indigo-300 opacity-70">
+                                                {isFolder ? 'Pasta' : `${(file.size / 1024 / 1024).toFixed(2)} MB`}
+                                            </p>
+                                            {!isFolder && (
+                                                <div className="flex gap-3 mt-1">
+                                                    <a 
+                                                        href={file.url} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="text-xs text-indigo-600 dark:text-indigo-300 font-bold hover:underline"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        Abrir
+                                                    </a>
+                                                    <a 
+                                                        href={`https://drive.google.com/uc?export=download&id=${file.id}`}
+                                                        className="text-xs text-green-600 dark:text-green-400 font-bold hover:underline flex items-center gap-1"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        title="Download"
+                                                    >
+                                                        Download ⬇️
+                                                    </a>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <button 
+                                            onClick={(e) => handleDelete(e, file.id, isFolder)}
+                                            className="absolute top-2 right-2 text-red-500 bg-white/80 dark:bg-slate-700 rounded-full w-6 h-6 flex items-center justify-center shadow-sm hover:bg-red-100 hover:text-red-700 transition-all opacity-0 group-hover:opacity-100 z-20"
+                                            title="Eliminar"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
                 )}
              </GlassCard>
         </div>
