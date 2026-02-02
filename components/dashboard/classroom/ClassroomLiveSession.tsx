@@ -26,17 +26,14 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         slides: []
     }));
     
-    const [uploading, setUploading] = useState(false);
-    const [processingStatus, setProcessingStatus] = useState('');
     const [refreshing, setRefreshing] = useState(false);
     
     // Student Fullscreen State
     const [isFullscreen, setIsFullscreen] = useState(false);
     const studentContainerRef = useRef<HTMLDivElement>(null);
 
-    // References for polling control and file input
+    // References for polling control
     const lastUpdateRef = useRef<number>(Date.now());
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // DRIVE IMPORT PICKER STATE (Para selecionar slides existentes)
     const [showDrivePicker, setShowDrivePicker] = useState(false);
@@ -45,13 +42,6 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     const [driveFolderStack, setDriveFolderStack] = useState<{id: string, name: string}[]>([]);
     const [selectedDriveFiles, setSelectedDriveFiles] = useState<string[]>([]); // IDs
     const [driveSessionRoot, setDriveSessionRoot] = useState<string | null>(null);
-
-    // UPLOAD DESTINATION PICKER STATE (Para escolher onde guardar novos uploads)
-    const [showUploadPicker, setShowUploadPicker] = useState(false);
-    const [uploadNavFiles, setUploadNavFiles] = useState<DriveFile[]>([]);
-    const [uploadNavStack, setUploadNavStack] = useState<{id: string, name: string}[]>([]);
-    const [uploadNavLoading, setUploadNavLoading] = useState(false);
-    const [targetUploadId, setTargetUploadId] = useState<string | null>(null);
 
     // Permissões
     const isPresenter = ([UserRole.ADMIN, UserRole.TRAINER, UserRole.EDITOR] as string[]).includes(profile.role);
@@ -194,154 +184,6 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                 // Se API não suportada, usa fallback CSS
                 setIsFullscreen(true);
             }
-        }
-    };
-
-    // --- UPLOAD FLOW ---
-    
-    // 1. Abrir Modal de Destino
-    const openUploadDestinationPicker = async () => {
-        if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input
-        setShowUploadPicker(true);
-        setUploadNavLoading(true);
-        try {
-            const startId = await getStartFolderId();
-            // Define o root para navegação do upload também
-            setDriveSessionRoot(startId); 
-            
-            await refreshUploadList(startId);
-            setUploadNavStack([]);
-        } catch (e: any) {
-            alert("Erro ao abrir Drive: " + e.message);
-            setShowUploadPicker(false);
-        } finally {
-            setUploadNavLoading(false);
-        }
-    };
-
-    // 2. Auxiliar para carregar lista do Upload Picker
-    const refreshUploadList = async (folderId: string) => {
-        setUploadNavLoading(true);
-        try {
-            const data = await driveService.listFiles(folderId);
-            setUploadNavFiles(data.files);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setUploadNavLoading(false);
-        }
-    };
-
-    // 3. Navegação no Upload Picker
-    const handleUploadNavigate = async (folderId: string, folderName: string) => {
-        setUploadNavStack(prev => [...prev, { id: folderId, name: folderName }]);
-        await refreshUploadList(folderId);
-    };
-
-    const handleUploadBack = async () => {
-        if (uploadNavStack.length === 0) return;
-        const newStack = [...uploadNavStack];
-        newStack.pop();
-        setUploadNavStack(newStack);
-        
-        const parentId = newStack.length > 0 ? newStack[newStack.length - 1].id : driveSessionRoot;
-        if (parentId) await refreshUploadList(parentId);
-    };
-
-    // 4. Confirmar Pasta e Abrir File Input
-    const confirmUploadLocation = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // A pasta atual é a última da stack, ou a raiz se a stack estiver vazia
-        const currentFolderId = uploadNavStack.length > 0 
-            ? uploadNavStack[uploadNavStack.length - 1].id 
-            : driveSessionRoot;
-            
-        if (currentFolderId) {
-            setTargetUploadId(currentFolderId);
-            setShowUploadPicker(false);
-            // Trigger File Input
-            setTimeout(() => {
-                if (fileInputRef.current) {
-                    fileInputRef.current.click();
-                }
-            }, 100);
-        }
-    };
-
-    // 5. Criar Pasta no Upload Picker
-    const handleCreateUploadFolder = async () => {
-        const name = prompt("Nome da nova pasta:");
-        if (!name) return;
-
-        setUploadNavLoading(true);
-        try {
-            const currentId = uploadNavStack.length > 0 
-                ? uploadNavStack[uploadNavStack.length - 1].id 
-                : driveSessionRoot;
-
-            if (currentId) {
-                await driveService.createFolder(name, currentId);
-                await refreshUploadList(currentId);
-            }
-        } catch (e: any) {
-            alert("Erro ao criar pasta: " + e.message);
-            setUploadNavLoading(false);
-        }
-    };
-
-    // 6. Processar Ficheiros (Callback do Input)
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0) return;
-        
-        // Se por algum motivo não houver target ID (ex: erro no fluxo), tenta calcular fallback
-        let finalTargetId = targetUploadId;
-        if (!finalTargetId) {
-             finalTargetId = await getStartFolderId();
-        }
-
-        setUploading(true);
-        setProcessingStatus('A verificar Drive...');
-        
-        try {
-            const filesToProcess: File[] = Array.from(e.target.files);
-            
-            // Validar apenas imagens
-            const invalidFiles = filesToProcess.filter(f => !f.type.startsWith('image/'));
-            if (invalidFiles.length > 0) {
-                alert("Apenas imagens (JPG, PNG, GIF) são permitidas.");
-                setUploading(false);
-                setProcessingStatus('');
-                e.target.value = '';
-                return;
-            }
-
-            setProcessingStatus(`A enviar ${filesToProcess.length} ficheiros para a pasta selecionada...`);
-
-            // Upload para o Drive
-            const driveUploadPromises = filesToProcess.map(file => driveService.uploadFile(file, finalTargetId));
-            const results = await Promise.all(driveUploadPromises);
-
-            // Converter IDs do Drive em URLs de Visualização
-            const newUrls = results.map(res => `https://drive.google.com/thumbnail?id=${res.id}&sz=w2048`);
-
-            // Adiciona ao final da lista
-            const updated = sanitizeSessionState({
-                ...sessionState,
-                slides: [...sessionState.slides, ...newUrls],
-                is_presenting: sessionState.slides.length === 0 ? true : sessionState.is_presenting
-            });
-            await updateState(updated);
-            alert("Upload concluído! As imagens foram adicionadas ao final da lista.");
-
-        } catch (e: any) {
-            alert("Erro upload para Drive: " + e.message);
-        } finally {
-            setUploading(false);
-            setProcessingStatus('');
-            setTargetUploadId(null); // Reset target
-            e.target.value = '';
         }
     };
 
@@ -644,28 +486,8 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                         className="px-4 py-2 bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 border border-indigo-200 dark:border-slate-600 rounded-lg font-bold hover:bg-indigo-50 dark:hover:bg-slate-600 transition-colors flex items-center gap-2"
                         title="Importar do Google Drive"
                     >
-                        ☁️ Drive
+                        ☁️ Selecionar do Drive
                     </button>
-
-                    <button 
-                        onClick={openUploadDestinationPicker}
-                        className={`px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 rounded-lg font-bold hover:bg-indigo-200 transition-colors flex flex-col items-center justify-center leading-tight ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
-                    >
-                        <span className="text-sm">
-                            {uploading ? processingStatus || 'A carregar...' : '+ Upload (Drive)'}
-                        </span>
-                    </button>
-                    {/* Hidden Input for File Upload - triggered by Modal */}
-                    <input 
-                        ref={fileInputRef}
-                        type="file" 
-                        multiple 
-                        accept="image/png, image/jpeg, image/gif, image/webp" 
-                        onChange={handleFileUpload} 
-                        style={{ display: 'none' }}
-                        disabled={uploading} 
-                        onClick={(e) => e.stopPropagation()}
-                    />
 
                     {sessionState.slides.length > 0 && (
                         <button onClick={clearSlides} className="px-3 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200" title="Apagar todos os slides">🗑️</button>
@@ -845,84 +667,6 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                                 >
                                     {loadingDrive && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
                                     Importar Selecionados
-                                </button>
-                            </div>
-                        </div>
-                    </GlassCard>
-                </div>,
-                document.body
-            )}
-
-            {/* UPLOAD DESTINATION PICKER MODAL (NOVO) */}
-            {showUploadPicker && createPortal(
-                <div 
-                    className="fixed inset-0 z-[9999] flex items-center justify-center bg-indigo-900/60 backdrop-blur-sm p-4 animate-in fade-in w-full h-full"
-                    onClick={() => setShowUploadPicker(false)}
-                >
-                    <GlassCard 
-                        className="w-full max-w-xl bg-white dark:bg-slate-900 flex flex-col max-h-[85vh] p-0 overflow-hidden shadow-2xl relative"
-                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                    >
-                        <div className="p-4 border-b border-indigo-100 dark:border-slate-700 flex justify-between items-center bg-indigo-50 dark:bg-slate-800">
-                            <h3 className="font-bold text-lg text-indigo-900 dark:text-white flex items-center gap-2">
-                                📤 Escolher Pasta de Destino
-                            </h3>
-                            <button onClick={handleCreateUploadFolder} className="px-3 py-1 bg-white dark:bg-slate-700 border border-indigo-200 dark:border-slate-600 text-indigo-700 dark:text-indigo-200 text-xs font-bold rounded hover:bg-indigo-50 dark:hover:bg-slate-600">
-                                + Nova Pasta
-                            </button>
-                        </div>
-
-                        <div className="p-2 bg-indigo-50/50 dark:bg-slate-800/50 flex items-center gap-2 text-xs border-b border-indigo-100 dark:border-slate-700 overflow-x-auto whitespace-nowrap">
-                             <button onClick={() => openUploadDestinationPicker()} className="font-bold hover:text-indigo-600 dark:text-gray-300 dark:hover:text-white">🏠 Raiz</button>
-                             {uploadNavStack.map((folder, i) => (
-                                <React.Fragment key={folder.id}>
-                                    <span className="opacity-50">/</span>
-                                    <span className={i === uploadNavStack.length - 1 ? 'font-bold dark:text-white' : 'dark:text-gray-300'}>{folder.name}</span>
-                                </React.Fragment>
-                            ))}
-                            {uploadNavStack.length > 0 && (
-                                <button onClick={handleUploadBack} className="ml-auto text-indigo-600 dark:text-indigo-400 font-bold hover:underline">⬅ Voltar</button>
-                            )}
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-white dark:bg-slate-900">
-                            {uploadNavLoading ? (
-                                <div className="text-center py-10 text-indigo-500">A carregar...</div>
-                            ) : uploadNavFiles.filter(f => f.mimeType.includes('folder')).length === 0 ? (
-                                <div className="text-center py-10 text-gray-400 flex flex-col items-center">
-                                    <span className="text-4xl mb-2">📂</span>
-                                    <p>Nenhuma sub-pasta.</p>
-                                    <p className="text-xs">Pode carregar aqui ou criar nova.</p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 gap-2">
-                                    {uploadNavFiles.filter(f => f.mimeType.includes('folder')).map(folder => (
-                                        <div 
-                                            key={folder.id}
-                                            onClick={() => handleUploadNavigate(folder.id, folder.name)}
-                                            className="flex items-center gap-3 p-3 rounded-lg border border-transparent hover:bg-indigo-50 dark:hover:bg-slate-800 cursor-pointer transition-all group text-indigo-900 dark:text-indigo-200"
-                                        >
-                                            <span className="text-xl">📁</span>
-                                            <span className="font-medium text-sm truncate flex-1">{folder.name}</span>
-                                            <span className="text-xs text-indigo-400 group-hover:text-indigo-600">Abrir ➡</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="p-4 border-t border-indigo-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-900">
-                            <div className="text-xs text-gray-500">
-                                Destino: <b>{uploadNavStack.length > 0 ? uploadNavStack[uploadNavStack.length - 1].name : 'Raiz'}</b>
-                            </div>
-                            <div className="flex gap-2">
-                                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowUploadPicker(false); }} type="button" className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancelar</button>
-                                <button 
-                                    onClick={confirmUploadLocation}
-                                    type="button"
-                                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow-md hover:bg-indigo-700 flex items-center gap-2"
-                                >
-                                    Carregar Aqui ⬆️
                                 </button>
                             </div>
                         </div>
