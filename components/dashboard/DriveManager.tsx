@@ -23,6 +23,10 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
     const [folderStack, setFolderStack] = useState<{id: string, name: string}[]>([]); 
 
+    // Quota State
+    const [usage, setUsage] = useState<{used: number, limit: number} | null>(null);
+    const [loadingUsage, setLoadingUsage] = useState(false);
+
     useEffect(() => {
         if (profile) {
             initializeDrive();
@@ -59,16 +63,43 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
             setCurrentFolderId(startFolderId);
             setFolderStack([]); // Reset stack
             
-            // 3. Carregar ficheiros
+            // 3. Carregar ficheiros e Calcular Quota
             const data = await driveService.listFiles(startFolderId);
             setFiles(data.files);
             setSelectedFiles([]);
+
+            // Calcular quota da pasta raiz do utilizador
+            if (startRootId) {
+                checkUsage(startRootId);
+            }
 
         } catch (err: any) {
             console.error("Init Drive Error:", err);
             setError(err.message || "Erro ao inicializar Drive.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const checkUsage = async (targetId: string) => {
+        setLoadingUsage(true);
+        try {
+            // Limite virtual de 1GB solicitado
+            const VIRTUAL_LIMIT = 1024 * 1024 * 1024; // 1 GB
+            
+            const quotaData = await driveService.getStorageQuota([targetId]);
+            const folderData = quotaData.folders.find(f => f.id === targetId);
+            
+            if (folderData) {
+                setUsage({
+                    used: folderData.size,
+                    limit: VIRTUAL_LIMIT
+                });
+            }
+        } catch (e) {
+            console.warn("Erro ao calcular quota:", e);
+        } finally {
+            setLoadingUsage(false);
         }
     };
 
@@ -114,6 +145,16 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
             return;
         }
 
+        // Verificar quota ANTES do upload (estimativa simples)
+        if (usage) {
+            const totalUploadSize = validFiles.reduce((acc, f) => acc + f.size, 0);
+            if (usage.used + totalUploadSize > usage.limit) {
+                alert("Erro: O upload excede o limite de 1GB da sua pasta.");
+                e.target.value = '';
+                return;
+            }
+        }
+
         try {
             setUploading(true);
             setUploadStatus(`A enviar ${validFiles.length} ficheiros...`);
@@ -124,6 +165,10 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
             
             alert(`${validFiles.length} ficheiros carregados com sucesso!`);
             loadFiles(currentFolderId || undefined);
+            
+            // Atualizar quota
+            if (rootId) checkUsage(rootId);
+
         } catch (err: any) {
             alert("Erro durante o upload: " + err.message);
         } finally {
@@ -164,6 +209,7 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
             setLoading(true);
             await driveService.deleteFile(id);
             loadFiles(currentFolderId || undefined);
+            if (rootId) checkUsage(rootId); // Atualizar quota
         } catch (err: any) {
             alert("Erro ao eliminar: " + err.message);
             setLoading(false); 
@@ -179,6 +225,7 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
             await driveService.deleteFiles(selectedFiles);
             alert(`${selectedFiles.length} itens eliminados com sucesso.`);
             loadFiles(currentFolderId || undefined);
+            if (rootId) checkUsage(rootId); // Atualizar quota
         } catch (err: any) {
             alert("Erro ao eliminar itens: " + err.message);
             setLoading(false);
@@ -239,11 +286,20 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
     // Helper para gerar links diretos de imagem (USAR THUMBNAIL API)
     const getDirectLink = (id: string) => `https://drive.google.com/thumbnail?id=${id}&sz=w800`;
 
+    // Helper Format Bytes
+    const formatBytes = (bytes: number) => {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
     return (
         <div className="space-y-6 animate-in slide-in-from-right duration-300">
              {/* Header & Actions */}
              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <div className="flex flex-col">
+                <div className="flex flex-col w-full md:w-auto">
                     <h2 className="text-2xl font-bold text-indigo-900 dark:text-white">Materiais (Google Drive)</h2>
                     <div className="flex items-center gap-2 mt-1">
                         {profile?.role !== UserRole.ADMIN ? (
@@ -272,7 +328,7 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                             Eliminar ({selectedFiles.length})
                         </button>
                     )}
-                    <button onClick={() => loadFiles(currentFolderId || undefined)} className="px-4 py-2 text-indigo-600 dark:text-white hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg" title="Atualizar">
+                    <button onClick={() => { loadFiles(currentFolderId || undefined); if(rootId) checkUsage(rootId); }} className="px-4 py-2 text-indigo-600 dark:text-white hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg" title="Atualizar">
                         🔄
                     </button>
                     <button onClick={handleCreateFolder} className="px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 hover:bg-indigo-200 dark:hover:bg-slate-600 rounded-lg font-bold shadow-sm">
@@ -284,6 +340,35 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                     </label>
                 </div>
              </div>
+
+             {/* STORAGE QUOTA BAR */}
+             {usage && (
+                 <GlassCard className="py-3 px-4 border border-indigo-100 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 shadow-sm">
+                     <div className="flex justify-between items-end mb-1 text-xs font-bold">
+                         <span className="text-indigo-900 dark:text-white flex items-center gap-2">
+                             💾 Armazenamento Disponível
+                             {loadingUsage && <span className="text-indigo-400 font-normal animate-pulse">(A atualizar...)</span>}
+                         </span>
+                         <span className="text-indigo-600 dark:text-indigo-300">
+                             {formatBytes(usage.used)} <span className="text-gray-400 font-normal">/ {formatBytes(usage.limit)}</span>
+                         </span>
+                     </div>
+                     <div className="w-full h-2.5 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                         <div 
+                            className={`h-full transition-all duration-1000 ease-out rounded-full ${
+                                (usage.used / usage.limit) > 0.9 ? 'bg-red-600' : 
+                                (usage.used / usage.limit) > 0.75 ? 'bg-yellow-500' : 'bg-green-500'
+                            }`}
+                            style={{ width: `${Math.min((usage.used / usage.limit) * 100, 100)}%` }}
+                         ></div>
+                     </div>
+                     {(usage.used / usage.limit) > 0.75 && (
+                         <p className="text-[10px] text-red-500 mt-1 font-bold animate-pulse flex items-center gap-1">
+                             ⚠️ Atenção: Estás perto do limite. Elimina ficheiros antigos que já não estejam em uso.
+                         </p>
+                     )}
+                 </GlassCard>
+             )}
 
              {/* Breadcrumbs */}
              <div className="flex items-center gap-2 text-sm text-indigo-900 dark:text-white bg-white/40 dark:bg-slate-800/40 p-3 rounded-lg border border-white/50 dark:border-white/10 overflow-x-auto">
