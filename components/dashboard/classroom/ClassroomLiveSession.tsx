@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../../lib/supabaseClient';
@@ -700,22 +701,29 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                 </div>
 
                 {/* Thumbnails Sidebar */}
-                <div className="bg-white/50 dark:bg-slate-800/50 rounded-xl border border-indigo-100 dark:border-slate-700 overflow-y-auto custom-scrollbar p-2 space-y-2 h-[400px] lg:h-auto">
-                    {sessionState.slides.map((url, idx) => (
-                        <div 
-                            key={idx}
-                            onClick={() => updateState({ current_slide_index: idx })}
-                            className={`
-                                cursor-pointer rounded-lg overflow-hidden border-2 transition-all relative group
-                                ${idx === sessionState.current_slide_index ? 'border-indigo-600 ring-2 ring-indigo-300' : 'border-transparent hover:border-indigo-300'}
-                            `}
-                        >
-                            <img src={url} className="w-full h-24 object-cover" loading="lazy" referrerPolicy="no-referrer" />
-                            <div className="absolute bottom-0 right-0 bg-black/60 text-white text-[10px] px-1.5 font-bold rounded-tl">
-                                {idx + 1}
+                <div className="flex flex-col gap-4">
+                    <div className="bg-indigo-50 dark:bg-slate-900/50 p-4 rounded-xl border border-indigo-100 dark:border-slate-700 text-sm">
+                        <p className="font-bold text-indigo-900 dark:text-white">📡 Modo de Preparação</p>
+                        <p className="text-indigo-700 dark:text-indigo-300">Carregue aqui os seus slides (Imagens) ou selecione do Drive. O que definir aqui aparecerá automaticamente na Sala de Aula quando iniciar a transmissão.</p>
+                    </div>
+                    
+                    <div className="flex-1 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-indigo-100 dark:border-slate-700 overflow-y-auto custom-scrollbar p-2 space-y-2 h-[400px] lg:h-auto">
+                        {sessionState.slides.map((url, idx) => (
+                            <div 
+                                key={idx}
+                                onClick={() => updateState({ current_slide_index: idx })}
+                                className={`
+                                    cursor-pointer rounded-lg overflow-hidden border-2 transition-all relative group
+                                    ${idx === sessionState.current_slide_index ? 'border-indigo-600 ring-2 ring-indigo-300' : 'border-transparent hover:border-indigo-300'}
+                                `}
+                            >
+                                <img src={url} className="w-full h-24 object-cover" loading="lazy" referrerPolicy="no-referrer" />
+                                <div className="absolute bottom-0 right-0 bg-black/60 text-white text-[10px] px-1.5 font-bold rounded-tl">
+                                    {idx + 1}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             </div>
 

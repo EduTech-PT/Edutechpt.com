@@ -36,7 +36,7 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
         const confirmMsg = "⚠️ AVISO DE ARMAZENAMENTO\n\n" +
             "O espaço disponível é limitado (1GB).\n" +
             "Por favor, confirme que os ficheiros estão otimizados e têm um tamanho reduzido antes de continuar.\n\n" +
-            "Ferramenta sugerida: https://www.compress2go.com/\n\n" +
+            "Utilize o botão 'Comprimir' para reduzir o tamanho dos ficheiros se necessário.\n\n" +
             "Deseja prosseguir com o carregamento?";
 
         if (!window.confirm(confirmMsg)) {

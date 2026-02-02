@@ -15,6 +15,11 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
     const [uploadStatus, setUploadStatus] = useState(''); // Estado para feedback detalhado
     const [error, setError] = useState<string | null>(null);
 
+    // Context Switching State
+    const [activeContext, setActiveContext] = useState<'personal' | 'live'>('personal');
+    const [personalRootId, setPersonalRootId] = useState<string | null>(null);
+    const [liveRootId, setLiveRootId] = useState<string | null>(null);
+
     // Selection State
     const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
 
@@ -39,38 +44,43 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
         setError(null);
 
         try {
-            // 1. Determinar pasta inicial baseada no Role
-            let startFolderId: string | null = null;
-            let startRootId: string | null = null;
+            const config = await driveService.getConfig();
+            
+            let pRoot: string | null = null;
+            let lRoot: string | null = null;
 
-            // Lógica de Isolamento:
-            // ADMIN: Vê a raiz global configurada nas definições.
-            // FORMADOR/EDITOR: Vê apenas a sua pasta pessoal.
+            // 1. Determinar pastas baseada no Role
             if (profile.role === UserRole.ADMIN) {
-                const config = await driveService.getConfig();
-                startFolderId = config.driveFolderId;
-                startRootId = config.driveFolderId;
+                // ADMIN: Vê a raiz global
+                pRoot = config.driveFolderId;
+                // Se configurada, vê a raiz da pasta Live
+                if (config.liveDriveFolderId) lRoot = config.liveDriveFolderId;
             } else {
-                // Formadores/Outros veem a sua pasta pessoal
-                // Se não existir, é criada automaticamente agora
-                startFolderId = await driveService.getPersonalFolder(profile);
-                startRootId = startFolderId; // Para eles, a raiz é a sua pasta (Sandbox)
+                // FORMADOR/EDITOR: Vê apenas a sua pasta pessoal
+                pRoot = await driveService.getPersonalFolder(profile);
+                
+                // Se configurada, vê a sua sub-pasta na Live Folder
+                if (config.liveDriveFolderId) {
+                    const folderName = `[Formador] ${profile.full_name || profile.email}`;
+                    lRoot = await driveService.ensureFolder(folderName, config.liveDriveFolderId);
+                }
             }
             
-            // 2. Definir estado inicial
-            // Importante: rootId define o "chão" da navegação. O utilizador não consegue subir acima disto.
-            setRootId(startRootId);
-            setCurrentFolderId(startFolderId);
+            setPersonalRootId(pRoot);
+            setLiveRootId(lRoot);
+
+            // 2. Definir estado inicial (Começa na Pessoal)
+            const startRoot = pRoot;
+            
+            setRootId(startRoot);
+            setCurrentFolderId(startRoot);
             setFolderStack([]); // Reset stack
             
             // 3. Carregar ficheiros e Calcular Quota
-            const data = await driveService.listFiles(startFolderId);
-            setFiles(data.files);
-            setSelectedFiles([]);
-
-            // Calcular quota da pasta raiz do utilizador
-            if (startRootId) {
-                checkUsage(startRootId);
+            if (startRoot) {
+                const data = await driveService.listFiles(startRoot);
+                setFiles(data.files);
+                checkUsage(startRoot);
             }
 
         } catch (err: any) {
@@ -79,6 +89,20 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const switchContext = (context: 'personal' | 'live') => {
+        const targetRoot = context === 'personal' ? personalRootId : liveRootId;
+        if (!targetRoot || targetRoot === rootId) return;
+
+        setActiveContext(context);
+        setRootId(targetRoot);
+        setCurrentFolderId(targetRoot);
+        setFolderStack([]); // Clear navigation stack
+        setSelectedFiles([]); // Clear selections
+        
+        loadFiles(targetRoot);
+        checkUsage(targetRoot);
     };
 
     const checkUsage = async (targetId: string) => {
@@ -128,11 +152,11 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
         
-        // AVISO DE TAMANHO REDUZIDO (Solicitado)
+        // AVISO DE ARMAZENAMENTO
         const confirmMsg = "⚠️ AVISO DE ARMAZENAMENTO\n\n" +
             "O espaço disponível é limitado (1GB).\n" +
             "Por favor, confirme que os ficheiros estão otimizados e têm um tamanho reduzido antes de continuar.\n\n" +
-            "Ferramenta sugerida: https://www.compress2go.com/\n\n" +
+            "Utilize o botão 'Comprimir' para reduzir o tamanho dos ficheiros se necessário.\n\n" +
             "Deseja prosseguir com o carregamento?";
 
         if (!window.confirm(confirmMsg)) {
@@ -311,27 +335,32 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
     const percentUsed = usage ? Math.min((usage.used / usage.limit) * 100, 100) : 0;
     const percentFree = (100 - percentUsed).toFixed(1);
 
+    const isLive = activeContext === 'live';
+
     return (
         <div className="space-y-6 animate-in slide-in-from-right duration-300">
              {/* Header & Actions */}
              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div className="flex flex-col w-full md:w-auto">
-                    <h2 className="text-2xl font-bold text-indigo-900 dark:text-white">Materiais (Google Drive)</h2>
-                    <div className="flex items-center gap-2 mt-1">
-                        {profile?.role !== UserRole.ADMIN ? (
-                            <span className="text-xs bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 px-2 py-1 rounded border border-indigo-200 dark:border-slate-600 font-bold uppercase flex items-center gap-1">
-                                🔒 Pasta Pessoal
-                            </span>
-                        ) : (
-                            <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-2 py-1 rounded border border-red-200 dark:border-red-800 font-bold uppercase flex items-center gap-1">
-                                🌍 Acesso Global (Admin)
-                            </span>
+                    <h2 className="text-2xl font-bold text-indigo-900 dark:text-white flex items-center gap-2">
+                        {isLive ? '📡 Materiais Ao Vivo' : '📂 Materiais Pessoais'}
+                    </h2>
+                    <div className="flex items-center gap-2 mt-2">
+                        <button 
+                            onClick={() => switchContext('personal')}
+                            className={`px-3 py-1 text-xs font-bold rounded-full transition-all border ${activeContext === 'personal' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 border-indigo-200 dark:border-slate-600'}`}
+                        >
+                            Minha Pasta
+                        </button>
+                        
+                        {liveRootId && (
+                            <button 
+                                onClick={() => switchContext('live')}
+                                className={`px-3 py-1 text-xs font-bold rounded-full transition-all border ${activeContext === 'live' ? 'bg-red-600 text-white border-red-600' : 'bg-white dark:bg-slate-700 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50'}`}
+                            >
+                                📡 Pasta Ao Vivo
+                            </button>
                         )}
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400 hidden sm:inline">
-                            {profile?.role !== UserRole.ADMIN 
-                                ? "O conteúdo aqui é visível apenas para si e para a Administração." 
-                                : "Tem acesso total à raiz do Drive configurada."}
-                        </span>
                     </div>
                 </div>
                 
@@ -371,7 +400,7 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                  <GlassCard className="py-3 px-4 border border-indigo-100 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 shadow-sm">
                      <div className="flex justify-between items-end mb-1 text-xs font-bold">
                          <span className="text-indigo-900 dark:text-white flex items-center gap-2">
-                             💾 Armazenamento Disponível 
+                             💾 Armazenamento {isLive ? '(Ao Vivo)' : '(Pessoal)'}
                              <span className="opacity-70 text-[10px] bg-indigo-50 dark:bg-slate-700 px-1.5 rounded text-indigo-700 dark:text-indigo-300">
                                 ({percentFree}% Livre)
                              </span>
@@ -409,8 +438,8 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                     onClick={() => navigateToBreadcrumb(-1)} 
                     className={`font-bold hover:text-indigo-600 dark:hover:text-indigo-300 flex items-center gap-1 ${folderStack.length === 0 ? 'text-indigo-600 dark:text-indigo-300' : ''}`}
                  >
-                    <span>{profile?.role !== UserRole.ADMIN ? '👤' : '🏠'}</span>
-                    <span>{profile?.role !== UserRole.ADMIN ? 'Minha Pasta' : 'Raiz'}</span>
+                    <span>{profile?.role !== UserRole.ADMIN ? (isLive ? '📡' : '👤') : '🏠'}</span>
+                    <span>{profile?.role !== UserRole.ADMIN ? (isLive ? 'Pasta Ao Vivo' : 'Minha Pasta') : 'Raiz'}</span>
                  </button>
                  {folderStack.map((folder, index) => (
                      <React.Fragment key={folder.id}>
@@ -435,7 +464,7 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                  </div>
              )}
 
-             <GlassCard>
+             <GlassCard className={isLive ? 'border-red-100 dark:border-red-900/30 bg-red-50/10 dark:bg-red-900/5' : ''}>
                 {loading && !uploading ? (
                     <div className="text-center p-10 text-indigo-500 dark:text-indigo-300">
                         <div className="animate-spin h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-2"></div>
