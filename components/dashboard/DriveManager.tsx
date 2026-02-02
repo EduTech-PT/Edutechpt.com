@@ -16,9 +16,10 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
     const [error, setError] = useState<string | null>(null);
 
     // Context Switching State
-    const [activeContext, setActiveContext] = useState<'personal' | 'live'>('personal');
+    const [activeContext, setActiveContext] = useState<'personal' | 'live' | 'trash'>('personal');
     const [personalRootId, setPersonalRootId] = useState<string | null>(null);
     const [liveRootId, setLiveRootId] = useState<string | null>(null);
+    const [trashRootId, setTrashRootId] = useState<string | null>(null); // NOVO
 
     // Selection State
     const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
@@ -48,6 +49,7 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
             
             let pRoot: string | null = null;
             let lRoot: string | null = null;
+            let tRoot: string | null = null;
 
             // 1. Determinar pastas baseada no Role
             if (profile.role === UserRole.ADMIN) {
@@ -55,6 +57,8 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                 pRoot = config.driveFolderId;
                 // Se configurada, vê a raiz da pasta Live
                 if (config.liveDriveFolderId) lRoot = config.liveDriveFolderId;
+                // Se configurada, vê a pasta Lixeira
+                if (config.trashFolderId) tRoot = config.trashFolderId;
             } else {
                 // FORMADOR/EDITOR: Vê apenas a sua pasta pessoal
                 pRoot = await driveService.getPersonalFolder(profile);
@@ -68,6 +72,7 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
             
             setPersonalRootId(pRoot);
             setLiveRootId(lRoot);
+            setTrashRootId(tRoot);
 
             // 2. Definir estado inicial (Começa na Pessoal)
             const startRoot = pRoot;
@@ -91,8 +96,13 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
         }
     };
 
-    const switchContext = (context: 'personal' | 'live') => {
-        const targetRoot = context === 'personal' ? personalRootId : liveRootId;
+    const switchContext = (context: 'personal' | 'live' | 'trash') => {
+        let targetRoot: string | null = null;
+        
+        if (context === 'personal') targetRoot = personalRootId;
+        else if (context === 'live') targetRoot = liveRootId;
+        else if (context === 'trash') targetRoot = trashRootId;
+
         if (!targetRoot || targetRoot === rootId) return;
 
         setActiveContext(context);
@@ -336,6 +346,25 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
     const percentFree = (100 - percentUsed).toFixed(1);
 
     const isLive = activeContext === 'live';
+    const isTrash = activeContext === 'trash';
+
+    // Determinar ícone e título baseado no contexto
+    let titleText = '📂 Materiais Pessoais';
+    if (isLive) titleText = '📡 Materiais Ao Vivo';
+    if (isTrash) titleText = '🗑️ Lixeira / Reciclagem';
+
+    // Ícone Breadcrumb
+    const getRootIcon = () => {
+        if (isTrash) return '🗑️';
+        if (profile?.role === UserRole.ADMIN) return '🏠';
+        return isLive ? '📡' : '👤';
+    };
+
+    const getRootName = () => {
+        if (isTrash) return 'Lixeira';
+        if (profile?.role === UserRole.ADMIN) return 'Raiz';
+        return isLive ? 'Pasta Ao Vivo' : 'Minha Pasta';
+    };
 
     return (
         <div className="space-y-6 animate-in slide-in-from-right duration-300">
@@ -343,7 +372,7 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div className="flex flex-col w-full md:w-auto">
                     <h2 className="text-2xl font-bold text-indigo-900 dark:text-white flex items-center gap-2">
-                        {isLive ? '📡 Materiais Ao Vivo' : '📂 Materiais Pessoais'}
+                        {titleText}
                     </h2>
                     <div className="flex items-center gap-2 mt-2">
                         <button 
@@ -361,6 +390,15 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                                 📡 Pasta Ao Vivo
                             </button>
                         )}
+
+                        {trashRootId && profile?.role === UserRole.ADMIN && (
+                            <button 
+                                onClick={() => switchContext('trash')}
+                                className={`px-3 py-1 text-xs font-bold rounded-full transition-all border ${activeContext === 'trash' ? 'bg-gray-600 text-white border-gray-600' : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600'}`}
+                            >
+                                🗑️ Pasta Lixeira
+                            </button>
+                        )}
                     </div>
                 </div>
                 
@@ -373,25 +411,29 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                             Eliminar ({selectedFiles.length})
                         </button>
                     )}
-                    <a 
-                        href="https://www.compress2go.com/" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center px-3 py-2 bg-white/50 dark:bg-slate-800/50 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-slate-600 rounded-lg font-bold hover:bg-white dark:hover:bg-slate-700 text-xs gap-1 transition-colors"
-                        title="Ferramenta Online para reduzir tamanho dos ficheiros"
-                    >
-                        📉 Comprimir
-                    </a>
-                    <button onClick={() => { loadFiles(currentFolderId || undefined); if(rootId) checkUsage(rootId); }} className="px-4 py-2 text-indigo-600 dark:text-white hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg" title="Atualizar">
-                        🔄
-                    </button>
-                    <button onClick={handleCreateFolder} className="px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 hover:bg-indigo-200 dark:hover:bg-slate-600 rounded-lg font-bold shadow-sm">
-                        + Pasta
-                    </button>
-                    <label className={`px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold shadow-lg cursor-pointer flex items-center gap-2 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                        {uploading ? (uploadStatus || 'A enviar...') : 'Upload'}
-                        <input type="file" multiple className="hidden" onChange={handleUpload} />
-                    </label>
+                    {!isTrash && (
+                        <>
+                            <a 
+                                href="https://www.compress2go.com/" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex items-center px-3 py-2 bg-white/50 dark:bg-slate-800/50 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-slate-600 rounded-lg font-bold hover:bg-white dark:hover:bg-slate-700 text-xs gap-1 transition-colors"
+                                title="Ferramenta Online para reduzir tamanho dos ficheiros"
+                            >
+                                📉 Comprimir
+                            </a>
+                            <button onClick={() => { loadFiles(currentFolderId || undefined); if(rootId) checkUsage(rootId); }} className="px-4 py-2 text-indigo-600 dark:text-white hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg" title="Atualizar">
+                                🔄
+                            </button>
+                            <button onClick={handleCreateFolder} className="px-4 py-2 bg-indigo-100 dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 hover:bg-indigo-200 dark:hover:bg-slate-600 rounded-lg font-bold shadow-sm">
+                                + Pasta
+                            </button>
+                            <label className={`px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold shadow-lg cursor-pointer flex items-center gap-2 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                                {uploading ? (uploadStatus || 'A enviar...') : 'Upload'}
+                                <input type="file" multiple className="hidden" onChange={handleUpload} />
+                            </label>
+                        </>
+                    )}
                 </div>
              </div>
 
@@ -400,7 +442,7 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                  <GlassCard className="py-3 px-4 border border-indigo-100 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 shadow-sm">
                      <div className="flex justify-between items-end mb-1 text-xs font-bold">
                          <span className="text-indigo-900 dark:text-white flex items-center gap-2">
-                             💾 Armazenamento {isLive ? '(Ao Vivo)' : '(Pessoal)'}
+                             💾 Armazenamento {isLive ? '(Ao Vivo)' : (isTrash ? '(Lixeira)' : '(Pessoal)')}
                              <span className="opacity-70 text-[10px] bg-indigo-50 dark:bg-slate-700 px-1.5 rounded text-indigo-700 dark:text-indigo-300">
                                 ({percentFree}% Livre)
                              </span>
@@ -438,8 +480,8 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                     onClick={() => navigateToBreadcrumb(-1)} 
                     className={`font-bold hover:text-indigo-600 dark:hover:text-indigo-300 flex items-center gap-1 ${folderStack.length === 0 ? 'text-indigo-600 dark:text-indigo-300' : ''}`}
                  >
-                    <span>{profile?.role !== UserRole.ADMIN ? (isLive ? '📡' : '👤') : '🏠'}</span>
-                    <span>{profile?.role !== UserRole.ADMIN ? (isLive ? 'Pasta Ao Vivo' : 'Minha Pasta') : 'Raiz'}</span>
+                    <span>{getRootIcon()}</span>
+                    <span>{getRootName()}</span>
                  </button>
                  {folderStack.map((folder, index) => (
                      <React.Fragment key={folder.id}>
@@ -464,7 +506,7 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                  </div>
              )}
 
-             <GlassCard className={isLive ? 'border-red-100 dark:border-red-900/30 bg-red-50/10 dark:bg-red-900/5' : ''}>
+             <GlassCard className={isLive ? 'border-red-100 dark:border-red-900/30 bg-red-50/10 dark:bg-red-900/5' : (isTrash ? 'border-gray-200 bg-gray-50/20' : '')}>
                 {loading && !uploading ? (
                     <div className="text-center p-10 text-indigo-500 dark:text-indigo-300">
                         <div className="animate-spin h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-2"></div>
