@@ -13,6 +13,7 @@ export interface ProfileVisibility {
   birth_date?: boolean;
   city?: boolean;
   personal_email?: boolean;
+  training_email?: boolean; // NOVO
   phone?: boolean;
   linkedin_url?: boolean;
   tiktok_url?: boolean; // Substituído github_url
@@ -34,6 +35,7 @@ export interface Profile {
   birth_date?: string;
   city?: string;
   personal_email?: string;
+  training_email?: string; // NOVO: Email de Formação
   phone?: string;
   linkedin_url?: string;
   tiktok_url?: string; // Substituído github_url

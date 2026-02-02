@@ -1,7 +1,7 @@
 
 -- ==============================================================================
--- EDUTECH PT - SCHEMA COMPLETO (v3.1.25)
--- AÇÃO: SUPORTE HIDE USER FROM COMMUNITY (MODERAÇÃO)
+-- EDUTECH PT - SCHEMA COMPLETO (v3.1.26)
+-- AÇÃO: ADICIONADO CAMPO EMAIL DE FORMAÇÃO
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -10,8 +10,8 @@ create table if not exists public.app_config (
     value text
 );
 
-insert into public.app_config (key, value) values ('sql_version', 'v3.1.25')
-on conflict (key) do update set value = 'v3.1.25';
+insert into public.app_config (key, value) values ('sql_version', 'v3.1.26')
+on conflict (key) do update set value = 'v3.1.26';
 
 -- 2. FUNÇÃO DE SEGURANÇA
 create or replace function public.is_admin()
@@ -44,6 +44,7 @@ create table if not exists public.profiles (
     instagram_url text,
     facebook_url text,
     personal_email text,
+    training_email text,
     birth_date date,
     visibility_settings jsonb default '{}'::jsonb,
     personal_folder_id text,
@@ -64,6 +65,9 @@ begin
   end if;
   if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='is_hidden_from_community') then
     alter table public.profiles add column is_hidden_from_community boolean default false;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='training_email') then
+    alter table public.profiles add column training_email text;
   end if;
   if not exists (select 1 from information_schema.columns where table_name='profiles' and column_name='tiktok_url') then
     alter table public.profiles add column tiktok_url text;

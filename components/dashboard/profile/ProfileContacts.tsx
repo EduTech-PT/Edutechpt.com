@@ -96,6 +96,28 @@ export const ProfileContacts: React.FC<Props> = ({ user, formData, visibility, i
                     )}
                 </div>
 
+                {/* Email Formação (NOVO) */}
+                <div>
+                    <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 uppercase mb-1">Email Formação / Institucional</label>
+                    {isEditing ? (
+                        <div className="space-y-1">
+                            <div className="flex gap-2">
+                                <input 
+                                    type="email" 
+                                    value={formData.training_email || ''} 
+                                    onChange={e => onUpdate('training_email', e.target.value)}
+                                    placeholder="formador@entidade.com"
+                                    className="w-full p-2 bg-white/50 dark:bg-slate-800/50 border border-indigo-200 dark:border-slate-600 rounded focus:ring-2 focus:ring-indigo-400 outline-none text-indigo-900 dark:text-white dark:placeholder-slate-500"
+                                />
+                                <SaveButton field="training_email" />
+                            </div>
+                            <VisibilityToggle field="training_email" />
+                        </div>
+                    ) : (
+                        <p className="text-indigo-900 dark:text-indigo-100 break-all border-b border-white/20 dark:border-white/10 pb-1">{user.training_email || <span className="text-gray-400 italic">Não definido</span>}</p>
+                    )}
+                </div>
+
                 {/* Telefone */}
                 <div>
                     <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-200 uppercase mb-1">Telefone / Telemóvel</label>

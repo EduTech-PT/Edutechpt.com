@@ -84,6 +84,13 @@ export const MemberDetailModal: React.FC<Props> = ({ member, logoUrl, onClose })
                             <div className="space-y-4">
                                 <h3 className="text-sm font-bold text-indigo-900 dark:text-white uppercase border-b border-indigo-100 dark:border-slate-700 pb-1">Contactos</h3>
                                 
+                                {isVisible('training_email') && member.training_email ? (
+                                    <div className="flex items-center gap-2 text-sm text-indigo-800 dark:text-indigo-300 break-all bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded border border-indigo-100 dark:border-indigo-800">
+                                        <span>📧</span>
+                                        <a href={`mailto:${member.training_email}`} className="hover:underline font-bold">{member.training_email}</a>
+                                    </div>
+                                ) : null}
+
                                 {isVisible('personal_email') && member.personal_email ? (
                                     <div className="flex items-center gap-2 text-sm text-indigo-800 dark:text-indigo-300 break-all">
                                         <span>✉️</span>
