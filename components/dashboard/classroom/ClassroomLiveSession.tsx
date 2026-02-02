@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../../lib/supabaseClient';
@@ -305,7 +304,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         setProcessingStatus('A verificar Drive...');
         
         try {
-            const filesToProcess = Array.from(e.target.files);
+            const filesToProcess: File[] = Array.from(e.target.files);
             
             // Validar apenas imagens
             const invalidFiles = filesToProcess.filter(f => !f.type.startsWith('image/'));

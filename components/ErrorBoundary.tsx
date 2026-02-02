@@ -1,12 +1,12 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import { GlassCard } from './GlassCard';
 import { adminService } from '../services/admin';
 
-interface Props {
+interface ErrorBoundaryProps {
   children?: ReactNode;
 }
 
-interface State {
+interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
   errorInfo: ErrorInfo | null;
@@ -14,8 +14,8 @@ interface State {
   reportStatus: 'idle' | 'success' | 'error';
 }
 
-export class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = {
       hasError: false,
       error: null,
       errorInfo: null,
@@ -23,7 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
       reportStatus: 'idle'
   };
 
-  public static getDerivedStateFromError(error: Error): State {
+  public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { 
         hasError: true, 
         error, 

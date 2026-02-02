@@ -10,6 +10,7 @@ import { ResourceEditor } from './didactic/ResourceEditor';
 import { AttendanceSheet } from './didactic/AttendanceSheet';
 import { Gradebook } from './didactic/Gradebook';
 import { ClassroomLiveSession } from './classroom/ClassroomLiveSession';
+import { ClassroomResources } from './classroom/ClassroomResources'; // Reutilização da View do Aluno
 
 interface Props {
     profile: Profile;
@@ -31,6 +32,9 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
     const [showForm, setShowForm] = useState(false);
     const [editingItem, setEditingItem] = useState<any | null>(null);
 
+    // View Mode State
+    const [viewAsStudent, setViewAsStudent] = useState(false);
+
     // Students (Shared for Attendance/Grades)
     const [students, setStudents] = useState<Profile[]>([]);
 
@@ -46,6 +50,7 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
             setItems([]);
             setStudents([]);
             setShowForm(false);
+            setViewAsStudent(false); // Reset view mode on class change
         }
     }, [activeTab]);
 
@@ -55,6 +60,10 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
         }
         if (activeTab && ['materials', 'announcements', 'assessments'].includes(activeModule)) {
             loadModuleData(activeModule as any);
+        }
+        // Se mudar de módulo e não for compatível com preview, desliga o preview
+        if (!['materials', 'announcements', 'assessments'].includes(activeModule)) {
+            setViewAsStudent(false);
         }
     }, [activeModule, activeTab]);
 
@@ -97,6 +106,7 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
     };
 
     const activeClass = myClasses.find(c => c.id === activeTab);
+    const supportsPreview = ['materials', 'announcements', 'assessments'].includes(activeModule);
 
     if (loading) return <div className="p-10 text-center text-indigo-600 dark:text-indigo-300 font-bold">A carregar turmas...</div>;
 
@@ -114,9 +124,26 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
 
     return (
         <div className="h-full flex flex-col animate-in slide-in-from-right duration-300">
-            <h2 className="text-2xl font-bold text-indigo-900 dark:text-white mb-6 flex items-center gap-2">
-                <span>🎒</span> Recursos da Sala de Aula {profile.role === UserRole.ADMIN && <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded border border-red-200 uppercase">Modo Admin</span>}
-            </h2>
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-indigo-900 dark:text-white flex items-center gap-2">
+                    <span>🎒</span> Recursos da Sala de Aula {profile.role === UserRole.ADMIN && <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded border border-red-200 uppercase">Modo Admin</span>}
+                </h2>
+                
+                {/* VIEW AS STUDENT TOGGLE */}
+                {activeTab && supportsPreview && (
+                    <button 
+                        onClick={() => setViewAsStudent(!viewAsStudent)}
+                        className={`
+                            px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-sm transition-all
+                            ${viewAsStudent 
+                                ? 'bg-amber-100 text-amber-800 border border-amber-300' 
+                                : 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white border border-indigo-200 dark:border-slate-600 hover:bg-indigo-50 dark:hover:bg-slate-600'}
+                        `}
+                    >
+                        <span>{viewAsStudent ? '🚫 Sair da Pré-visualização' : '👁️ Ver como Aluno'}</span>
+                    </button>
+                )}
+            </div>
 
             {/* TABS (TURMAS) */}
             <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide shrink-0">
@@ -129,16 +156,19 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
 
             {/* CONTEÚDO PRINCIPAL */}
             {activeClass && (
-                <GlassCard className="flex-1 rounded-tl-none border-t-0 shadow-xl min-h-[400px] flex flex-col bg-white/80 dark:bg-slate-800/80">
+                <GlassCard className={`flex-1 rounded-tl-none border-t-0 shadow-xl min-h-[400px] flex flex-col ${viewAsStudent ? 'bg-amber-50/50 dark:bg-slate-900/80 ring-4 ring-amber-100 dark:ring-amber-900/30' : 'bg-white/80 dark:bg-slate-800/80'}`}>
                     
                     {/* Header */}
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-indigo-100 dark:border-slate-700 pb-4 mb-6 gap-4">
                         <div>
-                             <h3 className="text-3xl font-bold text-indigo-900 dark:text-white mb-1">{activeClass.name}</h3>
+                             <h3 className="text-3xl font-bold text-indigo-900 dark:text-white mb-1">
+                                 {activeClass.name} 
+                                 {viewAsStudent && <span className="text-sm font-normal text-amber-600 ml-3 bg-amber-100 px-2 py-0.5 rounded border border-amber-200 align-middle">Modo Aluno</span>}
+                             </h3>
                              <p className="text-indigo-600 dark:text-indigo-300 font-medium">{activeClass.course?.title}</p>
                         </div>
                         {activeModule !== 'home' && (
-                            <button onClick={() => { setActiveModule('home'); setShowForm(false); }} className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 rounded-lg font-bold hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors">⬅️ Voltar ao Painel</button>
+                            <button onClick={() => { setActiveModule('home'); setShowForm(false); setViewAsStudent(false); }} className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 rounded-lg font-bold hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors">⬅️ Voltar ao Painel</button>
                         )}
                     </div>
 
@@ -180,56 +210,77 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                         <div className="flex-1 flex flex-col animate-in fade-in">
                              <div className="flex justify-between items-center mb-4">
                                 <h4 className="font-bold text-lg text-indigo-900 dark:text-white capitalize">{activeModule}</h4>
-                                {isStaff && !showForm && (
+                                {isStaff && !showForm && !viewAsStudent && (
                                     <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow hover:bg-indigo-700">
                                         + Adicionar Novo
                                     </button>
                                 )}
                             </div>
 
-                            {showForm && activeTab && (
-                                <ResourceEditor 
-                                    type={activeModule as any} 
-                                    classId={activeTab} 
-                                    profile={profile}
-                                    initialData={editingItem}
-                                    onSave={() => { setShowForm(false); loadModuleData(activeModule as any); }}
-                                    onCancel={() => setShowForm(false)}
-                                />
-                            )}
+                            {/* STUDENT VIEW MODE */}
+                            {viewAsStudent ? (
+                                <div className="border-t border-amber-200 dark:border-amber-900/50 pt-4">
+                                    {loadingResources ? (
+                                        <div className="text-center py-10 opacity-50">A carregar pré-visualização...</div>
+                                    ) : (
+                                        <ClassroomResources 
+                                            type={activeModule as any}
+                                            items={items}
+                                            completedIds={[]} // Dummy data for preview
+                                            onToggleProgress={() => {}} // Dummy op
+                                            progressPercentage={0} // Dummy
+                                            isStaff={false} // Force student look
+                                        />
+                                    )}
+                                </div>
+                            ) : (
+                                /* ADMIN/TRAINER EDIT MODE */
+                                <>
+                                    {showForm && activeTab && (
+                                        <ResourceEditor 
+                                            type={activeModule as any} 
+                                            classId={activeTab} 
+                                            profile={profile}
+                                            initialData={editingItem}
+                                            onSave={() => { setShowForm(false); loadModuleData(activeModule as any); }}
+                                            onCancel={() => setShowForm(false)}
+                                        />
+                                    )}
 
-                            {/* Resource Lists */}
-                            <div className="space-y-2">
-                                {loadingResources ? (
-                                    <p className="text-center opacity-50 dark:text-white">A carregar...</p> 
-                                ) : !items || items.length === 0 ? (
-                                    <p className="text-center text-gray-400 py-8">Vazio.</p> 
-                                ) : items.map(item => {
-                                    if (!item) return null;
-                                    return (
-                                    <div key={item.id} className="flex justify-between p-3 bg-white/50 dark:bg-slate-700/50 border border-indigo-100 dark:border-slate-600 rounded-lg items-center">
-                                        <div className="flex-1">
-                                            <div className="font-bold text-indigo-900 dark:text-white">{item.title}</div>
-                                            {activeModule === 'announcements' && (
-                                                <div 
-                                                    className="text-xs opacity-60 dark:text-indigo-200" 
-                                                    dangerouslySetInnerHTML={{ __html: (item.content && typeof item.content === 'string') ? item.content.substring(0,50) : '' }} 
-                                                />
-                                            )}
-                                            {activeModule === 'assessments' && (
-                                                <div className="text-xs font-bold text-indigo-500 dark:text-indigo-300">
-                                                    Entrega: {item.due_date ? formatShortDate(item.due_date) : 'Sem data'}
+                                    {/* Resource Lists (Edit Mode) */}
+                                    <div className="space-y-2">
+                                        {loadingResources ? (
+                                            <p className="text-center opacity-50 dark:text-white">A carregar...</p> 
+                                        ) : !items || items.length === 0 ? (
+                                            <p className="text-center text-gray-400 py-8">Vazio.</p> 
+                                        ) : items.map(item => {
+                                            if (!item) return null;
+                                            return (
+                                            <div key={item.id} className="flex justify-between p-3 bg-white/50 dark:bg-slate-700/50 border border-indigo-100 dark:border-slate-600 rounded-lg items-center group hover:bg-white dark:hover:bg-slate-700 transition-colors">
+                                                <div className="flex-1">
+                                                    <div className="font-bold text-indigo-900 dark:text-white">{item.title}</div>
+                                                    {activeModule === 'announcements' && (
+                                                        <div 
+                                                            className="text-xs opacity-60 dark:text-indigo-200" 
+                                                            dangerouslySetInnerHTML={{ __html: (item.content && typeof item.content === 'string') ? item.content.substring(0,50) : '' }} 
+                                                        />
+                                                    )}
+                                                    {activeModule === 'assessments' && (
+                                                        <div className="text-xs font-bold text-indigo-500 dark:text-indigo-300">
+                                                            Entrega: {item.due_date ? formatShortDate(item.due_date) : 'Sem data'}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => { setEditingItem(item); setShowForm(true); }} className="p-1 text-indigo-600 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-white">✎</button>
-                                            <button onClick={() => deleteItem(item.id)} className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">🗑️</button>
-                                        </div>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => { setEditingItem(item); setShowForm(true); }} className="p-1 text-indigo-600 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-white bg-indigo-50 dark:bg-slate-600 rounded">✎</button>
+                                                    <button onClick={() => deleteItem(item.id)} className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 bg-red-50 dark:bg-red-900/20 rounded">🗑️</button>
+                                                </div>
+                                            </div>
+                                            );
+                                        })}
                                     </div>
-                                    );
-                                })}
-                            </div>
+                                </>
+                            )}
                         </div>
                     )}
                 </GlassCard>
