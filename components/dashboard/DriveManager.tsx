@@ -12,6 +12,7 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
     const [files, setFiles] = useState<DriveFile[]>([]);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [uploadStatus, setUploadStatus] = useState(''); // Estado para feedback detalhado
     const [error, setError] = useState<string | null>(null);
 
     // Navigation State
@@ -90,22 +91,40 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
-        const file = e.target.files[0];
         
-        if (file.size > 25 * 1024 * 1024) {
-            alert("Limite de 25MB excedido.");
+        // Converter FileList para Array para poder iterar
+        const filesToUpload = Array.from(e.target.files);
+        
+        // Verificar tamanhos
+        const oversizedFiles = filesToUpload.filter(f => f.size > 25 * 1024 * 1024);
+        if (oversizedFiles.length > 0) {
+            alert(`Atenção: Os seguintes ficheiros excedem 25MB e foram ignorados:\n${oversizedFiles.map(f => f.name).join('\n')}`);
+            // Remove os ficheiros grandes da lista a processar
+            // Se preferir bloquear tudo: return;
+        }
+
+        const validFiles = filesToUpload.filter(f => f.size <= 25 * 1024 * 1024);
+        if (validFiles.length === 0) {
+            e.target.value = '';
             return;
         }
 
         try {
             setUploading(true);
-            await driveService.uploadFile(file, currentFolderId);
-            alert("Upload concluído com sucesso!");
+            setUploadStatus(`A enviar ${validFiles.length} ficheiros...`);
+            
+            // Upload em paralelo
+            const uploadPromises = validFiles.map(file => driveService.uploadFile(file, currentFolderId));
+            await Promise.all(uploadPromises);
+            
+            alert(`${validFiles.length} ficheiros carregados com sucesso!`);
             loadFiles(currentFolderId || undefined);
         } catch (err: any) {
-            alert("Erro upload: " + err.message);
+            alert("Erro durante o upload: " + err.message);
         } finally {
             setUploading(false);
+            setUploadStatus('');
+            e.target.value = ''; // Reset input
         }
     };
 
@@ -115,12 +134,14 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
 
         try {
             setUploading(true);
+            setUploadStatus('A criar pasta...');
             await driveService.createFolder(name, currentFolderId);
             loadFiles(currentFolderId || undefined);
         } catch (err: any) {
             alert("Erro ao criar pasta: " + err.message);
         } finally {
             setUploading(false);
+            setUploadStatus('');
         }
     };
 
@@ -216,8 +237,8 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
                         + Nova Pasta
                     </button>
                     <label className={`px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold shadow-lg cursor-pointer flex items-center gap-2 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                        {uploading ? 'A enviar...' : 'Novo Ficheiro'}
-                        <input type="file" className="hidden" onChange={handleUpload} />
+                        {uploading ? (uploadStatus || 'A enviar...') : 'Novo(s) Ficheiro(s)'}
+                        <input type="file" multiple className="hidden" onChange={handleUpload} />
                     </label>
                 </div>
              </div>
