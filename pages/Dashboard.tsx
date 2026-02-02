@@ -13,7 +13,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useToast } from '../components/ui/ToastProvider';
 import { Skeleton } from '../components/ui/Skeleton';
 import { NotificationSystem } from '../components/dashboard/NotificationSystem'; 
-import { ThemeToggle } from '../components/ThemeToggle'; // IMPORTADO
+import { ThemeToggle } from '../components/ThemeToggle';
 import { EnrollmentFormModal } from '../components/EnrollmentFormModal';
 
 // Views - Eager Load Critical Views
@@ -21,26 +21,47 @@ import { Overview } from '../components/dashboard/Overview';
 import { StudentCourses } from '../components/dashboard/StudentCourses'; 
 import { StudentClassroom } from '../components/dashboard/StudentClassroom';
 
-// Views - Lazy Load Heavy Views
-const CourseManager = React.lazy(() => import('../components/dashboard/CourseManager').then(m => ({ default: m.CourseManager })));
-const UserAdmin = React.lazy(() => import('../components/dashboard/UserAdmin').then(m => ({ default: m.UserAdmin })));
-const Settings = React.lazy(() => import('../components/dashboard/Settings').then(m => ({ default: m.Settings })));
-const MediaManager = React.lazy(() => import('../components/dashboard/MediaManager').then(m => ({ default: m.MediaManager })));
-const DriveManager = React.lazy(() => import('../components/dashboard/DriveManager').then(m => ({ default: m.DriveManager })));
-const MyProfile = React.lazy(() => import('../components/dashboard/MyProfile').then(m => ({ default: m.MyProfile })));
-const Community = React.lazy(() => import('../components/dashboard/Community').then(m => ({ default: m.Community })));
-const Calendar = React.lazy(() => import('../components/dashboard/Calendar').then(m => ({ default: m.Calendar })));
-const AvailabilityMap = React.lazy(() => import('../components/dashboard/AvailabilityMap').then(m => ({ default: m.AvailabilityMap })));
-const ClassManager = React.lazy(() => import('../components/dashboard/ClassManager').then(m => ({ default: m.ClassManager })));
-const DidacticPortal = React.lazy(() => import('../components/dashboard/DidacticPortal').then(m => ({ default: m.DidacticPortal })));
-const AccessLogs = React.lazy(() => import('../components/dashboard/AccessLogs').then(m => ({ default: m.AccessLogs })));
-const StudentAllocation = React.lazy(() => import('../components/dashboard/StudentAllocation').then(m => ({ default: m.StudentAllocation })));
-const ClassAllocation = React.lazy(() => import('../components/dashboard/ClassAllocation').then(m => ({ default: m.ClassAllocation }))); // IMPORTADO
-
-// Legal Pages (Embedded)
+// Embedded Legal Pages
 import { PrivacyPolicy } from './PrivacyPolicy';
 import { TermsOfService } from './TermsOfService';
 import { FAQPage } from './FAQPage';
+
+// --- LAZY LOAD RETRY HELPER ---
+// Resolve problemas de chunks em falta após deployment
+const lazyRetry = (componentImport: () => Promise<any>) =>
+  React.lazy(async () => {
+    const hasRefreshed = JSON.parse(
+      window.sessionStorage.getItem('retry-lazy-refreshed') || 'false'
+    );
+
+    try {
+      const component = await componentImport();
+      window.sessionStorage.setItem('retry-lazy-refreshed', 'false');
+      return component;
+    } catch (error) {
+      if (!hasRefreshed) {
+        window.sessionStorage.setItem('retry-lazy-refreshed', 'true');
+        window.location.reload(); // Força refresh para obter novos chunks
+      }
+      throw error; // Deixa o ErrorBoundary apanhar se falhar novamente
+    }
+  });
+
+// Views - Lazy Load with Retry
+const CourseManager = lazyRetry(() => import('../components/dashboard/CourseManager').then(m => ({ default: m.CourseManager })));
+const UserAdmin = lazyRetry(() => import('../components/dashboard/UserAdmin').then(m => ({ default: m.UserAdmin })));
+const Settings = lazyRetry(() => import('../components/dashboard/Settings').then(m => ({ default: m.Settings })));
+const MediaManager = lazyRetry(() => import('../components/dashboard/MediaManager').then(m => ({ default: m.MediaManager })));
+const DriveManager = lazyRetry(() => import('../components/dashboard/DriveManager').then(m => ({ default: m.DriveManager })));
+const MyProfile = lazyRetry(() => import('../components/dashboard/MyProfile').then(m => ({ default: m.MyProfile })));
+const Community = lazyRetry(() => import('../components/dashboard/Community').then(m => ({ default: m.Community })));
+const Calendar = lazyRetry(() => import('../components/dashboard/Calendar').then(m => ({ default: m.Calendar })));
+const AvailabilityMap = lazyRetry(() => import('../components/dashboard/AvailabilityMap').then(m => ({ default: m.AvailabilityMap })));
+const ClassManager = lazyRetry(() => import('../components/dashboard/ClassManager').then(m => ({ default: m.ClassManager })));
+const DidacticPortal = lazyRetry(() => import('../components/dashboard/DidacticPortal').then(m => ({ default: m.DidacticPortal })));
+const AccessLogs = lazyRetry(() => import('../components/dashboard/AccessLogs').then(m => ({ default: m.AccessLogs })));
+const StudentAllocation = lazyRetry(() => import('../components/dashboard/StudentAllocation').then(m => ({ default: m.StudentAllocation })));
+const ClassAllocation = lazyRetry(() => import('../components/dashboard/ClassAllocation').then(m => ({ default: m.ClassAllocation })));
 
 interface DashboardProps {
   session: SupabaseSession;
@@ -326,9 +347,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           // Desligar
           if (channelRef.current) {
               await channelRef.current.untrack();
-              // Não fazemos removeChannel completo para poder continuar a receber 'force_logout'
-              // Mas paramos de enviar a nossa presença.
-              // Para simplificar, o untrack é o suficiente para sair da lista.
               toast.info("Agora estás INVISÍVEL (Modo Fantasma).");
           }
       }
