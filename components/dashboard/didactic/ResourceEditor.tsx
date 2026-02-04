@@ -227,7 +227,7 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                         <option value="file">Ficheiro</option>
                         <option value="link">Link</option>
                         <option value="drive">Drive</option>
-                        <option value="genially">Links para Conteúdo Interativo (Genially, H5P, outros)</option>
+                        <option value="genially">Conteúdo Interativo (Sway, Genially, etc.)</option>
                     </select>
                     
                     {formData.type === 'link' && (
@@ -242,7 +242,7 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                             <div className="flex gap-2">
                                 <input 
                                     type="text" 
-                                    placeholder="Cole aqui o código Iframe ou Link (Genially, H5P, Canva...)" 
+                                    placeholder="Código Embed ou Link (Sway, Genially, Canva...)" 
                                     className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" 
                                     value={formData.url || ''} 
                                     onChange={e => handleGeniallyInput(e.target.value)} 
@@ -297,12 +297,12 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                             <option value="file">Ficheiro</option>
                             <option value="link">Link</option>
                             <option value="drive">Drive</option>
-                            <option value="genially">Links para Conteúdo Interativo (Genially, H5P, outros)</option>
+                            <option value="genially">Conteúdo Interativo (Sway, Genially, etc.)</option>
                         </select>
                         
                         {formData.resource_type === 'link' && <input type="url" placeholder="URL Recurso" className="w-full p-2 rounded text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.resource_url || ''} onChange={e => setFormData({...formData, resource_url: e.target.value})} />}
                         
-                        {formData.resource_type === 'genially' && <input type="text" placeholder="Código Embed ou Link (Genially, H5P, Canva...)" className="w-full p-2 rounded text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.resource_url || ''} onChange={e => handleGeniallyInput(e.target.value, 'resource_')} />}
+                        {formData.resource_type === 'genially' && <input type="text" placeholder="Código Embed ou Link (Sway, Genially, Canva...)" className="w-full p-2 rounded text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.resource_url || ''} onChange={e => handleGeniallyInput(e.target.value, 'resource_')} />}
 
                         {formData.resource_type === 'file' && (
                             <div className="flex items-center gap-2">

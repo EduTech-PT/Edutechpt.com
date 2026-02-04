@@ -175,7 +175,7 @@ export const DriveManager: React.FC<DriveManagerProps> = ({ profile }) => {
         }
 
         // Converter FileList para Array para poder iterar
-        const filesToUpload = Array.from(e.target.files);
+        const filesToUpload: File[] = Array.from(e.target.files);
         
         // Verificar tamanhos
         const oversizedFiles = filesToUpload.filter(f => f.size > 25 * 1024 * 1024);
