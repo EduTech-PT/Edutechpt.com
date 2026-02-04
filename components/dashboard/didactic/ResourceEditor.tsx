@@ -56,15 +56,22 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
         } catch (err: any) { alert("Erro upload: " + err.message); } finally { setUploading(false); }
     };
 
-    // Parser inteligente para Genially (Suporta Link Direto ou Iframe Code)
-    const handleGeniallyInput = (input: string, fieldPrefix: string = '') => {
+    // Parser inteligente para Conteúdo Interativo (Suporta Link Direto, Google Slides ou Iframe Code)
+    const handleInteractiveInput = (input: string, fieldPrefix: string = '') => {
         let cleanUrl = input.trim();
         
-        // Se for um código iframe, extrair o src
+        // 1. Extração de Iframe (Sway, Genially embed codes)
         if (input.includes('<iframe')) {
             const match = input.match(/src="([^"]+)"/);
             if (match && match[1]) {
                 cleanUrl = match[1];
+            }
+        }
+        // 2. Google Slides Smart Convert (Link normal -> Embed)
+        else if (input.includes('docs.google.com/presentation')) {
+            const idMatch = input.match(/\/d\/([a-zA-Z0-9-_]+)/);
+            if (idMatch && idMatch[1]) {
+                cleanUrl = `https://docs.google.com/presentation/d/${idMatch[1]}/embed?start=false&loop=false&delayms=3000`;
             }
         }
 
@@ -242,14 +249,19 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                             <div className="flex gap-2">
                                 <input 
                                     type="text" 
-                                    placeholder="Código Embed ou Link (Sway, Genially, Canva...)" 
+                                    placeholder="Link Google Slides, Genially, Sway..." 
                                     className="w-full p-2 rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" 
                                     value={formData.url || ''} 
-                                    onChange={e => handleGeniallyInput(e.target.value)} 
+                                    onChange={e => handleInteractiveInput(e.target.value)} 
                                 />
                                 <SaveBtn onClick={() => handleSingleSave('url', formData.url)} />
                             </div>
-                            <p className="text-[10px] text-indigo-500 dark:text-indigo-400">O sistema deteta automaticamente o código de partilha.</p>
+                            <p className="text-[10px] text-indigo-500 dark:text-indigo-400">
+                                {formData.url?.includes('docs.google.com') 
+                                    ? "✅ Link Google Slides detetado e convertido para apresentação."
+                                    : "Suporta links diretos ou códigos de embed (<iframe>)."
+                                }
+                            </p>
                         </div>
                     )}
 
@@ -302,7 +314,7 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                         
                         {formData.resource_type === 'link' && <input type="url" placeholder="URL Recurso" className="w-full p-2 rounded text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.resource_url || ''} onChange={e => setFormData({...formData, resource_url: e.target.value})} />}
                         
-                        {formData.resource_type === 'genially' && <input type="text" placeholder="Código Embed ou Link (Sway, Genially, Canva...)" className="w-full p-2 rounded text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.resource_url || ''} onChange={e => handleGeniallyInput(e.target.value, 'resource_')} />}
+                        {formData.resource_type === 'genially' && <input type="text" placeholder="Link Google Slides, Genially, Sway..." className="w-full p-2 rounded text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.resource_url || ''} onChange={e => handleInteractiveInput(e.target.value, 'resource_')} />}
 
                         {formData.resource_type === 'file' && (
                             <div className="flex items-center gap-2">
