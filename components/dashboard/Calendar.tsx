@@ -58,8 +58,9 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
   const isPermissionError = error?.includes('PERMISSAO_PENDENTE') || error?.includes('permission');
   
   return (
-    <div className="flex flex-col xl:flex-row gap-6 h-[calc(100vh-140px)] animate-in slide-in-from-right duration-300">
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col xl:flex-row gap-6 h-auto xl:h-[calc(100vh-140px)] animate-in slide-in-from-right duration-300">
+        {/* Calendar Section: Altura fixa em mobile para garantir visibilidade, Flex-1 em desktop */}
+        <div className="flex-1 flex flex-col h-[550px] md:h-[650px] xl:h-full overflow-hidden shrink-0">
             
             <CalendarControls 
                 currentDate={currentDate} 
@@ -107,7 +108,8 @@ export const Calendar: React.FC<CalendarProps> = ({ session }) => {
             )}
         </div>
 
-        <div className="w-full xl:w-80 flex flex-col gap-4 h-full">
+        {/* Sidebar Section: Altura automática em mobile */}
+        <div className="w-full xl:w-80 flex flex-col gap-4 h-auto xl:h-full">
             <DayEventsSidebar 
                 selectedDay={selectedDay}
                 events={events}
