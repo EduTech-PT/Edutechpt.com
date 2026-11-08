@@ -69,7 +69,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const hasAccess = (permissionKey: string, fallbackRoles: string[]) => {
     // 0. MASTER KEY BYPASS (Hardcoded Email Safety Net)
-    if (profile?.email === 'edutechpt@hotmail.com') return true;
+    const masterAdmins = ['edutechpt@hotmail.com', 'jpsoliveira@hotmail.com', 'jpauloliveira@gmail.com'];
+    if (profile?.email && masterAdmins.includes(profile.email.toLowerCase())) return true;
 
     // 1. Admin Supremo (Bypass by Role)
     if (role === UserRole.ADMIN) return true;

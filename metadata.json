@@ -1,5 +1,6 @@
 {
   "name": "EduTech PT",
   "description": "Plataforma de gestão de formações em Novas Tecnologias com estética Glassmorphism.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": []
 }

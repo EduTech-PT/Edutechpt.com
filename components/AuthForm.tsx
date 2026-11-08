@@ -67,11 +67,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, on
       // Configurações específicas para evitar erros comuns
       if (provider === 'google') {
         options.queryParams = {
-          access_type: 'offline',
-          prompt: 'consent', // Força o ecrã de seleção de conta
+          prompt: 'select_account',
         };
-        // Adicionado scope de Calendário (Read-only)
-        options.scopes = 'https://www.googleapis.com/auth/calendar.readonly';
       }
 
       if (provider === 'azure') {
@@ -121,28 +118,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, on
             O acesso é simplificado mas extremamente seguro. Utilize a sua conta Google (Gmail) ou Microsoft (Outlook/Hotmail) habitual. Não é necessário criar uma palavra-passe/senha específica para a EduTech PT.
           </p>
 
-          {/* Aviso e Guia para Ecrã de Verificação Google */}
-          <div className="bg-amber-50/80 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 text-left shadow-inner mb-2">
-             <div className="flex items-center gap-1.5 font-bold mb-1.5 text-amber-800">
-                <span className="text-sm">⚠️</span>
-                <span>{warningTitle}</span>
-             </div>
-             <p className="opacity-90 leading-relaxed mb-2">
-                {warningIntro}
-             </p>
-             <details className="group bg-white/40 p-2 rounded border border-amber-100 transition-all">
-                <summary className="cursor-pointer font-bold text-amber-700 hover:text-amber-900 flex justify-between items-center select-none">
-                    <span>{warningSummary}</span>
-                    <span className="text-[10px] transform group-open:rotate-180 transition-transform">▼</span>
-                </summary>
-                {/* HTML Renderizado para permitir passos formatados da DB */}
-                <div 
-                    className="mt-2 text-[11px] leading-snug"
-                    dangerouslySetInnerHTML={{ __html: warningSteps }} 
-                />
-             </details>
           </div>
-        </div>
 
         {message && (
           <div className={`mb-6 p-3 rounded-lg text-sm text-center font-medium ${message.includes('Erro') ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-indigo-100 text-indigo-700 border border-indigo-200'}`}>

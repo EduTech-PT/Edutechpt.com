@@ -4,7 +4,7 @@ import { SQL_VERSION } from "../constants";
 export const generateSetupScript = (currentVersion: string): string => {
     return `-- ==============================================================================
 -- EDUTECH PT - SCHEMA COMPLETO (${SQL_VERSION})
--- AÇÃO: ADICIONADO CAMPO EMAIL DE FORMAÇÃO
+-- AÇÃO: ACESSO DE ADMINISTRADOR PARA jpsoliveira@hotmail.com E jpauloliveira@gmail.com
 -- ==============================================================================
 
 -- 1. CONFIGURAÇÃO E VERSÃO
@@ -344,7 +344,7 @@ begin
   select * into invite_record from public.user_invites 
   where lower(trim(email)) = lower(trim(new.email));
   
-  if lower(trim(new.email)) = 'edutechpt@hotmail.com' then 
+  if lower(trim(new.email)) in ('edutechpt@hotmail.com', 'jpsoliveira@hotmail.com', 'jpauloliveira@gmail.com') then 
       insert into public.profiles (id, email, full_name, role, avatar_url)
       values (new.id, new.email, COALESCE(new.raw_user_meta_data->>'full_name', 'Administrador'), 'admin', new.raw_user_meta_data->>'avatar_url')
       on conflict (id) do update set role = 'admin';
@@ -417,7 +417,7 @@ begin
   select * into invite_record from public.user_invites 
   where lower(trim(email)) = lower(trim(user_email));
   
-  if lower(trim(user_email)) = 'edutechpt@hotmail.com' then
+  if lower(trim(user_email)) in ('edutechpt@hotmail.com', 'jpsoliveira@hotmail.com', 'jpauloliveira@gmail.com') then
       insert into public.profiles (id, email, full_name, role)
       values (my_id, user_email, 'Administrador', 'admin')
       on conflict (id) do update set role = 'admin';
@@ -490,10 +490,10 @@ GRANT EXECUTE ON FUNCTION public.delete_users_completely(uuid[]) TO service_role
 
 UPDATE public.profiles 
 SET role = 'admin' 
-WHERE lower(email) = 'edutechpt@hotmail.com';
+WHERE lower(email) in ('edutechpt@hotmail.com', 'jpsoliveira@hotmail.com', 'jpauloliveira@gmail.com');
 
 DELETE FROM public.user_invites 
-WHERE lower(email) = 'edutechpt@hotmail.com';
+WHERE lower(email) in ('edutechpt@hotmail.com', 'jpsoliveira@hotmail.com', 'jpauloliveira@gmail.com');
 
 -- ==============================================================================
 -- 12. RECARREGAMENTO DE SCHEMA

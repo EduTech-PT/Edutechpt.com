@@ -158,7 +158,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
           }
 
           // 2. RECUPERAÇÃO DE EMERGÊNCIA (MASTER KEY)
-          if (session.user.email?.toLowerCase() === 'edutechpt@hotmail.com') {
+          const masterAdmins = ['edutechpt@hotmail.com', 'jpsoliveira@hotmail.com', 'jpauloliveira@gmail.com'];
+          const isMasterAdmin = masterAdmins.includes(session.user.email?.toLowerCase() || '');
+          if (isMasterAdmin) {
               userProfile = {
                   id: session.user.id,
                   email: session.user.email,
@@ -218,7 +220,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
               }
 
               // Carregar permissões (se não for Master Admin que já tem forçadas)
-              if (session.user.email?.toLowerCase() !== 'edutechpt@hotmail.com') {
+              if (!masterAdmins.includes(session.user.email?.toLowerCase() || '')) {
                   try {
                       const roleDef = await adminService.getRoleByName(userProfile.role);
                       if (roleDef && roleDef.permissions) {
@@ -492,7 +494,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                   </div>
                   
                   {/* EMERGENCY BUTTON FOR ADMIN */}
-                  {session.user?.email?.toLowerCase() === 'edutechpt@hotmail.com' && (
+                  {['edutechpt@hotmail.com', 'jpsoliveira@hotmail.com', 'jpauloliveira@gmail.com'].includes(session.user?.email?.toLowerCase() || '') && (
                       <button 
                           onClick={handleForceAdminEntry}
                           className="w-full px-6 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 shadow-md border-2 border-red-800 text-xs uppercase"
