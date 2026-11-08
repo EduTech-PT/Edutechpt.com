@@ -6,6 +6,7 @@ import { adminService } from '../../services/admin';
 import { Profile, Course, UserRole } from '../../types';
 import { CourseDetailModal } from '../CourseDetailModal';
 import { EnrollmentFormModal } from '../EnrollmentFormModal'; // IMPORTADO
+import { CertificateGenerator } from '../CertificateGenerator';
 
 interface Props {
   profile: Profile;
@@ -14,6 +15,8 @@ interface Props {
 
 export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) => {
   const [enrollments, setEnrollments] = useState<any[]>([]);
+  const [completedCourseIds, setCompletedCourseIds] = useState<Set<string>>(new Set());
+  const [certCourse, setCertCourse] = useState<Course | null>(null);
   const [publicCourses, setPublicCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -55,6 +58,23 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
             } else {
                 const myCourses = await courseService.getStudentEnrollments(profile.id);
                 setEnrollments(myCourses || []);
+
+                if (myCourses && myCourses.length > 0) {
+                    const completedSet = new Set<string>();
+                    for (const enr of myCourses) {
+                        if (enr.class_id) {
+                            try {
+                                const progMap = await courseService.getStudentsClassProgress([profile.id], enr.class_id);
+                                if ((progMap[profile.id]?.percentage ?? 0) >= 100) {
+                                    completedSet.add(enr.course_id);
+                                }
+                            } catch (e) {
+                                console.error("Erro ao carregar progresso do aluno:", e);
+                            }
+                        }
+                    }
+                    setCompletedCourseIds(completedSet);
+                }
             }
         } catch (err) { 
             console.error("Erro ao carregar dados:", err); 
@@ -199,15 +219,26 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
                              
                              <div className="mt-auto pt-4 border-t border-indigo-100 dark:border-white/10 flex justify-between items-center">
                                 <span className="text-xs text-indigo-400">Inscrito</span>
-                                {expired ? (
-                                    <button disabled className="px-4 py-1.5 bg-gray-300 text-white text-xs font-bold rounded cursor-not-allowed">
-                                        Bloqueado
-                                    </button>
-                                ) : (
-                                    <button onClick={() => handleOpenCourse(course)} className="px-4 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700 transition-colors shadow-sm">
-                                        Aceder
-                                    </button>
-                                )}
+                                <div className="flex items-center gap-2">
+                                    {completedCourseIds.has(item.course_id) && (
+                                        <button 
+                                            onClick={() => setCertCourse(course)}
+                                            className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-600 text-white text-xs font-bold rounded shadow-sm hover:from-amber-600 hover:to-yellow-700 transition-colors flex items-center gap-1"
+                                            title="Emitir certificado oficial com código QR"
+                                        >
+                                            🎓 Certificado
+                                        </button>
+                                    )}
+                                    {expired ? (
+                                        <button disabled className="px-4 py-1.5 bg-gray-300 text-white text-xs font-bold rounded cursor-not-allowed">
+                                            Bloqueado
+                                        </button>
+                                    ) : (
+                                        <button onClick={() => handleOpenCourse(course)} className="px-4 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700 transition-colors shadow-sm">
+                                            Aceder
+                                        </button>
+                                    )}
+                                </div>
                              </div>
                         </GlassCard>
                     );
@@ -320,6 +351,14 @@ export const StudentCourses: React.FC<Props> = ({ profile, onOpenClassroom }) =>
             onAction={handleAction}
             actionLabel={enrollments.some(e => e.course_id === selectedCourse.id) ? "Aceder à Aula" : "Solicitar Inscrição"}
             isEnrolled={enrollments.some(e => e.course_id === selectedCourse.id)}
+          />
+      )}
+
+      {certCourse && (
+          <CertificateGenerator
+              student={profile}
+              course={certCourse}
+              onClose={() => setCertCourse(null)}
           />
       )}
 

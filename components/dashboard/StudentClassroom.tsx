@@ -165,7 +165,14 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
         } catch (e) { console.error(e); }
     };
 
-    const progressPercentage = materials.length > 0 ? Math.round((completedMaterials.length / materials.length) * 100) : 0;
+    const isAllCompleted = materials.length > 0 && materials.every(m => completedMaterials.includes(m.id));
+    const progressPercentage = isAllCompleted 
+        ? 100 
+        : (completedMaterials.length > 0 && materials.length === 0) 
+            ? 100 
+            : materials.length > 0 
+                ? Math.min(100, Math.round((completedMaterials.filter(id => materials.some(m => m.id === id)).length / materials.length) * 100)) 
+                : 0;
 
     if (loading) return <div className="p-10 text-center text-indigo-600 dark:text-indigo-300 font-bold">A carregar sala de aula...</div>;
 

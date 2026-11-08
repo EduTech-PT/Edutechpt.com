@@ -360,6 +360,112 @@ export const courseService = {
         if (isCompleted) await supabase.from('student_progress').upsert({ user_id: userId, material_id: materialId });
         else await supabase.from('student_progress').delete().eq('user_id', userId).eq('material_id', materialId);
     },
+
+    // --- ATRIBUIÇÃO DE 100% DE PROGRESSO PELO ADMINISTRADOR ---
+    async assignFullProgress(userId: string, courseId: string, classId?: string) {
+        // 1. Obter ou associar turma
+        let targetClassId = classId;
+        if (!targetClassId) {
+            const classes = await this.getClasses(courseId);
+            if (classes && classes.length > 0) {
+                targetClassId = classes[0].id;
+            }
+        }
+
+        // 2. Obter materiais da turma
+        let materials: ClassMaterial[] = [];
+        if (targetClassId) {
+            materials = await this.getClassMaterials(targetClassId);
+        }
+
+        // 3. Se a turma não tiver materiais criados, criar um marco de certificação oficial
+        if (materials.length === 0 && targetClassId) {
+            const milestone = {
+                class_id: targetClassId,
+                title: 'Conclusão e Certificação Oficial da Formação',
+                type: 'link' as const,
+                url: 'https://edutechpt.vercel.app'
+            };
+            const { data: created, error: createErr } = await supabase
+                .from('class_materials')
+                .insert([milestone])
+                .select()
+                .single();
+            if (!createErr && created) {
+                materials = [created];
+            }
+        }
+
+        // 4. Inserir todos os materiais em student_progress para este aluno
+        if (materials.length > 0) {
+            const entries = materials.map(m => ({
+                user_id: userId,
+                material_id: m.id,
+                completed_at: new Date().toISOString()
+            }));
+            const { error: progErr } = await supabase
+                .from('student_progress')
+                .upsert(entries, { onConflict: 'user_id, material_id' });
+            if (progErr) throw progErr;
+        }
+
+        // 5. Garantir que o aluno está inscrito no curso
+        await supabase
+            .from('enrollments')
+            .upsert([{
+                user_id: userId,
+                course_id: courseId,
+                class_id: targetClassId || null,
+                enrolled_at: new Date().toISOString()
+            }], { onConflict: 'user_id, course_id' });
+
+        return true;
+    },
+
+    async resetStudentProgress(userId: string, classId: string) {
+        const materials = await this.getClassMaterials(classId);
+        if (materials.length > 0) {
+            const matIds = materials.map(m => m.id);
+            await supabase
+                .from('student_progress')
+                .delete()
+                .eq('user_id', userId)
+                .in('material_id', matIds);
+        }
+        return true;
+    },
+
+    async getStudentsClassProgress(studentIds: string[], classId: string): Promise<Record<string, { completed: number; total: number; percentage: number }>> {
+        if (!classId || studentIds.length === 0) return {};
+        const materials = await this.getClassMaterials(classId);
+        if (materials.length === 0) {
+            const { data } = await supabase
+                .from('student_progress')
+                .select('user_id, material_id')
+                .in('user_id', studentIds);
+            const result: Record<string, { completed: number; total: number; percentage: number }> = {};
+            studentIds.forEach(id => {
+                const count = data?.filter(d => d.user_id === id).length || 0;
+                result[id] = { completed: count, total: 0, percentage: count > 0 ? 100 : 0 };
+            });
+            return result;
+        }
+
+        const materialIds = materials.map(m => m.id);
+        const { data } = await supabase
+            .from('student_progress')
+            .select('user_id, material_id')
+            .in('user_id', studentIds)
+            .in('material_id', materialIds);
+
+        const result: Record<string, { completed: number; total: number; percentage: number }> = {};
+        studentIds.forEach(id => {
+            const completedCount = data?.filter(d => d.user_id === id).length || 0;
+            const percentage = Math.round((completedCount / materials.length) * 100);
+            result[id] = { completed: completedCount, total: materials.length, percentage };
+        });
+        return result;
+    },
     async getAttendance(classId: string, date: string) {
         const { data, error } = await supabase.from('class_attendance').select('*').eq('class_id', classId).eq('date', date);
         if (error) return [];

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Course, Class, Profile, UserRole } from '../../types';
 import { GlassCard } from '../GlassCard';
 import { courseService } from '../../services/courses';
 import { userService } from '../../services/users';
 import { formatShortDate } from '../../utils/formatters';
+import { CertificateGenerator } from '../CertificateGenerator';
 
 export const StudentAllocation: React.FC = () => {
     const [courses, setCourses] = useState<Course[]>([]);
@@ -19,6 +20,9 @@ export const StudentAllocation: React.FC = () => {
     
     // Processing state for individual user actions
     const [processingUser, setProcessingUser] = useState<string | null>(null);
+    const [assigningProgress, setAssigningProgress] = useState<string | null>(null);
+    const [studentProgress, setStudentProgress] = useState<Record<string, { completed: number; total: number; percentage: number }>>({});
+    const [certModalStudent, setCertModalStudent] = useState<{ student: Profile; course: Course } | null>(null);
 
     // Date Editing State
     const [editingEnrollment, setEditingEnrollment] = useState<{userId: string, date: string, studentName: string} | null>(null);
@@ -151,6 +155,52 @@ export const StudentAllocation: React.FC = () => {
         );
         return enrollment && enrollment.class_id === selectedClassId;
     });
+
+    const enrolledIdsKey = enrolledInClass.map(s => s.id).sort().join(',');
+
+    const refreshClassProgress = useCallback(async () => {
+        if (!selectedClassId || enrolledInClass.length === 0) {
+            setStudentProgress({});
+            return;
+        }
+        try {
+            const prog = await courseService.getStudentsClassProgress(enrolledInClass.map(s => s.id), selectedClassId);
+            setStudentProgress(prog || {});
+        } catch (err) {
+            console.error("Erro ao carregar progresso:", err);
+        }
+    }, [selectedClassId, enrolledIdsKey]);
+
+    useEffect(() => {
+        refreshClassProgress();
+    }, [refreshClassProgress]);
+
+    const handleAssign100 = async (student: Profile) => {
+        if (!selectedCourseId) return;
+        setAssigningProgress(student.id);
+        try {
+            await courseService.assignFullProgress(student.id, selectedCourseId, selectedClassId || undefined);
+            await refreshClassProgress();
+        } catch (err: any) {
+            alert("Erro ao atribuir 100%: " + (err?.message || err));
+        } finally {
+            setAssigningProgress(null);
+        }
+    };
+
+    const handleResetProgress = async (studentId: string) => {
+        if (!selectedClassId) return;
+        if (!window.confirm("Deseja repor o progresso deste aluno nesta turma a 0%?")) return;
+        setAssigningProgress(studentId);
+        try {
+            await courseService.resetStudentProgress(studentId, selectedClassId);
+            await refreshClassProgress();
+        } catch (err: any) {
+            alert("Erro ao repor progresso: " + (err?.message || err));
+        } finally {
+            setAssigningProgress(null);
+        }
+    };
 
     // 2. Alunos disponíveis
     const availableStudents = allStudents.filter(student => {
@@ -303,9 +353,12 @@ export const StudentAllocation: React.FC = () => {
                                 enrolledInClass.map(student => {
                                     const isProcessing = processingUser === student.id;
                                     const enrollment = enrollments.find(e => e.user_id === student.id && e.course_id === selectedCourseId);
+                                    const prog = studentProgress[student.id];
+                                    const is100 = (prog?.percentage ?? 0) >= 100;
+                                    const isProcProg = assigningProgress === student.id;
                                     
                                     return (
-                                        <div key={student.id} className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800 border border-indigo-50 dark:border-slate-700 hover:border-indigo-200 transition-all group shadow-sm">
+                                        <div key={student.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-indigo-50 dark:border-slate-700 hover:border-indigo-200 transition-all group shadow-sm gap-2">
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <button 
                                                     onClick={() => !isProcessing && handleRemove(student.id)}
@@ -330,6 +383,54 @@ export const StudentAllocation: React.FC = () => {
                                                         </button>
                                                     </div>
                                                 </div>
+                                            </div>
+
+                                            {/* Progress Status & Admin 100% Certificate Assignment */}
+                                            <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                                    is100
+                                                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300'
+                                                        : 'bg-indigo-50 text-indigo-700 dark:bg-slate-700 dark:text-indigo-300 border border-indigo-100'
+                                                }`}>
+                                                    {is100 ? '100% Concluído ✓' : `${prog?.percentage ?? 0}%`}
+                                                </span>
+
+                                                <button
+                                                    onClick={() => handleAssign100(student)}
+                                                    disabled={isProcProg}
+                                                    className={`px-2.5 py-1 text-[11px] font-bold rounded shadow-sm transition-all flex items-center gap-1 ${
+                                                        is100
+                                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                                                            : 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20'
+                                                    }`}
+                                                    title="Atribuir 100% de conclusão do curso imediatamente para emissão de certificado"
+                                                >
+                                                    {isProcProg ? '...' : is100 ? '⭐ 100%' : '⭐ Atribuir 100%'}
+                                                </button>
+
+                                                {is100 && (
+                                                    <button
+                                                        onClick={() => {
+                                                            const currentCourse = courses.find(c => c.id === selectedCourseId);
+                                                            if (currentCourse) setCertModalStudent({ student, course: currentCourse });
+                                                        }}
+                                                        className="px-2.5 py-1 text-[11px] font-bold rounded bg-gradient-to-r from-amber-500 to-yellow-600 text-white hover:from-amber-600 hover:to-yellow-700 shadow-sm flex items-center gap-1"
+                                                        title="Visualizar e emitir certificado oficial com QR Code"
+                                                    >
+                                                        🎓 Certificado
+                                                    </button>
+                                                )}
+
+                                                {is100 && (
+                                                    <button
+                                                        onClick={() => handleResetProgress(student.id)}
+                                                        disabled={isProcProg}
+                                                        className="p-1 text-gray-400 hover:text-red-500 rounded text-xs"
+                                                        title="Repor progresso do aluno a 0%"
+                                                    >
+                                                        🔄
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     );
@@ -375,6 +476,15 @@ export const StudentAllocation: React.FC = () => {
                         </div>
                     </GlassCard>
                 </div>
+            )}
+
+            {/* CERTIFICATE GENERATOR MODAL */}
+            {certModalStudent && (
+                <CertificateGenerator
+                    student={certModalStudent.student}
+                    course={certModalStudent.course}
+                    onClose={() => setCertModalStudent(null)}
+                />
             )}
         </div>
     );
