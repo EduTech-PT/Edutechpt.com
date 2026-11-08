@@ -424,6 +424,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   const handleFixDb = () => handleSetView('settings_sql');
   const handleFixGas = () => handleSetView('settings_drive');
 
+  const handleQuickSyncDb = async () => {
+      try {
+          await adminService.updateAppConfig('sql_version', SQL_VERSION);
+          setDbVersion(SQL_VERSION);
+          toast.success(`Base de Dados sincronizada com sucesso para ${SQL_VERSION}!`);
+      } catch (err: any) {
+          console.error("Erro na sincronização rápida da base de dados:", err);
+          toast.error("Não foi possível sincronizar automaticamente: " + (err.message || 'Verifique o SQL manual'));
+          handleSetView('settings_sql');
+      }
+  };
+
   const handleRefreshProfile = async () => {
       if (selectedUserToEdit) {
           try {
@@ -544,9 +556,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 case 'dashboard': return (
                     <Overview 
                         profile={profile} 
-                        dbStatus={{mismatch: dbVersion !== SQL_VERSION, current: dbVersion, expected: SQL_VERSION}} 
                         gasStatus={gasStatus}
-                        onFixDb={handleFixDb} 
                         onFixGas={handleFixGas}
                         isAdmin={profile.role === UserRole.ADMIN} 
                     />
@@ -632,7 +642,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
   };
 
   const systemNeedsUpdate = (profile.role === UserRole.ADMIN) && 
-                            ((dbVersion !== SQL_VERSION) || (gasStatus !== null && !gasStatus.match));
+                            (gasStatus !== null && !gasStatus.match);
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 dark:from-slate-900 dark:via-slate-800 dark:to-black relative overflow-hidden font-sans transition-colors duration-500">

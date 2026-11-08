@@ -9,14 +9,15 @@ import { PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, Cart
 
 interface Props {
   profile: Profile;
-  dbStatus: { mismatch: boolean; current: string; expected: string };
+  dbStatus?: { mismatch: boolean; current: string; expected: string };
   gasStatus: { match: boolean; remote: string; local: string } | null;
-  onFixDb: () => void;
+  onFixDb?: () => void;
+  onQuickSyncDb?: () => Promise<void>;
   onFixGas: () => void;
   isAdmin: boolean;
 }
 
-export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixDb, onFixGas, isAdmin }) => {
+export const Overview: React.FC<Props> = ({ profile, gasStatus, onFixGas, isAdmin }) => {
   const [classes, setClasses] = useState<(Class & { course?: Course })[]>([]);
   const [loadingClasses, setLoadingClasses] = useState(true);
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -122,25 +123,6 @@ export const Overview: React.FC<Props> = ({ profile, dbStatus, gasStatus, onFixD
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       
-      {/* Database Alert */}
-      {dbStatus.mismatch && isAdmin && (
-          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-lg animate-pulse">
-              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                  <div>
-                      <p className="font-bold text-lg">⚠️ AÇÃO CRÍTICA NECESSÁRIA (BASE DE DADOS)</p>
-                      <p className="text-sm mb-1">A estrutura da Base de Dados está desatualizada.</p>
-                      <div className="flex gap-4 text-xs font-mono bg-white/50 p-2 rounded">
-                          <span>Site: <b>{dbStatus.expected}</b></span>
-                          <span>DB: <b>{dbStatus.current}</b></span>
-                      </div>
-                  </div>
-                  <button onClick={onFixDb} className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700 shadow-lg">
-                      Corrigir Agora
-                  </button>
-              </div>
-          </div>
-      )}
-
       {/* Google Script Alert (NEW) */}
       {gasStatus && !gasStatus.match && isAdmin && (
           <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-800 p-4 rounded shadow-lg animate-pulse">

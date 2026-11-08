@@ -13,6 +13,7 @@ export const SettingsSQL: React.FC = () => {
     const [dbSize, setDbSize] = useState<number>(0);
     const [loadingSize, setLoadingSize] = useState(false);
     const [planLimit, setPlanLimit] = useState<number>(500 * 1024 * 1024); // Default 500MB
+    const [syncing, setSyncing] = useState(false);
 
     useEffect(() => {
         setSqlScript(generateSetupScript(SQL_VERSION));
@@ -38,6 +39,19 @@ export const SettingsSQL: React.FC = () => {
             setTimeout(() => setCopyFeedback(''), 2000);
         } catch (err) {
             setCopyFeedback('Erro');
+        }
+    };
+
+    const handleQuickSync = async () => {
+        setSyncing(true);
+        try {
+            await adminService.updateAppConfig('sql_version', SQL_VERSION);
+            setCopyFeedback('Versão Sincronizada!');
+            setTimeout(() => setCopyFeedback(''), 3000);
+        } catch (e: any) {
+            alert("Erro ao sincronizar versão: " + (e.message || 'Verifique permissões'));
+        } finally {
+            setSyncing(false);
         }
     };
 
@@ -105,12 +119,21 @@ export const SettingsSQL: React.FC = () => {
                         <h3 className="font-bold text-xl text-indigo-900 dark:text-white">Manutenção da Base de Dados</h3>
                         <p className="text-sm text-indigo-600 dark:text-indigo-300">Script de atualização de estrutura e permissões (Versão {SQL_VERSION}).</p>
                     </div>
-                    <button 
-                        onClick={handleCopyText} 
-                        className={`px-4 py-2 rounded-lg font-bold shadow-md transition-all ${copyFeedback ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
-                    >
-                        {copyFeedback || 'Copiar Script SQL'}
-                    </button>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                            onClick={handleQuickSync}
+                            disabled={syncing}
+                            className="px-4 py-2 rounded-lg font-bold shadow-md bg-emerald-600 hover:bg-emerald-700 text-white transition-all text-sm flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                            {syncing ? 'A sincronizar...' : '⚡ Sincronizar Versão (1 Clique)'}
+                        </button>
+                        <button 
+                            onClick={handleCopyText} 
+                            className={`px-4 py-2 rounded-lg font-bold shadow-md transition-all text-sm ${copyFeedback ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+                        >
+                            {copyFeedback || 'Copiar Script SQL'}
+                        </button>
+                    </div>
                 </div>
                 <div className="bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner flex-1 overflow-auto custom-scrollbar">
                     <pre className="text-slate-300 font-mono text-xs whitespace-pre-wrap leading-relaxed">{sqlScript}</pre>
