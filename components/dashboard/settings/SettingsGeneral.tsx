@@ -8,7 +8,7 @@ import { RichTextEditor } from '../../RichTextEditor';
 import { APP_VERSION, SQL_VERSION } from '../../../constants';
 import { Profile, Course } from '../../../types';
 import { CertificateGenerator } from '../../CertificateGenerator';
-import { formatGoogleDriveImageUrl } from '../../../utils/formatters';
+import { formatGoogleDriveImageUrl, DEFAULT_EDUTECH_STAMP_DATA_URL } from '../../../utils/formatters';
 
 interface Props {
     dbVersion: string;
@@ -191,6 +191,22 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
             await navigator.clipboard.writeText(text);
             alert('Link copiado!');
         } catch (err) { console.error(err); }
+    };
+
+    const handleStampFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) {
+            alert("Ficheiro muito grande. Escolha uma imagem até 2MB.");
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = async () => {
+            const base64 = reader.result as string;
+            setConfig((prev: any) => ({ ...prev, certificateStampUrl: base64 }));
+            await handleSaveField('certificate_stamp_url', base64);
+        };
+        reader.readAsDataURL(file);
     };
 
     // --- Steps Management ---
@@ -391,25 +407,58 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                          </div>
                      </div>
 
-                     {/* CARIMBO OFICIAL DO CERTIFICADO (GOOGLE DRIVE) */}
+                     {/* CARIMBO OFICIAL DO CERTIFICADO */}
                      <div className="bg-white/40 dark:bg-slate-800/40 p-6 rounded-xl border border-white/50 dark:border-white/10 flex flex-col justify-between">
                          <div>
                              <div className="flex items-center justify-between mb-2">
                                 <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold uppercase tracking-wide">Carimbo do Certificado</label>
-                                <span className="text-[9px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-bold px-2 py-0.5 rounded border border-emerald-300">Google Drive</span>
+                                <span className="text-[9px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-bold px-2 py-0.5 rounded border border-emerald-300">0B Supabase</span>
                              </div>
                              <p className="text-[10px] text-indigo-600 dark:text-indigo-300 mb-2 leading-tight">
-                                 Insira o link de partilha do Google Drive da imagem do carimbo (PNG transparente). 0 Bytes no Supabase.
+                                 Escolha uma imagem do computador, use o carimbo oficial padrão ou cole o link do Google Drive. Fica no canto inferior direito.
                              </p>
-                             <div className="flex gap-2 items-center mb-3">
+                             <div className="flex gap-2 items-center mb-2">
                                  <input 
                                      type="text" 
-                                     value={config.certificateStampUrl || ''} 
+                                     value={config.certificateStampUrl?.startsWith('data:image/') ? '[Carimbo Carregado / Ativo]' : (config.certificateStampUrl || '')} 
                                      onChange={e => setConfig({...config, certificateStampUrl: e.target.value})} 
-                                     placeholder="https://drive.google.com/file/d/..." 
+                                     placeholder="Link Google Drive ou URL..." 
                                      className="w-full p-2 rounded bg-white/50 dark:bg-black/20 border border-white/60 dark:border-white/20 text-xs dark:text-white"
                                  />
                                  <SaveBtn onClick={() => handleSaveField('certificate_stamp_url', config.certificateStampUrl)} />
+                                 <label className="px-3 py-2 bg-white dark:bg-slate-700 text-indigo-600 dark:text-white border border-indigo-200 dark:border-slate-600 rounded font-bold cursor-pointer hover:bg-indigo-50 dark:hover:bg-slate-600 text-xs flex items-center gap-1 shrink-0" title="Escolher imagem do computador (0 Bytes no Supabase)">
+                                     📁
+                                     <input type="file" className="hidden" accept="image/*" onChange={handleStampFileSelect} />
+                                 </label>
+                             </div>
+
+                             {/* Ações Rápidas: Carimbo Oficial & Limpar */}
+                             <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                                 <button
+                                     type="button"
+                                     onClick={async () => {
+                                         setConfig((prev: any) => ({ ...prev, certificateStampUrl: DEFAULT_EDUTECH_STAMP_DATA_URL }));
+                                         await handleSaveField('certificate_stamp_url', DEFAULT_EDUTECH_STAMP_DATA_URL);
+                                     }}
+                                     className="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-slate-700/60 hover:bg-indigo-100 px-2.5 py-1 rounded border border-indigo-200 dark:border-slate-600 transition-colors flex items-center gap-1"
+                                     title="Aplicar o carimbo oficial circular da Direção Pedagógica da EduTechPT"
+                                 >
+                                     ⭐ Carimbo Oficial EduTechPT
+                                 </button>
+
+                                 {config.certificateStampUrl && (
+                                     <button
+                                         type="button"
+                                         onClick={async () => {
+                                             setConfig((prev: any) => ({ ...prev, certificateStampUrl: '' }));
+                                             await handleSaveField('certificate_stamp_url', '');
+                                         }}
+                                         className="text-[10px] font-bold text-red-600 hover:text-red-700 bg-red-50 dark:bg-red-950/40 px-2 py-1 rounded border border-red-200 dark:border-red-800"
+                                         title="Remover carimbo do certificado"
+                                     >
+                                         ✕ Remover
+                                     </button>
+                                 )}
                              </div>
                          </div>
                          <div className="flex items-center justify-center p-3 bg-transparent rounded-lg border border-indigo-200 dark:border-slate-600 border-dashed h-32">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import { Course, Profile } from '../types';
-import { formatDate, formatGoogleDriveImageUrl } from '../utils/formatters';
+import { formatDate, formatGoogleDriveImageUrl, DEFAULT_EDUTECH_STAMP_DATA_URL } from '../utils/formatters';
 import { adminService } from '../services/admin';
 
 interface Props {
@@ -23,11 +23,20 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
         }).catch(err => console.error("Erro ao carregar config para certificado", err));
     }, []);
 
-    // Função auxiliar para converter imagem URL em Base64 com suporte a Google Drive e CORS
+    // Função auxiliar para converter imagem URL em Base64 com suporte a Google Drive, Data URLs e CORS
     const getBase64ImageFromURL = (url: string): Promise<{ data: string; width: number; height: number }> => {
         return new Promise((resolve) => {
             if (!url) {
                 resolve({ data: "", width: 0, height: 0 });
+                return;
+            }
+
+            // Se já for Base64 Data URL, carregar diretamente sem restrições crossOrigin
+            if (url.startsWith('data:image/')) {
+                const temp = new Image();
+                temp.onload = () => resolve({ data: url, width: temp.width || 200, height: temp.height || 200 });
+                temp.onerror = () => resolve({ data: url, width: 200, height: 200 });
+                temp.src = url;
                 return;
             }
 
@@ -76,6 +85,18 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
     
     const generatePDF = async () => {
         setGenerating(true);
+
+        // Obter configuração mais recente em tempo real
+        let effectiveLogo = logoUrl;
+        let effectiveStamp = stampUrl;
+        try {
+            const freshConfig = await adminService.getAppConfig();
+            if (freshConfig.logoUrl) effectiveLogo = freshConfig.logoUrl;
+            if (freshConfig.certificateStampUrl) effectiveStamp = freshConfig.certificateStampUrl;
+        } catch (e) {
+            console.warn("A usar configurações locais:", e);
+        }
+
         const doc = new jsPDF({
             orientation: 'landscape',
             unit: 'mm',
@@ -101,9 +122,9 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
 
         // 2. Logótipo (Topo)
         let yPos = 40;
-        if (logoUrl) {
+        if (effectiveLogo) {
             try {
-                const logoData = await getBase64ImageFromURL(logoUrl);
+                const logoData = await getBase64ImageFromURL(effectiveLogo);
                 if (logoData.data) {
                     const maxW = 80;
                     const maxH = 30;
@@ -190,10 +211,17 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
         const sigY = 176; 
         
         let hasStamp = false;
-        if (stampUrl) {
+        if (effectiveStamp) {
             try {
-                const normalizedStamp = formatGoogleDriveImageUrl(stampUrl);
-                const stampData = await getBase64ImageFromURL(normalizedStamp);
+                const normalizedStamp = formatGoogleDriveImageUrl(effectiveStamp);
+                let stampData = await getBase64ImageFromURL(normalizedStamp);
+
+                // Se o link remoto falhar por bloqueio de CORS do Google Drive, usa o carimbo oficial padrão
+                if (!stampData.data) {
+                    console.warn("Carregamento do link remoto do carimbo falhou; a usar carimbo oficial padrão.");
+                    stampData = await getBase64ImageFromURL(DEFAULT_EDUTECH_STAMP_DATA_URL);
+                }
+
                 if (stampData.data) {
                     hasStamp = true;
                     // Linha da assinatura ajustada à esquerda para acomodar o carimbo oficial
@@ -217,7 +245,7 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
                     doc.addImage(stampData.data, 'PNG', 232, sigY - 18, stampSize, stampSize, '', 'FAST');
                 }
             } catch (err) {
-                console.warn("Erro ao carregar carimbo oficial do certificado:", err);
+                console.warn("Erro ao renderizar carimbo oficial do certificado:", err);
             }
         }
 
