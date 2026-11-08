@@ -8,6 +8,7 @@ import { RichTextEditor } from '../../RichTextEditor';
 import { APP_VERSION, SQL_VERSION } from '../../../constants';
 import { Profile, Course } from '../../../types';
 import { CertificateGenerator } from '../../CertificateGenerator';
+import { formatGoogleDriveImageUrl } from '../../../utils/formatters';
 
 interface Props {
     dbVersion: string;
@@ -122,6 +123,7 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
         try {
             await adminService.updateAppConfig('app_logo_url', config.logoUrl || '');
             await adminService.updateAppConfig('app_favicon_url', config.faviconUrl || '');
+            await adminService.updateAppConfig('certificate_stamp_url', config.certificateStampUrl || '');
             
             await adminService.updateAppConfig('auth_warning_title', config.authWarningTitle);
             await adminService.updateAppConfig('auth_warning_intro', config.authWarningIntro);
@@ -348,40 +350,84 @@ export const SettingsGeneral: React.FC<Props> = ({ dbVersion, profile, onNavigat
                     <span>🎨</span> Personalização
                 </h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                     <div className="bg-white/40 dark:bg-slate-800/40 p-6 rounded-xl border border-white/50 dark:border-white/10">
-                         <div className="flex items-center justify-between mb-3">
-                            <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold uppercase tracking-wide">Logótipo</label>
-                            <CompressLink />
-                         </div>
-                         <div className="flex gap-2 items-center mb-3">
-                             <input type="text" value={config.logoUrl || ''} onChange={e => setConfig({...config, logoUrl: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-black/20 border border-white/60 dark:border-white/20 text-xs dark:text-white"/>
-                             <SaveBtn onClick={() => handleSaveField('app_logo_url', config.logoUrl)} />
-                             <label className={`px-3 py-2 bg-white dark:bg-slate-700 text-indigo-600 dark:text-white border border-indigo-200 dark:border-slate-600 rounded font-bold cursor-pointer hover:bg-indigo-50 dark:hover:bg-slate-600 text-xs flex items-center gap-1 ${uploadingLogo ? 'opacity-50' : ''}`}>
-                                 {uploadingLogo ? '...' : '📁'}
-                                 <input type="file" className="hidden" accept="image/*" onChange={e => handleUpload(e, 'logo')} disabled={uploadingLogo} />
-                             </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+                     <div className="bg-white/40 dark:bg-slate-800/40 p-6 rounded-xl border border-white/50 dark:border-white/10 flex flex-col justify-between">
+                         <div>
+                             <div className="flex items-center justify-between mb-3">
+                                <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold uppercase tracking-wide">Logótipo</label>
+                                <CompressLink />
+                             </div>
+                             <div className="flex gap-2 items-center mb-3">
+                                 <input type="text" value={config.logoUrl || ''} onChange={e => setConfig({...config, logoUrl: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-black/20 border border-white/60 dark:border-white/20 text-xs dark:text-white"/>
+                                 <SaveBtn onClick={() => handleSaveField('app_logo_url', config.logoUrl)} />
+                                 <label className={`px-3 py-2 bg-white dark:bg-slate-700 text-indigo-600 dark:text-white border border-indigo-200 dark:border-slate-600 rounded font-bold cursor-pointer hover:bg-indigo-50 dark:hover:bg-slate-600 text-xs flex items-center gap-1 ${uploadingLogo ? 'opacity-50' : ''}`}>
+                                     {uploadingLogo ? '...' : '📁'}
+                                     <input type="file" className="hidden" accept="image/*" onChange={e => handleUpload(e, 'logo')} disabled={uploadingLogo} />
+                                 </label>
+                             </div>
                          </div>
                          <div className="flex items-center justify-center py-4 bg-transparent rounded-lg border border-indigo-200 dark:border-slate-600 border-dashed h-32">
                              {config.logoUrl ? <img src={config.logoUrl} className="h-24 object-contain" /> : <span className="opacity-30 text-xs dark:text-white">Sem Logótipo</span>}
                          </div>
                      </div>
 
-                     <div className="bg-white/40 dark:bg-slate-800/40 p-6 rounded-xl border border-white/50 dark:border-white/10">
-                         <div className="flex items-center justify-between mb-3">
-                            <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold uppercase tracking-wide">Favicon</label>
-                            <CompressLink />
-                         </div>
-                         <div className="flex gap-2 items-center mb-3">
-                             <input type="text" value={config.faviconUrl || ''} onChange={e => setConfig({...config, faviconUrl: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-black/20 border border-white/60 dark:border-white/20 text-xs dark:text-white"/>
-                             <SaveBtn onClick={() => handleSaveField('app_favicon_url', config.faviconUrl)} />
-                             <label className={`px-3 py-2 bg-white dark:bg-slate-700 text-indigo-600 dark:text-white border border-indigo-200 dark:border-slate-600 rounded font-bold cursor-pointer hover:bg-indigo-50 dark:hover:bg-slate-600 text-xs flex items-center gap-1 ${uploadingFavicon ? 'opacity-50' : ''}`}>
-                                 {uploadingFavicon ? '...' : '📁'}
-                                 <input type="file" className="hidden" accept="image/x-icon,image/png" onChange={e => handleUpload(e, 'favicon')} disabled={uploadingFavicon} />
-                             </label>
+                     <div className="bg-white/40 dark:bg-slate-800/40 p-6 rounded-xl border border-white/50 dark:border-white/10 flex flex-col justify-between">
+                         <div>
+                             <div className="flex items-center justify-between mb-3">
+                                <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold uppercase tracking-wide">Favicon</label>
+                                <CompressLink />
+                             </div>
+                             <div className="flex gap-2 items-center mb-3">
+                                 <input type="text" value={config.faviconUrl || ''} onChange={e => setConfig({...config, faviconUrl: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-black/20 border border-white/60 dark:border-white/20 text-xs dark:text-white"/>
+                                 <SaveBtn onClick={() => handleSaveField('app_favicon_url', config.faviconUrl)} />
+                                 <label className={`px-3 py-2 bg-white dark:bg-slate-700 text-indigo-600 dark:text-white border border-indigo-200 dark:border-slate-600 rounded font-bold cursor-pointer hover:bg-indigo-50 dark:hover:bg-slate-600 text-xs flex items-center gap-1 ${uploadingFavicon ? 'opacity-50' : ''}`}>
+                                     {uploadingFavicon ? '...' : '📁'}
+                                     <input type="file" className="hidden" accept="image/x-icon,image/png" onChange={e => handleUpload(e, 'favicon')} disabled={uploadingFavicon} />
+                                 </label>
+                             </div>
                          </div>
                          <div className="flex items-center justify-center p-4 bg-transparent rounded-lg border border-indigo-200 dark:border-slate-600 border-dashed h-32">
                              {config.faviconUrl ? <img src={config.faviconUrl} className="h-8 w-8 object-contain" /> : <span className="opacity-30 text-xs dark:text-white">Sem Ícone</span>}
+                         </div>
+                     </div>
+
+                     {/* CARIMBO OFICIAL DO CERTIFICADO (GOOGLE DRIVE) */}
+                     <div className="bg-white/40 dark:bg-slate-800/40 p-6 rounded-xl border border-white/50 dark:border-white/10 flex flex-col justify-between">
+                         <div>
+                             <div className="flex items-center justify-between mb-2">
+                                <label className="block text-sm text-indigo-800 dark:text-indigo-200 font-bold uppercase tracking-wide">Carimbo do Certificado</label>
+                                <span className="text-[9px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-bold px-2 py-0.5 rounded border border-emerald-300">Google Drive</span>
+                             </div>
+                             <p className="text-[10px] text-indigo-600 dark:text-indigo-300 mb-2 leading-tight">
+                                 Insira o link de partilha do Google Drive da imagem do carimbo (PNG transparente). 0 Bytes no Supabase.
+                             </p>
+                             <div className="flex gap-2 items-center mb-3">
+                                 <input 
+                                     type="text" 
+                                     value={config.certificateStampUrl || ''} 
+                                     onChange={e => setConfig({...config, certificateStampUrl: e.target.value})} 
+                                     placeholder="https://drive.google.com/file/d/..." 
+                                     className="w-full p-2 rounded bg-white/50 dark:bg-black/20 border border-white/60 dark:border-white/20 text-xs dark:text-white"
+                                 />
+                                 <SaveBtn onClick={() => handleSaveField('certificate_stamp_url', config.certificateStampUrl)} />
+                             </div>
+                         </div>
+                         <div className="flex items-center justify-center p-3 bg-transparent rounded-lg border border-indigo-200 dark:border-slate-600 border-dashed h-32">
+                             {config.certificateStampUrl ? (
+                                 <div className="flex flex-col items-center gap-1">
+                                     <img 
+                                         src={formatGoogleDriveImageUrl(config.certificateStampUrl)} 
+                                         alt="Carimbo do Certificado" 
+                                         className="h-20 w-20 object-contain drop-shadow-sm" 
+                                     />
+                                     <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">Ativo no Certificado</span>
+                                 </div>
+                             ) : (
+                                 <div className="text-center opacity-40">
+                                     <span className="text-2xl block mb-1">🔏</span>
+                                     <span className="text-xs dark:text-white">Sem Carimbo</span>
+                                 </div>
+                             )}
                          </div>
                      </div>
                 </div>

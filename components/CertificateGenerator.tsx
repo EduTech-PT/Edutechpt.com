@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import { Course, Profile } from '../types';
-import { formatDate } from '../utils/formatters';
+import { formatDate, formatGoogleDriveImageUrl } from '../utils/formatters';
 import { adminService } from '../services/admin';
 
 interface Props {
@@ -13,35 +13,65 @@ interface Props {
 export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose }) => {
     const [generating, setGenerating] = useState(false);
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
+    const [stampUrl, setStampUrl] = useState<string | null>(null);
 
     useEffect(() => {
-        // Carregar configuração para obter o logótipo
+        // Carregar configuração para obter logótipo e carimbo oficial
         adminService.getAppConfig().then(config => {
             if (config.logoUrl) setLogoUrl(config.logoUrl);
+            if (config.certificateStampUrl) setStampUrl(config.certificateStampUrl);
         }).catch(err => console.error("Erro ao carregar config para certificado", err));
     }, []);
 
-    // Função auxiliar para converter imagem URL em Base64 (necessário para jsPDF)
+    // Função auxiliar para converter imagem URL em Base64 com suporte a Google Drive e CORS
     const getBase64ImageFromURL = (url: string): Promise<{ data: string; width: number; height: number }> => {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
+            if (!url) {
+                resolve({ data: "", width: 0, height: 0 });
+                return;
+            }
+
             const img = new Image();
             img.crossOrigin = "Anonymous";
             img.src = url;
+            
             img.onload = () => {
-                const canvas = document.createElement("canvas");
-                // Manter resolução original
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext("2d");
-                ctx?.drawImage(img, 0, 0);
-                const dataURL = canvas.toDataURL("image/png");
-                resolve({ data: dataURL, width: img.width, height: img.height });
+                try {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext("2d");
+                    ctx?.drawImage(img, 0, 0);
+                    const dataURL = canvas.toDataURL("image/png");
+                    resolve({ data: dataURL, width: img.width, height: img.height });
+                } catch (e) {
+                    tryFetchBlob(url, resolve);
+                }
             };
+
             img.onerror = () => {
-                console.warn("Não foi possível carregar a imagem do logótipo para o PDF (CORS ou URL inválido).");
-                resolve({ data: "", width: 0, height: 0 }); // Resolve vazio para não bloquear a geração
+                tryFetchBlob(url, resolve);
             };
         });
+    };
+
+    const tryFetchBlob = (url: string, resolve: (val: { data: string; width: number; height: number }) => void) => {
+        fetch(url)
+            .then(res => res.blob())
+            .then(blob => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const dataUrl = reader.result as string;
+                    const temp = new Image();
+                    temp.onload = () => resolve({ data: dataUrl, width: temp.width, height: temp.height });
+                    temp.onerror = () => resolve({ data: dataUrl, width: 100, height: 100 });
+                    temp.src = dataUrl;
+                };
+                reader.readAsDataURL(blob);
+            })
+            .catch(() => {
+                resolve({ data: "", width: 0, height: 0 });
+            });
     };
     
     const generatePDF = async () => {
@@ -156,24 +186,58 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
         
         doc.text(details, 148.5, yPos + 90, { align: 'center' });
 
-        // 5. Assinatura (Posição 180mm para evitar sobreposição)
+        // 5. Assinatura e Carimbo Oficial (Canto Inferior Direito)
         const sigY = 176; 
         
-        // Linha da assinatura
-        doc.setDrawColor('#9ca3af');
-        doc.line(180, sigY, 265, sigY);
-        
-        // "Assinatura"
-        doc.setFont('times', 'italic');
-        doc.setFontSize(22);
-        doc.setTextColor(colorSecondary);
-        doc.text("EduTechPT", 222.5, sigY - 5, { align: 'center' });
+        let hasStamp = false;
+        if (stampUrl) {
+            try {
+                const normalizedStamp = formatGoogleDriveImageUrl(stampUrl);
+                const stampData = await getBase64ImageFromURL(normalizedStamp);
+                if (stampData.data) {
+                    hasStamp = true;
+                    // Linha da assinatura ajustada à esquerda para acomodar o carimbo oficial
+                    doc.setDrawColor('#9ca3af');
+                    doc.line(168, sigY, 228, sigY);
+                    
+                    // "Assinatura"
+                    doc.setFont('times', 'italic');
+                    doc.setFontSize(22);
+                    doc.setTextColor(colorSecondary);
+                    doc.text("EduTechPT", 198, sigY - 5, { align: 'center' });
 
-        // Cargo
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(colorText);
-        doc.text("A Direção Pedagógica", 222.5, sigY + 6, { align: 'center' });
+                    // Cargo
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(10);
+                    doc.setTextColor(colorText);
+                    doc.text("A Direção Pedagógica", 198, sigY + 6, { align: 'center' });
+
+                    // Carimbo Oficial no canto inferior direito (32x32mm)
+                    const stampSize = 32;
+                    doc.addImage(stampData.data, 'PNG', 232, sigY - 18, stampSize, stampSize, '', 'FAST');
+                }
+            } catch (err) {
+                console.warn("Erro ao carregar carimbo oficial do certificado:", err);
+            }
+        }
+
+        if (!hasStamp) {
+            // Layout padrão (sem carimbo)
+            doc.setDrawColor('#9ca3af');
+            doc.line(180, sigY, 265, sigY);
+            
+            // "Assinatura"
+            doc.setFont('times', 'italic');
+            doc.setFontSize(22);
+            doc.setTextColor(colorSecondary);
+            doc.text("EduTechPT", 222.5, sigY - 5, { align: 'center' });
+
+            // Cargo
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(colorText);
+            doc.text("A Direção Pedagógica", 222.5, sigY + 6, { align: 'center' });
+        }
 
         // 6. QR Code de Autenticidade & Código de Registo
         const cleanCourseCode = (course.id || 'CRS').replace(/[^a-zA-Z0-9]/g, '').substring(0, 4).toUpperCase();
@@ -222,9 +286,15 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
 
                 <div className="mt-8">
                     <h2 className="text-2xl font-bold text-indigo-900 mb-2">Certificado Disponível!</h2>
-                    <p className="text-indigo-600 mb-6 text-sm">
+                    <p className="text-indigo-600 mb-4 text-sm">
                         Parabéns! Completaste todos os requisitos do curso <b>{course.title}</b>.
                     </p>
+
+                    {stampUrl && (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 text-xs font-bold rounded-full border border-emerald-200 mb-4">
+                            <span>🔏</span> Carimbo Oficial da Direção Pedagógica
+                        </div>
+                    )}
                     
                     <div className="flex flex-col gap-3">
                         <button 

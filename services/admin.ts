@@ -420,6 +420,7 @@ export const adminService = {
                 if (item.key === 'resend_api_key') config.resendApiKey = item.value;
                 if (item.key === 'resend_from_email') config.resendFromEmail = item.value;
                 if (item.key === 'make_webhook_url') config.makeWebhookUrl = item.value;
+                if (item.key === 'certificate_stamp_url') config.certificateStampUrl = item.value;
             });
         }
         return config;

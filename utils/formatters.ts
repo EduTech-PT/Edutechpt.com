@@ -42,3 +42,23 @@ export const formatShortDate = (date: string | Date | undefined | null): string 
         return '-';
     }
 };
+
+/**
+ * Converte links de partilha do Google Drive em links diretos de imagem
+ * Suporta formatos de partilha: /file/d/ID/view, open?id=ID, ou uc?id=ID
+ */
+export const formatGoogleDriveImageUrl = (url?: string | null): string => {
+    if (!url || typeof url !== 'string') return '';
+    const trimmed = url.trim();
+    if (!trimmed) return '';
+
+    const fileIdMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) 
+        || trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/)
+        || trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/);
+
+    if (fileIdMatch && fileIdMatch[1]) {
+        return `https://lh3.googleusercontent.com/d/${fileIdMatch[1]}`;
+    }
+
+    return trimmed;
+};
