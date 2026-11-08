@@ -318,6 +318,12 @@ export const courseService = {
     async updateClassMaterial(id: string, updates: Partial<ClassMaterial>) { const { error } = await supabase.from('class_materials').update(updates).eq('id', id); if (error) throw error; },
     async deleteClassMaterial(id: string) { const { error } = await supabase.from('class_materials').delete().eq('id', id); if (error) throw error; },
     async uploadClassFile(file: File) {
+        // Limite de salvaguarda do plano gratuito Supabase (1GB total)
+        const MAX_SUPABASE_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+        if (file.size > MAX_SUPABASE_FILE_SIZE) {
+            throw new Error(`Ficheiro demasiado grande (${(file.size / (1024 * 1024)).toFixed(1)}MB). Para poupar a quota gratuita do Supabase, utilize a opção "☁️ Selecionar do Google Drive" (15GB gratuitos disponíveis).`);
+        }
+
         const fileExt = file.name.split('.').pop();
         const fileName = `resource-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
         const { error } = await supabase.storage.from('class-files').upload(fileName, file);

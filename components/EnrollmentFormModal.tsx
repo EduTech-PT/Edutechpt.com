@@ -157,6 +157,18 @@ export const EnrollmentFormModal: React.FC<EnrollmentFormModalProps> = ({
         try {
             const success = await adminService.sendEmailNotification(destEmail, subject, body);
             
+            // Disparo assíncrono para automações no Make.com se configurado
+            adminService.triggerMakeWebhook('new_enrollment_request', {
+                type: isGeneralRequest ? 'access_request' : 'course_enrollment',
+                student_name: name,
+                student_email: email,
+                student_phone: phone || null,
+                course_title: courseTitle,
+                course_id: courseId,
+                message: message || '',
+                submitted_at: new Date().toISOString()
+            }).catch(console.warn);
+            
             if (success) {
                 alert('O seu pedido foi enviado com sucesso! A equipa irá analisar e entrar em contacto brevemente.');
                 onClose();

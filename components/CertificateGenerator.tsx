@@ -156,24 +156,57 @@ export const CertificateGenerator: React.FC<Props> = ({ student, course, onClose
         
         doc.text(details, 148.5, yPos + 90, { align: 'center' });
 
-        // 5. Assinatura Fictícia (Posição 180mm para evitar sobreposição)
-        const sigY = 180; 
+        // 5. Assinatura (Posição 180mm para evitar sobreposição)
+        const sigY = 176; 
         
         // Linha da assinatura
         doc.setDrawColor('#9ca3af');
-        doc.line(110, sigY, 190, sigY);
+        doc.line(180, sigY, 265, sigY);
         
         // "Assinatura"
         doc.setFont('times', 'italic');
-        doc.setFontSize(24);
+        doc.setFontSize(22);
         doc.setTextColor(colorSecondary);
-        doc.text("EduTechPT", 150, sigY - 5, { align: 'center' });
+        doc.text("EduTechPT", 222.5, sigY - 5, { align: 'center' });
 
         // Cargo
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
         doc.setTextColor(colorText);
-        doc.text("A Direção Pedagógica", 150, sigY + 6, { align: 'center' });
+        doc.text("A Direção Pedagógica", 222.5, sigY + 6, { align: 'center' });
+
+        // 6. QR Code de Autenticidade & Código de Registo
+        const cleanCourseCode = (course.id || 'CRS').replace(/[^a-zA-Z0-9]/g, '').substring(0, 4).toUpperCase();
+        const cleanStudentCode = (student.id || 'STD').replace(/[^a-zA-Z0-9]/g, '').substring(0, 4).toUpperCase();
+        const certCode = `EDUTECH-${new Date().getFullYear()}-${cleanCourseCode}-${cleanStudentCode}`;
+        
+        const verifyUrl = `${window.location.origin}/?page=verify&code=${certCode}&student=${encodeURIComponent(student.full_name || '')}&course=${encodeURIComponent(course.title)}&hours=${encodeURIComponent(course.duration || '30h')}`;
+        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}&format=png`;
+
+        try {
+            const qrData = await getBase64ImageFromURL(qrApiUrl);
+            if (qrData.data) {
+                doc.addImage(qrData.data, 'PNG', 20, 155, 26, 26, '', 'FAST');
+            }
+        } catch (e) {
+            console.warn("Erro ao carregar QR code:", e);
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(colorSecondary);
+        doc.text("Código de Autenticidade:", 50, 163);
+
+        doc.setFont('courier', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor(colorPrimary);
+        doc.text(certCode, 50, 169);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor('#6b7280');
+        doc.text("Valide este certificado apontando a câmara ao QR Code ou em edutechpt.com", 50, 175);
+        doc.text("Emissão em conformidade com as diretrizes formativas e referenciais DGERT.", 50, 180);
         
         doc.save(`certificado_${course.title.replace(/\s+/g, '_')}_${student.full_name?.split(' ')[0]}.pdf`);
         setGenerating(false);

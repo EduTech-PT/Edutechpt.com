@@ -246,6 +246,7 @@ export const StudentClassroom: React.FC<Props> = ({ profile, initialCourseId, on
                             onShowCertificate={() => setShowCertificate(true)}
                             progressPercentage={progressPercentage}
                             isStaff={profile.role === UserRole.ADMIN} 
+                            profile={profile}
                         />
                     )}
 

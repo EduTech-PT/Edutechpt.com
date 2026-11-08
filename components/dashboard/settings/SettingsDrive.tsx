@@ -20,6 +20,7 @@ export const SettingsDrive: React.FC = () => {
 
     // UI State
     const [activeTab, setActiveTab] = useState<'code' | 'manifest'>('code');
+    const [testingWebhook, setTestingWebhook] = useState(false);
 
     useEffect(() => {
         loadConfig();
@@ -93,6 +94,29 @@ export const SettingsDrive: React.FC = () => {
         }
         if (text.length > 20 && !text.includes('http')) return text;
         return text;
+    };
+
+    const handleTestWebhook = async () => {
+        if (!config.makeWebhookUrl) {
+            alert("Introduza primeiro o URL do Webhook do Make.com.");
+            return;
+        }
+        setTestingWebhook(true);
+        try {
+            const ok = await adminService.triggerMakeWebhook('test_notification', {
+                message: 'Teste de conexão Make.com com a plataforma EduTech PT efetuado com sucesso!',
+                timestamp: new Date().toISOString()
+            });
+            if (ok) {
+                alert("Webhook disparado com sucesso para o Make.com!");
+            } else {
+                alert("Não foi possível enviar o Webhook. Verifique o URL configurado.");
+            }
+        } catch (e: any) {
+            alert("Erro: " + e.message);
+        } finally {
+            setTestingWebhook(false);
+        }
     };
 
     const handleSaveField = async (key: string, value: string) => {
@@ -218,64 +242,145 @@ export const SettingsDrive: React.FC = () => {
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-0 animate-in fade-in">
-             <GlassCard>
-                <h3 className="font-bold text-xl text-indigo-900 mb-4">Configuração Conexão</h3>
-                {renderAlert()}
-                <div className="space-y-4">
-                    <div>
-                        <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 font-bold">Google Script Web App URL</label><SaveBtn onClick={() => handleSaveField('google_script_url', config.googleScriptUrl)} /></div>
-                        <input type="text" value={config.googleScriptUrl || ''} onChange={e => setConfig({...config, googleScriptUrl: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm"/>
-                    </div>
-                    <div>
-                        <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 font-bold">IDs Calendários Extra (Opcional)</label><SaveBtn onClick={() => handleSaveField('calendar_ids', config.calendarIds)} /></div>
-                        <input type="text" value={config.calendarIds || ''} onChange={e => setConfig({...config, calendarIds: e.target.value})} placeholder="email1@group..., email2@group..." className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm"/>
-                    </div>
-                    
-                    {/* PASTAS GOOGLE DRIVE */}
-                    <div className="border-t border-indigo-100 pt-4 mt-2">
-                        <div className="mb-4">
-                            <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 font-bold">ID da Pasta Google Drive (Geral)</label><SaveBtn onClick={() => handleSaveField('google_drive_folder_id', config.driveFolderId)} /></div>
-                            <div className="relative">
-                                <input type="text" value={config.driveFolderId || ''} onChange={e => setConfig({...config, driveFolderId: e.target.value})} className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm pr-20"/>
-                                {config.driveFolderId && config.driveFolderId.includes('/folders/') && <span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded font-bold">Link Detetado</span>}
-                            </div>
+            <div className="flex flex-col gap-6">
+                <GlassCard>
+                    <h3 className="font-bold text-xl text-indigo-900 dark:text-white mb-4">Configuração Conexão</h3>
+                    {renderAlert()}
+                    <div className="space-y-4">
+                        <div>
+                            <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 dark:text-indigo-200 font-bold">Google Script Web App URL</label><SaveBtn onClick={() => handleSaveField('google_script_url', config.googleScriptUrl)} /></div>
+                            <input type="text" value={config.googleScriptUrl || ''} onChange={e => setConfig({...config, googleScriptUrl: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-slate-700 focus:ring-2 focus:ring-indigo-400 font-mono text-sm text-indigo-900 dark:text-white"/>
                         </div>
-
-                        {/* NOVO: PASTA LIXEIRA */}
-                        <div className="mb-4">
-                            <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 font-bold">ID Pasta Lixeira (Reciclagem)</label><SaveBtn onClick={() => handleSaveField('google_drive_trash_folder_id', config.trashFolderId)} /></div>
-                            <div className="relative">
-                                <input type="text" value={config.trashFolderId || ''} onChange={e => setConfig({...config, trashFolderId: e.target.value})} placeholder="Para onde vão os ficheiros apagados" className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm pr-20"/>
-                                {config.trashFolderId && config.trashFolderId.includes('/folders/') && <span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded font-bold">Link Detetado</span>}
-                            </div>
-                            <p className="text-[10px] text-gray-500 mt-1">Ao definir esta pasta, os ficheiros apagados serão movidos para aqui em vez de serem eliminados permanentemente (evita erros de permissão).</p>
+                        <div>
+                            <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 dark:text-indigo-200 font-bold">IDs Calendários Extra (Opcional)</label><SaveBtn onClick={() => handleSaveField('calendar_ids', config.calendarIds)} /></div>
+                            <input type="text" value={config.calendarIds || ''} onChange={e => setConfig({...config, calendarIds: e.target.value})} placeholder="email1@group..., email2@group..." className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-slate-700 focus:ring-2 focus:ring-indigo-400 font-mono text-sm text-indigo-900 dark:text-white"/>
                         </div>
                         
+                        {/* PASTAS GOOGLE DRIVE */}
+                        <div className="border-t border-indigo-100 dark:border-slate-700 pt-4 mt-2">
+                            <div className="mb-4">
+                                <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 dark:text-indigo-200 font-bold">ID da Pasta Google Drive (Geral)</label><SaveBtn onClick={() => handleSaveField('google_drive_folder_id', config.driveFolderId)} /></div>
+                                <div className="relative">
+                                    <input type="text" value={config.driveFolderId || ''} onChange={e => setConfig({...config, driveFolderId: e.target.value})} className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-slate-700 focus:ring-2 focus:ring-indigo-400 font-mono text-sm pr-20 text-indigo-900 dark:text-white"/>
+                                    {config.driveFolderId && config.driveFolderId.includes('/folders/') && <span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded font-bold">Link Detetado</span>}
+                                </div>
+                            </div>
+
+                            {/* NOVO: PASTA LIXEIRA */}
+                            <div className="mb-4">
+                                <div className="flex justify-between items-center mb-1"><label className="text-sm text-indigo-800 dark:text-indigo-200 font-bold">ID Pasta Lixeira (Reciclagem)</label><SaveBtn onClick={() => handleSaveField('google_drive_trash_folder_id', config.trashFolderId)} /></div>
+                                <div className="relative">
+                                    <input type="text" value={config.trashFolderId || ''} onChange={e => setConfig({...config, trashFolderId: e.target.value})} placeholder="Para onde vão os ficheiros apagados" className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-slate-700 focus:ring-2 focus:ring-indigo-400 font-mono text-sm pr-20 text-indigo-900 dark:text-white"/>
+                                    {config.trashFolderId && config.trashFolderId.includes('/folders/') && <span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded font-bold">Link Detetado</span>}
+                                </div>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Ao definir esta pasta, os ficheiros apagados serão movidos para aqui em vez de serem eliminados permanentemente (evita erros de permissão).</p>
+                            </div>
+                            
+                            <div>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="text-sm text-indigo-800 dark:text-indigo-200 font-bold">ID Pasta "Ao Vivo" (Opcional)</label>
+                                    <SaveBtn onClick={() => handleSaveField('live_drive_folder_id', config.liveDriveFolderId)} />
+                                </div>
+                                <div className="relative">
+                                    <input 
+                                        type="text" 
+                                        value={config.liveDriveFolderId || ''} 
+                                        onChange={e => setConfig({...config, liveDriveFolderId: e.target.value})} 
+                                        className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-slate-700 focus:ring-2 focus:ring-indigo-400 font-mono text-sm pr-20 text-indigo-900 dark:text-white"
+                                        placeholder="Deixe vazio para usar a pasta pessoal"
+                                    />
+                                    {config.liveDriveFolderId && config.liveDriveFolderId.includes('/folders/') && <span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded font-bold">Link Detetado</span>}
+                                </div>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Se definido, o botão "Drive" na sala de aula abrirá diretamente esta pasta (ex: pasta partilhada de recursos).</p>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2 pt-2">
+                            <button onClick={handleTest} className="flex-1 px-4 py-3 bg-white dark:bg-slate-700 text-indigo-600 dark:text-white border border-indigo-200 dark:border-slate-600 rounded-lg font-bold hover:bg-indigo-50 dark:hover:bg-slate-600 shadow-sm transition-all">Testar Conexão ⚡</button>
+                        </div>
+                        {testStatus && <div className={`p-3 rounded-lg text-sm font-medium border ${testStatus.success ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}`}>{testStatus.msg}</div>}
+                    </div>
+                </GlassCard>
+
+                {/* BLINDAGEM DE EMAIL COM RESEND & AUTOMAÇÕES MAKE.COM */}
+                <GlassCard className="border-l-4 border-l-emerald-500">
+                    <div className="flex items-center gap-2 mb-3">
+                        <span className="text-xl">🛡️</span>
                         <div>
-                            <div className="flex justify-between items-center mb-1">
-                                <label className="text-sm text-indigo-800 font-bold">ID Pasta "Ao Vivo" (Opcional)</label>
-                                <SaveBtn onClick={() => handleSaveField('live_drive_folder_id', config.liveDriveFolderId)} />
-                            </div>
-                            <div className="relative">
-                                <input 
-                                    type="text" 
-                                    value={config.liveDriveFolderId || ''} 
-                                    onChange={e => setConfig({...config, liveDriveFolderId: e.target.value})} 
-                                    className="w-full p-2 rounded bg-white/50 border border-white/60 focus:ring-2 focus:ring-indigo-400 font-mono text-sm pr-20"
-                                    placeholder="Deixe vazio para usar a pasta pessoal"
-                                />
-                                {config.liveDriveFolderId && config.liveDriveFolderId.includes('/folders/') && <span className="absolute right-2 top-2 text-xs bg-yellow-100 text-yellow-800 px-2 rounded font-bold">Link Detetado</span>}
-                            </div>
-                            <p className="text-[10px] text-gray-500 mt-1">Se definido, o botão "Drive" na sala de aula abrirá diretamente esta pasta (ex: pasta partilhada de recursos).</p>
+                            <h3 className="font-bold text-lg text-indigo-900 dark:text-white">Blindagem de Email (Resend Fallback)</h3>
+                            <p className="text-xs text-indigo-600 dark:text-indigo-300">
+                                Garante que nenhum email falha caso o Google Apps Script atinja o limite diário de 100 envios.
+                            </p>
                         </div>
                     </div>
 
-                    <div className="flex gap-2 pt-2">
-                        <button onClick={handleTest} className="flex-1 px-4 py-3 bg-white text-indigo-600 border border-indigo-200 rounded-lg font-bold hover:bg-indigo-50 shadow-sm">Testar Conexão ⚡</button>
+                    <div className="space-y-3 pt-2 border-t border-indigo-100 dark:border-slate-700">
+                        <div>
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="text-xs font-bold text-indigo-800 dark:text-indigo-200">Chave API Resend (Plano Gratuito: 3.000 emails/mês)</label>
+                                <SaveBtn onClick={() => handleSaveField('resend_api_key', config.resendApiKey)} />
+                            </div>
+                            <input 
+                                type="password" 
+                                value={config.resendApiKey || ''} 
+                                onChange={e => setConfig({ ...config, resendApiKey: e.target.value })} 
+                                placeholder="re_123456789..."
+                                className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-indigo-200 dark:border-slate-700 text-xs font-mono text-indigo-900 dark:text-white"
+                            />
+                        </div>
+
+                        <div>
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="text-xs font-bold text-indigo-800 dark:text-indigo-200">Email Remetente Resend (Opcional)</label>
+                                <SaveBtn onClick={() => handleSaveField('resend_from_email', config.resendFromEmail)} />
+                            </div>
+                            <input 
+                                type="text" 
+                                value={config.resendFromEmail || ''} 
+                                onChange={e => setConfig({ ...config, resendFromEmail: e.target.value })} 
+                                placeholder="EduTech PT <onboarding@resend.dev> ou com domínio próprio"
+                                className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-indigo-200 dark:border-slate-700 text-xs font-mono text-indigo-900 dark:text-white"
+                            />
+                        </div>
                     </div>
-                    {testStatus && <div className={`p-3 rounded-lg text-sm font-medium border ${testStatus.success ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}`}>{testStatus.msg}</div>}
-                </div>
-             </GlassCard>
+
+                    {/* MAKE.COM WEBHOOK */}
+                    <div className="mt-5 pt-4 border-t border-indigo-100 dark:border-slate-700">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xl">⚡</span>
+                            <div>
+                                <h4 className="font-bold text-sm text-indigo-900 dark:text-white">Automações Estratégicas no Make.com</h4>
+                                <p className="text-[11px] text-indigo-600 dark:text-indigo-300">
+                                    Dispara webhooks gratuitos em novas inscrições para alimentar Google Sheets, WhatsApp ou Discord.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2 mt-3">
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="text-xs font-bold text-indigo-800 dark:text-indigo-200">Webhook URL Make.com (Custom Webhook)</label>
+                                <SaveBtn onClick={() => handleSaveField('make_webhook_url', config.makeWebhookUrl)} />
+                            </div>
+                            <input 
+                                type="text" 
+                                value={config.makeWebhookUrl || ''} 
+                                onChange={e => setConfig({ ...config, makeWebhookUrl: e.target.value })} 
+                                placeholder="https://hook.eu2.make.com/..."
+                                className="w-full p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-indigo-200 dark:border-slate-700 text-xs font-mono text-indigo-900 dark:text-white"
+                            />
+                            
+                            <button
+                                type="button"
+                                onClick={handleTestWebhook}
+                                disabled={testingWebhook}
+                                className="w-full py-2 bg-indigo-50 dark:bg-slate-800 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-slate-700 border border-indigo-200 dark:border-slate-700 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                            >
+                                {testingWebhook ? 'A enviar teste...' : '🚀 Testar Disparo de Webhook Make.com'}
+                            </button>
+                        </div>
+                    </div>
+                </GlassCard>
+            </div>
              
              <div className="flex flex-col gap-6">
                  {/* Storage Monitor Panel */}
@@ -375,6 +480,23 @@ export const SettingsDrive: React.FC = () => {
                              <p>Clique em "Atualizar Dados" para ver o estado.</p>
                          </div>
                      )}
+
+                     {/* Otimização de Storage */}
+                     <div className="mt-4 p-3.5 bg-indigo-50/70 dark:bg-slate-800/70 rounded-xl border border-indigo-200 dark:border-slate-700 text-xs space-y-2">
+                         <div className="flex items-center gap-1.5 font-bold text-indigo-900 dark:text-white">
+                             <span>📦</span> Estratégia de Otimização de Armazenamento
+                         </div>
+                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                             <div className="p-2 bg-white/80 dark:bg-slate-900/60 rounded border border-indigo-100 dark:border-slate-700">
+                                 <span className="font-extrabold text-indigo-600 dark:text-indigo-400 block mb-0.5">Supabase (1 GB Free)</span>
+                                 <span className="text-gray-600 dark:text-gray-400">Proteção ativa: máx 10MB/ficheiro. Ideal para avatares, logótipos e anexos leves.</span>
+                             </div>
+                             <div className="p-2 bg-white/80 dark:bg-slate-900/60 rounded border border-indigo-100 dark:border-slate-700">
+                                 <span className="font-extrabold text-emerald-600 dark:text-emerald-400 block mb-0.5">Google Drive (15 GB Free)</span>
+                                 <span className="text-gray-600 dark:text-gray-400">Recomendado para apresentações ao vivo, vídeos e materiais didáticos pesados.</span>
+                             </div>
+                         </div>
+                     </div>
                  </GlassCard>
 
                  <GlassCard className="flex flex-col min-h-0 flex-1">

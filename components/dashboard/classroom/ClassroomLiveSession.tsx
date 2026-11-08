@@ -28,6 +28,9 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
     
     const [refreshing, setRefreshing] = useState(false);
     
+    // Live Classroom Mode: 'jitsi' (Video/Audio) vs 'slides' (Interactive Presentation)
+    const [liveMode, setLiveMode] = useState<'jitsi' | 'slides'>('jitsi');
+
     // Student Fullscreen State
     const [isFullscreen, setIsFullscreen] = useState(false);
     const studentContainerRef = useRef<HTMLDivElement>(null);
@@ -385,21 +388,78 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
     if (!activeClass || !activeClass.id) return <div className="text-red-500 p-4">Erro: Turma não selecionada.</div>;
 
+    const jitsiRoomName = `EduTechPT_${activeClass.id.replace(/[^a-zA-Z0-9]/g, '')}`;
+    const jitsiUrl = `https://meet.jit.si/${jitsiRoomName}#config.prejoinPageEnabled=false&userInfo.displayName=${encodeURIComponent(profile.full_name || 'Participante')}`;
+
+    const renderModeSelector = () => (
+        <div className="flex items-center justify-between bg-white/70 dark:bg-slate-800/70 p-2.5 rounded-xl border border-indigo-100 dark:border-slate-700 shadow-sm mb-4 backdrop-blur-sm">
+            <div className="flex gap-2">
+                <button
+                    type="button"
+                    onClick={() => setLiveMode('jitsi')}
+                    className={`px-4 py-2 rounded-lg font-bold text-xs md:text-sm transition-all flex items-center gap-2 ${
+                        liveMode === 'jitsi'
+                            ? 'bg-indigo-600 text-white shadow-md'
+                            : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-slate-700'
+                    }`}
+                >
+                    <span>📹</span>
+                    <span>Sala Virtual (Vídeo & Voz)</span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setLiveMode('slides')}
+                    className={`px-4 py-2 rounded-lg font-bold text-xs md:text-sm transition-all flex items-center gap-2 ${
+                        liveMode === 'slides'
+                            ? 'bg-indigo-600 text-white shadow-md'
+                            : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-slate-700'
+                    }`}
+                >
+                    <span>🖥️</span>
+                    <span>Slides Interativos</span>
+                </button>
+            </div>
+            <div className="text-xs text-indigo-500 dark:text-indigo-400 font-mono hidden sm:flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Turma: <b>{activeClass.name}</b></span>
+            </div>
+        </div>
+    );
+
+    if (liveMode === 'jitsi') {
+        return (
+            <div className="flex flex-col gap-2 h-full animate-in fade-in">
+                {renderModeSelector()}
+                <div className="w-full h-[620px] bg-black rounded-xl overflow-hidden shadow-2xl border border-indigo-200 dark:border-slate-700 relative">
+                    <iframe
+                        src={jitsiUrl}
+                        allow="camera; microphone; fullscreen; display-capture; autoplay"
+                        className="w-full h-full border-0"
+                        title="Sala de Aula Virtual EduTech PT"
+                    />
+                </div>
+            </div>
+        );
+    }
+
     // --- VIEW: ESPETADOR ---
     if (!isPresenter) {
         if (!sessionState.is_presenting || sessionState.slides.length === 0) {
             return (
-                <div className="flex flex-col items-center justify-center h-[400px] text-center opacity-60 relative">
-                    <button 
-                        onClick={handleManualRefresh}
-                        className="absolute top-4 right-4 p-2 bg-indigo-100 dark:bg-slate-700 text-indigo-600 dark:text-white rounded-full shadow-sm hover:bg-indigo-200 transition-colors z-50"
-                        title="Tentar Reconectar"
-                    >
-                        <span className={`block ${refreshing ? 'animate-spin' : ''}`}>🔄</span>
-                    </button>
-                    <span className="text-6xl mb-4 animate-pulse">📡</span>
-                    <h3 className="text-xl font-bold text-indigo-900 dark:text-white">A aguardar transmissão...</h3>
-                    <p className="text-indigo-700 dark:text-indigo-300">O formador ainda não iniciou a apresentação.</p>
+                <div className="flex flex-col gap-2 h-full">
+                    {renderModeSelector()}
+                    <div className="flex flex-col items-center justify-center h-[400px] text-center opacity-60 relative">
+                        <button 
+                            onClick={handleManualRefresh}
+                            className="absolute top-4 right-4 p-2 bg-indigo-100 dark:bg-slate-700 text-indigo-600 dark:text-white rounded-full shadow-sm hover:bg-indigo-200 transition-colors z-50"
+                            title="Tentar Reconectar"
+                        >
+                            <span className={`block ${refreshing ? 'animate-spin' : ''}`}>🔄</span>
+                        </button>
+                        <span className="text-6xl mb-4 animate-pulse">📡</span>
+                        <h3 className="text-xl font-bold text-indigo-900 dark:text-white">A aguardar transmissão...</h3>
+                        <p className="text-indigo-700 dark:text-indigo-300">O formador ainda não iniciou a apresentação de slides.</p>
+                    </div>
                 </div>
             );
         }
@@ -407,13 +467,15 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
         const currentSlideUrl = sessionState.slides[sessionState.current_slide_index];
 
         return (
-            <div 
-                ref={studentContainerRef}
-                className={`
-                    flex flex-col items-center justify-center bg-black rounded-xl overflow-hidden relative shadow-2xl transition-all duration-300
-                    ${isFullscreen ? 'fixed inset-0 z-[9999] rounded-none w-full h-full' : 'h-full min-h-[500px] border-4 border-indigo-900'}
-                `}
-            >
+            <div className="flex flex-col gap-2 h-full">
+                {renderModeSelector()}
+                <div 
+                    ref={studentContainerRef}
+                    className={`
+                        flex flex-col items-center justify-center bg-black rounded-xl overflow-hidden relative shadow-2xl transition-all duration-300
+                        ${isFullscreen ? 'fixed inset-0 z-[9999] rounded-none w-full h-full' : 'h-full min-h-[500px] border-4 border-indigo-900'}
+                    `}
+                >
                 <div className="w-full h-full flex items-center justify-center relative">
                     <button 
                         onClick={handleManualRefresh}
@@ -445,6 +507,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
                     </div>
                 </div>
             </div>
+        </div>
         );
     }
 
@@ -453,6 +516,7 @@ export const ClassroomLiveSession: React.FC<Props> = ({ activeClass, profile }) 
 
     return (
         <div className="flex flex-col gap-4 h-full animate-in fade-in">
+            {renderModeSelector()}
             {/* Controlos Principais */}
             <div className="flex flex-wrap justify-between items-center p-4 bg-indigo-50 dark:bg-slate-800 rounded-xl border border-indigo-100 dark:border-slate-700">
                 <div className="flex items-center gap-4">

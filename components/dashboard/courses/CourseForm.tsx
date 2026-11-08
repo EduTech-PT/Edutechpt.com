@@ -76,6 +76,7 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
         social: '', authority: '', guarantee: '', bonuses: '', cta: ''
     });
     const [uploading, setUploading] = useState(false);
+    const [saving, setSaving] = useState(false);
     
     // Novo estado para controlar explicitamente se é gratuito
     const [isFree, setIsFree] = useState(false);
@@ -235,25 +236,30 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
-        let finalDescription = formData.description;
-        if (!finalDescription || finalDescription.includes('marketing-content') || (marketingData.headline && marketingData.target)) {
-            // Logic handled by parent or service usually, but kept here for legacy
+        if (saving) return;
+        setSaving(true);
+        try {
+            let finalDescription = formData.description;
+            if (!finalDescription || finalDescription.includes('marketing-content') || (marketingData.headline && marketingData.target)) {
+                // Logic handled by parent or service usually, but kept here for legacy
+            }
+
+            const validPlans = formData.format === 'self_paced' 
+                ? pricingPlans.filter(p => p.price && p.price.trim() !== '') 
+                : []; 
+
+            const finalPrice = isFree ? '0' : formData.price;
+
+            await onSave({
+                ...formData,
+                price: finalPrice, 
+                description: finalDescription,
+                marketing_data: marketingData,
+                pricing_plans: validPlans
+            });
+        } finally {
+            setSaving(false);
         }
-
-        const validPlans = formData.format === 'self_paced' 
-            ? pricingPlans.filter(p => p.price && p.price.trim() !== '') 
-            : []; 
-
-        const finalPrice = isFree ? '0' : formData.price;
-
-        await onSave({
-            ...formData,
-            price: finalPrice, 
-            description: finalDescription,
-            marketing_data: marketingData,
-            pricing_plans: validPlans
-        });
     };
 
     const handleCopyId = () => {
@@ -591,7 +597,20 @@ export const CourseForm: React.FC<Props> = ({ initialData, isEditing, onSave, on
                  
                  <div className="flex gap-2">
                      <button type="button" onClick={onCancel} className="px-4 py-2 text-indigo-800 dark:text-indigo-200 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded">Cancelar</button>
-                     <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-bold shadow-md">{isEditing ? 'Guardar Tudo' : 'Criar'}</button>
+                     <button 
+                         type="submit" 
+                         disabled={saving}
+                         className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-bold shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                     >
+                         {saving ? (
+                             <>
+                                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                 <span>A Guardar...</span>
+                             </>
+                         ) : (
+                             isEditing ? 'Guardar Tudo' : 'Criar'
+                         )}
+                     </button>
                  </div>
              </div>
 

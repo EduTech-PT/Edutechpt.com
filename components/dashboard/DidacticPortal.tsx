@@ -230,6 +230,7 @@ export const DidacticPortal: React.FC<Props> = ({ profile }) => {
                                             onToggleProgress={() => {}} // Dummy op
                                             progressPercentage={0} // Dummy
                                             isStaff={false} // Force student look
+                                            profile={profile}
                                         />
                                     )}
                                 </div>

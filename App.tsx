@@ -7,6 +7,7 @@ import { PublicCatalog } from './pages/PublicCatalog';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
 import { FAQPage } from './pages/FAQPage'; 
+import { VerifyCertificate } from './pages/VerifyCertificate';
 import { AuthForm } from './components/AuthForm';
 import { EnrollmentFormModal } from './components/EnrollmentFormModal'; // IMPORTADO
 import { SupabaseSession } from './types';
@@ -23,17 +24,18 @@ function App() {
   const [showAccessDeniedModal, setShowAccessDeniedModal] = useState(false);
   const [accessDeniedEmail, setAccessDeniedEmail] = useState('edutechpt@hotmail.com'); // DEFAULT SEGURO
   
-  const [publicView, setPublicView] = useState<'landing' | 'catalog' | 'privacy' | 'terms' | 'faq'>(() => {
+  const [publicView, setPublicView] = useState<'landing' | 'catalog' | 'privacy' | 'terms' | 'faq' | 'verify'>(() => {
       const params = new URLSearchParams(window.location.search);
       const page = params.get('page');
       if (page === 'catalog') return 'catalog';
       if (page === 'privacy') return 'privacy';
       if (page === 'terms') return 'terms';
       if (page === 'faq') return 'faq';
+      if (page === 'verify') return 'verify';
       return 'landing';
   });
 
-  const handleNavigate = (view: 'landing' | 'catalog' | 'privacy' | 'terms' | 'faq') => {
+  const handleNavigate = (view: 'landing' | 'catalog' | 'privacy' | 'terms' | 'faq' | 'verify') => {
       setPublicView(view);
       const url = new URL(window.location.href);
       
@@ -51,6 +53,7 @@ function App() {
           else if (page === 'privacy') setPublicView('privacy');
           else if (page === 'terms') setPublicView('terms');
           else if (page === 'faq') setPublicView('faq');
+          else if (page === 'verify') setPublicView('verify');
           else setPublicView('landing');
       };
       window.addEventListener('popstate', handlePopState);
@@ -164,6 +167,8 @@ function App() {
                       onTermsClick={() => handleNavigate('terms')} 
                       onFaqClick={() => handleNavigate('faq')} 
                   />
+              ) : publicView === 'verify' ? (
+                  <VerifyCertificate onBack={() => handleNavigate('landing')} />
               ) : publicView === 'terms' ? (
                   <TermsOfService onBack={() => handleNavigate('landing')} />
               ) : publicView === 'faq' ? (

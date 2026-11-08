@@ -162,9 +162,22 @@ export interface ClassAssessment {
   created_at: string;
   // Novos campos para anexos no teste
   resource_url?: string;
-  resource_type?: 'file' | 'link' | 'drive' | 'genially'; // ADICIONADO 'genially'
+  resource_type?: 'file' | 'link' | 'drive' | 'genially' | 'quiz';
   resource_title?: string;
-  quiz_data?: any; // JSONB para estrutura de testes nativos
+  quiz_data?: QuizPayload; // JSONB para estrutura de testes nativos
+}
+
+export interface QuizQuestionItem {
+  id: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation?: string;
+}
+
+export interface QuizPayload {
+  passingScore?: number; // Ex: 50% ou 10/20
+  questions: QuizQuestionItem[];
 }
 
 export interface Enrollment {

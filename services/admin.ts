@@ -207,14 +207,9 @@ export const adminService = {
     },
 
     // --- NOTIFICAÇÕES ASSÍNCRONAS (VIA GAS) ---
+    // --- NOTIFICAÇÕES ASSÍNCRONAS (HÍBRIDO: GAS COM FALLBACK RESEND) ---
     async sendEmailNotification(to: string, subject: string, htmlBody: string) {
         const config = await this.getAppConfig();
-        
-        // Verifica se há integração
-        if (!config.googleScriptUrl || !config.googleScriptUrl.startsWith('http')) {
-            console.warn("Email não enviado: Google Script URL não configurado ou inválido.");
-            return false;
-        }
 
         // LÓGICA DE BANNERS (TOPO E RODAPÉ)
         let finalBody = htmlBody;
@@ -235,21 +230,91 @@ export const adminService = {
             </div>
         `;
 
+        let gasSuccess = false;
+
+        // 1. TENTATIVA PRIMÁRIA: Google Apps Script (se configurado)
+        if (config.googleScriptUrl && config.googleScriptUrl.startsWith('http')) {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 6000);
+                
+                const response = await fetch(config.googleScriptUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({
+                        action: 'sendEmail',
+                        to: to,
+                        subject: subject,
+                        body: finalBody
+                    }),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                if (response.ok) {
+                    gasSuccess = true;
+                    return true;
+                }
+            } catch (e) {
+                console.warn("Google Apps Script indisponível ou quota excedida. A ativar fallback Resend...", e);
+            }
+        }
+
+        // 2. TENTATIVA SECUNDÁRIA (BLINDAGEM): Resend API (Plano Gratuito: 3.000 emails/mês)
+        if (!gasSuccess && config.resendApiKey && config.resendApiKey.trim() !== '') {
+            try {
+                const fromEmail = config.resendFromEmail?.trim() || 'EduTech PT <onboarding@resend.dev>';
+                const resendRes = await fetch('https://api.resend.com/emails', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${config.resendApiKey.trim()}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        from: fromEmail,
+                        to: to.includes(',') ? to.split(',').map(e => e.trim()) : [to.trim()],
+                        subject: subject,
+                        html: finalBody
+                    })
+                });
+
+                if (resendRes.ok) {
+                    console.log("Email enviado com sucesso via Resend (Blindagem Fallback).");
+                    return true;
+                } else {
+                    const errText = await resendRes.text();
+                    console.error("Falha na chamada Resend:", errText);
+                }
+            } catch (resendErr) {
+                console.error("Erro no envio Resend:", resendErr);
+            }
+        }
+
+        if (!gasSuccess && (!config.googleScriptUrl || !config.googleScriptUrl.startsWith('http')) && !config.resendApiKey) {
+            console.warn("Nenhum serviço de email configurado (Nem Google Apps Script nem Resend).");
+        }
+
+        return gasSuccess;
+    },
+
+    // --- AUTOMAÇÕES MAKE.COM (WEBHOOK DISPATCHER) ---
+    async triggerMakeWebhook(event: string, payload: any) {
         try {
-            // Chamada Fire-and-Forget (mas com await para apanhar erro de rede)
-            await fetch(config.googleScriptUrl, {
+            const config = await this.getAppConfig();
+            if (!config.makeWebhookUrl || !config.makeWebhookUrl.startsWith('http')) return false;
+
+            await fetch(config.makeWebhookUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'text/plain' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    action: 'sendEmail',
-                    to: to, // Suporta string única ou "email1, email2"
-                    subject: subject,
-                    body: finalBody
+                    event,
+                    data: payload,
+                    timestamp: new Date().toISOString(),
+                    source: 'EduTech PT'
                 })
             });
             return true;
         } catch (e) {
-            console.error("Falha ao enviar email via GAS:", e);
+            console.warn("Make.com webhook trigger error:", e);
             return false;
         }
     },
@@ -352,6 +417,9 @@ export const adminService = {
                 if (item.key === 'landing_cta_title') config.landingCtaTitle = item.value;
                 if (item.key === 'landing_cta_text') config.landingCtaText = item.value;
                 if (item.key === 'forbidden_words') config.forbidden_words = item.value;
+                if (item.key === 'resend_api_key') config.resendApiKey = item.value;
+                if (item.key === 'resend_from_email') config.resendFromEmail = item.value;
+                if (item.key === 'make_webhook_url') config.makeWebhookUrl = item.value;
             });
         }
         return config;

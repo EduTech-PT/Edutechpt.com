@@ -2,13 +2,13 @@
 import React from 'react';
 
 interface FooterProps {
-  onNavigate: (view: 'privacy' | 'terms' | 'faq') => void;
+  onNavigate: (view: 'privacy' | 'terms' | 'faq' | 'verify') => void;
   className?: string;
 }
 
 export const Footer: React.FC<FooterProps> = ({ onNavigate, className = '' }) => {
   
-  const handleLinkClick = (e: React.MouseEvent, view: 'privacy' | 'terms' | 'faq') => {
+  const handleLinkClick = (e: React.MouseEvent, view: 'privacy' | 'terms' | 'faq' | 'verify') => {
       e.preventDefault();
       onNavigate(view);
   };
@@ -23,7 +23,14 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, className = '' }) =>
             
             <div className="flex flex-col gap-2 text-right">
                 <p>&copy; {new Date().getFullYear()} Todos os direitos reservados.</p>
-                <div className="flex justify-center md:justify-end items-center gap-4 text-xs font-bold uppercase tracking-wide">
+                <div className="flex flex-wrap justify-center md:justify-end items-center gap-4 text-xs font-bold uppercase tracking-wide">
+                    <a 
+                        href="?page=verify"
+                        onClick={(e) => handleLinkClick(e, 'verify')}
+                        className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-white hover:underline transition-colors cursor-pointer flex items-center gap-1 font-extrabold"
+                    >
+                        <span>🛡️</span> Validar Certificado
+                    </a>
                     <a 
                         href="?page=faq"
                         onClick={(e) => handleLinkClick(e, 'faq')}

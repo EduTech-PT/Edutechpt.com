@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DriveFile, driveService } from '../../../services/drive';
 import { courseService } from '../../../services/courses';
-import { Profile, UserRole } from '../../../types';
+import { Profile, UserRole, QuizQuestionItem } from '../../../types';
 import { GlassCard } from '../../GlassCard';
 
 interface Props {
@@ -18,6 +18,50 @@ interface Props {
 export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initialData, onSave, onCancel }) => {
     const [formData, setFormData] = useState<any>(initialData || {});
     const [uploading, setUploading] = useState(false);
+    
+    // Quiz Question Helpers
+    const quizQuestions: QuizQuestionItem[] = formData.quiz_data?.questions || [];
+
+    const handleAddQuestion = () => {
+        const newQ: QuizQuestionItem = {
+            id: 'q_' + Date.now(),
+            question: '',
+            options: ['', '', '', ''],
+            correctIndex: 0,
+            explanation: ''
+        };
+        const updatedQuestions = [...quizQuestions, newQ];
+        setFormData({
+            ...formData,
+            quiz_data: {
+                ...formData.quiz_data,
+                questions: updatedQuestions
+            }
+        });
+    };
+
+    const handleUpdateQuestion = (index: number, updated: Partial<QuizQuestionItem>) => {
+        const updatedQuestions = [...quizQuestions];
+        updatedQuestions[index] = { ...updatedQuestions[index], ...updated };
+        setFormData({
+            ...formData,
+            quiz_data: {
+                ...formData.quiz_data,
+                questions: updatedQuestions
+            }
+        });
+    };
+
+    const handleRemoveQuestion = (index: number) => {
+        const updatedQuestions = quizQuestions.filter((_, i) => i !== index);
+        setFormData({
+            ...formData,
+            quiz_data: {
+                ...formData.quiz_data,
+                questions: updatedQuestions
+            }
+        });
+    };
     
     // Drive Picker States
     const [showDrivePicker, setShowDrivePicker] = useState(false);
@@ -305,11 +349,12 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                     </div>
                     <div className="pt-2 border-t border-indigo-200 dark:border-slate-700 mt-2">
                         <p className="text-xs font-bold mb-1 dark:text-white">Anexo do Enunciado (Opcional)</p>
-                        <select value={formData.resource_type || 'file'} onChange={e => setFormData({...formData, resource_type: e.target.value})} className="w-full p-2 rounded mb-2 text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white">
+                        <select value={formData.resource_type || 'file'} onChange={e => setFormData({...formData, resource_type: e.target.value})} className="w-full p-2 rounded mb-2 text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white font-medium">
                             <option value="file">Ficheiro</option>
                             <option value="link">Link</option>
                             <option value="drive">Drive</option>
                             <option value="genially">Conteúdo Interativo (Sway, Genially, etc.)</option>
+                            <option value="quiz">🎯 Quiz / Teste Interativo (Correção Automática)</option>
                         </select>
                         
                         {formData.resource_type === 'link' && <input type="url" placeholder="URL Recurso" className="w-full p-2 rounded text-xs bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white" value={formData.resource_url || ''} onChange={e => setFormData({...formData, resource_url: e.target.value})} />}
@@ -323,6 +368,90 @@ export const ResourceEditor: React.FC<Props> = ({ type, classId, profile, initia
                             </div>
                         )}
                         {formData.resource_type === 'drive' && <DrivePickerTrigger fieldPrefix="resource_" />}
+
+                        {formData.resource_type === 'quiz' && (
+                            <div className="space-y-3 bg-white/70 dark:bg-slate-800/70 p-3 rounded-xl border border-indigo-200 dark:border-slate-600 mt-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-indigo-900 dark:text-white flex items-center gap-1.5">
+                                        <span>📝</span> Perguntas do Quiz ({quizQuestions.length})
+                                    </span>
+                                    <button 
+                                        type="button" 
+                                        onClick={handleAddQuestion}
+                                        className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold shadow-sm transition-colors flex items-center gap-1"
+                                    >
+                                        <span>+</span> Adicionar Pergunta
+                                    </button>
+                                </div>
+
+                                {quizQuestions.length === 0 ? (
+                                    <p className="text-xs text-gray-500 italic py-2 text-center">Nenhuma pergunta adicionada ainda. Clique em "Adicionar Pergunta" para começar.</p>
+                                ) : (
+                                    quizQuestions.map((q, qIdx) => (
+                                        <div key={q.id || qIdx} className="p-3 bg-indigo-50/50 dark:bg-slate-900/50 rounded-lg border border-indigo-100 dark:border-slate-700 space-y-2 relative">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs font-extrabold text-indigo-800 dark:text-indigo-300">
+                                                    Questão #{qIdx + 1}
+                                                </span>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => handleRemoveQuestion(qIdx)}
+                                                    className="text-xs text-red-500 hover:text-red-700 font-bold"
+                                                    title="Eliminar Pergunta"
+                                                >
+                                                    ✕ Remover
+                                                </button>
+                                            </div>
+
+                                            <input 
+                                                type="text" 
+                                                placeholder="Enunciado da pergunta..." 
+                                                value={q.question} 
+                                                onChange={e => handleUpdateQuestion(qIdx, { question: e.target.value })}
+                                                className="w-full p-2 text-xs rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white font-medium"
+                                                required
+                                            />
+
+                                            <div className="space-y-1.5 pt-1">
+                                                <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase">Opções (Selecione a correta):</p>
+                                                {(q.options || ['', '', '', '']).map((opt, optIdx) => (
+                                                    <div key={optIdx} className="flex items-center gap-2">
+                                                        <input 
+                                                            type="radio" 
+                                                            name={`correct_${qIdx}`} 
+                                                            checked={q.correctIndex === optIdx}
+                                                            onChange={() => handleUpdateQuestion(qIdx, { correctIndex: optIdx })}
+                                                            className="text-indigo-600 focus:ring-indigo-500"
+                                                            title="Marcar como resposta correta"
+                                                        />
+                                                        <input 
+                                                            type="text" 
+                                                            placeholder={`Opção ${String.fromCharCode(65 + optIdx)}`}
+                                                            value={opt}
+                                                            onChange={e => {
+                                                                const newOptions = [...(q.options || ['', '', '', ''])];
+                                                                newOptions[optIdx] = e.target.value;
+                                                                handleUpdateQuestion(qIdx, { options: newOptions });
+                                                            }}
+                                                            className={`flex-1 p-1.5 text-xs rounded border dark:text-white ${q.correctIndex === optIdx ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700 font-bold' : 'bg-white dark:bg-slate-800 dark:border-slate-600'}`}
+                                                            required
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <input 
+                                                type="text" 
+                                                placeholder="Explicação pedagógica (opcional)..." 
+                                                value={q.explanation || ''} 
+                                                onChange={e => handleUpdateQuestion(qIdx, { explanation: e.target.value })}
+                                                className="w-full p-1.5 text-[11px] rounded bg-white dark:bg-slate-800 border dark:border-slate-600 dark:text-white text-gray-600 italic"
+                                            />
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
