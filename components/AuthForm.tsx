@@ -5,6 +5,7 @@ import { GlassCard } from './GlassCard';
 import { Provider } from '@supabase/supabase-js'; 
 import { adminService } from '../services/admin';
 import { EnrollmentFormModal } from './EnrollmentFormModal'; // IMPORTADO
+import { APP_VERSION } from '../constants';
 
 interface AuthFormProps {
   onCancel: () => void;
@@ -103,13 +104,25 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onCancel, onPrivacyClick, on
         </button>
         
         <div className="text-center mb-6">
-          {/* LOGO AUMENTADO COM EFEITO 3D */}
-          {logoUrl && (
-              <img 
-                src={logoUrl} 
-                alt="Logo" 
-                className="h-20 mx-auto mb-6 object-contain drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] transform hover:scale-110 transition-transform duration-500" 
-              />
+          {/* LOGO AUMENTADO COM EFEITO 3D E VERSÃO */}
+          {logoUrl ? (
+              <div className="flex flex-col items-center mb-6">
+                <img 
+                  src={logoUrl} 
+                  alt="Logo" 
+                  className="h-20 object-contain drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] transform hover:scale-110 transition-transform duration-500" 
+                />
+                <span className="text-[11px] font-mono font-semibold text-indigo-700/80 dark:text-indigo-300/80 mt-1.5 tracking-wide">
+                  {APP_VERSION}
+                </span>
+              </div>
+          ) : (
+              <div className="flex flex-col items-center mb-6">
+                <span className="text-2xl font-bold text-indigo-900 dark:text-white">EduTech PT</span>
+                <span className="text-[11px] font-mono font-semibold text-indigo-700/80 dark:text-indigo-300/80 mt-1 tracking-wide">
+                  {APP_VERSION}
+                </span>
+              </div>
           )}
           <h2 className="text-2xl font-bold text-indigo-900 dark:text-white mb-2">
             Bem-vindo

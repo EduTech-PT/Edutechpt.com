@@ -8,6 +8,7 @@ import { CourseDetailModal } from '../components/CourseDetailModal';
 import { EnrollmentFormModal } from '../components/EnrollmentFormModal'; 
 import { Footer } from '../components/Footer';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { APP_VERSION } from '../constants';
 
 interface LandingPageProps {
   onLoginClick: () => void;
@@ -266,10 +267,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onPrivac
     <div className="min-h-screen flex flex-col font-sans dark:bg-slate-900 transition-colors duration-500">
       {/* Navbar */}
       <nav className="w-full p-4 md:p-6 flex justify-between items-center z-20 sticky top-0 bg-white/10 dark:bg-slate-900/50 backdrop-blur-md border-b border-white/20 dark:border-white/10 transition-all duration-300">
-        <div className="text-xl md:text-2xl font-bold text-indigo-900 dark:text-white flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
+        <div className="flex flex-col items-start cursor-pointer group" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
             {logoUrl ? (
-                <img src={logoUrl} alt="EduTech PT" className="h-8 md:h-12 object-contain drop-shadow-sm hover:scale-105 transition-transform" />
-            ) : "EduTech PT"}
+                <img src={logoUrl} alt="EduTech PT" className="h-8 md:h-12 object-contain drop-shadow-sm group-hover:scale-105 transition-transform" />
+            ) : (
+                <span className="text-xl md:text-2xl font-bold text-indigo-900 dark:text-white">EduTech PT</span>
+            )}
+            <span className="text-[10px] md:text-xs font-mono font-semibold text-indigo-700/80 dark:text-indigo-300/80 tracking-wider -mt-0.5">
+                {APP_VERSION}
+            </span>
         </div>
         <div className="flex items-center gap-3 md:gap-6">
             <ThemeToggle />
